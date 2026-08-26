@@ -1,0 +1,13 @@
+{
+  "name": "adineu-fantasy",
+  "version": "0.1.0",
+  "private": false,
+  "description": "Public standings site + data pipeline for the Adineu NFL fantasy league (Sleeper live sync, Yahoo 2025 history).",
+  "type": "module",
+  "scripts": {
+    "sync:sleeper": "node scripts/sync-sleeper.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.112.0"
+  }
+}
