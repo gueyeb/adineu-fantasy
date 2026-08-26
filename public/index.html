@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Adineu Fantasy — Standings</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #fafafa; --fg: #1a1a1a; --muted: #666; --border: #e2e2e2; --accent: #4f46e5;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #121212; --fg: #eee; --muted: #999; --border: #2a2a2a; --accent: #818cf8; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 2rem 1rem 4rem; background: var(--bg); color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  main { max-width: 720px; margin: 0 auto; }
+  h1 { font-size: 1.5rem; margin-bottom: 0.25rem; }
+  .subtitle { color: var(--muted); font-size: 0.9rem; margin-bottom: 2rem; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+  th, td { text-align: left; padding: 0.6rem 0.5rem; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 600; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.03em; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tr:hover td { background: color-mix(in srgb, var(--accent) 6%, transparent); }
+  .state { text-align: center; color: var(--muted); padding: 3rem 0; }
+  footer { text-align: center; color: var(--muted); font-size: 0.8rem; margin-top: 2rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Adineu — Standings</h1>
+  <p class="subtitle" id="subtitle">Loading…</p>
+  <div id="content"><p class="state">Loading standings…</p></div>
+  <footer>Synced from Sleeper. Data updates weekly during the season.</footer>
+</main>
+
+<script>
+  // Fill these in after creating the Supabase project. The publishable key is safe
+  // to expose client-side — it can only do what Row Level Security allows,
+  // and schema.sql only grants public read on owners/seasons/teams/matchups.
+  const SUPABASE_URL = "https://juosrzsffvjprqhdyado.supabase.co";
+  const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_7Bu9q2dKz0WEol94OGVhHw_xjSwHeHu";
+  const SEASON_YEAR = 2026;
+
+  async function loadStandings() {
+    const contentEl = document.getElementById("content");
+    const subtitleEl = document.getElementById("subtitle");
+
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/v_standings?year=eq.${SEASON_YEAR}&order=live_rank.asc`,
+        { headers: { apikey: SUPABASE_PUBLISHABLE_KEY, Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}` } }
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const rows = await res.json();
+
+      if (!rows.length) {
+        subtitleEl.textContent = `${SEASON_YEAR} season`;
+        contentEl.innerHTML = '<p class="state">No standings yet — check back once the season starts.</p>';
+        return;
+      }
+
+      subtitleEl.textContent = `${rows[0].league_name || "Adineu"} · ${SEASON_YEAR} season`;
+      const table = document.createElement("table");
+      table.innerHTML = `
+        <thead><tr>
+          <th>#</th><th>Team</th><th>Owner</th>
+          <th class="num">W</th><th class="num">L</th><th class="num">T</th>
+          <th class="num">PF</th><th class="num">PA</th>
+        </tr></thead>
+        <tbody>${rows.map(r => `
+          <tr>
+            <td>${r.live_rank}</td>
+            <td>${escapeHtml(r.team_name || "—")}</td>
+            <td>${escapeHtml(r.owner_name || "—")}</td>
+            <td class="num">${r.wins}</td>
+            <td class="num">${r.losses}</td>
+            <td class="num">${r.ties}</td>
+            <td class="num">${Number(r.points_for).toFixed(1)}</td>
+            <td class="num">${Number(r.points_against).toFixed(1)}</td>
+          </tr>`).join("")}
+        </tbody>`;
+      contentEl.innerHTML = "";
+      contentEl.appendChild(table);
+    } catch (err) {
+      contentEl.innerHTML = `<p class="state">Couldn't load standings (${escapeHtml(String(err.message || err))}).</p>`;
+    }
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  loadStandings();
+</script>
+</body>
+</html>

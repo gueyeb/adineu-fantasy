@@ -8,6 +8,7 @@ Status: **early build**. Phase 1 (Sleeper sync → live standings) is in progres
 
 - `supabase/schema.sql` — Postgres schema (owners, seasons, teams, matchups + a `v_standings` view). Designed so a season from any platform (Sleeper, Yahoo, eventually the old NFL Fantasy) slots into the same tables — no schema change per source.
 - `scripts/sync-sleeper.js` — pulls the live league from Sleeper's public API (no auth required) and upserts it into Supabase. Idempotent, safe to re-run or schedule.
+- `public/index.html` — the standings page itself. Single static file, no build step, no framework — reads `v_standings` directly from Supabase's REST API client-side using the publishable key (safe to expose: read-only, locked down by the RLS policies in `schema.sql`).
 
 ## Why it exists
 
@@ -15,22 +16,21 @@ Yahoo retired this league's history to a single season and the group is moving t
 
 ## Setup
 
-```bash
-npm install
-cp .env.example .env   # fill in your Supabase project URL + service role key
-```
+1. Create a Supabase project and run `supabase/schema.sql` against it once (SQL editor, or `psql`).
+2. Sync script:
+   ```bash
+   npm install
+   cp .env.example .env   # fill in SUPABASE_URL + SUPABASE_SECRET_KEY
+   npm run sync:sleeper   # uses environment variables already exported by the shell
+   npm run sync:sleeper:production # loads the ignored .env.production file
+   ```
+3. Standings page: open `public/index.html`, fill in `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` near the top, then deploy the file as a static site. Never expose the secret key in browser code.
 
-Run `supabase/schema.sql` once against your Supabase project (SQL editor, or `psql`), then:
-
-```bash
-npm run sync:sleeper
-```
-
-Wire that command into a weekly schedule (n8n, cron, whatever) once it's deployed — see the script's header comment for details.
+Wire the sync command into a weekly schedule (n8n, cron, whatever) once it's deployed — see the script's header comment for details.
 
 ## Roadmap
 
-1. Sleeper → Supabase sync + public standings page (this repo, in progress)
+1. Sleeper → Supabase sync + public standings page ✅ (this repo)
 2. Yahoo 2025 season import into the same schema
 3. Power rankings, all-time head-to-head, franchise records
 4. Nice-to-haves: draft grades, trade analyzer

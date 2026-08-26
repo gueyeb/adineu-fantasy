@@ -93,7 +93,8 @@ create table if not exists matchups (
 -- Vue pratique pour la page standings publique : classement lisible direct,
 -- sans jointure à écrire côté frontend.
 -- ============================================================
-create or replace view v_standings as
+create or replace view v_standings
+with (security_invoker = true) as
 select
   s.year,
   s.platform,
@@ -113,6 +114,12 @@ select
 from teams t
 join seasons s on s.id = t.season_id
 join owners o on o.id = t.owner_id;
+
+-- Index foreign keys used by joins and cascading deletes.
+create index if not exists owner_platform_ids_owner_id_idx on owner_platform_ids(owner_id);
+create index if not exists teams_owner_id_idx on teams(owner_id);
+create index if not exists matchups_team_id_idx on matchups(team_id);
+create index if not exists matchups_opponent_team_id_idx on matchups(opponent_team_id);
 
 -- Lecture publique (le site est en lecture seule) : autorise l'anon key
 -- Supabase à lire ces tables/vue, sans écriture possible depuis le front.

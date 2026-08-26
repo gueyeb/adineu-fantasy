@@ -9,7 +9,8 @@
  * Run: node sync-sleeper.js
  * Env vars required:
  *   SUPABASE_URL                - your Supabase project URL
- *   SUPABASE_SERVICE_ROLE_KEY   - service role key (server-side only, never expose)
+ *   SUPABASE_SECRET_KEY         - secret key (server-side only, never expose)
+ *                                 SUPABASE_SERVICE_ROLE_KEY is also accepted
  * Env vars optional:
  *   SLEEPER_LEAGUE_ID           - defaults to the Adineu 2026 league
  *   SEASON_YEAR                 - defaults to 2026
@@ -30,10 +31,10 @@ import { createClient } from '@supabase/supabase-js';
 const SLEEPER_LEAGUE_ID = process.env.SLEEPER_LEAGUE_ID || '1392715510830878721';
 const SEASON_YEAR = Number(process.env.SEASON_YEAR || 2026);
 const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SUPABASE_KEY = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
-  console.error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY env vars.');
+  console.error('Missing SUPABASE_URL or SUPABASE_SECRET_KEY env vars.');
   process.exit(1);
 }
 
