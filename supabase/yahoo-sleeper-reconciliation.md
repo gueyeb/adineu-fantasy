@@ -4,7 +4,7 @@ This checklist deliberately separates evidence from approval. Do not merge `owne
 
 ## 2025 → 2026 Matches — confirmed by Babacar (2026-08-27)
 
-All 12 Yahoo managers are now linked to a Sleeper owner. This resolves the cross-platform identity for the current 12-manager core; it does **not** by itself change the 72/88 historical team-season count below — see the Import Rule for what's still needed to make it count.
+All 12 Yahoo managers are now linked to a Sleeper owner. Together with the four Yahoo-only managers, the archive is fully reconciled at 88/88 team-season identities.
 
 | Yahoo manager | Yahoo team | Sleeper owner / team | Evidence | Status |
 | --- | --- | --- | --- | --- |
@@ -27,20 +27,20 @@ Sleeper's 12 owned rosters now all have a confirmed Yahoo manager on the other e
 
 - The same 12 Yahoo profile identities participated from 2022 through 2025, even when their team names changed.
 - Erwan and Mountaga participated in 2020–2021 and were absent from 2022 onward.
-- Jonnel is confirmed in 2020; older participation remains under review.
-- 72 of 88 Yahoo team-season identities are confirmed. The remaining 16 are limited to older archive records and stay explicitly unresolved.
+- Jonnel is confirmed in both 2019 and 2020.
+- All 88 Yahoo team-season identities are confirmed across 16 historical managers.
 
 ## Import Rule
 
 Once approved, attach the Yahoo platform ID to the existing canonical `owner_id` in `owner_platform_ids`, then upsert the season-specific `teams`. Never create cross-platform links from team-name similarity alone.
 
-**Status: applied to Supabase (2026-08-27).** All 12 confirmed pairs above are written to `owner_platform_ids` as `(owner_id, platform='yahoo', platform_user_id=<Yahoo manager display name>)`. No true Yahoo GUID was ever captured (the archive came from page scraping, not the API), so the manager display name is the identifier on record — flag this if Yahoo access is ever restored and real IDs become available.
+**Status: applied to Supabase (2026-08-27).** All 12 confirmed pairs above are written to `owner_platform_ids` as `(owner_id, platform='yahoo', platform_user_id=<Yahoo manager display name>)`. No true Yahoo GUID was captured for these 12 profiles because the archive came from page extraction rather than the API; Birama's later profile link is the exception. Backfill the other GUIDs only if Yahoo exposes verified identifiers again.
 
-Erwan, Mountaga and Jonnel are also written in: three new canonical `owners` rows, each with a single `yahoo` platform link (no Sleeper link — Babacar confirmed 2026-08-27 that none of the three have played since 2021, Jonnel only played 2020). They were already fully accounted for in `managerHistory`'s 72 confirmed participations, so this did not change the 72/88 figure — it just gives them a golden-record row so all-time stats (Phase 3) can include them correctly.
+Erwan, Mountaga and Jonnel are also written in as canonical Yahoo-only `owners` rows, each with a single `yahoo` platform link and no Sleeper link. Jonnel played in 2019 and 2020. Birama is the fourth Yahoo-only owner and is linked with his verified Yahoo GUID.
 
-## The 16/88 — resolved 2026-08-27, 14 confirmed + 2 pending
+## The final 16/88 — resolved 2026-08-27
 
-Babacar confirmed 14 of the 16 team-seasons directly from memory. Applied to `public/data/yahoo-history.json`'s `managerHistory` (each manager's `seasons` map extended) and `identityCoverage.confirmedParticipations` bumped from 72 to 86:
+Babacar confirmed 14 team-seasons directly from memory, then confirmed Birama's two seasons from Yahoo team pages and his linked profile. These updates moved `identityCoverage.confirmedParticipations` from 72 to 88:
 
 | Team-season | Manager | Existing owner |
 | --- | --- | --- |
