@@ -4,22 +4,22 @@
 
 - `scripts/sync-sleeper.js` fetches Sleeper data and upserts it into Supabase.
 - `supabase/schema.sql` defines tables, constraints, RLS policies, and `v_standings`.
-- `public/index.html` is the static frontend and reads Supabase REST.
+- `public/` contains five static routes plus shared assets and the Yahoo archive JSON.
 - `.env.example` documents server configuration; keep local values in `.env`.
 
-Keep ingestion logic in `scripts/`, database changes in `supabase/`, and browser-facing assets in `public/`. The current frontend is framework-free; the PRD's target presentation layer is Next.js deployed through Coolify.
+Keep ingestion logic in `scripts/`, database changes in `supabase/`, and browser-facing assets in `public/`. The current frontend is framework-free and deployed through Coolify.
 
 ## Architecture & Scope
 
-Keep platform sources, Supabase, and the read-only UI separate. Sleeper is live data for 2026 onward; Yahoo 2025 is a future cold import. `owners` is canonical, with platform IDs linked through `owner_platform_ids`. Never guess cross-platform owner matches; reconcile them manually. Until Phase 1 is live, prioritize accurate weekly standings over roadmap features.
+Keep platform sources, Supabase, and the read-only UI separate. Sleeper is live data for 2026 onward; `public/data/yahoo-history.json` holds the verified 2019–2025 Yahoo archive. `owners` is canonical, with platform IDs linked through `owner_platform_ids`. Never guess cross-platform owner matches; reconcile them manually.
 
 ## Build, Test, and Development Commands
 
 - `npm install` installs dependencies.
+- `npm run dev` serves `public/` at `http://localhost:8000`.
+- `npm run check` validates routes, assets, years, team counts, and champions.
 - `npm run sync:sleeper` runs the idempotent Sleeper-to-Supabase synchronization. It requires `SUPABASE_URL` and `SUPABASE_SECRET_KEY`; `SLEEPER_LEAGUE_ID` and `SEASON_YEAR` are optional overrides.
-- `python3 -m http.server 8000 -d public` serves the standings page locally at `http://localhost:8000`.
-
-There is no compile step, linter, or automated suite yet. Test data-writing changes against non-production Supabase and verify UI changes in a browser.
+There is no compile step or linter yet. Test data-writing changes against non-production Supabase and verify UI changes in a browser.
 
 ## Coding Style & Naming Conventions
 

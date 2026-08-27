@@ -1,0 +1,202 @@
+{
+  "source": "Yahoo Fantasy Sports archives",
+  "league": "Adineu NFL",
+  "seasons": [
+    {
+      "year": 2025,
+      "leagueId": "518783",
+      "teamCount": 12,
+      "champion": { "team": "Flemme", "manager": "Tamsir" },
+      "runnerUp": "Hunters",
+      "thirdPlace": "The Bad Man",
+      "teams": [
+        { "rank": 1, "team": "Flemme", "wins": 7, "losses": 7, "ties": 0, "pf": 1666.66, "pa": 1715.18 },
+        { "rank": 2, "team": "Hunters", "wins": 7, "losses": 7, "ties": 0, "pf": 1547.08, "pa": 1571.74 },
+        { "rank": 3, "team": "The Bad Man", "wins": 10, "losses": 4, "ties": 0, "pf": 1791.26, "pa": 1652.26 },
+        { "rank": 4, "team": "Don't choke", "wins": 7, "losses": 7, "ties": 0, "pf": 1570.86, "pa": 1603.36 },
+        { "rank": 5, "team": "Binaries", "wins": 9, "losses": 5, "ties": 0, "pf": 1734.68, "pa": 1606.18 },
+        { "rank": 6, "team": "Boukki 🦅", "wins": 8, "losses": 6, "ties": 0, "pf": 1632.26, "pa": 1534.06 },
+        { "rank": 7, "team": "Charger Charger", "wins": 6, "losses": 8, "ties": 0, "pf": 1659.76, "pa": 1596.16 },
+        { "rank": 8, "team": "Saitaamaaa", "wins": 9, "losses": 5, "ties": 0, "pf": 1679.90, "pa": 1609.88 },
+        { "rank": 9, "team": "Roc boyz", "wins": 6, "losses": 8, "ties": 0, "pf": 1652.68, "pa": 1777.12 },
+        { "rank": 10, "team": "The energy's team", "wins": 6, "losses": 8, "ties": 0, "pf": 1590.10, "pa": 1640.46 },
+        { "rank": 11, "team": "The JeantyMan", "wins": 5, "losses": 9, "ties": 0, "pf": 1539.46, "pa": 1625.48 },
+        { "rank": 12, "team": "Estocade ⚔️😤💪🏾", "wins": 4, "losses": 10, "ties": 0, "pf": 1409.26, "pa": 1542.08 }
+      ]
+    },
+    {
+      "year": 2024,
+      "leagueId": "534755",
+      "teamCount": 12,
+      "champion": { "team": "The Bad Man", "manager": "Bombeul22" },
+      "runnerUp": "Saitaamaaa",
+      "thirdPlace": "Fill my Kupp",
+      "teams": [
+        { "rank": 1, "team": "The Bad Man", "wins": 13, "losses": 1, "ties": 0, "pf": 1971.26, "pa": 1590.06 },
+        { "rank": 2, "team": "Saitaamaaa", "wins": 9, "losses": 5, "ties": 0, "pf": 1752.28, "pa": 1635.60 },
+        { "rank": 3, "team": "Fill my Kupp", "wins": 7, "losses": 7, "ties": 0, "pf": 1720.98, "pa": 1686.22 },
+        { "rank": 4, "team": "FC Backup 🎃", "wins": 8, "losses": 6, "ties": 0, "pf": 1631.68, "pa": 1571.86 },
+        { "rank": 5, "team": "Odds slayer", "wins": 6, "losses": 8, "ties": 0, "pf": 1502.36, "pa": 1521.48 },
+        { "rank": 6, "team": "Estocade ⚔️😤💪🏾", "wins": 8, "losses": 6, "ties": 0, "pf": 1602.52, "pa": 1662.68 },
+        { "rank": 7, "team": "The energy's team", "wins": 10, "losses": 4, "ties": 0, "pf": 1818.94, "pa": 1436.40 },
+        { "rank": 8, "team": "Flemme", "wins": 9, "losses": 5, "ties": 0, "pf": 1628.40, "pa": 1539.08 },
+        { "rank": 9, "team": "OG PIMPS", "wins": 5, "losses": 9, "ties": 0, "pf": 1668.56, "pa": 1719.96 },
+        { "rank": 10, "team": "Hunters", "wins": 5, "losses": 9, "ties": 0, "pf": 1577.52, "pa": 1742.94 },
+        { "rank": 11, "team": "Binaries", "wins": 2, "losses": 12, "ties": 0, "pf": 1494.18, "pa": 1861.84 },
+        { "rank": 12, "team": "No matter what", "wins": 2, "losses": 12, "ties": 0, "pf": 1365.76, "pa": 1766.32 }
+      ]
+    },
+    {
+      "year": 2023,
+      "leagueId": "767350",
+      "teamCount": 12,
+      "champion": { "team": "Flemme", "manager": "Tamsir" },
+      "runnerUp": "Estocade ⚔️😤",
+      "thirdPlace": "The Bad Man",
+      "teams": [
+        { "rank": 1, "team": "Flemme", "wins": 7, "losses": 7, "ties": 0, "pf": 1649.70, "pa": 1592.48 },
+        { "rank": 2, "team": "Estocade ⚔️😤", "wins": 8, "losses": 6, "ties": 0, "pf": 1653.04, "pa": 1529.54 },
+        { "rank": 3, "team": "The Bad Man", "wins": 9, "losses": 5, "ties": 0, "pf": 1621.20, "pa": 1502.40 },
+        { "rank": 4, "team": "AbraKamara", "wins": 11, "losses": 3, "ties": 0, "pf": 1895.92, "pa": 1566.56 },
+        { "rank": 5, "team": "Binaries", "wins": 9, "losses": 5, "ties": 0, "pf": 1563.92, "pa": 1625.50 },
+        { "rank": 6, "team": "Odds slayer", "wins": 7, "losses": 7, "ties": 0, "pf": 1605.26, "pa": 1638.86 },
+        { "rank": 7, "team": "BaKeneBauer", "wins": 7, "losses": 7, "ties": 0, "pf": 1824.46, "pa": 1744.02 },
+        { "rank": 8, "team": "Saitaamaaa", "wins": 6, "losses": 8, "ties": 0, "pf": 1502.00, "pa": 1560.96 },
+        { "rank": 9, "team": "Hunters", "wins": 5, "losses": 9, "ties": 0, "pf": 1679.60, "pa": 1728.72 },
+        { "rank": 10, "team": "No more pimping", "wins": 5, "losses": 9, "ties": 0, "pf": 1578.00, "pa": 1799.34 },
+        { "rank": 11, "team": "The energy's team", "wins": 5, "losses": 9, "ties": 0, "pf": 1530.28, "pa": 1602.92 },
+        { "rank": 12, "team": "No matter what", "wins": 5, "losses": 9, "ties": 0, "pf": 1457.90, "pa": 1669.98 }
+      ]
+    },
+    {
+      "year": 2022,
+      "leagueId": "109259",
+      "teamCount": 12,
+      "champion": { "team": "Yallah mooy méyé 💀⭐️", "manager": "Bombeul22" },
+      "runnerUp": "Big Pimping ⭐️",
+      "thirdPlace": "Hunters",
+      "teams": [
+        { "rank": 1, "team": "Yallah mooy méyé 💀⭐️", "wins": 9, "losses": 5, "ties": 0, "pf": 1731.52, "pa": 1622.18 },
+        { "rank": 2, "team": "Big Pimping ⭐️", "wins": 8, "losses": 6, "ties": 0, "pf": 1566.42, "pa": 1470.14 },
+        { "rank": 3, "team": "Hunters", "wins": 6, "losses": 8, "ties": 0, "pf": 1652.24, "pa": 1628.80 },
+        { "rank": 4, "team": "Entaillade", "wins": 8, "losses": 6, "ties": 0, "pf": 1684.36, "pa": 1638.16 },
+        { "rank": 5, "team": "Saitandaré 😵‍💫", "wins": 7, "losses": 7, "ties": 0, "pf": 1562.68, "pa": 1573.12 },
+        { "rank": 6, "team": "The energy's team", "wins": 7, "losses": 7, "ties": 0, "pf": 1544.22, "pa": 1605.64 },
+        { "rank": 7, "team": "Binaries", "wins": 9, "losses": 5, "ties": 0, "pf": 1787.40, "pa": 1613.34 },
+        { "rank": 8, "team": "Odds slayer", "wins": 8, "losses": 6, "ties": 0, "pf": 1653.54, "pa": 1590.16 },
+        { "rank": 9, "team": "See you Again 🎶", "wins": 6, "losses": 8, "ties": 0, "pf": 1639.02, "pa": 1720.94 },
+        { "rank": 10, "team": "MahomesKelceGang", "wins": 6, "losses": 8, "ties": 0, "pf": 1630.62, "pa": 1679.40 },
+        { "rank": 11, "team": "Flemme", "wins": 5, "losses": 9, "ties": 0, "pf": 1644.36, "pa": 1727.14 },
+        { "rank": 12, "team": "Out Estocade ⚔️", "wins": 5, "losses": 9, "ties": 0, "pf": 1379.68, "pa": 1607.04 }
+      ]
+    },
+    {
+      "year": 2021,
+      "leagueId": "75892",
+      "teamCount": 14,
+      "champion": { "team": "G.O.A.T.", "manager": "babttz" },
+      "runnerUp": "Estocade ⚔️",
+      "thirdPlace": "Sauvons le soldat Birama",
+      "teams": [
+        { "rank": 1, "team": "G.O.A.T.", "wins": 9, "losses": 5, "ties": 0, "pf": 1805.00, "pa": 1653.22 },
+        { "rank": 2, "team": "Estocade ⚔️", "wins": 7, "losses": 7, "ties": 0, "pf": 1576.48, "pa": 1656.24 },
+        { "rank": 3, "team": "Sauvons le soldat Birama", "wins": 6, "losses": 8, "ties": 0, "pf": 1671.58, "pa": 1620.88 },
+        { "rank": 4, "team": "Still Pimping", "wins": 6, "losses": 8, "ties": 0, "pf": 1545.58, "pa": 1646.74 },
+        { "rank": 5, "team": "Flemme", "wins": 11, "losses": 3, "ties": 0, "pf": 1771.98, "pa": 1584.10 },
+        { "rank": 6, "team": "The Bad Man", "wins": 11, "losses": 3, "ties": 0, "pf": 1793.42, "pa": 1552.28 },
+        { "rank": 7, "team": "The energy's team", "wins": 8, "losses": 6, "ties": 0, "pf": 1733.88, "pa": 1626.52 },
+        { "rank": 8, "team": "Binaries", "wins": 9, "losses": 5, "ties": 0, "pf": 1841.34, "pa": 1703.70 },
+        { "rank": 9, "team": "Elephant de Gbamph", "wins": 6, "losses": 8, "ties": 0, "pf": 1534.78, "pa": 1620.72 },
+        { "rank": 10, "team": "Saitaaaama 🤜🏾", "wins": 6, "losses": 8, "ties": 0, "pf": 1369.76, "pa": 1462.00 },
+        { "rank": 11, "team": "Sneaky slayer's", "wins": 5, "losses": 9, "ties": 0, "pf": 1525.06, "pa": 1728.50 },
+        { "rank": 12, "team": "ERWAN", "wins": 5, "losses": 9, "ties": 0, "pf": 1494.10, "pa": 1668.54 },
+        { "rank": 13, "team": "Banana Kings", "wins": 5, "losses": 9, "ties": 0, "pf": 1484.70, "pa": 1493.10 },
+        { "rank": 14, "team": "Hunters", "wins": 4, "losses": 10, "ties": 0, "pf": 1499.86, "pa": 1630.98 }
+      ]
+    },
+    {
+      "year": 2020,
+      "leagueId": "67190",
+      "teamCount": 14,
+      "champion": { "team": "Banana Kings", "manager": "Mountaga" },
+      "runnerUp": "Saitaaaama 🤜🏾",
+      "thirdPlace": "Quack Attack",
+      "teams": [
+        { "rank": 1, "team": "Banana Kings", "wins": 9, "losses": 4, "ties": 0, "pf": 1618.84, "pa": 1519.72 },
+        { "rank": 2, "team": "Saitaaaama 🤜🏾", "wins": 7, "losses": 6, "ties": 0, "pf": 1554.30, "pa": 1490.54 },
+        { "rank": 3, "team": "Quack Attack", "wins": 8, "losses": 5, "ties": 0, "pf": 1506.42, "pa": 1396.74 },
+        { "rank": 4, "team": "ERWAN", "wins": 7, "losses": 6, "ties": 0, "pf": 1472.02, "pa": 1516.18 },
+        { "rank": 5, "team": "The Overachievers", "wins": 9, "losses": 4, "ties": 0, "pf": 1512.64, "pa": 1387.12 },
+        { "rank": 6, "team": "Big Pimping", "wins": 7, "losses": 6, "ties": 0, "pf": 1505.04, "pa": 1411.86 },
+        { "rank": 7, "team": "Elephant de Gbamph", "wins": 6, "losses": 7, "ties": 0, "pf": 1580.18, "pa": 1412.54 },
+        { "rank": 8, "team": "Estocade", "wins": 7, "losses": 6, "ties": 0, "pf": 1513.94, "pa": 1630.74 },
+        { "rank": 9, "team": "Power Bearers", "wins": 6, "losses": 7, "ties": 0, "pf": 1560.90, "pa": 1616.42 },
+        { "rank": 10, "team": "The energy's team", "wins": 6, "losses": 7, "ties": 0, "pf": 1524.82, "pa": 1540.88 },
+        { "rank": 11, "team": "Ethan Hunt", "wins": 6, "losses": 7, "ties": 0, "pf": 1518.84, "pa": 1579.56 },
+        { "rank": 12, "team": "Binaries", "wins": 5, "losses": 8, "ties": 0, "pf": 1605.54, "pa": 1593.22 },
+        { "rank": 13, "team": ".", "wins": 4, "losses": 9, "ties": 0, "pf": 1402.08, "pa": 1604.28 },
+        { "rank": 14, "team": "Sneaky slayer's", "wins": 4, "losses": 9, "ties": 0, "pf": 1369.54, "pa": 1545.30 }
+      ]
+    },
+    {
+      "year": 2019,
+      "leagueId": "103079",
+      "teamCount": 12,
+      "champion": { "team": "Fun Guy Team", "manager": "babttz" },
+      "runnerUp": "Elephant de Gbamph",
+      "thirdPlace": "Binaries",
+      "teams": [
+        { "rank": 1, "team": "Fun Guy Team", "wins": 10, "losses": 4, "ties": 0, "pf": 1723.48, "pa": 1595.04 },
+        { "rank": 2, "team": "Elephant de Gbamph", "wins": 13, "losses": 1, "ties": 0, "pf": 1929.04, "pa": 1673.78 },
+        { "rank": 3, "team": "Binaries", "wins": 11, "losses": 3, "ties": 0, "pf": 1776.64, "pa": 1501.72 },
+        { "rank": 4, "team": "Toughness's Team", "wins": 9, "losses": 5, "ties": 0, "pf": 1860.84, "pa": 1674.34 },
+        { "rank": 5, "team": "Hunters", "wins": 5, "losses": 9, "ties": 0, "pf": 1615.74, "pa": 1654.04 },
+        { "rank": 6, "team": "The energy's team", "wins": 9, "losses": 5, "ties": 0, "pf": 1740.80, "pa": 1593.60 },
+        { "rank": 7, "team": "Banana Kings", "wins": 5, "losses": 9, "ties": 0, "pf": 1586.34, "pa": 1633.62 },
+        { "rank": 8, "team": "El Fenomeno", "wins": 7, "losses": 7, "ties": 0, "pf": 1815.70, "pa": 1737.02 },
+        { "rank": 9, "team": "YeezyJr's Team", "wins": 5, "losses": 9, "ties": 0, "pf": 1544.40, "pa": 1687.34 },
+        { "rank": 10, "team": "Ruff Ryders", "wins": 4, "losses": 10, "ties": 0, "pf": 1403.04, "pa": 1646.72 },
+        { "rank": 11, "team": "Sneaky slayer's", "wins": 4, "losses": 10, "ties": 0, "pf": 1374.68, "pa": 1560.30 },
+        { "rank": 12, "team": "Power Bearers", "wins": 2, "losses": 12, "ties": 0, "pf": 1316.52, "pa": 1729.70 }
+      ]
+    }
+  ],
+  "weeklyHighs2025": [
+    { "week": 1, "team": "Don't choke", "points": 140.92 },
+    { "week": 2, "team": "Saitaamaaa", "points": 168.30 },
+    { "week": 3, "team": "The energy's team", "points": 142.92 },
+    { "week": 4, "team": "Flemme", "points": 169.18 },
+    { "week": 5, "team": "Saitaamaaa", "points": 168.38 },
+    { "week": 6, "team": "Binaries", "points": 156.70 },
+    { "week": 7, "team": "The Bad Man", "points": 172.56 },
+    { "week": 8, "team": "Binaries", "points": 149.68 },
+    { "week": 9, "team": "Boukki 🦅", "points": 144.22 },
+    { "week": 10, "team": "The Bad Man", "points": 156.70 },
+    { "week": 11, "team": "The energy's team", "points": 138.18 },
+    { "week": 12, "team": "The Bad Man", "points": 155.56 },
+    { "week": 13, "team": "Roc boyz", "points": 144.22 },
+    { "week": 14, "team": "The energy's team", "points": 157.94 }
+  ],
+  "playoffs2025": [
+    { "week": 15, "round": "Quarterfinal", "winner": "The Bad Man", "winnerPoints": 140.56, "loser": "Charger Charger", "loserPoints": 106.30 },
+    { "week": 15, "round": "Quarterfinal", "winner": "Flemme", "winnerPoints": 133.90, "loser": "Boukki 🦅", "loserPoints": 119.70 },
+    { "week": 15, "round": "Quarterfinal", "winner": "Don't choke", "winnerPoints": 134.46, "loser": "Saitaamaaa", "loserPoints": 85.88 },
+    { "week": 15, "round": "Quarterfinal", "winner": "Hunters", "winnerPoints": 135.62, "loser": "Binaries", "loserPoints": 111.64 },
+    { "week": 16, "round": "Semifinal", "winner": "Hunters", "winnerPoints": 156.36, "loser": "The Bad Man", "loserPoints": 147.06 },
+    { "week": 16, "round": "Semifinal", "winner": "Flemme", "winnerPoints": 144.40, "loser": "Don't choke", "loserPoints": 139.50 },
+    { "week": 17, "round": "Final", "winner": "Flemme", "winnerPoints": 122.72, "loser": "Hunters", "loserPoints": 77.48 },
+    { "week": 17, "round": "Third place", "winner": "The Bad Man", "winnerPoints": 142.48, "loser": "Don't choke", "loserPoints": 122.64 }
+  ],
+  "topPlayers2025": [
+    { "rank": 1, "player": "Christian McCaffrey", "team": "The Bad Man" },
+    { "rank": 2, "player": "Puka Nacua", "team": "Flemme" },
+    { "rank": 3, "player": "Bijan Robinson", "team": "Binaries" },
+    { "rank": 4, "player": "Jahmyr Gibbs", "team": "The Bad Man" },
+    { "rank": 5, "player": "Josh Allen", "team": "The energy's team" },
+    { "rank": 6, "player": "Jonathan Taylor", "team": "Saitaamaaa" },
+    { "rank": 7, "player": "Jaxon Smith-Njigba", "team": "Saitaamaaa" },
+    { "rank": 8, "player": "Drake Maye", "team": "Charger Charger" },
+    { "rank": 9, "player": "Matthew Stafford", "team": "Hunters" },
+    { "rank": 10, "player": "Trevor Lawrence", "team": "Estocade" }
+  ]
+}
