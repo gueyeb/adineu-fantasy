@@ -11,7 +11,7 @@ Keep ingestion logic in `scripts/`, database changes in `supabase/`, and browser
 
 ## Architecture & Scope
 
-Keep platform sources, Supabase, and the read-only UI separate. Sleeper is live data for 2026 onward; `public/data/yahoo-history.json` holds the verified 2019–2025 Yahoo archive. `owners` is canonical, with platform IDs linked through `owner_platform_ids`. Never guess cross-platform owner matches; reconcile them manually.
+Keep platform sources, Supabase, and the read-only UI separate. Sleeper is live data for 2026 onward; `public/data/yahoo-history.json` holds the verified 2019–2025 Yahoo archive and public manager names. `owners` is canonical, with private platform IDs linked through `owner_platform_ids`. Never guess cross-platform owner matches; use `supabase/yahoo-sleeper-reconciliation.md` for manual approval.
 
 ## Build, Test, and Development Commands
 

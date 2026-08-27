@@ -63,9 +63,20 @@ function yahooUrl(season) {
 }
 
 async function loadHistory() {
-  const response = await fetch("/data/yahoo-history.json");
+  const response = await fetch("/data/yahoo-history.json?v=2", { cache: "no-store" });
   if (!response.ok) throw new Error(`Archive indisponible (${response.status})`);
-  return response.json();
+  const data = await response.json();
+  const normalizeTeam = value => String(value).replace(/\s+/g, " ").trim().toLocaleLowerCase("fr");
+
+  for (const profile of data.managerHistory || []) {
+    for (const [year, teamName] of Object.entries(profile.seasons)) {
+      const season = data.seasons.find(item => item.year === Number(year));
+      const team = season?.teams.find(item => normalizeTeam(item.team) === normalizeTeam(teamName));
+      if (team) team.manager = profile.manager;
+    }
+  }
+
+  return data;
 }
 
 async function loadLiveStandings() {
@@ -87,10 +98,12 @@ function standingsTable(rows, isLive = false) {
     return `<div class="state"><strong>Pas encore de classement</strong>Les données apparaîtront dès le début de la saison.</div>`;
   }
 
+  const showManagers = isLive || rows.some(row => row.manager);
+
   return `<div class="table-wrap">
     <table>
       <thead><tr>
-        <th>Rang</th><th>Équipe</th>${isLive ? "<th>Manager</th>" : ""}
+        <th>Rang</th><th>Équipe</th>${showManagers ? "<th>Manager</th>" : ""}
         <th class="num">V</th><th class="num">D</th><th class="num">N</th>
         <th class="num">PF</th><th class="num">PA</th>
       </tr></thead>
@@ -98,7 +111,7 @@ function standingsTable(rows, isLive = false) {
         <tr class="${index === 0 && !isLive ? "champion-row" : ""}">
           <td class="rank">${escapeHtml(row.live_rank ?? row.rank)}</td>
           <td class="team-name">${escapeHtml(row.team_name ?? row.team)}</td>
-          ${isLive ? `<td>${escapeHtml(row.owner_name || "—")}</td>` : ""}
+          ${showManagers ? `<td>${escapeHtml(isLive ? row.owner_name || "—" : row.manager || "À confirmer")}</td>` : ""}
           <td class="num">${escapeHtml(row.wins)}</td>
           <td class="num">${escapeHtml(row.losses)}</td>
           <td class="num">${escapeHtml(row.ties)}</td>
@@ -109,11 +122,18 @@ function standingsTable(rows, isLive = false) {
   </div>`;
 }
 
-function pageHero(eyebrow, title, lede) {
-  return `<section class="page-hero"><div class="shell">
-    <p class="eyebrow">${eyebrow}</p>
-    <h1>${title}</h1>
-    <p class="lede">${lede}</p>
+function pageHero(eyebrow, title, lede, stamp) {
+  return `<section class="page-hero"><div class="shell page-hero-grid">
+    <div>
+      <p class="eyebrow">${eyebrow}</p>
+      <h1>${title}</h1>
+      <p class="lede">${lede}</p>
+    </div>
+    <aside class="page-stamp" aria-label="Repère de page">
+      <span>${stamp.label}</span>
+      <strong>${stamp.value}</strong>
+      <small>${stamp.note}</small>
+    </aside>
   </div></section>`;
 }
 
@@ -158,7 +178,7 @@ async function renderHome(data) {
 
 async function renderStandings(data) {
   const options = [CURRENT_SEASON, ...data.seasons.map(season => season.year)];
-  document.getElementById("app").innerHTML = `${pageHero("Classements", "La table ne ment pas.", "Suivez la saison Sleeper en direct ou remontez les classements finaux des années Yahoo.")}
+  document.getElementById("app").innerHTML = `${pageHero("Classements", "La table ne <em>ment pas.</em>", "Suivez la saison Sleeper en direct ou remontez les classements finaux des années Yahoo.", { label: "Saison active", value: "2026", note: "Source · Sleeper" })}
     <section class="section"><div class="shell">
       <div class="toolbar">
         <label for="season-select">Saison <select id="season-select">${options.map(year => `<option value="${year}">${year}</option>`).join("")}</select></label>
@@ -195,6 +215,7 @@ async function renderStandings(data) {
 }
 
 function renderHistory(data) {
+  const coverage = data.identityCoverage || { confirmedParticipations: 0, totalParticipations: 88 };
   const seasonsHtml = data.seasons.map((season, index) => {
     const teamNames = season.teams.map(team => team.team).join(" · ");
     return `<details class="season"${index === 0 ? " open" : ""}>
@@ -211,7 +232,15 @@ function renderHistory(data) {
     </details>`;
   }).join("");
 
-  document.getElementById("app").innerHTML = `${pageHero("Archives Yahoo", "Sept saisons. Aucun oubli.", "La ligue a changé de taille et de visages. Chaque saison garde donc sa propre liste de participants, sans inventer de correspondance entre anciens et nouveaux noms d'équipe.")}
+  document.getElementById("app").innerHTML = `${pageHero("Archives Yahoo", "Sept saisons. <em>Aucun oubli.</em>", "La ligue a changé de taille et de visages. Chaque saison garde donc sa propre liste de participants, sans inventer de correspondance entre anciens et nouveaux noms d'équipe.", { label: "Fenêtre d'archive", value: "19—25", note: "7 saisons · 88 participations" })}
+    <section class="section"><div class="shell">
+      <div class="section-head"><div><p class="eyebrow">Mouvements</p><h2>Le noyau et les passages.</h2></div><p>Les profils Yahoo permettent enfin de suivre les personnes malgré leurs changements de nom d'équipe.</p></div>
+      <div class="movement-grid">
+        <article class="movement"><span>2022—2025</span><strong>12 / 12</strong><p>Le même noyau de managers revient pendant quatre saisons consécutives.</p></article>
+        <article class="movement"><span>Après 2021</span><strong>2 sorties</strong><p>Erwan et Mountaga ne figurent plus dans la ligue à partir de 2022.</p></article>
+        <article class="movement"><span>Identités vérifiées</span><strong>${coverage.confirmedParticipations} / ${coverage.totalParticipations}</strong><p>Les archives plus anciennes restent marquées « À confirmer » tant que Yahoo ne fournit pas le profil.</p></article>
+      </div>
+    </div></section>
     <section class="section"><div class="shell">
       <div class="section-head"><div><p class="eyebrow">2019 — 2025</p><h2>La chronologie</h2></div><p>Ouvrez une saison pour consulter son classement final et sa composition réelle.</p></div>
       <div class="timeline">${seasonsHtml}</div>
@@ -235,7 +264,7 @@ function renderHallOfFame(data) {
   const weeklyRecord = data.weeklyHighs2025.reduce((best, item) => item.points > best.points ? item : best);
   const maxTitles = Math.max(...titles.map(item => item.count));
 
-  document.getElementById("app").innerHTML = `${pageHero("Hall of Fame", "Ceux qui ont fini le travail.", "Les titres sont attribués aux managers confirmés par les pages de champion Yahoo. Les noms d'équipe restent ceux de leur époque.")}
+  document.getElementById("app").innerHTML = `${pageHero("Hall of Fame", "Ceux qui ont <em>fini le travail.</em>", "Les titres sont attribués aux managers confirmés par les pages de champion Yahoo. Les noms d'équipe restent ceux de leur époque.", { label: "Palmarès officiel", value: "07", note: "4 managers titrés" })}
     <section class="section"><div class="shell">
       <div class="section-head"><div><p class="eyebrow">Palmarès</p><h2>Les champions</h2></div><p>De Fun Guy Team en 2019 à Flemme en 2025.</p></div>
       <div class="trophy-grid">${data.seasons.map(season => `<article class="trophy"><span class="trophy-year">${season.year}</span><strong class="trophy-team">${escapeHtml(season.champion.team)}</strong><span class="trophy-manager">Manager · ${escapeHtml(season.champion.manager)}</span></article>`).join("")}</div>
@@ -269,7 +298,7 @@ function renderMatchups(data) {
   </article>`).join("");
   const high = Math.max(...data.weeklyHighs2025.map(item => item.points));
 
-  document.getElementById("app").innerHTML = `${pageHero("Matchups", "Le dimanche se décide ici.", "Le direct Sleeper apparaîtra au lancement de la saison 2026. En attendant, revivez le dernier bracket Yahoo et les cartons hebdomadaires.")}
+  document.getElementById("app").innerHTML = `${pageHero("Matchups", "Le dimanche se <em>décide ici.</em>", "Le direct Sleeper apparaîtra au lancement de la saison 2026. En attendant, revivez le dernier bracket Yahoo et les cartons hebdomadaires.", { label: "Dernière finale", value: "122,72", note: "Flemme · semaine 17" })}
     <section class="section"><div class="shell">
       <div class="section-head"><div><p class="eyebrow">Playoffs 2025</p><h2>La route du titre</h2></div><p>Flemme a traversé le tableau avant de battre Hunters en finale.</p></div>
       <div class="match-grid">${playoffCards}</div>

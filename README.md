@@ -10,10 +10,13 @@ Status: **live build**. The site combines Sleeper standings for 2026 onward with
 - `scripts/sync-sleeper.js` — pulls the live league from Sleeper's public API (no auth required) and upserts it into Supabase. Idempotent, safe to re-run or schedule.
 - `public/` — framework-free clubhouse with standings, matchups, history and Hall of Fame routes.
 - `public/data/yahoo-history.json` — season-scoped Yahoo archive: podiums, final standings, weekly highs and 2025 player leaders.
+- `supabase/yahoo-sleeper-reconciliation.md` — review checklist for linking Yahoo identities to existing Sleeper owners without guessing.
 
 ## Why it exists
 
 The group is moving from Yahoo to Sleeper for 2026. Rather than depend on any one platform, this keeps a small, owned copy of the league's data and serves it as a public read-only site. Historical participation is stored per season; similarly named teams are never assumed to be the same manager.
+
+Yahoo profile history currently confirms 72 of 88 team-season identities, including a stable 12-manager core from 2022 through 2025. Older unresolved records remain visibly marked for review.
 
 ## Setup
 
