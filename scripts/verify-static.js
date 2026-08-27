@@ -7,14 +7,15 @@ const requiredAssets = [
   "assets/styles.css",
   "assets/site.js",
   "data/yahoo-history.json",
-  "data/yahoo-matchups.json"
+  "data/yahoo-matchups.json",
+  "data/yahoo-playoffs.json"
 ];
 
 for (const route of routes) {
   const htmlPath = resolve(root, route, "index.html");
   const html = await readFile(htmlPath, "utf8");
-  if (!html.includes('src="/assets/site.js?v=3"')) throw new Error(`${htmlPath} does not load the current site.js`);
-  if (!html.includes('href="/assets/styles.css?v=3"')) throw new Error(`${htmlPath} does not load the current styles.css`);
+  if (!html.includes('src="/assets/site.js?v=4"')) throw new Error(`${htmlPath} does not load the current site.js`);
+  if (!html.includes('href="/assets/styles.css?v=4"')) throw new Error(`${htmlPath} does not load the current styles.css`);
 }
 
 for (const asset of requiredAssets) await stat(resolve(root, asset));
@@ -169,4 +170,73 @@ for (const season of matchupArchive.seasons) {
   }
 }
 
-console.log(`Static site verified: ${routes.length} routes, ${archive.seasons.length} archived seasons, ${verifiedMatchups} Yahoo matchups.`);
+const playoffText = await readFile(resolve(root, "data/yahoo-playoffs.json"), "utf8");
+if (/profileId|platform_user_id|sb_secret_|access_token|refresh_token/i.test(playoffText)) {
+  throw new Error("Public Yahoo playoffs contain a private platform identifier or secret");
+}
+
+const playoffArchive = JSON.parse(playoffText);
+if (playoffArchive.scope !== "postseason") {
+  throw new Error(`Unexpected Yahoo playoff scope: ${playoffArchive.scope}`);
+}
+
+const expectedPlayoffYears = [2019, 2020, 2021, 2022, 2023, 2024];
+const playoffYears = playoffArchive.seasons.map(season => season.year);
+if (JSON.stringify(playoffYears) !== JSON.stringify(expectedPlayoffYears)) {
+  throw new Error(`Unexpected Yahoo playoff years: ${playoffYears.join(", ")}`);
+}
+
+const expectedRounds = year => year === 2019
+  ? { semifinal: 2, final: 1, third_place: 1 }
+  : { quarterfinal: 4, semifinal: 2, final: 1, third_place: 1 };
+let verifiedPlayoffGames = 0;
+
+for (const season of playoffArchive.seasons) {
+  const historySeason = archive.seasons.find(candidate => candidate.year === season.year);
+  if (!historySeason || season.leagueId !== historySeason.leagueId) {
+    throw new Error(`${season.year}: playoff metadata does not match history`);
+  }
+  if (!season.sourceUrl.includes(`/${season.year}/f1/${season.leagueId}`)
+    || !season.sourceUrl.includes("lhst=playoff")) {
+    throw new Error(`${season.year}: invalid playoff source URL`);
+  }
+
+  const roundCounts = {};
+  const teamsByWeek = new Map();
+  for (const game of season.games) {
+    roundCounts[game.round] = (roundCounts[game.round] || 0) + 1;
+    if (!Number.isInteger(game.week) || !game.winner?.manager || !game.loser?.manager) {
+      throw new Error(`${season.year}: incomplete playoff identity or week`);
+    }
+    if (!Number.isFinite(game.winner.points) || !Number.isFinite(game.loser.points)
+      || game.winner.points <= game.loser.points) {
+      throw new Error(`${season.year} week ${game.week}: invalid playoff score`);
+    }
+    if (!game.winner.teamId || !game.loser.teamId || game.winner.teamId === game.loser.teamId) {
+      throw new Error(`${season.year} week ${game.week}: invalid Yahoo team IDs`);
+    }
+    const seen = teamsByWeek.get(game.week) || new Set();
+    for (const side of [game.winner, game.loser]) {
+      if (seen.has(side.teamId)) throw new Error(`${season.year} week ${game.week}: duplicate playoff team ${side.teamId}`);
+      seen.add(side.teamId);
+    }
+    teamsByWeek.set(game.week, seen);
+    verifiedPlayoffGames += 1;
+  }
+
+  if (JSON.stringify(roundCounts) !== JSON.stringify(expectedRounds(season.year))) {
+    throw new Error(`${season.year}: unexpected playoff rounds ${JSON.stringify(roundCounts)}`);
+  }
+  const final = season.games.find(game => game.round === "final");
+  const thirdPlace = season.games.find(game => game.round === "third_place");
+  if (final.winner.team !== historySeason.champion.team
+    || final.winner.manager !== historySeason.champion.manager
+    || final.loser.team !== historySeason.runnerUp) {
+    throw new Error(`${season.year}: playoff final does not match the verified podium`);
+  }
+  if (thirdPlace.winner.team !== historySeason.thirdPlace) {
+    throw new Error(`${season.year}: third-place game does not match the verified podium`);
+  }
+}
+
+console.log(`Static site verified: ${routes.length} routes, ${archive.seasons.length} archived seasons, ${verifiedMatchups} regular-season and ${verifiedPlayoffGames} playoff Yahoo matchups.`);

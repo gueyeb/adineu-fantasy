@@ -196,6 +196,9 @@ tbody tr:hover td { background: rgba(184, 255, 61, 0.045); }
 .match-line strong { font-size: 0.95rem; }
 .match-line span { font-family: var(--display); font-size: 1.18rem; }
 .match-line.winner span { color: var(--grass); }
+.match-line div { min-width: 0; }
+.match-line small { display: block; margin-top: 3px; color: var(--muted); font-size: 0.72rem; }
+.playoff-records { margin-bottom: 26px; }
 
 .h2h-section { background: linear-gradient(180deg, rgba(184, 255, 61, 0.035), transparent 42%); }
 .h2h-records { grid-template-columns: repeat(4, 1fr); }

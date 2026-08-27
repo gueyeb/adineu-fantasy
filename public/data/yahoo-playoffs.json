@@ -1,0 +1,842 @@
+{
+  "schemaVersion": 1,
+  "source": "Yahoo Fantasy Sports authenticated championship brackets",
+  "scope": "postseason",
+  "extractedAt": "2026-08-28",
+  "seasons": [
+    {
+      "year": 2019,
+      "leagueId": "103079",
+      "sourceUrl": "https://football.fantasysports.yahoo.com/2019/f1/103079?module=standings&lhst=playoff#lhstplayoff",
+      "games": [
+        {
+          "week": 15,
+          "round": "semifinal",
+          "winner": {
+            "points": 157.54,
+            "result": "win",
+            "team": "Elephant de Gbamph",
+            "teamId": "10",
+            "manager": "Marius"
+          },
+          "loser": {
+            "points": 133.32,
+            "result": "loss",
+            "team": "Toughness's Team",
+            "teamId": "11",
+            "manager": "Toughness"
+          }
+        },
+        {
+          "week": 15,
+          "round": "semifinal",
+          "winner": {
+            "points": 151.48,
+            "result": "win",
+            "team": "Fun Guy Team",
+            "teamId": "2",
+            "manager": "babttz"
+          },
+          "loser": {
+            "points": 141.26,
+            "result": "loss",
+            "team": "Binaries",
+            "teamId": "7",
+            "manager": "Abdoulaye"
+          }
+        },
+        {
+          "week": 16,
+          "round": "final",
+          "winner": {
+            "points": 165.1,
+            "result": "win",
+            "team": "Fun Guy Team",
+            "teamId": "2",
+            "manager": "babttz"
+          },
+          "loser": {
+            "points": 120.66,
+            "result": "loss",
+            "team": "Elephant de Gbamph",
+            "teamId": "10",
+            "manager": "Marius"
+          }
+        },
+        {
+          "week": 16,
+          "round": "third_place",
+          "winner": {
+            "points": 128.28,
+            "result": "win",
+            "team": "Binaries",
+            "teamId": "7",
+            "manager": "Abdoulaye"
+          },
+          "loser": {
+            "points": 127.46,
+            "result": "loss",
+            "team": "Toughness's Team",
+            "teamId": "11",
+            "manager": "Toughness"
+          }
+        }
+      ]
+    },
+    {
+      "year": 2020,
+      "leagueId": "67190",
+      "sourceUrl": "https://football.fantasysports.yahoo.com/2020/f1/67190?module=standings&lhst=playoff#lhstplayoff",
+      "games": [
+        {
+          "week": 14,
+          "round": "quarterfinal",
+          "winner": {
+            "points": 128.72,
+            "result": "win",
+            "team": "Banana Kings",
+            "teamId": "2",
+            "manager": "Mountaga"
+          },
+          "loser": {
+            "points": 91.44,
+            "result": "loss",
+            "team": "Elephant de Gbamph",
+            "teamId": "4",
+            "manager": "Marius"
+          }
+        },
+        {
+          "week": 14,
+          "round": "quarterfinal",
+          "winner": {
+            "points": 110.38,
+            "result": "win",
+            "team": "Saitaaaama 🤜🏾",
+            "teamId": "11",
+            "manager": "Toughness"
+          },
+          "loser": {
+            "points": 107.2,
+            "result": "loss",
+            "team": "Estocade",
+            "teamId": "13",
+            "manager": "Ado"
+          }
+        },
+        {
+          "week": 14,
+          "round": "quarterfinal",
+          "winner": {
+            "points": 153.28,
+            "result": "win",
+            "team": "Quack Attack",
+            "teamId": "12",
+            "manager": "YeezyJr"
+          },
+          "loser": {
+            "points": 124.36,
+            "result": "loss",
+            "team": "Big Pimping",
+            "teamId": "8",
+            "manager": "Louis François"
+          }
+        },
+        {
+          "week": 14,
+          "round": "quarterfinal",
+          "winner": {
+            "points": 115.1,
+            "result": "win",
+            "team": "ERWAN",
+            "teamId": "14",
+            "manager": "Erwan"
+          },
+          "loser": {
+            "points": 68.64,
+            "result": "loss",
+            "team": "The Overachievers",
+            "teamId": "6",
+            "manager": "Mat"
+          }
+        },
+        {
+          "week": 15,
+          "round": "semifinal",
+          "winner": {
+            "points": 126.66,
+            "result": "win",
+            "team": "Banana Kings",
+            "teamId": "2",
+            "manager": "Mountaga"
+          },
+          "loser": {
+            "points": 99.72,
+            "result": "loss",
+            "team": "ERWAN",
+            "teamId": "14",
+            "manager": "Erwan"
+          }
+        },
+        {
+          "week": 15,
+          "round": "semifinal",
+          "winner": {
+            "points": 170.02,
+            "result": "win",
+            "team": "Saitaaaama 🤜🏾",
+            "teamId": "11",
+            "manager": "Toughness"
+          },
+          "loser": {
+            "points": 143.76,
+            "result": "loss",
+            "team": "Quack Attack",
+            "teamId": "12",
+            "manager": "YeezyJr"
+          }
+        },
+        {
+          "week": 16,
+          "round": "final",
+          "winner": {
+            "points": 122.7,
+            "result": "win",
+            "team": "Banana Kings",
+            "teamId": "2",
+            "manager": "Mountaga"
+          },
+          "loser": {
+            "points": 118.84,
+            "result": "loss",
+            "team": "Saitaaaama 🤜🏾",
+            "teamId": "11",
+            "manager": "Toughness"
+          }
+        },
+        {
+          "week": 16,
+          "round": "third_place",
+          "winner": {
+            "points": 159.18,
+            "result": "win",
+            "team": "Quack Attack",
+            "teamId": "12",
+            "manager": "YeezyJr"
+          },
+          "loser": {
+            "points": 88.64,
+            "result": "loss",
+            "team": "ERWAN",
+            "teamId": "14",
+            "manager": "Erwan"
+          }
+        }
+      ]
+    },
+    {
+      "year": 2021,
+      "leagueId": "75892",
+      "sourceUrl": "https://football.fantasysports.yahoo.com/2021/f1/75892?module=standings&lhst=playoff#lhstplayoff",
+      "games": [
+        {
+          "week": 15,
+          "round": "quarterfinal",
+          "winner": {
+            "points": 89.96,
+            "result": "win",
+            "team": "Still Pimping",
+            "teamId": "4",
+            "manager": "Louis François"
+          },
+          "loser": {
+            "points": 75.24,
+            "result": "loss",
+            "team": "The Bad Man",
+            "teamId": "1",
+            "manager": "Bombeul22"
+          }
+        },
+        {
+          "week": 15,
+          "round": "quarterfinal",
+          "winner": {
+            "points": 101.88,
+            "result": "win",
+            "team": "G.O.A.T.",
+            "teamId": "2",
+            "manager": "babttz"
+          },
+          "loser": {
+            "points": 95.48,
+            "result": "loss",
+            "team": "The energy's team",
+            "teamId": "12",
+            "manager": "Olivier"
+          }
+        },
+        {
+          "week": 15,
+          "round": "quarterfinal",
+          "winner": {
+            "points": 119.52,
+            "result": "win",
+            "team": "Estocade ⚔️",
+            "teamId": "8",
+            "manager": "Ado"
+          },
+          "loser": {
+            "points": 106.8,
+            "result": "loss",
+            "team": "Binaries",
+            "teamId": "5",
+            "manager": "Abdoulaye"
+          }
+        },
+        {
+          "week": 15,
+          "round": "quarterfinal",
+          "winner": {
+            "points": 120.24,
+            "result": "win",
+            "team": "Sauvons le soldat Birama",
+            "teamId": "9",
+            "manager": "YeezyJr"
+          },
+          "loser": {
+            "points": 100.34,
+            "result": "loss",
+            "team": "Flemme",
+            "teamId": "14",
+            "manager": "Tamsir"
+          }
+        },
+        {
+          "week": 16,
+          "round": "semifinal",
+          "winner": {
+            "points": 106.3,
+            "result": "win",
+            "team": "G.O.A.T.",
+            "teamId": "2",
+            "manager": "babttz"
+          },
+          "loser": {
+            "points": 71.88,
+            "result": "loss",
+            "team": "Still Pimping",
+            "teamId": "4",
+            "manager": "Louis François"
+          }
+        },
+        {
+          "week": 16,
+          "round": "semifinal",
+          "winner": {
+            "points": 127.28,
+            "result": "win",
+            "team": "Estocade ⚔️",
+            "teamId": "8",
+            "manager": "Ado"
+          },
+          "loser": {
+            "points": 104.26,
+            "result": "loss",
+            "team": "Sauvons le soldat Birama",
+            "teamId": "9",
+            "manager": "YeezyJr"
+          }
+        },
+        {
+          "week": 17,
+          "round": "final",
+          "winner": {
+            "points": 139.04,
+            "result": "win",
+            "team": "G.O.A.T.",
+            "teamId": "2",
+            "manager": "babttz"
+          },
+          "loser": {
+            "points": 115.72,
+            "result": "loss",
+            "team": "Estocade ⚔️",
+            "teamId": "8",
+            "manager": "Ado"
+          }
+        },
+        {
+          "week": 17,
+          "round": "third_place",
+          "winner": {
+            "points": 104.56,
+            "result": "win",
+            "team": "Sauvons le soldat Birama",
+            "teamId": "9",
+            "manager": "YeezyJr"
+          },
+          "loser": {
+            "points": 97.76,
+            "result": "loss",
+            "team": "Still Pimping",
+            "teamId": "4",
+            "manager": "Louis François"
+          }
+        }
+      ]
+    },
+    {
+      "year": 2022,
+      "leagueId": "109259",
+      "sourceUrl": "https://football.fantasysports.yahoo.com/2022/f1/109259?module=standings&lhst=playoff#lhstplayoff",
+      "games": [
+        {
+          "week": 15,
+          "round": "quarterfinal",
+          "winner": {
+            "points": 144.76,
+            "result": "win",
+            "team": "Hunters",
+            "teamId": "2",
+            "manager": "Mat"
+          },
+          "loser": {
+            "points": 144.16,
+            "result": "loss",
+            "team": "Binaries",
+            "teamId": "12",
+            "manager": "Abdoulaye"
+          }
+        },
+        {
+          "week": 15,
+          "round": "quarterfinal",
+          "winner": {
+            "points": 149.54,
+            "result": "win",
+            "team": "Big Pimping ⭐️",
+            "teamId": "3",
+            "manager": "Louis François"
+          },
+          "loser": {
+            "points": 120.9,
+            "result": "loss",
+            "team": "Odds slayer",
+            "teamId": "11",
+            "manager": "Magatte"
+          }
+        },
+        {
+          "week": 15,
+          "round": "quarterfinal",
+          "winner": {
+            "points": 99.9,
+            "result": "win",
+            "team": "Entaillade",
+            "teamId": "4",
+            "manager": "YeezyJr"
+          },
+          "loser": {
+            "points": 90.82,
+            "result": "loss",
+            "team": "Saitandaré 😵‍💫",
+            "teamId": "10",
+            "manager": "Toughness"
+          }
+        },
+        {
+          "week": 15,
+          "round": "quarterfinal",
+          "winner": {
+            "points": 131.08,
+            "result": "win",
+            "team": "Yallah mooy méyé 💀⭐️",
+            "teamId": "1",
+            "manager": "Bombeul22"
+          },
+          "loser": {
+            "points": 108.62,
+            "result": "loss",
+            "team": "The energy's team",
+            "teamId": "7",
+            "manager": "Olivier"
+          }
+        },
+        {
+          "week": 16,
+          "round": "semifinal",
+          "winner": {
+            "points": 139.96,
+            "result": "win",
+            "team": "Yallah mooy méyé 💀⭐️",
+            "teamId": "1",
+            "manager": "Bombeul22"
+          },
+          "loser": {
+            "points": 89.1,
+            "result": "loss",
+            "team": "Hunters",
+            "teamId": "2",
+            "manager": "Mat"
+          }
+        },
+        {
+          "week": 16,
+          "round": "semifinal",
+          "winner": {
+            "points": 151.48,
+            "result": "win",
+            "team": "Big Pimping ⭐️",
+            "teamId": "3",
+            "manager": "Louis François"
+          },
+          "loser": {
+            "points": 64.3,
+            "result": "loss",
+            "team": "Entaillade",
+            "teamId": "4",
+            "manager": "YeezyJr"
+          }
+        },
+        {
+          "week": 17,
+          "round": "final",
+          "winner": {
+            "points": 120.5,
+            "result": "win",
+            "team": "Yallah mooy méyé 💀⭐️",
+            "teamId": "1",
+            "manager": "Bombeul22"
+          },
+          "loser": {
+            "points": 119.78,
+            "result": "loss",
+            "team": "Big Pimping ⭐️",
+            "teamId": "3",
+            "manager": "Louis François"
+          }
+        },
+        {
+          "week": 17,
+          "round": "third_place",
+          "winner": {
+            "points": 106.02,
+            "result": "win",
+            "team": "Hunters",
+            "teamId": "2",
+            "manager": "Mat"
+          },
+          "loser": {
+            "points": 80.46,
+            "result": "loss",
+            "team": "Entaillade",
+            "teamId": "4",
+            "manager": "YeezyJr"
+          }
+        }
+      ]
+    },
+    {
+      "year": 2023,
+      "leagueId": "767350",
+      "sourceUrl": "https://football.fantasysports.yahoo.com/2023/f1/767350?module=standings&lhst=playoff#lhstplayoff",
+      "games": [
+        {
+          "week": 15,
+          "round": "quarterfinal",
+          "winner": {
+            "points": 147.92,
+            "result": "win",
+            "team": "AbraKamara",
+            "teamId": "5",
+            "manager": "Marius"
+          },
+          "loser": {
+            "points": 131.7,
+            "result": "loss",
+            "team": "Saitaamaaa",
+            "teamId": "10",
+            "manager": "Toughness"
+          }
+        },
+        {
+          "week": 15,
+          "round": "quarterfinal",
+          "winner": {
+            "points": 115.54,
+            "result": "win",
+            "team": "Estocade ⚔️😤",
+            "teamId": "9",
+            "manager": "Ado"
+          },
+          "loser": {
+            "points": 107.72,
+            "result": "loss",
+            "team": "BaKeneBauer",
+            "teamId": "6",
+            "manager": "babttz"
+          }
+        },
+        {
+          "week": 15,
+          "round": "quarterfinal",
+          "winner": {
+            "points": 119.62,
+            "result": "win",
+            "team": "Flemme",
+            "teamId": "8",
+            "manager": "Tamsir"
+          },
+          "loser": {
+            "points": 82.86,
+            "result": "loss",
+            "team": "Binaries",
+            "teamId": "12",
+            "manager": "Abdoulaye"
+          }
+        },
+        {
+          "week": 15,
+          "round": "quarterfinal",
+          "winner": {
+            "points": 109.62,
+            "result": "win",
+            "team": "The Bad Man",
+            "teamId": "1",
+            "manager": "Bombeul22"
+          },
+          "loser": {
+            "points": 102.44,
+            "result": "loss",
+            "team": "Odds slayer",
+            "teamId": "11",
+            "manager": "Magatte"
+          }
+        },
+        {
+          "week": 16,
+          "round": "semifinal",
+          "winner": {
+            "points": 124.44,
+            "result": "win",
+            "team": "Flemme",
+            "teamId": "8",
+            "manager": "Tamsir"
+          },
+          "loser": {
+            "points": 103.92,
+            "result": "loss",
+            "team": "AbraKamara",
+            "teamId": "5",
+            "manager": "Marius"
+          }
+        },
+        {
+          "week": 16,
+          "round": "semifinal",
+          "winner": {
+            "points": 134.5,
+            "result": "win",
+            "team": "Estocade ⚔️😤",
+            "teamId": "9",
+            "manager": "Ado"
+          },
+          "loser": {
+            "points": 87.64,
+            "result": "loss",
+            "team": "The Bad Man",
+            "teamId": "1",
+            "manager": "Bombeul22"
+          }
+        },
+        {
+          "week": 17,
+          "round": "final",
+          "winner": {
+            "points": 127.68,
+            "result": "win",
+            "team": "Flemme",
+            "teamId": "8",
+            "manager": "Tamsir"
+          },
+          "loser": {
+            "points": 120.52,
+            "result": "loss",
+            "team": "Estocade ⚔️😤",
+            "teamId": "9",
+            "manager": "Ado"
+          }
+        },
+        {
+          "week": 17,
+          "round": "third_place",
+          "winner": {
+            "points": 144.46,
+            "result": "win",
+            "team": "The Bad Man",
+            "teamId": "1",
+            "manager": "Bombeul22"
+          },
+          "loser": {
+            "points": 130.3,
+            "result": "loss",
+            "team": "AbraKamara",
+            "teamId": "5",
+            "manager": "Marius"
+          }
+        }
+      ]
+    },
+    {
+      "year": 2024,
+      "leagueId": "534755",
+      "sourceUrl": "https://football.fantasysports.yahoo.com/2024/f1/534755?module=standings&lhst=playoff#lhstplayoff",
+      "games": [
+        {
+          "week": 15,
+          "round": "quarterfinal",
+          "winner": {
+            "points": 173.68,
+            "result": "win",
+            "team": "The Bad Man",
+            "teamId": "1",
+            "manager": "Bombeul22"
+          },
+          "loser": {
+            "points": 160.36,
+            "result": "loss",
+            "team": "Odds slayer",
+            "teamId": "11",
+            "manager": "Magatte"
+          }
+        },
+        {
+          "week": 15,
+          "round": "quarterfinal",
+          "winner": {
+            "points": 110.8,
+            "result": "win",
+            "team": "FC Backup 🎃",
+            "teamId": "6",
+            "manager": "babttz"
+          },
+          "loser": {
+            "points": 107.8,
+            "result": "loss",
+            "team": "Flemme",
+            "teamId": "8",
+            "manager": "Tamsir"
+          }
+        },
+        {
+          "week": 15,
+          "round": "quarterfinal",
+          "winner": {
+            "points": 116.18,
+            "result": "win",
+            "team": "Saitaamaaa",
+            "teamId": "10",
+            "manager": "Toughness"
+          },
+          "loser": {
+            "points": 114.54,
+            "result": "loss",
+            "team": "Estocade ⚔️😤💪🏾",
+            "teamId": "9",
+            "manager": "Ado"
+          }
+        },
+        {
+          "week": 15,
+          "round": "quarterfinal",
+          "winner": {
+            "points": 142.56,
+            "result": "win",
+            "team": "Fill my Kupp",
+            "teamId": "5",
+            "manager": "Marius"
+          },
+          "loser": {
+            "points": 139.1,
+            "result": "loss",
+            "team": "The energy's team",
+            "teamId": "7",
+            "manager": "Olivier"
+          }
+        },
+        {
+          "week": 16,
+          "round": "semifinal",
+          "winner": {
+            "points": 150.96,
+            "result": "win",
+            "team": "The Bad Man",
+            "teamId": "1",
+            "manager": "Bombeul22"
+          },
+          "loser": {
+            "points": 135.32,
+            "result": "loss",
+            "team": "Fill my Kupp",
+            "teamId": "5",
+            "manager": "Marius"
+          }
+        },
+        {
+          "week": 16,
+          "round": "semifinal",
+          "winner": {
+            "points": 160.92,
+            "result": "win",
+            "team": "Saitaamaaa",
+            "teamId": "10",
+            "manager": "Toughness"
+          },
+          "loser": {
+            "points": 126.54,
+            "result": "loss",
+            "team": "FC Backup 🎃",
+            "teamId": "6",
+            "manager": "babttz"
+          }
+        },
+        {
+          "week": 17,
+          "round": "final",
+          "winner": {
+            "points": 186.98,
+            "result": "win",
+            "team": "The Bad Man",
+            "teamId": "1",
+            "manager": "Bombeul22"
+          },
+          "loser": {
+            "points": 152.28,
+            "result": "loss",
+            "team": "Saitaamaaa",
+            "teamId": "10",
+            "manager": "Toughness"
+          }
+        },
+        {
+          "week": 17,
+          "round": "third_place",
+          "winner": {
+            "points": 136.36,
+            "result": "win",
+            "team": "Fill my Kupp",
+            "teamId": "5",
+            "manager": "Marius"
+          },
+          "loser": {
+            "points": 104.48,
+            "result": "loss",
+            "team": "FC Backup 🎃",
+            "teamId": "6",
+            "manager": "babttz"
+          }
+        }
+      ]
+    }
+  ]
+}

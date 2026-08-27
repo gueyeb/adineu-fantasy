@@ -11,6 +11,7 @@ Status: **live** at [adineu-fantasy.bakene.tech](https://adineu-fantasy.bakene.t
 - `public/` — framework-free clubhouse with home, standings, matchups, history, and Hall of Fame routes.
 - `public/data/yahoo-history.json` — season-scoped Yahoo archive: podiums, final standings, weekly highs and 2025 player leaders.
 - `public/data/yahoo-matchups.json` — 609 verified regular-season matchups for 2019–2025, with manager mappings and source URLs.
+- `public/data/yahoo-playoffs.json` — 44 authenticated championship-bracket matchups for 2019–2024; the UI combines them with the eight verified 2025 playoff games.
 - `supabase/yahoo-sleeper-reconciliation.md` — review checklist for linking Yahoo identities to existing Sleeper owners without guessing.
 
 ## Why it exists
@@ -44,15 +45,16 @@ Authorization: Bearer <access-token>
 
 From there, game, league, team, standings, scoreboard, roster, and draft resources can be requested and normalized into the Supabase model. See Yahoo's [Fantasy Sports API guide](https://developer.yahoo.com/fantasysports/guide/) and [authorization-code flow](https://developer.yahoo.com/oauth2/guide/flows_authcode/).
 
-That is the intended API path, but it is **not the source of the current archive**. OAuth authorization succeeded for the available Yahoo applications, while every tested Fantasy resource returned HTTP 403 (`This application is not authorized to perform this action`). The current 2019–2025 archive was therefore recovered from authenticated Yahoo league/history pages and captured documents, then normalized into `public/data/yahoo-history.json`. No Yahoo OAuth token is stored by this project. API automation remains optional if Yahoo enables Fantasy API access for the application.
+That is the intended API path, but it is **not the source of the current archive**. OAuth authorization succeeded for the available Yahoo applications, while every tested Fantasy resource returned HTTP 403 (`This application is not authorized to perform this action`). The current 2019–2025 archive was therefore recovered from authenticated Yahoo league/history pages and captured documents. Weekly scoreboards populate `yahoo-matchups.json`; championship brackets at `?module=standings&lhst=playoff#lhstplayoff` populate `yahoo-playoffs.json`. Every extract retains its Yahoo source URL and is reconciled against the final standings or podium before publication. No Yahoo OAuth token is stored by this project. API automation remains optional if Yahoo enables Fantasy API access for the application.
 
 ## Roadmap
 
 1. Sleeper → Supabase sync + public clubhouse ✅
 2. Yahoo archive and Hall of Fame for 2019–2025 ✅
 3. Yahoo regular-season scoreboards + all-time head-to-head view ✅
-4. Add 2019–2024 Yahoo playoff brackets, power rankings, and franchise records
-5. Nice-to-haves: draft grades and trade analyzer
+4. Yahoo championship brackets and postseason records for 2019–2025 ✅
+5. Add power rankings and deeper franchise records
+6. Nice-to-haves: draft grades and trade analyzer
 
 ## License
 

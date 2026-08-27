@@ -85,6 +85,12 @@ async function loadYahooMatchups() {
   return response.json();
 }
 
+async function loadYahooPlayoffs() {
+  const response = await fetch("/data/yahoo-playoffs.json?v=1", { cache: "no-store" });
+  if (!response.ok) throw new Error(`Playoffs Yahoo indisponibles (${response.status})`);
+  return response.json();
+}
+
 async function loadLiveStandings() {
   const response = await fetch(
     `${SUPABASE_URL}/rest/v1/v_standings?year=eq.${CURRENT_SEASON}&order=live_rank.asc`,
@@ -370,7 +376,10 @@ function matchupsAgainst(pairs, manager) {
 }
 
 async function renderMatchups(data) {
-  const matchupArchive = await loadYahooMatchups();
+  const [matchupArchive, playoffArchive] = await Promise.all([
+    loadYahooMatchups(),
+    loadYahooPlayoffs()
+  ]);
   const headToHead = aggregateHeadToHead(matchupArchive);
   const matchupCount = matchupArchive.seasons.reduce((total, season) => total
     + season.weeks.reduce((seasonTotal, week) => seasonTotal + week.matchups.length, 0), 0);
@@ -379,16 +388,48 @@ async function renderMatchups(data) {
   const rateLeader = [...headToHead.leaderboard].filter(item => item.games >= 20)
     .sort((a, b) => b.winRate - a.winRate || b.games - a.games)[0];
   const longestRivalry = [...headToHead.pairs].sort((a, b) => b.games - a.games || a.managerA.localeCompare(b.managerA, "fr"))[0];
-  const playoffCards = data.playoffs2025.map(match => `<article class="match">
-    <div class="match-meta"><span>Semaine ${match.week}</span><span>${escapeHtml(match.round)}</span></div>
-    <div class="match-line winner"><strong>${escapeHtml(match.winner)}</strong><span>${formatPoints(match.winnerPoints)}</span></div>
-    <div class="match-line"><strong>${escapeHtml(match.loser)}</strong><span>${formatPoints(match.loserPoints)}</span></div>
-  </article>`).join("");
+  const normalizeTeam = value => String(value).replace(/\s+/g, " ").trim().toLocaleLowerCase("fr");
+  const managerForTeam = (year, team) => data.managerHistory.find(profile =>
+    normalizeTeam(profile.seasons[String(year)] || "") === normalizeTeam(team))?.manager || "À confirmer";
+  const season2025 = data.seasons.find(season => season.year === 2025);
+  const playoffSeasons = [...playoffArchive.seasons, {
+    year: 2025,
+    leagueId: season2025.leagueId,
+    sourceUrl: `${yahooUrl(season2025)}?module=standings&lhst=playoff#lhstplayoff`,
+    games: data.playoffs2025.map(match => ({
+      week: match.week,
+      round: ({ Quarterfinal: "quarterfinal", Semifinal: "semifinal", Final: "final", "Third place": "third_place" })[match.round],
+      winner: { team: match.winner, manager: managerForTeam(2025, match.winner), points: match.winnerPoints },
+      loser: { team: match.loser, manager: managerForTeam(2025, match.loser), points: match.loserPoints }
+    }))
+  }].sort((a, b) => b.year - a.year);
+  const playoffGames = playoffSeasons.flatMap(season => season.games.map(game => ({ ...game, year: season.year })));
+  const postseasonRecords = new Map();
+  for (const game of playoffGames) {
+    for (const [side, won] of [[game.winner, true], [game.loser, false]]) {
+      const record = postseasonRecords.get(side.manager) || { manager: side.manager, wins: 0, losses: 0, finals: 0, titles: 0 };
+      if (won) record.wins += 1;
+      else record.losses += 1;
+      if (game.round === "final") {
+        record.finals += 1;
+        if (won) record.titles += 1;
+      }
+      postseasonRecords.set(side.manager, record);
+    }
+  }
+  const postseasonLeaders = [...postseasonRecords.values()];
+  const playoffWinsLeader = [...postseasonLeaders].sort((a, b) => b.wins - a.wins || a.losses - b.losses)[0];
+  const playoffRateLeader = postseasonLeaders.filter(item => item.wins + item.losses >= 4)
+    .sort((a, b) => (b.wins / (b.wins + b.losses)) - (a.wins / (a.wins + a.losses)) || b.wins - a.wins)[0];
+  const maxFinals = Math.max(...postseasonLeaders.map(item => item.finals));
+  const maxTitles = Math.max(...postseasonLeaders.map(item => item.titles));
+  const finalsLeaders = postseasonLeaders.filter(item => item.finals === maxFinals);
+  const titlesLeaders = postseasonLeaders.filter(item => item.titles === maxTitles);
   const high = Math.max(...data.weeklyHighs2025.map(item => item.points));
 
-  document.getElementById("app").innerHTML = `${pageHero("Matchups", "Le dimanche se <em>décide ici.</em>", "Sept saisons de duels Yahoo sont enfin réunies. Choisissez un manager, mesurez ses rivalités et retrouvez les gros rendez-vous de 2025.", { label: "Duels vérifiés", value: matchupCount, note: "Saisons régulières · 2019—2025" })}
+  document.getElementById("app").innerHTML = `${pageHero("Matchups", "Le dimanche se <em>décide ici.</em>", "Sept saisons de duels Yahoo sont enfin réunies. Choisissez un manager, mesurez ses rivalités et retrouvez les parcours qui ont mené à chaque titre.", { label: "Duels vérifiés", value: matchupCount, note: "Saisons régulières · 2019—2025" })}
     <section class="section h2h-section"><div class="shell">
-      <div class="section-head"><div><p class="eyebrow">Face-à-face all-time</p><h2>Choisis ton rival.</h2></div><p>Résultats de saison régulière uniquement. Les playoffs historiques seront ajoutés séparément pour ne pas mélanger les deux contextes.</p></div>
+      <div class="section-head"><div><p class="eyebrow">Face-à-face all-time</p><h2>Choisis ton rival.</h2></div><p>Résultats de saison régulière uniquement. Les playoffs ont leur propre bilan ci-dessous pour préserver le contexte.</p></div>
       <div class="record-grid h2h-records">
         <article class="record"><span class="record-label">Plus de victoires</span><strong>${escapeHtml(winsLeader.manager)}</strong><span>${winsLeader.wins} victoires · ${winsLeader.games} matchs</span></article>
         <article class="record"><span class="record-label">Meilleur taux</span><strong>${escapeHtml(rateLeader.manager)}</strong><span>${formatPoints(rateLeader.winRate * 100, 1)} % · min. 20 matchs</span></article>
@@ -410,8 +451,19 @@ async function renderMatchups(data) {
       <p class="note"><strong>Source :</strong> 609 matchups Yahoo authentifiés, reliés à 16 managers et réconciliés avec les bilans et points finaux de chaque saison.</p>
     </div></section>
     <section class="section"><div class="shell">
-      <div class="section-head"><div><p class="eyebrow">Playoffs 2025</p><h2>La route du titre</h2></div><p>Flemme a traversé le tableau avant de battre Hunters en finale.</p></div>
-      <div class="match-grid">${playoffCards}</div>
+      <div class="section-head"><div><p class="eyebrow">Playoffs 2019—2025</p><h2>La route du titre.</h2></div><p>Chaque tableau de championnat Yahoo, séparé des matchs de consolation.</p></div>
+      <div class="record-grid h2h-records playoff-records">
+        <article class="record"><span class="record-label">Plus de victoires</span><strong>${escapeHtml(playoffWinsLeader.manager)}</strong><span>${playoffWinsLeader.wins} victoires en playoffs</span></article>
+        <article class="record"><span class="record-label">Meilleur taux</span><strong>${escapeHtml(playoffRateLeader.manager)}</strong><span>${formatPoints(playoffRateLeader.wins / (playoffRateLeader.wins + playoffRateLeader.losses) * 100, 1)} % · min. 4 matchs</span></article>
+        <article class="record"><span class="record-label">Plus de finales</span><strong>${finalsLeaders.length} managers</strong><span>${finalsLeaders.map(item => escapeHtml(item.manager)).join(" · ")} · ${maxFinals} chacun</span></article>
+        <article class="record"><span class="record-label">Plus de titres</span><strong>${titlesLeaders.map(item => escapeHtml(item.manager)).join(" · ")}</strong><span>${maxTitles} titres chacun</span></article>
+      </div>
+      <div class="toolbar playoff-toolbar">
+        <label for="playoff-season-select">Saison <select id="playoff-season-select">${playoffSeasons.map(season => `<option value="${season.year}">${season.year}</option>`).join("")}</select></label>
+        <a class="source-link" id="playoff-source-link" href="${playoffSeasons[0].sourceUrl}" target="_blank" rel="noreferrer">Tableau Yahoo ↗</a>
+      </div>
+      <div class="match-grid" id="playoff-grid" aria-live="polite"></div>
+      <p class="note"><strong>Périmètre :</strong> ${playoffGames.length} matchs du tableau principal, avec quarts de finale lorsqu'ils existent, demi-finales, finale et match pour la 3e place.</p>
     </div></section>
     <section class="section"><div class="shell">
       <div class="section-head"><div><p class="eyebrow">Saison régulière 2025</p><h2>Le leader chaque semaine</h2></div><p>Le meilleur score de chacune des 14 semaines régulières.</p></div>
@@ -421,6 +473,25 @@ async function renderMatchups(data) {
   const managerSelect = document.getElementById("h2h-manager");
   const summary = document.getElementById("h2h-manager-summary");
   const table = document.getElementById("h2h-table");
+  const playoffSeasonSelect = document.getElementById("playoff-season-select");
+  const playoffGrid = document.getElementById("playoff-grid");
+  const playoffSourceLink = document.getElementById("playoff-source-link");
+
+  function showPlayoffSeason(year) {
+    const season = playoffSeasons.find(item => item.year === year);
+    const roundLabels = {
+      quarterfinal: "Quart de finale",
+      semifinal: "Demi-finale",
+      final: "Finale",
+      third_place: "3e place"
+    };
+    playoffSourceLink.href = season.sourceUrl;
+    playoffGrid.innerHTML = season.games.map(game => `<article class="match">
+      <div class="match-meta"><span>Semaine ${game.week}</span><span>${roundLabels[game.round] || escapeHtml(game.round)}</span></div>
+      <div class="match-line winner"><div><strong>${escapeHtml(game.winner.team)}</strong><small>${escapeHtml(game.winner.manager)}</small></div><span>${formatPoints(game.winner.points)}</span></div>
+      <div class="match-line"><div><strong>${escapeHtml(game.loser.team)}</strong><small>${escapeHtml(game.loser.manager)}</small></div><span>${formatPoints(game.loser.points)}</span></div>
+    </article>`).join("");
+  }
 
   function showManager(manager) {
     const record = headToHead.leaderboard.find(item => item.manager === manager);
@@ -444,7 +515,9 @@ async function renderMatchups(data) {
   }
 
   managerSelect.addEventListener("change", () => showManager(managerSelect.value));
+  playoffSeasonSelect.addEventListener("change", () => showPlayoffSeason(Number(playoffSeasonSelect.value)));
   showManager(managerSelect.value);
+  showPlayoffSeason(Number(playoffSeasonSelect.value));
 }
 
 async function start() {

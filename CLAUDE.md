@@ -9,8 +9,10 @@ Read `AGENTS.md` first; its repository, testing, identity, and security rules ar
 - Yahoo archive: 2019–2025, seven seasons, 88/88 team-season identities across 16 managers.
 - Birama is a Yahoo-only owner for `El Fenomeno` (2019) and `Ethan Hunt` (2020). Jonnel played both 2019 and 2020.
 - Regular-season Yahoo scoreboards are complete: 609 matchups in `public/data/yahoo-matchups.json`, all reconciled against final W/L/T/PF/PA.
+- Yahoo championship brackets are complete: 44 authenticated games for 2019–2024 in `public/data/yahoo-playoffs.json`, plus eight verified 2025 games in the history archive.
 - `/matchups/` now exposes all-time regular-season head-to-head records with a manager selector.
-- Next data milestone: extract 2019–2024 playoff brackets, then add postseason and franchise records.
+- `/matchups/` also exposes all 52 postseason games by year and all-time postseason leaders.
+- Next data milestone: add deeper franchise records and power rankings.
 
 ## Access Matrix
 
@@ -47,9 +49,10 @@ The reliable source is Yahoo's archived HTML in the logged-in Chrome session:
 
 - Base URL: `https://football.fantasysports.yahoo.com/{year}/f1/{league_id}`
 - Weekly results: append `?matchup_week={week}&module=matchups&lhst=matchups`
+- Championship bracket: append `?module=standings&lhst=playoff#lhstplayoff`
 - League IDs: 2019 `103079`, 2020 `67190`, 2021 `75892`, 2022 `109259`, 2023 `767350`, 2024 `534755`, 2025 `518783`.
 
-Extract final team scores, team IDs/names, week, and season. The weekly module covers regular-season matchups; playoff brackets require a separate extraction. Resolve managers through `public/data/yahoo-history.json` and preserve the page URL as provenance. Validate `teamCount / 2` matchups per complete week—six for 12-team seasons, seven for 2020–2021—and reconcile every team's wins, losses, PF, and PA against the final archive before importing.
+Extract final team scores, team IDs/names, week, and season. Resolve managers through `public/data/yahoo-history.json` and preserve the page URL as provenance. For regular-season pages, validate `teamCount / 2` matchups per complete week—six for 12-team seasons, seven for 2020–2021—and reconcile every team's wins, losses, PF, and PA. For brackets, keep only the championship tree (not consolation), require two semifinals, one final, and one third-place game; 2020–2024 also require four quarterfinals. Reconcile the final and third-place results against the verified podium before importing.
 
 Yahoo throttles rapid archived-page navigation. Process one season at a time. If the page becomes `Request denied`, stop immediately, save the validated seasons outside the repository, and resume later from the first missing week. Do not loop on reloads or replace verified history with inferred data.
 

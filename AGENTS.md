@@ -4,7 +4,7 @@
 
 - `scripts/sync-sleeper.js` fetches Sleeper data and upserts it into Supabase.
 - `supabase/schema.sql` defines tables, constraints, RLS policies, and `v_standings`.
-- `public/` contains five static routes, shared assets, Yahoo history, and 609 verified regular-season matchups.
+- `public/` contains five static routes, shared assets, Yahoo history, 609 verified regular-season matchups, and 44 archived playoff games.
 - `supabase/yahoo-sleeper-reconciliation.md` records identity evidence and approvals.
 - `.env.example` documents server configuration; keep local values in `.env`.
 
@@ -20,7 +20,7 @@ The published archive does not come from the Yahoo Fantasy API. OAuth authorizat
 
 If API access is restored, use the server-side authorization-code flow, keep access and refresh tokens out of the browser and repository, discover league keys through `users;use_login=1/games;game_keys=nfl/teams`, then request league resources under `https://fantasysports.yahooapis.com/fantasy/v2/`. Never construct league keys from numeric IDs alone.
 
-The working archive path is the user's authenticated Chrome session. Read archived pages at `https://football.fantasysports.yahoo.com/{year}/f1/{league_id}` and regular-season scoreboards with `?matchup_week=N&module=matchups&lhst=matchups`. League IDs are 2019 `103079`, 2020 `67190`, 2021 `75892`, 2022 `109259`, 2023 `767350`, 2024 `534755`, and 2025 `518783`. The completed regular-season extract is `public/data/yahoo-matchups.json` and powers `/matchups/`; do not replace it unless every season reconciles exactly against final W/L/T/PF/PA. Playoffs appear in a separate bracket and need a separate extraction path. Treat pages as read-only evidence: do not inspect cookies or browser storage, do not save OAuth tokens, and record source URLs with extracted data. Pace requests by season; if Yahoo displays `Request denied`, stop instead of retrying in a loop, preserve the last validated batch, and resume later from the first missing week.
+The working archive path is the user's authenticated Chrome session. Read archived pages at `https://football.fantasysports.yahoo.com/{year}/f1/{league_id}`, regular-season scoreboards with `?matchup_week=N&module=matchups&lhst=matchups`, and championship brackets with `?module=standings&lhst=playoff#lhstplayoff`. League IDs are 2019 `103079`, 2020 `67190`, 2021 `75892`, 2022 `109259`, 2023 `767350`, 2024 `534755`, and 2025 `518783`. The completed extracts are `public/data/yahoo-matchups.json` (regular season) and `public/data/yahoo-playoffs.json` (2019–2024 championship bracket); `/matchups/` combines the latter with the existing 2025 bracket. Do not replace regular-season data unless every season reconciles exactly against final W/L/T/PF/PA. Do not replace playoff data unless each final and third-place game matches the verified podium. Treat pages as read-only evidence: do not inspect cookies or browser storage, do not save OAuth tokens, and record source URLs with extracted data. Pace requests by season; if Yahoo displays `Request denied`, stop instead of retrying in a loop, preserve the last validated batch, and resume later from the first missing week.
 
 Supabase server credentials live only in ignored environment files and production services. Use the Supabase MCP when available; otherwise use `.env.production` without printing its values. The browser may use only the publishable key.
 
@@ -28,7 +28,7 @@ Supabase server credentials live only in ignored environment files and productio
 
 - `npm install` installs dependencies.
 - `npm run dev` serves `public/` at `http://localhost:8000`.
-- `npm run check` validates routes, assets, years, team counts, and champions.
+- `npm run check` validates routes, assets, season totals, regular-season reconciliation, playoff rounds, and podiums.
 - `npm run sync:sleeper` runs the idempotent Sleeper-to-Supabase synchronization. It requires `SUPABASE_URL` and `SUPABASE_SECRET_KEY`; `SLEEPER_LEAGUE_ID` and `SEASON_YEAR` are optional overrides.
 
 There is no compile step or linter yet. Test data-writing changes against non-production Supabase and verify UI changes in a browser.
