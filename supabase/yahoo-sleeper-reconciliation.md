@@ -55,9 +55,12 @@ Babacar confirmed 14 of the 16 team-seasons directly from memory. Applied to `pu
 | Ruff Ryders (2019) | Louis François | `LFMendes` |
 | Power Bearers (2019) | Jonnel | (Yahoo-only owner) — Jonnel actually played 2019 *and* 2020, not just 2020 as first thought |
 
-**Still pending — do not merge yet:** Babacar named "Birama" for two team-seasons but flagged real uncertainty ("je ne suis plus sûr", "très forte chance"), not the same confidence as the 14 above:
+**Resolved 2026-08-27 — 88/88.** Babacar confirmed both via Yahoo's own team pages (`/2020/f1/67190/1` = "Ethan Hunt", `/2019/f1/103079/1` = "El Fenomeno") and a linked Yahoo profile: both are **Birama**. Also confirmed: Jonnel played both the 2019 and 2020 seasons (not just 2020 as first thought) — already reflected above.
 
-- "Ethan Hunt" (2020)
-- "El Fenomeno" (2019)
+Applied:
+- `managerHistory` in `yahoo-history.json` gained a `Birama` entry (`2020: "Ethan Hunt"`, `2019: "El Fenomeno"`); `identityCoverage.confirmedParticipations` is now 88/88.
+- A new `owners` row for Birama, linked via `owner_platform_ids` (`platform='yahoo'`, `platform_user_id='EJDLPDHIUHU3DRTZ35VD2RQORU'` — his actual Yahoo profile GUID, not a display-name placeholder like the other 15 links, since Babacar's link happened to surface it).
 
-Both are left out of `managerHistory` and out of the 86 count on purpose — a name offered with hedging is a lead, not a confirmation, per this project's own rule. Once Babacar confirms (or rules out) Birama, add a `owners` row + `owner_platform_ids` (`platform='yahoo'`, `platform_user_id='Birama'`) and extend `managerHistory`, matching the pattern above. That would bring the archive to 88/88.
+Nice detail: YeezyJr's 2021 team was literally named "Sauvons le soldat Birama" — the group already knew him well enough to make it a running joke.
+
+The archive is now fully identity-complete. Next real question is whether to backfill true Yahoo GUIDs for the other 15 `owner_platform_ids` rows (currently keyed on display name) — not urgent, nothing depends on it today.

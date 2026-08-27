@@ -166,6 +166,7 @@
     { "manager": "Ado", "seasons": { "2025": "Estocade ⚔️😤💪🏾", "2024": "Estocade ⚔️😤💪🏾", "2023": "Estocade ⚔️😤", "2022": "Out Estocade ⚔️", "2021": "Estocade ⚔️", "2020": "Estocade" } },
     { "manager": "babttz", "seasons": { "2025": "Boukki 🦅", "2024": "FC Backup 🎃", "2023": "BaKeneBauer", "2022": "See you Again 🎶", "2021": "G.O.A.T.", "2020": ".", "2019": "Fun Guy Team" } },
     { "manager": "Bombeul22", "seasons": { "2025": "The Bad Man", "2024": "The Bad Man", "2023": "The Bad Man", "2022": "Yallah mooy méyé 💀⭐️", "2021": "The Bad Man" } },
+    { "manager": "Birama", "seasons": { "2020": "Ethan Hunt", "2019": "El Fenomeno" } },
     { "manager": "Erwan", "seasons": { "2021": "ERWAN", "2020": "ERWAN" } },
     { "manager": "Jonnel", "seasons": { "2020": "Power Bearers", "2019": "Power Bearers" } },
     { "manager": "Louis François", "seasons": { "2025": "Roc boyz", "2024": "OG PIMPS", "2023": "No more pimping", "2022": "Big Pimping ⭐️", "2021": "Still Pimping", "2020": "Big Pimping", "2019": "Ruff Ryders" } },
@@ -178,7 +179,7 @@
     { "manager": "Toughness", "seasons": { "2025": "Saitaamaaa", "2024": "Saitaamaaa", "2023": "Saitaamaaa", "2022": "Saitandaré 😵‍💫", "2021": "Saitaaaama 🤜🏾", "2020": "Saitaaaama 🤜🏾", "2019": "Toughness's Team" } },
     { "manager": "YeezyJr", "seasons": { "2025": "Charger Charger", "2024": "No matter what", "2023": "No matter what", "2022": "Entaillade", "2021": "Sauvons le soldat Birama", "2020": "Quack Attack", "2019": "YeezyJr's Team" } }
   ],
-  "identityCoverage": { "confirmedParticipations": 86, "totalParticipations": 88 },
+  "identityCoverage": { "confirmedParticipations": 88, "totalParticipations": 88 },
   "weeklyHighs2025": [
     { "week": 1, "team": "Don't choke", "points": 140.92 },
     { "week": 2, "team": "Saitaamaaa", "points": 168.30 },
