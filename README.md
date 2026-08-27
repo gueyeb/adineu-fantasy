@@ -1,14 +1,14 @@
 # Adineu Fantasy
 
-Public standings site and data pipeline for **Adineu**, a friends' NFL fantasy football league running since the early 2020s — Yahoo through 2025, [Sleeper](https://sleeper.com/) from 2026 on.
+Public clubhouse and data pipeline for **Adineu**, a friends' NFL fantasy football league. The live site combines a verified Yahoo archive for 2019–2025 with [Sleeper](https://sleeper.com/) data from 2026 onward.
 
-Status: **live build**. The site combines Sleeper standings for 2026 onward with a verified Yahoo archive for 2019–2025.
+Status: **live** at [adineu-fantasy.bakene.tech](https://adineu-fantasy.bakene.tech/). The 2026 Sleeper league now has all 12 managers and 12 rosters synced to Supabase.
 
 ## What's here
 
 - `supabase/schema.sql` — Postgres schema (owners, seasons, teams, matchups + a `v_standings` view). Designed so a season from any platform (Sleeper, Yahoo, eventually the old NFL Fantasy) slots into the same tables — no schema change per source.
 - `scripts/sync-sleeper.js` — pulls the live league from Sleeper's public API (no auth required) and upserts it into Supabase. Idempotent, safe to re-run or schedule.
-- `public/` — framework-free clubhouse with standings, matchups, history and Hall of Fame routes.
+- `public/` — framework-free clubhouse with home, standings, matchups, history, and Hall of Fame routes.
 - `public/data/yahoo-history.json` — season-scoped Yahoo archive: podiums, final standings, weekly highs and 2025 player leaders.
 - `supabase/yahoo-sleeper-reconciliation.md` — review checklist for linking Yahoo identities to existing Sleeper owners without guessing.
 
@@ -30,14 +30,28 @@ Yahoo profile history currently confirms 72 of 88 team-season identities, includ
    ```
 3. Run `npm run dev` and open `http://localhost:8000`. Use `npm run check` to validate every route and archived season before deployment. Never expose the secret key in browser code.
 
-Wire the sync command into a weekly schedule (n8n, cron, whatever) once it's deployed — see the script's header comment for details.
+Production is served by Coolify behind Cloudflare. n8n triggers the deployed sync weekly; the production command above is the manual refresh path. The sync is idempotent, so rerunning it updates existing rows instead of duplicating them.
+
+## How Yahoo data is acquired
+
+Yahoo's documented integration uses OAuth 2.0. A Yahoo member who can access the private league authorizes an application with Fantasy Sports Read access; the server exchanges the authorization code for an access token and refresh token, then calls resources below `https://fantasysports.yahooapis.com/fantasy/v2/`. A typical discovery request is:
+
+```text
+GET /fantasy/v2/users;use_login=1/games;game_keys=nfl/teams?format=json
+Authorization: Bearer <access-token>
+```
+
+From there, game, league, team, standings, scoreboard, roster, and draft resources can be requested and normalized into the Supabase model. See Yahoo's [Fantasy Sports API guide](https://developer.yahoo.com/fantasysports/guide/) and [authorization-code flow](https://developer.yahoo.com/oauth2/guide/flows_authcode/).
+
+That is the intended API path, but it is **not the source of the current archive**. OAuth authorization succeeded for the available Yahoo applications, while every tested Fantasy resource returned HTTP 403 (`This application is not authorized to perform this action`). The current 2019–2025 archive was therefore recovered from authenticated Yahoo league/history pages and captured documents, then normalized into `public/data/yahoo-history.json`. No Yahoo OAuth token is stored by this project. API automation remains optional if Yahoo enables Fantasy API access for the application.
 
 ## Roadmap
 
-1. Sleeper → Supabase sync + public standings page ✅ (this repo)
-2. Reconcile Yahoo manager profiles with canonical owners, without guessing aliases
-3. Power rankings, all-time head-to-head, franchise records
-4. Nice-to-haves: draft grades, trade analyzer
+1. Sleeper → Supabase sync + public clubhouse ✅
+2. Yahoo archive and Hall of Fame for 2019–2025 ✅
+3. Finish manual Yahoo ↔ Sleeper identity reconciliation (72 of 88 historical team-seasons currently verified)
+4. Power rankings, all-time head-to-head, and franchise records
+5. Nice-to-haves: draft grades and trade analyzer
 
 ## License
 
