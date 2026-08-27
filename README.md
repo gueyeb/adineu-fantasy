@@ -10,6 +10,7 @@ Status: **live** at [adineu-fantasy.bakene.tech](https://adineu-fantasy.bakene.t
 - `scripts/sync-sleeper.js` — pulls the live league from Sleeper's public API (no auth required) and upserts it into Supabase. Idempotent, safe to re-run or schedule.
 - `public/` — framework-free clubhouse with home, standings, matchups, history, and Hall of Fame routes.
 - `public/data/yahoo-history.json` — season-scoped Yahoo archive: podiums, final standings, weekly highs and 2025 player leaders.
+- `public/data/yahoo-matchups.json` — 609 verified regular-season matchups for 2019–2025, with manager mappings and source URLs.
 - `supabase/yahoo-sleeper-reconciliation.md` — review checklist for linking Yahoo identities to existing Sleeper owners without guessing.
 
 ## Why it exists
@@ -49,8 +50,8 @@ That is the intended API path, but it is **not the source of the current archive
 
 1. Sleeper → Supabase sync + public clubhouse ✅
 2. Yahoo archive and Hall of Fame for 2019–2025 ✅
-3. Extract Yahoo's weekly 2019–2025 scoreboards for all-time head-to-head records
-4. Power rankings and franchise records
+3. Yahoo regular-season scoreboards + all-time head-to-head view ✅
+4. Add 2019–2024 Yahoo playoff brackets, power rankings, and franchise records
 5. Nice-to-haves: draft grades and trade analyzer
 
 ## License

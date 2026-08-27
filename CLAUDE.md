@@ -8,7 +8,9 @@ Read `AGENTS.md` first; its repository, testing, identity, and security rules ar
 - Sleeper 2026: league `1392715510830878721`, 12 owners and 12 rosters, currently `pre_draft`.
 - Yahoo archive: 2019–2025, seven seasons, 88/88 team-season identities across 16 managers.
 - Birama is a Yahoo-only owner for `El Fenomeno` (2019) and `Ethan Hunt` (2020). Jonnel played both 2019 and 2020.
-- Next data milestone: weekly Yahoo scoreboards for all-time head-to-head and streak records.
+- Regular-season Yahoo scoreboards are complete: 609 matchups in `public/data/yahoo-matchups.json`, all reconciled against final W/L/T/PF/PA.
+- `/matchups/` now exposes all-time regular-season head-to-head records with a manager selector.
+- Next data milestone: extract 2019–2024 playoff brackets, then add postseason and franchise records.
 
 ## Access Matrix
 

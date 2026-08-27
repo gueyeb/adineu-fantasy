@@ -197,6 +197,36 @@ tbody tr:hover td { background: rgba(184, 255, 61, 0.045); }
 .match-line span { font-family: var(--display); font-size: 1.18rem; }
 .match-line.winner span { color: var(--grass); }
 
+.h2h-section { background: linear-gradient(180deg, rgba(184, 255, 61, 0.035), transparent 42%); }
+.h2h-records { grid-template-columns: repeat(4, 1fr); }
+.h2h-records .record { min-height: 205px; }
+.h2h-records .record:nth-child(2) { border-top-color: var(--gold); }
+.h2h-records .record:nth-child(3) { border-top-color: var(--red); }
+.h2h-records .record:nth-child(4) { border-top-color: #7dd8ff; }
+.h2h-records .record strong { font-size: clamp(1.35rem, 2.4vw, 2rem); }
+
+.duel-board {
+  display: grid;
+  grid-template-columns: minmax(230px, 0.55fr) minmax(0, 1.45fr);
+  margin-top: 28px;
+  border: 1px solid var(--line);
+  background: var(--paper-soft);
+}
+.duel-control { padding: 28px; border-right: 1px solid var(--line); }
+.duel-control label { display: block; color: var(--muted); font-size: 0.68rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
+.duel-control select { display: block; width: 100%; margin-top: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 0; background: var(--paper); color: var(--ink); }
+.duel-control > p:last-child { margin: 22px 0 0; color: var(--muted); font-size: 0.82rem; }
+.duel-summary { display: grid; grid-template-columns: repeat(3, 1fr); }
+.duel-summary > div { min-height: 190px; padding: 28px; }
+.duel-summary > div + div { border-left: 1px solid var(--line); }
+.duel-summary span, .duel-summary small { display: block; color: var(--muted); }
+.duel-summary span { font-size: 0.68rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
+.duel-summary strong { display: block; margin-top: 34px; font-family: var(--display); font-size: clamp(1.4rem, 3vw, 2.4rem); line-height: 1; text-transform: uppercase; }
+.duel-summary small { margin-top: 10px; color: var(--grass); font-size: 0.8rem; font-weight: 700; }
+.h2h-table { margin-top: 18px; }
+.h2h-table .h2h-win, .h2h-table .positive { color: var(--grass); font-weight: 800; }
+.h2h-table .negative { color: var(--red); font-weight: 800; }
+
 .bars { display: grid; gap: 12px; }
 .bar-row { display: grid; grid-template-columns: 190px 1fr 72px; align-items: center; gap: 16px; }
 .bar-label { overflow: hidden; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
@@ -222,10 +252,15 @@ tbody tr:hover td { background: rgba(184, 255, 61, 0.045); }
   .stat-grid { grid-template-columns: repeat(2, 1fr); }
   .stat:nth-child(3) { border-left: 0; border-top: 1px solid var(--line); }
   .stat:nth-child(4) { border-top: 1px solid var(--line); }
-  .record-grid, .movement-grid { grid-template-columns: 1fr; }
+  .record-grid, .movement-grid, .h2h-records { grid-template-columns: 1fr; }
   .movement + .movement { border-top: 1px solid var(--line); border-left: 0; }
   .season-body { padding-left: 0; }
   .match-grid { grid-template-columns: 1fr; }
+  .duel-board { grid-template-columns: 1fr; }
+  .duel-control { border-right: 0; border-bottom: 1px solid var(--line); }
+  .duel-summary { grid-template-columns: 1fr; }
+  .duel-summary > div { min-height: 0; }
+  .duel-summary > div + div { border-top: 1px solid var(--line); border-left: 0; }
 }
 
 @media (max-width: 580px) {

@@ -63,7 +63,7 @@ function yahooUrl(season) {
 }
 
 async function loadHistory() {
-  const response = await fetch("/data/yahoo-history.json?v=2", { cache: "no-store" });
+  const response = await fetch("/data/yahoo-history.json?v=3", { cache: "no-store" });
   if (!response.ok) throw new Error(`Archive indisponible (${response.status})`);
   const data = await response.json();
   const normalizeTeam = value => String(value).replace(/\s+/g, " ").trim().toLocaleLowerCase("fr");
@@ -77,6 +77,12 @@ async function loadHistory() {
   }
 
   return data;
+}
+
+async function loadYahooMatchups() {
+  const response = await fetch("/data/yahoo-matchups.json?v=1", { cache: "no-store" });
+  if (!response.ok) throw new Error(`Matchups Yahoo indisponibles (${response.status})`);
+  return response.json();
 }
 
 async function loadLiveStandings() {
@@ -238,7 +244,7 @@ function renderHistory(data) {
       <div class="movement-grid">
         <article class="movement"><span>2022—2025</span><strong>12 / 12</strong><p>Le même noyau de managers revient pendant quatre saisons consécutives.</p></article>
         <article class="movement"><span>Après 2021</span><strong>2 sorties</strong><p>Erwan et Mountaga ne figurent plus dans la ligue à partir de 2022.</p></article>
-        <article class="movement"><span>Identités vérifiées</span><strong>${coverage.confirmedParticipations} / ${coverage.totalParticipations}</strong><p>Les archives plus anciennes restent marquées « À confirmer » tant que Yahoo ne fournit pas le profil.</p></article>
+        <article class="movement"><span>Identités vérifiées</span><strong>${coverage.confirmedParticipations} / ${coverage.totalParticipations}</strong><p>Toutes les participations 2019–2025 sont maintenant attribuées à leur manager confirmé.</p></article>
       </div>
     </div></section>
     <section class="section"><div class="shell">
@@ -290,7 +296,89 @@ function renderHallOfFame(data) {
     </div></section>`;
 }
 
-function renderMatchups(data) {
+function aggregateHeadToHead(matchupArchive) {
+  const managers = new Map();
+  const pairs = new Map();
+
+  function managerRecord(name) {
+    if (!managers.has(name)) {
+      managers.set(name, { manager: name, games: 0, wins: 0, losses: 0, ties: 0, pointsFor: 0, pointsAgainst: 0 });
+    }
+    return managers.get(name);
+  }
+
+  for (const season of matchupArchive.seasons) {
+    for (const week of season.weeks) {
+      for (const matchup of week.matchups) {
+        const sides = [
+          { manager: matchup.team1Manager, score: matchup.team1Score, opponentScore: matchup.team2Score },
+          { manager: matchup.team2Manager, score: matchup.team2Score, opponentScore: matchup.team1Score }
+        ];
+
+        for (const side of sides) {
+          const record = managerRecord(side.manager);
+          record.games += 1;
+          record.pointsFor += side.score;
+          record.pointsAgainst += side.opponentScore;
+          if (side.score > side.opponentScore) record.wins += 1;
+          else if (side.score < side.opponentScore) record.losses += 1;
+          else record.ties += 1;
+        }
+
+        const names = sides.map(side => side.manager).sort((a, b) => a.localeCompare(b, "fr"));
+        const key = names.join("::");
+        if (!pairs.has(key)) {
+          pairs.set(key, {
+            managerA: names[0], managerB: names[1], games: 0,
+            winsA: 0, winsB: 0, ties: 0, pointsA: 0, pointsB: 0
+          });
+        }
+        const pair = pairs.get(key);
+        const scoreA = sides.find(side => side.manager === pair.managerA).score;
+        const scoreB = sides.find(side => side.manager === pair.managerB).score;
+        pair.games += 1;
+        pair.pointsA += scoreA;
+        pair.pointsB += scoreB;
+        if (scoreA > scoreB) pair.winsA += 1;
+        else if (scoreB > scoreA) pair.winsB += 1;
+        else pair.ties += 1;
+      }
+    }
+  }
+
+  const leaderboard = [...managers.values()].map(record => ({
+    ...record,
+    winRate: record.games ? (record.wins + record.ties / 2) / record.games : 0
+  })).sort((a, b) => b.wins - a.wins || b.winRate - a.winRate || b.pointsFor - a.pointsFor);
+
+  return { leaderboard, pairs: [...pairs.values()] };
+}
+
+function matchupsAgainst(pairs, manager) {
+  return pairs.filter(pair => pair.managerA === manager || pair.managerB === manager).map(pair => {
+    const isA = pair.managerA === manager;
+    return {
+      opponent: isA ? pair.managerB : pair.managerA,
+      games: pair.games,
+      wins: isA ? pair.winsA : pair.winsB,
+      losses: isA ? pair.winsB : pair.winsA,
+      ties: pair.ties,
+      pointsFor: isA ? pair.pointsA : pair.pointsB,
+      pointsAgainst: isA ? pair.pointsB : pair.pointsA
+    };
+  }).sort((a, b) => b.games - a.games || b.wins - a.wins || a.opponent.localeCompare(b.opponent, "fr"));
+}
+
+async function renderMatchups(data) {
+  const matchupArchive = await loadYahooMatchups();
+  const headToHead = aggregateHeadToHead(matchupArchive);
+  const matchupCount = matchupArchive.seasons.reduce((total, season) => total
+    + season.weeks.reduce((seasonTotal, week) => seasonTotal + week.matchups.length, 0), 0);
+  const winsLeader = headToHead.leaderboard[0];
+  const pointsLeader = [...headToHead.leaderboard].sort((a, b) => b.pointsFor - a.pointsFor)[0];
+  const rateLeader = [...headToHead.leaderboard].filter(item => item.games >= 20)
+    .sort((a, b) => b.winRate - a.winRate || b.games - a.games)[0];
+  const longestRivalry = [...headToHead.pairs].sort((a, b) => b.games - a.games || a.managerA.localeCompare(b.managerA, "fr"))[0];
   const playoffCards = data.playoffs2025.map(match => `<article class="match">
     <div class="match-meta"><span>Semaine ${match.week}</span><span>${escapeHtml(match.round)}</span></div>
     <div class="match-line winner"><strong>${escapeHtml(match.winner)}</strong><span>${formatPoints(match.winnerPoints)}</span></div>
@@ -298,7 +386,29 @@ function renderMatchups(data) {
   </article>`).join("");
   const high = Math.max(...data.weeklyHighs2025.map(item => item.points));
 
-  document.getElementById("app").innerHTML = `${pageHero("Matchups", "Le dimanche se <em>décide ici.</em>", "Le direct Sleeper apparaîtra au lancement de la saison 2026. En attendant, revivez le dernier bracket Yahoo et les cartons hebdomadaires.", { label: "Dernière finale", value: "122,72", note: "Flemme · semaine 17" })}
+  document.getElementById("app").innerHTML = `${pageHero("Matchups", "Le dimanche se <em>décide ici.</em>", "Sept saisons de duels Yahoo sont enfin réunies. Choisissez un manager, mesurez ses rivalités et retrouvez les gros rendez-vous de 2025.", { label: "Duels vérifiés", value: matchupCount, note: "Saisons régulières · 2019—2025" })}
+    <section class="section h2h-section"><div class="shell">
+      <div class="section-head"><div><p class="eyebrow">Face-à-face all-time</p><h2>Choisis ton rival.</h2></div><p>Résultats de saison régulière uniquement. Les playoffs historiques seront ajoutés séparément pour ne pas mélanger les deux contextes.</p></div>
+      <div class="record-grid h2h-records">
+        <article class="record"><span class="record-label">Plus de victoires</span><strong>${escapeHtml(winsLeader.manager)}</strong><span>${winsLeader.wins} victoires · ${winsLeader.games} matchs</span></article>
+        <article class="record"><span class="record-label">Meilleur taux</span><strong>${escapeHtml(rateLeader.manager)}</strong><span>${formatPoints(rateLeader.winRate * 100, 1)} % · min. 20 matchs</span></article>
+        <article class="record"><span class="record-label">Roi des points</span><strong>${escapeHtml(pointsLeader.manager)}</strong><span>${formatPoints(pointsLeader.pointsFor)} PF cumulés</span></article>
+        <article class="record"><span class="record-label">Rivalité la plus jouée</span><strong>${escapeHtml(longestRivalry.managerA)} × ${escapeHtml(longestRivalry.managerB)}</strong><span>${longestRivalry.games} confrontations</span></article>
+      </div>
+
+      <div class="duel-board">
+        <div class="duel-control">
+          <p class="eyebrow">Dossier manager</p>
+          <label for="h2h-manager">Manager
+            <select id="h2h-manager">${headToHead.leaderboard.map(item => `<option value="${escapeHtml(item.manager)}">${escapeHtml(item.manager)}</option>`).join("")}</select>
+          </label>
+          <p>Les bilans s'affichent du point de vue du manager sélectionné.</p>
+        </div>
+        <div id="h2h-manager-summary" class="duel-summary" aria-live="polite"></div>
+      </div>
+      <div id="h2h-table"></div>
+      <p class="note"><strong>Source :</strong> 609 matchups Yahoo authentifiés, reliés à 16 managers et réconciliés avec les bilans et points finaux de chaque saison.</p>
+    </div></section>
     <section class="section"><div class="shell">
       <div class="section-head"><div><p class="eyebrow">Playoffs 2025</p><h2>La route du titre</h2></div><p>Flemme a traversé le tableau avant de battre Hunters en finale.</p></div>
       <div class="match-grid">${playoffCards}</div>
@@ -307,6 +417,34 @@ function renderMatchups(data) {
       <div class="section-head"><div><p class="eyebrow">Saison régulière 2025</p><h2>Le leader chaque semaine</h2></div><p>Le meilleur score de chacune des 14 semaines régulières.</p></div>
       <div class="bars">${data.weeklyHighs2025.map(item => `<div class="bar-row"><span class="bar-label">S${item.week} · ${escapeHtml(item.team)}</span><span class="bar-track"><span class="bar-fill" style="width:${(item.points / high) * 100}%"></span></span><span class="bar-value">${formatPoints(item.points)}</span></div>`).join("")}</div>
     </div></section>`;
+
+  const managerSelect = document.getElementById("h2h-manager");
+  const summary = document.getElementById("h2h-manager-summary");
+  const table = document.getElementById("h2h-table");
+
+  function showManager(manager) {
+    const record = headToHead.leaderboard.find(item => item.manager === manager);
+    const opponents = matchupsAgainst(headToHead.pairs, manager);
+    const favorite = [...opponents].sort((a, b) => (b.wins - b.losses) - (a.wins - a.losses) || b.games - a.games)[0];
+    const nemesis = [...opponents].sort((a, b) => (a.wins - a.losses) - (b.wins - b.losses) || b.games - a.games)[0];
+
+    summary.innerHTML = `<div><span>Bilan global</span><strong>${record.wins}—${record.losses}${record.ties ? `—${record.ties}` : ""}</strong><small>${formatPoints(record.winRate * 100, 1)} % de réussite</small></div>
+      <div><span>Meilleur matchup</span><strong>${escapeHtml(favorite.opponent)}</strong><small>${favorite.wins}–${favorite.losses}${favorite.ties ? `–${favorite.ties}` : ""}</small></div>
+      <div><span>Bête noire</span><strong>${escapeHtml(nemesis.opponent)}</strong><small>${nemesis.wins}–${nemesis.losses}${nemesis.ties ? `–${nemesis.ties}` : ""}</small></div>`;
+
+    table.innerHTML = `<div class="table-wrap h2h-table"><table>
+      <thead><tr><th>Adversaire</th><th class="num">Matchs</th><th class="num">V</th><th class="num">D</th><th class="num">N</th><th class="num">PF</th><th class="num">PA</th><th class="num">Diff.</th></tr></thead>
+      <tbody>${opponents.map(opponent => `<tr>
+        <td class="team-name">${escapeHtml(opponent.opponent)}</td>
+        <td class="num">${opponent.games}</td><td class="num h2h-win">${opponent.wins}</td><td class="num">${opponent.losses}</td><td class="num">${opponent.ties}</td>
+        <td class="num">${formatPoints(opponent.pointsFor)}</td><td class="num">${formatPoints(opponent.pointsAgainst)}</td>
+        <td class="num ${opponent.pointsFor >= opponent.pointsAgainst ? "positive" : "negative"}">${opponent.pointsFor >= opponent.pointsAgainst ? "+" : ""}${formatPoints(opponent.pointsFor - opponent.pointsAgainst)}</td>
+      </tr>`).join("")}</tbody>
+    </table></div>`;
+  }
+
+  managerSelect.addEventListener("change", () => showManager(managerSelect.value));
+  showManager(managerSelect.value);
 }
 
 async function start() {
@@ -317,7 +455,7 @@ async function start() {
     if (page === "standings") await renderStandings(data);
     if (page === "history") renderHistory(data);
     if (page === "hall-of-fame") renderHallOfFame(data);
-    if (page === "matchups") renderMatchups(data);
+    if (page === "matchups") await renderMatchups(data);
   } catch (error) {
     app.innerHTML = `<section class="section"><div class="shell"><div class="state"><strong>Impossible de charger la page</strong>${escapeHtml(error.message)}</div></div></section>`;
   }
