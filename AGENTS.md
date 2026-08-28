@@ -16,6 +16,8 @@ Keep platform sources, Supabase, and the read-only UI separate. Sleeper is live 
 
 The `/franchises/` route derives all-time records client-side from the three public Yahoo archives. A franchise means one confirmed manager identity, even when team names change. Keep regular-season and postseason records separate, and never turn their display order into an undocumented power-ranking formula.
 
+The Hall of Fame record book also derives from the matchup archives. Single-game records use regular-season matchups unless labeled postseason. Winning streaks reset at every season boundary and exclude playoffs. Preserve ties at display cutoffs instead of selecting an arbitrary fixed number of rows.
+
 ## Yahoo Data & Access
 
 The published archive does not come from the Yahoo Fantasy API. OAuth authorization with `fspt-r` succeeded, but tested Fantasy resources returned HTTP 403 (`This application is not authorized to perform this action`). Do not claim the API is active and do not retry app creation unless Yahoo offers **Fantasy Sports Read**.

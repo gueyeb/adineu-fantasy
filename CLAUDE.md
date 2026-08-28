@@ -13,6 +13,7 @@ Read `AGENTS.md` first; its repository, testing, identity, and security rules ar
 - `/matchups/` now exposes all-time regular-season head-to-head records with a manager selector.
 - `/matchups/` also exposes all 52 postseason games by year and all-time postseason leaders.
 - `/franchises/` exposes 16 manager dossiers with aliases, season cards, regular-season totals, postseason records, finals, podiums, and titles.
+- `/hall-of-fame/` includes verified single-game records, every regular-season winning streak of at least seven games, and separate postseason records.
 - Next data milestone: add 2026 power rankings after Sleeper starts returning real matchups.
 
 ## Access Matrix

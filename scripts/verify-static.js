@@ -14,8 +14,8 @@ const requiredAssets = [
 for (const route of routes) {
   const htmlPath = resolve(root, route, "index.html");
   const html = await readFile(htmlPath, "utf8");
-  if (!html.includes('src="/assets/site.js?v=5"')) throw new Error(`${htmlPath} does not load the current site.js`);
-  if (!html.includes('href="/assets/styles.css?v=5"')) throw new Error(`${htmlPath} does not load the current styles.css`);
+  if (!html.includes('src="/assets/site.js?v=6"')) throw new Error(`${htmlPath} does not load the current site.js`);
+  if (!html.includes('href="/assets/styles.css?v=6"')) throw new Error(`${htmlPath} does not load the current styles.css`);
 }
 
 for (const asset of requiredAssets) await stat(resolve(root, asset));
@@ -94,6 +94,7 @@ const normalizeTeamName = value => value.replace(/\s+/g, " ").trim();
 let verifiedMatchups = 0;
 let regularManagerAppearances = 0;
 const regularManagersSeen = new Set();
+const regularRecordGames = [];
 
 for (const season of matchupArchive.seasons) {
   const historySeason = archive.seasons.find(candidate => candidate.year === season.year);
@@ -132,6 +133,13 @@ for (const season of matchupArchive.seasons) {
       if (!Number.isFinite(matchup.team1Score) || !Number.isFinite(matchup.team2Score)) {
         throw new Error(`${season.year} week ${week.week}: invalid score`);
       }
+
+      regularRecordGames.push({
+        year: season.year,
+        week: week.week,
+        team1: { manager: matchup.team1Manager, team: matchup.team1Name, points: matchup.team1Score },
+        team2: { manager: matchup.team2Manager, team: matchup.team2Name, points: matchup.team2Score }
+      });
 
       const sides = [
         { id: matchup.team1Id, name: normalizeTeamName(matchup.team1Name), manager: matchup.team1Manager, score: matchup.team1Score, opponentScore: matchup.team2Score },
@@ -194,6 +202,67 @@ if (regularManagersSeen.size !== historicalManagers.size) {
   throw new Error(`Expected regular-season records for ${historicalManagers.size} franchises, found ${regularManagersSeen.size}`);
 }
 
+const maximum = (items, value) => [...items].sort((a, b) => value(b) - value(a))[0];
+const minimum = (items, value) => [...items].sort((a, b) => value(a) - value(b))[0];
+const regularRecordSides = regularRecordGames.flatMap(game => [
+  { ...game.team1, opponent: game.team2, year: game.year, week: game.week },
+  { ...game.team2, opponent: game.team1, year: game.year, week: game.week }
+]);
+const regularWins = regularRecordSides.filter(side => side.points > side.opponent.points);
+const regularLosses = regularRecordSides.filter(side => side.points < side.opponent.points);
+const highScoreRecord = maximum(regularRecordSides, side => side.points);
+const biggestWinRecord = maximum(regularWins, side => side.points - side.opponent.points);
+const closestWinRecord = minimum(regularWins, side => side.points - side.opponent.points);
+const combinedScoreRecord = maximum(regularRecordGames, game => game.team1.points + game.team2.points);
+const highestLossRecord = maximum(regularLosses, side => side.points);
+
+const winningStreaks = [];
+for (const manager of historicalManagers) {
+  for (const season of matchupArchive.seasons) {
+    const games = regularRecordSides.filter(side => side.manager === manager && side.year === season.year)
+      .sort((a, b) => a.week - b.week);
+    let active = null;
+    for (const game of games) {
+      if (game.points > game.opponent.points) {
+        active ||= { manager, year: season.year, startWeek: game.week, endWeek: game.week, wins: 0 };
+        active.wins += 1;
+        active.endWeek = game.week;
+      } else if (active) {
+        winningStreaks.push(active);
+        active = null;
+      }
+    }
+    if (active) winningStreaks.push(active);
+  }
+}
+const winningStreakRecord = maximum(winningStreaks, streak => streak.wins);
+const approximately = (actual, expected) => Math.abs(actual - expected) < 0.001;
+if (winningStreaks.filter(streak => streak.wins >= 7).length !== 7) {
+  throw new Error("Expected seven regular-season winning streaks of at least seven games");
+}
+
+if (highScoreRecord.manager !== "Mat" || highScoreRecord.year !== 2022
+  || highScoreRecord.week !== 8 || !approximately(highScoreRecord.points, 208.98)) {
+  throw new Error("Unexpected all-time single-game scoring record");
+}
+if (biggestWinRecord.manager !== "Mat"
+  || !approximately(biggestWinRecord.points - biggestWinRecord.opponent.points, 110.26)) {
+  throw new Error("Unexpected all-time victory margin record");
+}
+if (closestWinRecord.manager !== "Marius"
+  || !approximately(closestWinRecord.points - closestWinRecord.opponent.points, 0.04)) {
+  throw new Error("Unexpected closest regular-season win record");
+}
+if (!approximately(combinedScoreRecord.team1.points + combinedScoreRecord.team2.points, 335.44)
+  || highestLossRecord.manager !== "Louis François" || !approximately(highestLossRecord.points, 167.06)) {
+  throw new Error("Unexpected combined-score or highest-scoring loss record");
+}
+if (winningStreakRecord.manager !== "Bombeul22" || winningStreakRecord.year !== 2024
+  || winningStreakRecord.startWeek !== 5 || winningStreakRecord.endWeek !== 14
+  || winningStreakRecord.wins !== 10) {
+  throw new Error("Unexpected regular-season winning streak record");
+}
+
 const playoffText = await readFile(resolve(root, "data/yahoo-playoffs.json"), "utf8");
 if (/profileId|platform_user_id|sb_secret_|access_token|refresh_token/i.test(playoffText)) {
   throw new Error("Public Yahoo playoffs contain a private platform identifier or secret");
@@ -214,6 +283,7 @@ const expectedRounds = year => year === 2019
   ? { semifinal: 2, final: 1, third_place: 1 }
   : { quarterfinal: 4, semifinal: 2, final: 1, third_place: 1 };
 let verifiedPlayoffGames = 0;
+const postseasonRecordSides = [];
 
 for (const season of playoffArchive.seasons) {
   const historySeason = archive.seasons.find(candidate => candidate.year === season.year);
@@ -239,6 +309,10 @@ for (const season of playoffArchive.seasons) {
     if (!game.winner.teamId || !game.loser.teamId || game.winner.teamId === game.loser.teamId) {
       throw new Error(`${season.year} week ${game.week}: invalid Yahoo team IDs`);
     }
+    postseasonRecordSides.push(
+      { manager: game.winner.manager, points: game.winner.points, opponentPoints: game.loser.points, year: season.year, week: game.week, round: game.round },
+      { manager: game.loser.manager, points: game.loser.points, opponentPoints: game.winner.points, year: season.year, week: game.week, round: game.round }
+    );
     const seen = teamsByWeek.get(game.week) || new Set();
     for (const side of [game.winner, game.loser]) {
       if (!historicalManagers.has(side.manager)) {
@@ -281,6 +355,10 @@ for (const game of archive.playoffs2025) {
       throw new Error(`2025: unresolved playoff franchise for ${team}`);
     }
   }
+  postseasonRecordSides.push(
+    { manager: managerForTeam(2025, game.winner), points: game.winnerPoints, opponentPoints: game.loserPoints, year: 2025, week: game.week, round: game.round },
+    { manager: managerForTeam(2025, game.loser), points: game.loserPoints, opponentPoints: game.winnerPoints, year: 2025, week: game.week, round: game.round }
+  );
   if (!Number.isFinite(game.winnerPoints) || !Number.isFinite(game.loserPoints)
     || game.winnerPoints <= game.loserPoints) {
     throw new Error(`2025 ${game.round}: invalid playoff score`);
@@ -300,6 +378,23 @@ if (final2025.winner !== season2025.champion.team || final2025.loser !== season2
 const totalPostseasonGames = verifiedPlayoffGames + archive.playoffs2025.length;
 if (totalPostseasonGames !== 52 || archive.seasons.filter(season => season.champion.manager).length !== 7) {
   throw new Error(`Unexpected franchise record scope: ${totalPostseasonGames} playoff games`);
+}
+
+const postseasonWins = postseasonRecordSides.filter(side => side.points > side.opponentPoints);
+const playoffHighRecord = maximum(postseasonRecordSides, side => side.points);
+const playoffBiggestWinRecord = maximum(postseasonWins, side => side.points - side.opponentPoints);
+const playoffClosestWinRecord = minimum(postseasonWins, side => side.points - side.opponentPoints);
+if (playoffHighRecord.manager !== "Bombeul22" || playoffHighRecord.year !== 2024
+  || !approximately(playoffHighRecord.points, 186.98)) {
+  throw new Error("Unexpected postseason scoring record");
+}
+if (playoffBiggestWinRecord.manager !== "Louis François"
+  || !approximately(playoffBiggestWinRecord.points - playoffBiggestWinRecord.opponentPoints, 87.18)) {
+  throw new Error("Unexpected postseason victory margin record");
+}
+if (playoffClosestWinRecord.manager !== "Mat"
+  || !approximately(playoffClosestWinRecord.points - playoffClosestWinRecord.opponentPoints, 0.60)) {
+  throw new Error("Unexpected closest postseason win record");
 }
 
 console.log(`Static site verified: ${routes.length} routes, ${historicalManagers.size} franchises, ${verifiedMatchups} regular-season and ${totalPostseasonGames} playoff Yahoo matchups.`);

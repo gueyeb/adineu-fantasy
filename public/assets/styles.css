@@ -182,6 +182,23 @@ tbody tr:hover td { background: rgba(184, 255, 61, 0.045); }
 .record strong { display: block; margin-top: 26px; font-family: var(--display); font-size: 1.8rem; line-height: 1.05; text-transform: uppercase; }
 .record span { display: block; margin-top: 10px; color: var(--grass); }
 
+.record-book-section { background: linear-gradient(180deg, rgba(255, 180, 67, 0.035), transparent 48%); }
+.record-book-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.record-book-card { min-height: 245px; padding: 26px; border: 1px solid var(--line); border-top: 5px solid var(--grass); background: var(--paper-soft); }
+.record-book-card:nth-child(3) { border-top-color: var(--red); }
+.record-book-card:nth-child(4) { border-top-color: #7dd8ff; }
+.record-book-card:nth-child(5) { border-top-color: var(--gold); }
+.record-book-card:nth-child(6) { border-top-color: #d796ff; }
+.record-book-card > span { display: block; color: var(--muted); font-size: 0.68rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
+.record-book-card em { display: block; margin-top: 28px; color: var(--grass); font-family: var(--display); font-size: clamp(2.8rem, 5vw, 5rem); font-style: normal; letter-spacing: -0.05em; line-height: 0.9; }
+.record-book-card strong { display: block; margin-top: 20px; font-family: var(--display); font-size: 1.25rem; line-height: 1; text-transform: uppercase; }
+.record-book-card small { display: block; margin-top: 9px; color: var(--muted); font-size: 0.76rem; }
+.record-book-major { grid-column: span 2; background: var(--grass); color: #10180d; }
+.record-book-major > span, .record-book-major small { color: rgba(16, 24, 13, 0.68); }
+.record-book-major em { color: #10180d; font-size: clamp(4rem, 8vw, 7.5rem); }
+.record-book-major strong { font-size: clamp(1.5rem, 3vw, 2.5rem); }
+.streak-head { margin-top: 64px; }
+
 .movement-grid { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--line); }
 .movement { min-height: 230px; padding: 28px; background: var(--paper-soft); }
 .movement + .movement { border-left: 1px solid var(--line); }
@@ -297,6 +314,8 @@ tbody tr:hover td { background: rgba(184, 255, 61, 0.045); }
   .stat:nth-child(3) { border-left: 0; border-top: 1px solid var(--line); }
   .stat:nth-child(4) { border-top: 1px solid var(--line); }
   .record-grid, .movement-grid, .h2h-records { grid-template-columns: 1fr; }
+  .record-book-grid { grid-template-columns: 1fr; }
+  .record-book-major { grid-column: auto; }
   .movement + .movement { border-top: 1px solid var(--line); border-left: 0; }
   .season-body { padding-left: 0; }
   .match-grid { grid-template-columns: 1fr; }

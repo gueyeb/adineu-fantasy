@@ -54,8 +54,9 @@ That is the intended API path, but it is **not the source of the current archive
 3. Yahoo regular-season scoreboards + all-time head-to-head view ✅
 4. Yahoo championship brackets and postseason records for 2019–2025 ✅
 5. All-time franchise dossiers and record table across 16 managers ✅
-6. Add 2026 power rankings once Sleeper matchups begin
-7. Nice-to-haves: draft grades and trade analyzer
+6. All-time single-game records and regular-season winning streaks ✅
+7. Add 2026 power rankings once Sleeper matchups begin
+8. Nice-to-haves: draft grades and trade analyzer
 
 ## License
 

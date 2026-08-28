@@ -116,6 +116,65 @@ function allYahooPlayoffSeasons(data, playoffArchive) {
   }].sort((a, b) => b.year - a.year);
 }
 
+function buildYahooRecordBook(data, matchupArchive, playoffArchive) {
+  const regularGames = matchupArchive.seasons.flatMap(season => season.weeks.flatMap(week =>
+    week.matchups.map(matchup => ({
+      year: season.year,
+      week: week.week,
+      team1: { manager: matchup.team1Manager, team: matchup.team1Name, points: matchup.team1Score },
+      team2: { manager: matchup.team2Manager, team: matchup.team2Name, points: matchup.team2Score }
+    }))));
+  const regularSides = regularGames.flatMap(game => [
+    { ...game.team1, opponent: game.team2, year: game.year, week: game.week },
+    { ...game.team2, opponent: game.team1, year: game.year, week: game.week }
+  ]);
+  const wins = regularSides.filter(side => side.points > side.opponent.points);
+  const losses = regularSides.filter(side => side.points < side.opponent.points);
+  const maximum = (items, value) => [...items].sort((a, b) => value(b) - value(a))[0];
+  const minimum = (items, value) => [...items].sort((a, b) => value(a) - value(b))[0];
+
+  const streaks = [];
+  for (const manager of [...new Set(regularSides.map(side => side.manager))]) {
+    for (const season of matchupArchive.seasons) {
+      const games = regularSides.filter(side => side.manager === manager && side.year === season.year)
+        .sort((a, b) => a.week - b.week);
+      let active = null;
+      for (const game of games) {
+        if (game.points > game.opponent.points) {
+          active ||= { manager, team: game.team, year: season.year, startWeek: game.week, endWeek: game.week, wins: 0 };
+          active.wins += 1;
+          active.endWeek = game.week;
+        } else if (active) {
+          streaks.push(active);
+          active = null;
+        }
+      }
+      if (active) streaks.push(active);
+    }
+  }
+
+  const playoffGames = allYahooPlayoffSeasons(data, playoffArchive).flatMap(season =>
+    season.games.map(game => ({ ...game, year: season.year })));
+  const playoffSides = playoffGames.flatMap(game => [
+    { ...game.winner, opponent: game.loser, year: game.year, week: game.week, round: game.round },
+    { ...game.loser, opponent: game.winner, year: game.year, week: game.week, round: game.round }
+  ]);
+  const playoffWins = playoffSides.filter(side => side.points > side.opponent.points);
+
+  return {
+    highScore: maximum(regularSides, side => side.points),
+    biggestWin: maximum(wins, side => side.points - side.opponent.points),
+    closestWin: minimum(wins, side => side.points - side.opponent.points),
+    highestCombined: maximum(regularGames, game => game.team1.points + game.team2.points),
+    highestLoss: maximum(losses, side => side.points),
+    topStreaks: [...streaks].sort((a, b) => b.wins - a.wins || b.year - a.year || a.manager.localeCompare(b.manager, "fr"))
+      .filter(streak => streak.wins >= 7),
+    playoffHigh: maximum(playoffSides, side => side.points),
+    playoffBiggestWin: maximum(playoffWins, side => side.points - side.opponent.points),
+    playoffClosestWin: minimum(playoffWins, side => side.points - side.opponent.points)
+  };
+}
+
 async function loadLiveStandings() {
   const response = await fetch(
     `${SUPABASE_URL}/rest/v1/v_standings?year=eq.${CURRENT_SEASON}&order=live_rank.asc`,
@@ -285,7 +344,12 @@ function renderHistory(data) {
     </div></section>`;
 }
 
-function renderHallOfFame(data) {
+async function renderHallOfFame(data) {
+  const [matchupArchive, playoffArchive] = await Promise.all([
+    loadYahooMatchups(),
+    loadYahooPlayoffs()
+  ]);
+  const recordBook = buildYahooRecordBook(data, matchupArchive, playoffArchive);
   const titles = Object.values(data.seasons.reduce((result, season) => {
     const manager = season.champion.manager;
     result[manager] ||= { manager, count: 0, years: [] };
@@ -298,7 +362,7 @@ function renderHallOfFame(data) {
   const pointsRecord = allTeams.reduce((best, item) => item.pf > best.pf ? item : best);
   const bestWinRate = Math.max(...allTeams.map(item => item.wins / (item.wins + item.losses)));
   const winRecords = allTeams.filter(item => item.wins / (item.wins + item.losses) === bestWinRate);
-  const weeklyRecord = data.weeklyHighs2025.reduce((best, item) => item.points > best.points ? item : best);
+  const differentialRecord = allTeams.reduce((best, item) => item.pf - item.pa > best.pf - best.pa ? item : best);
   const maxTitles = Math.max(...titles.map(item => item.count));
 
   document.getElementById("app").innerHTML = `${pageHero("Hall of Fame", "Ceux qui ont <em>fini le travail.</em>", "Les titres sont attribués aux managers confirmés par les pages de champion Yahoo. Les noms d'équipe restent ceux de leur époque.", { label: "Palmarès officiel", value: "07", note: "4 managers titrés" })}
@@ -313,11 +377,34 @@ function renderHallOfFame(data) {
     </div></section>
 
     <section class="section"><div class="shell">
-      <div class="section-head"><div><p class="eyebrow">Record book</p><h2>Les gros chiffres</h2></div><p>Records calculés sur les données Yahoo archivées.</p></div>
+      <div class="section-head"><div><p class="eyebrow">Records de saison</p><h2>Dominer sur la durée.</h2></div><p>Records calculés sur les classements finaux des sept saisons Yahoo.</p></div>
       <div class="record-grid">
         <article class="record"><span class="record-label">Points sur une saison</span><strong>${escapeHtml(pointsRecord.team)}</strong><span>${formatPoints(pointsRecord.pf)} PF · ${pointsRecord.year}</span></article>
         <article class="record"><span class="record-label">Meilleur bilan</span><strong>${winRecords.map(item => escapeHtml(item.team)).join(" · ")}</strong><span>${winRecords[0].wins}–${winRecords[0].losses} · ${winRecords.map(item => item.year).join(" / ")}</span></article>
-        <article class="record"><span class="record-label">Top score hebdo 2025</span><strong>${escapeHtml(weeklyRecord.team)}</strong><span>${formatPoints(weeklyRecord.points)} · semaine ${weeklyRecord.week}</span></article>
+        <article class="record"><span class="record-label">Meilleur différentiel</span><strong>${escapeHtml(differentialRecord.team)}</strong><span>+${formatPoints(differentialRecord.pf - differentialRecord.pa)} · ${differentialRecord.year}</span></article>
+      </div>
+    </div></section>
+
+    <section class="section record-book-section"><div class="shell">
+      <div class="section-head"><div><p class="eyebrow">Un dimanche</p><h2>Les matchs qui cassent l'échelle.</h2></div><p>Records sur les 609 confrontations de saison régulière, avec l'adversaire et la semaine conservés pour chaque performance.</p></div>
+      <div class="record-book-grid">
+        <article class="record-book-card record-book-major"><span>Score ultime</span><em>${formatPoints(recordBook.highScore.points)}</em><strong>${escapeHtml(recordBook.highScore.manager)}</strong><small>${escapeHtml(recordBook.highScore.team)} · ${recordBook.highScore.year} S${recordBook.highScore.week}</small></article>
+        <article class="record-book-card"><span>Série record</span><em>${recordBook.topStreaks[0].wins}</em><strong>${escapeHtml(recordBook.topStreaks[0].manager)}</strong><small>${recordBook.topStreaks[0].year} · S${recordBook.topStreaks[0].startWeek}—S${recordBook.topStreaks[0].endWeek}</small></article>
+        <article class="record-book-card"><span>Plus gros écart</span><em>+${formatPoints(recordBook.biggestWin.points - recordBook.biggestWin.opponent.points)}</em><strong>${escapeHtml(recordBook.biggestWin.manager)}</strong><small>contre ${escapeHtml(recordBook.biggestWin.opponent.manager)} · ${recordBook.biggestWin.year} S${recordBook.biggestWin.week}</small></article>
+        <article class="record-book-card"><span>Victoire la plus serrée</span><em>${formatPoints(recordBook.closestWin.points - recordBook.closestWin.opponent.points)}</em><strong>${escapeHtml(recordBook.closestWin.manager)}</strong><small>${formatPoints(recordBook.closestWin.points)}—${formatPoints(recordBook.closestWin.opponent.points)} · ${recordBook.closestWin.year} S${recordBook.closestWin.week}</small></article>
+        <article class="record-book-card"><span>Défaite la plus cruelle</span><em>${formatPoints(recordBook.highestLoss.points)}</em><strong>${escapeHtml(recordBook.highestLoss.manager)}</strong><small>contre ${escapeHtml(recordBook.highestLoss.opponent.manager)} · ${recordBook.highestLoss.year} S${recordBook.highestLoss.week}</small></article>
+        <article class="record-book-card"><span>Match le plus offensif</span><em>${formatPoints(recordBook.highestCombined.team1.points + recordBook.highestCombined.team2.points)}</em><strong>${escapeHtml(recordBook.highestCombined.team1.manager)} × ${escapeHtml(recordBook.highestCombined.team2.manager)}</strong><small>${formatPoints(recordBook.highestCombined.team1.points)}—${formatPoints(recordBook.highestCombined.team2.points)} · ${recordBook.highestCombined.year} S${recordBook.highestCombined.week}</small></article>
+      </div>
+      <div class="section-head streak-head"><div><p class="eyebrow">7 victoires minimum</p><h2>Les séries de 7+.</h2></div><p>Toutes les séries d'au moins sept victoires au sein d'une même saison régulière ; playoffs et intersaisons ne les prolongent pas.</p></div>
+      <div class="table-wrap"><table><thead><tr><th>Manager</th><th>Équipe</th><th class="num">Saison</th><th class="num">Semaines</th><th class="num">Victoires</th></tr></thead><tbody>${recordBook.topStreaks.map(streak => `<tr><td class="team-name">${escapeHtml(streak.manager)}</td><td>${escapeHtml(streak.team)}</td><td class="num">${streak.year}</td><td class="num">S${streak.startWeek}—S${streak.endWeek}</td><td class="num franchise-title-count">${streak.wins}</td></tr>`).join("")}</tbody></table></div>
+    </div></section>
+
+    <section class="section"><div class="shell">
+      <div class="section-head"><div><p class="eyebrow">Postseason</p><h2>Quand chaque point pèse.</h2></div><p>Records séparés sur les 52 matchs du tableau principal Yahoo 2019–2025.</p></div>
+      <div class="record-grid">
+        <article class="record"><span class="record-label">Record playoffs</span><strong>${escapeHtml(recordBook.playoffHigh.manager)}</strong><span>${formatPoints(recordBook.playoffHigh.points)} · ${recordBook.playoffHigh.year} ${recordBook.playoffHigh.round === "final" ? "finale" : `S${recordBook.playoffHigh.week}`}</span></article>
+        <article class="record"><span class="record-label">Plus gros écart</span><strong>${escapeHtml(recordBook.playoffBiggestWin.manager)}</strong><span>+${formatPoints(recordBook.playoffBiggestWin.points - recordBook.playoffBiggestWin.opponent.points)} · ${recordBook.playoffBiggestWin.year}</span></article>
+        <article class="record"><span class="record-label">Plus petit écart</span><strong>${escapeHtml(recordBook.playoffClosestWin.manager)}</strong><span>${formatPoints(recordBook.playoffClosestWin.points - recordBook.playoffClosestWin.opponent.points)} · ${recordBook.playoffClosestWin.year}</span></article>
       </div>
     </div></section>
 
@@ -681,7 +768,7 @@ async function start() {
     if (page === "home") await renderHome(data);
     if (page === "standings") await renderStandings(data);
     if (page === "history") renderHistory(data);
-    if (page === "hall-of-fame") renderHallOfFame(data);
+    if (page === "hall-of-fame") await renderHallOfFame(data);
     if (page === "matchups") await renderMatchups(data);
     if (page === "franchises") await renderFranchises(data);
   } catch (error) {
