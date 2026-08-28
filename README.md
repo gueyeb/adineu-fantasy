@@ -8,7 +8,7 @@ Status: **live** at [adineu-fantasy.bakene.tech](https://adineu-fantasy.bakene.t
 
 - `supabase/schema.sql` — Postgres schema (owners, seasons, teams, matchups + a `v_standings` view). Designed so a season from any platform (Sleeper, Yahoo, eventually the old NFL Fantasy) slots into the same tables — no schema change per source.
 - `scripts/sync-sleeper.js` — pulls the live league from Sleeper's public API (no auth required) and upserts it into Supabase. Idempotent, safe to re-run or schedule.
-- `public/` — framework-free clubhouse with home, standings, matchups, history, and Hall of Fame routes.
+- `public/` — framework-free clubhouse with home, standings, matchups, history, Hall of Fame, and franchise routes.
 - `public/data/yahoo-history.json` — season-scoped Yahoo archive: podiums, final standings, weekly highs and 2025 player leaders.
 - `public/data/yahoo-matchups.json` — 609 verified regular-season matchups for 2019–2025, with manager mappings and source URLs.
 - `public/data/yahoo-playoffs.json` — 44 authenticated championship-bracket matchups for 2019–2024; the UI combines them with the eight verified 2025 playoff games.
@@ -53,8 +53,9 @@ That is the intended API path, but it is **not the source of the current archive
 2. Yahoo archive and Hall of Fame for 2019–2025 ✅
 3. Yahoo regular-season scoreboards + all-time head-to-head view ✅
 4. Yahoo championship brackets and postseason records for 2019–2025 ✅
-5. Add power rankings and deeper franchise records
-6. Nice-to-haves: draft grades and trade analyzer
+5. All-time franchise dossiers and record table across 16 managers ✅
+6. Add 2026 power rankings once Sleeper matchups begin
+7. Nice-to-haves: draft grades and trade analyzer
 
 ## License
 

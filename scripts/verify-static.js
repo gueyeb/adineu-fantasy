@@ -2,7 +2,7 @@ import { readFile, stat } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const root = resolve("public");
-const routes = ["", "standings", "matchups", "history", "hall-of-fame"];
+const routes = ["", "standings", "matchups", "history", "hall-of-fame", "franchises"];
 const requiredAssets = [
   "assets/styles.css",
   "assets/site.js",
@@ -14,8 +14,8 @@ const requiredAssets = [
 for (const route of routes) {
   const htmlPath = resolve(root, route, "index.html");
   const html = await readFile(htmlPath, "utf8");
-  if (!html.includes('src="/assets/site.js?v=4"')) throw new Error(`${htmlPath} does not load the current site.js`);
-  if (!html.includes('href="/assets/styles.css?v=4"')) throw new Error(`${htmlPath} does not load the current styles.css`);
+  if (!html.includes('src="/assets/site.js?v=5"')) throw new Error(`${htmlPath} does not load the current site.js`);
+  if (!html.includes('href="/assets/styles.css?v=5"')) throw new Error(`${htmlPath} does not load the current styles.css`);
 }
 
 for (const asset of requiredAssets) await stat(resolve(root, asset));
@@ -46,12 +46,22 @@ for (const profile of archive.managerHistory) {
   for (const [year, team] of Object.entries(profile.seasons)) {
     const claim = `${year}:${team.replace(/\s+/g, " ").trim().toLowerCase()}`;
     if (claims.has(claim)) throw new Error(`Duplicate manager claim: ${claim}`);
+    const season = archive.seasons.find(item => item.year === Number(year));
+    if (!season?.teams.some(item => item.team.replace(/\s+/g, " ").trim().toLowerCase()
+      === team.replace(/\s+/g, " ").trim().toLowerCase())) {
+      throw new Error(`Unresolved franchise claim: ${profile.manager} / ${year} / ${team}`);
+    }
     claims.add(claim);
   }
 }
 
 if (claims.size !== archive.identityCoverage.confirmedParticipations) {
   throw new Error(`Identity coverage mismatch: ${claims.size} confirmed claims`);
+}
+
+const historicalManagers = new Set(archive.managerHistory.map(profile => profile.manager));
+if (historicalManagers.size !== 16) {
+  throw new Error(`Expected 16 historical franchises, found ${historicalManagers.size}`);
 }
 
 const stableYears = [2022, 2023, 2024, 2025];
@@ -82,6 +92,8 @@ if (JSON.stringify(matchupYears) !== JSON.stringify([...expectedYears].reverse()
 
 const normalizeTeamName = value => value.replace(/\s+/g, " ").trim();
 let verifiedMatchups = 0;
+let regularManagerAppearances = 0;
+const regularManagersSeen = new Set();
 
 for (const season of matchupArchive.seasons) {
   const historySeason = archive.seasons.find(candidate => candidate.year === season.year);
@@ -122,11 +134,16 @@ for (const season of matchupArchive.seasons) {
       }
 
       const sides = [
-        { id: matchup.team1Id, name: normalizeTeamName(matchup.team1Name), score: matchup.team1Score, opponentScore: matchup.team2Score },
-        { id: matchup.team2Id, name: normalizeTeamName(matchup.team2Name), score: matchup.team2Score, opponentScore: matchup.team1Score }
+        { id: matchup.team1Id, name: normalizeTeamName(matchup.team1Name), manager: matchup.team1Manager, score: matchup.team1Score, opponentScore: matchup.team2Score },
+        { id: matchup.team2Id, name: normalizeTeamName(matchup.team2Name), manager: matchup.team2Manager, score: matchup.team2Score, opponentScore: matchup.team1Score }
       ];
 
       for (const side of sides) {
+        if (!historicalManagers.has(side.manager)) {
+          throw new Error(`${season.year} week ${week.week}: unknown franchise ${side.manager}`);
+        }
+        regularManagerAppearances += 1;
+        regularManagersSeen.add(side.manager);
         if (seenTeamIds.has(side.id)) {
           throw new Error(`${season.year} week ${week.week}: duplicate team ${side.id}`);
         }
@@ -168,6 +185,13 @@ for (const season of matchupArchive.seasons) {
       }
     }
   }
+}
+
+if (regularManagerAppearances !== verifiedMatchups * 2) {
+  throw new Error(`Expected ${verifiedMatchups * 2} regular franchise appearances, found ${regularManagerAppearances}`);
+}
+if (regularManagersSeen.size !== historicalManagers.size) {
+  throw new Error(`Expected regular-season records for ${historicalManagers.size} franchises, found ${regularManagersSeen.size}`);
 }
 
 const playoffText = await readFile(resolve(root, "data/yahoo-playoffs.json"), "utf8");
@@ -217,6 +241,9 @@ for (const season of playoffArchive.seasons) {
     }
     const seen = teamsByWeek.get(game.week) || new Set();
     for (const side of [game.winner, game.loser]) {
+      if (!historicalManagers.has(side.manager)) {
+        throw new Error(`${season.year} week ${game.week}: unknown playoff franchise ${side.manager}`);
+      }
       if (seen.has(side.teamId)) throw new Error(`${season.year} week ${game.week}: duplicate playoff team ${side.teamId}`);
       seen.add(side.teamId);
     }
@@ -239,4 +266,40 @@ for (const season of playoffArchive.seasons) {
   }
 }
 
-console.log(`Static site verified: ${routes.length} routes, ${archive.seasons.length} archived seasons, ${verifiedMatchups} regular-season and ${verifiedPlayoffGames} playoff Yahoo matchups.`);
+const season2025 = archive.seasons.find(season => season.year === 2025);
+const managerForTeam = (year, teamName) => archive.managerHistory.find(profile =>
+  normalizeTeamName(profile.seasons[String(year)] || "").toLowerCase()
+    === normalizeTeamName(teamName).toLowerCase())?.manager;
+const rounds2025 = { Quarterfinal: 0, Semifinal: 0, Final: 0, "Third place": 0 };
+
+for (const game of archive.playoffs2025) {
+  if (!(game.round in rounds2025)) throw new Error(`2025: unexpected playoff round ${game.round}`);
+  rounds2025[game.round] += 1;
+  for (const team of [game.winner, game.loser]) {
+    const manager = managerForTeam(2025, team);
+    if (!manager || !historicalManagers.has(manager)) {
+      throw new Error(`2025: unresolved playoff franchise for ${team}`);
+    }
+  }
+  if (!Number.isFinite(game.winnerPoints) || !Number.isFinite(game.loserPoints)
+    || game.winnerPoints <= game.loserPoints) {
+    throw new Error(`2025 ${game.round}: invalid playoff score`);
+  }
+}
+
+if (JSON.stringify(rounds2025) !== JSON.stringify({ Quarterfinal: 4, Semifinal: 2, Final: 1, "Third place": 1 })) {
+  throw new Error(`2025: unexpected playoff rounds ${JSON.stringify(rounds2025)}`);
+}
+const final2025 = archive.playoffs2025.find(game => game.round === "Final");
+const thirdPlace2025 = archive.playoffs2025.find(game => game.round === "Third place");
+if (final2025.winner !== season2025.champion.team || final2025.loser !== season2025.runnerUp
+  || thirdPlace2025.winner !== season2025.thirdPlace) {
+  throw new Error("2025 playoffs do not match the verified podium");
+}
+
+const totalPostseasonGames = verifiedPlayoffGames + archive.playoffs2025.length;
+if (totalPostseasonGames !== 52 || archive.seasons.filter(season => season.champion.manager).length !== 7) {
+  throw new Error(`Unexpected franchise record scope: ${totalPostseasonGames} playoff games`);
+}
+
+console.log(`Static site verified: ${routes.length} routes, ${historicalManagers.size} franchises, ${verifiedMatchups} regular-season and ${totalPostseasonGames} playoff Yahoo matchups.`);

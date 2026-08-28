@@ -230,6 +230,47 @@ tbody tr:hover td { background: rgba(184, 255, 61, 0.045); }
 .h2h-table .h2h-win, .h2h-table .positive { color: var(--grass); font-weight: 800; }
 .h2h-table .negative { color: var(--red); font-weight: 800; }
 
+.franchise-leaders { background: linear-gradient(180deg, rgba(125, 216, 255, 0.045), transparent 52%); }
+.franchise-dossier-section { overflow: hidden; }
+.franchise-board {
+  display: grid;
+  grid-template-columns: minmax(230px, 0.42fr) minmax(0, 1.58fr);
+  border: 1px solid var(--line);
+  background: var(--paper-soft);
+}
+.franchise-control { padding: 30px; border-right: 1px solid var(--line); }
+.franchise-control label { color: var(--muted); font-size: 0.68rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
+.franchise-control select { display: block; width: 100%; margin-top: 12px; padding: 13px; border: 1px solid var(--line); border-radius: 0; background: var(--paper); color: var(--ink); }
+.franchise-control p { margin: 26px 0 0; color: var(--muted); font-size: 0.84rem; }
+.franchise-profile { position: relative; min-width: 0; background:
+  linear-gradient(90deg, transparent 49.8%, rgba(184, 255, 61, 0.06) 50%, transparent 50.2%),
+  linear-gradient(145deg, rgba(184, 255, 61, 0.05), transparent 44%); }
+.franchise-profile-head { position: relative; display: flex; min-height: 225px; padding: 34px 38px 28px; overflow: hidden; justify-content: space-between; }
+.franchise-kicker { color: var(--grass); font-size: 0.7rem; font-weight: 800; letter-spacing: 0.13em; text-transform: uppercase; }
+.franchise-profile h3 { position: relative; z-index: 1; max-width: 720px; margin: 38px 0 8px; font-size: clamp(2.8rem, 6vw, 5.6rem); letter-spacing: -0.055em; }
+.franchise-profile-head p { position: relative; z-index: 1; margin: 0; color: var(--gold); font-size: 0.86rem; font-weight: 700; }
+.franchise-number { position: absolute; right: 18px; bottom: -42px; color: rgba(184, 255, 61, 0.075); font-family: var(--display); font-size: clamp(9rem, 19vw, 15rem); line-height: 1; }
+.franchise-aliases { display: grid; grid-template-columns: 150px 1fr; padding: 20px 38px; border-top: 1px solid var(--line); gap: 20px; }
+.franchise-aliases > span { padding-top: 5px; color: var(--muted); font-size: 0.66rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
+.franchise-aliases > div { display: flex; flex-wrap: wrap; gap: 7px; }
+.franchise-aliases small { padding: 5px 9px; border: 1px solid var(--line); color: var(--ink); font-size: 0.7rem; }
+.franchise-metrics { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--line); }
+.franchise-metrics > div { min-height: 145px; padding: 24px; }
+.franchise-metrics > div + div { border-left: 1px solid var(--line); }
+.franchise-metrics span, .franchise-metrics small { display: block; color: var(--muted); }
+.franchise-metrics span { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.11em; text-transform: uppercase; }
+.franchise-metrics strong { display: block; margin-top: 25px; font-family: var(--display); font-size: clamp(1.4rem, 2.6vw, 2.15rem); line-height: 1; text-transform: uppercase; }
+.franchise-metrics small { margin-top: 9px; color: var(--grass); font-size: 0.74rem; font-weight: 700; }
+.franchise-season-grid { display: grid; grid-template-columns: repeat(4, 1fr); margin-top: 18px; gap: 12px; }
+.franchise-season { position: relative; min-height: 180px; padding: 20px; border: 1px solid var(--line); background: var(--paper-soft); }
+.franchise-season > div { display: flex; justify-content: space-between; color: var(--muted); font-size: 0.7rem; font-weight: 800; letter-spacing: 0.1em; }
+.franchise-season > div strong { color: var(--grass); }
+.franchise-season h3 { margin: 34px 0 8px; font-family: var(--body); font-size: 0.98rem; line-height: 1.2; text-transform: none; }
+.franchise-season p { margin: 0; color: var(--muted); font-size: 0.78rem; }
+.franchise-season small { position: absolute; right: 18px; bottom: 16px; color: var(--gold); font-size: 0.66rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.franchise-season.champion { border-color: var(--gold); background: linear-gradient(145deg, rgba(255, 180, 67, 0.13), var(--paper-soft) 56%); }
+.franchise-table .franchise-title-count { color: var(--gold); font-family: var(--display); }
+
 .bars { display: grid; gap: 12px; }
 .bar-row { display: grid; grid-template-columns: 190px 1fr 72px; align-items: center; gap: 16px; }
 .bar-label { overflow: hidden; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
@@ -264,6 +305,12 @@ tbody tr:hover td { background: rgba(184, 255, 61, 0.045); }
   .duel-summary { grid-template-columns: 1fr; }
   .duel-summary > div { min-height: 0; }
   .duel-summary > div + div { border-top: 1px solid var(--line); border-left: 0; }
+  .franchise-board { grid-template-columns: 1fr; }
+  .franchise-control { border-right: 0; border-bottom: 1px solid var(--line); }
+  .franchise-metrics { grid-template-columns: repeat(2, 1fr); }
+  .franchise-metrics > div:nth-child(3) { border-top: 1px solid var(--line); border-left: 0; }
+  .franchise-metrics > div:nth-child(4) { border-top: 1px solid var(--line); }
+  .franchise-season-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
 @media (max-width: 580px) {
@@ -280,6 +327,12 @@ tbody tr:hover td { background: rgba(184, 255, 61, 0.045); }
   .season summary { grid-template-columns: 72px 1fr; gap: 12px; }
   .season-toggle { display: none; }
   .bar-row { grid-template-columns: 125px 1fr 58px; gap: 10px; }
+  .franchise-profile-head { min-height: 200px; padding: 28px 22px 24px; }
+  .franchise-aliases { grid-template-columns: 1fr; padding: 18px 22px; gap: 10px; }
+  .franchise-metrics { grid-template-columns: 1fr; }
+  .franchise-metrics > div { min-height: 0; }
+  .franchise-metrics > div + div, .franchise-metrics > div:nth-child(3) { border-top: 1px solid var(--line); border-left: 0; }
+  .franchise-season-grid { grid-template-columns: 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {

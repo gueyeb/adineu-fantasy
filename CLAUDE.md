@@ -12,7 +12,8 @@ Read `AGENTS.md` first; its repository, testing, identity, and security rules ar
 - Yahoo championship brackets are complete: 44 authenticated games for 2019–2024 in `public/data/yahoo-playoffs.json`, plus eight verified 2025 games in the history archive.
 - `/matchups/` now exposes all-time regular-season head-to-head records with a manager selector.
 - `/matchups/` also exposes all 52 postseason games by year and all-time postseason leaders.
-- Next data milestone: add deeper franchise records and power rankings.
+- `/franchises/` exposes 16 manager dossiers with aliases, season cards, regular-season totals, postseason records, finals, podiums, and titles.
+- Next data milestone: add 2026 power rankings after Sleeper starts returning real matchups.
 
 ## Access Matrix
 
