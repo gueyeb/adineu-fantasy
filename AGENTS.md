@@ -4,7 +4,8 @@
 
 - `scripts/sync-sleeper.js` fetches Sleeper data and upserts it into Supabase.
 - `supabase/schema.sql` defines tables, constraints, RLS policies, and `v_standings`.
-- `public/` contains six static routes, shared assets, Yahoo history, 609 verified regular-season matchups, and 44 archived playoff games.
+- `public/` contains seven static routes, shared assets, Yahoo history, 609 verified regular-season matchups, and 44 archived playoff games.
+- `public/assets/power-rankings.js` contains the pure 2026 ranking calculation; tests live in `test/`.
 - `supabase/yahoo-sleeper-reconciliation.md` records identity evidence and approvals.
 - `.env.example` documents server configuration; keep local values in `.env`.
 
@@ -17,6 +18,8 @@ Keep platform sources, Supabase, and the read-only UI separate. Sleeper is live 
 The `/franchises/` route derives all-time records client-side from the three public Yahoo archives. A franchise means one confirmed manager identity, even when team names change. Keep regular-season and postseason records separate, and never turn their display order into an undocumented power-ranking formula.
 
 The Hall of Fame record book also derives from the matchup archives. Single-game records use regular-season matchups unless labeled postseason. Winning streaks reset at every season boundary and exclude playoffs. Preserve ties at display cutoffs instead of selecting an arbitrary fixed number of rows.
+
+The `/power-rankings/` route activates only after two completed regular-season weeks for all 12 teams. Its score is 45% win-rate percentile, 35% points-per-game percentile, and 20% recent three-week margin percentile. Exclude the live week and playoffs, preserve tied scores/ranks, and never publish a pre-draft projection as a real ranking.
 
 ## Yahoo Data & Access
 
@@ -32,6 +35,7 @@ Supabase server credentials live only in ignored environment files and productio
 
 - `npm install` installs dependencies.
 - `npm run dev` serves `public/` at `http://localhost:8000`.
+- `npm test` runs the Node unit tests for the Power Rankings engine.
 - `npm run check` validates routes, assets, season totals, regular-season reconciliation, playoff rounds, and podiums.
 - `npm run sync:sleeper` runs the idempotent Sleeper-to-Supabase synchronization. It requires `SUPABASE_URL` and `SUPABASE_SECRET_KEY`; `SLEEPER_LEAGUE_ID` and `SEASON_YEAR` are optional overrides.
 
@@ -43,7 +47,7 @@ Use two-space indentation in JavaScript, HTML, and CSS. Follow existing ES modul
 
 ## Testing Guidelines
 
-Add focused tests under `test/`, named like `sync-sleeper.test.js`, plus an `npm test` script. Cover API failures, matchup pairing, and repeat-run behavior. For schema changes, verify constraints, public-read policies, and private platform identifiers.
+Add focused tests under `test/`, named like `sync-sleeper.test.js`. For ranking changes, cover activation thresholds, incomplete coverage, live-week/playoff exclusion, and ties. For schema changes, verify constraints, public-read policies, and private platform identifiers.
 
 ## Commit & Pull Request Guidelines
 

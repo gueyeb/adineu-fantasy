@@ -288,6 +288,49 @@ tbody tr:hover td { background: rgba(184, 255, 61, 0.045); }
 .franchise-season.champion { border-color: var(--gold); background: linear-gradient(145deg, rgba(255, 180, 67, 0.13), var(--paper-soft) 56%); }
 .franchise-table .franchise-title-count { color: var(--gold); font-family: var(--display); }
 
+.power-command { background:
+  linear-gradient(90deg, rgba(184, 255, 61, 0.025) 1px, transparent 1px),
+  linear-gradient(rgba(184, 255, 61, 0.025) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+.power-status-grid { display: grid; grid-template-columns: 1.05fr 1.25fr 1fr; border: 1px solid var(--line); background: var(--line); gap: 1px; }
+.power-status { min-height: 220px; padding: 28px; background: var(--paper-soft); }
+.power-status > span, .power-status small { display: block; color: var(--muted); }
+.power-status > span { font-size: 0.68rem; font-weight: 800; letter-spacing: 0.13em; text-transform: uppercase; }
+.power-status strong { display: block; margin-top: 48px; font-family: var(--display); font-size: clamp(1.45rem, 3vw, 2.75rem); line-height: 1; text-transform: uppercase; }
+.power-status small { margin-top: 14px; color: var(--gold); font-size: 0.76rem; font-weight: 700; }
+.power-status-primary { background: var(--grass); color: #10180d; }
+.power-status-primary > span, .power-status-primary small { color: rgba(16, 24, 13, 0.68); }
+.power-ranking-section { background: linear-gradient(180deg, rgba(184, 255, 61, 0.045), transparent 58%); }
+.power-gate { display: grid; grid-template-columns: minmax(230px, 0.5fr) minmax(0, 1.5fr); border: 1px solid var(--line); background: var(--paper-soft); }
+.power-lock { position: relative; display: grid; min-height: 330px; place-items: center; border-right: 1px solid var(--line); background: var(--panel); }
+.power-lock span { position: absolute; width: 88px; height: 74px; margin-top: 48px; border: 8px solid var(--grass); }
+.power-lock span::before { position: absolute; bottom: 66px; left: 14px; width: 44px; height: 48px; border: 8px solid var(--grass); border-bottom: 0; border-radius: 34px 34px 0 0; content: ""; }
+.power-lock strong { position: relative; z-index: 1; margin-top: 48px; color: var(--paper); font-family: var(--display); font-size: 1.4rem; }
+.power-gate-copy { padding: 48px; }
+.power-gate-copy h2 { max-width: 720px; margin: 0; font-size: clamp(2.4rem, 5vw, 4.8rem); letter-spacing: -0.045em; }
+.power-gate-copy > p:not(.eyebrow) { max-width: 720px; margin: 22px 0 0; color: var(--muted); }
+.power-progress { height: 12px; margin-top: 34px; overflow: hidden; background: var(--panel); }
+.power-progress span { display: block; height: 100%; background: var(--grass); }
+.power-gate-copy small { display: block; margin-top: 12px; color: var(--gold); font-size: 0.73rem; font-weight: 700; }
+.power-formula-grid { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--line); background: var(--line); gap: 1px; }
+.power-formula { position: relative; min-height: 290px; padding: 28px; overflow: hidden; background: var(--paper-soft); }
+.power-formula > span { color: var(--muted); font-size: 0.68rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
+.power-formula > strong { position: absolute; right: 16px; top: 7px; color: rgba(184, 255, 61, 0.09); font-family: var(--display); font-size: clamp(5rem, 9vw, 8rem); line-height: 1; }
+.power-formula h3 { position: relative; margin: 120px 0 12px; font-size: clamp(1.5rem, 3vw, 2.25rem); }
+.power-formula p { position: relative; margin: 0; color: var(--muted); font-size: 0.86rem; }
+.power-podium { display: grid; grid-template-columns: repeat(3, 1fr); margin-bottom: 18px; border: 1px solid var(--line); background: var(--line); gap: 1px; }
+.power-podium article { min-height: 190px; padding: 24px; background: var(--paper-soft); }
+.power-podium article:first-child { background: var(--grass); color: #10180d; }
+.power-podium span, .power-podium small { display: block; color: var(--muted); }
+.power-podium span { font-size: 0.66rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
+.power-podium strong { display: block; margin-top: 40px; font-family: var(--display); font-size: clamp(1.4rem, 3vw, 2.2rem); line-height: 1; text-transform: uppercase; }
+.power-podium small { margin-top: 10px; color: var(--gold); font-size: 0.74rem; font-weight: 700; }
+.power-podium article:first-child span, .power-podium article:first-child small { color: rgba(16, 24, 13, 0.68); }
+.power-table .power-score { color: var(--grass); font-family: var(--display); }
+.power-table .positive { color: var(--grass); font-weight: 800; }
+.power-table .negative { color: var(--red); font-weight: 800; }
+
 .bars { display: grid; gap: 12px; }
 .bar-row { display: grid; grid-template-columns: 190px 1fr 72px; align-items: center; gap: 16px; }
 .bar-label { overflow: hidden; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
@@ -330,6 +373,10 @@ tbody tr:hover td { background: rgba(184, 255, 61, 0.045); }
   .franchise-metrics > div:nth-child(3) { border-top: 1px solid var(--line); border-left: 0; }
   .franchise-metrics > div:nth-child(4) { border-top: 1px solid var(--line); }
   .franchise-season-grid { grid-template-columns: repeat(2, 1fr); }
+  .power-status-grid, .power-formula-grid, .power-podium { grid-template-columns: 1fr; }
+  .power-status { min-height: 185px; }
+  .power-gate { grid-template-columns: 1fr; }
+  .power-lock { min-height: 220px; border-right: 0; border-bottom: 1px solid var(--line); }
 }
 
 @media (max-width: 580px) {
@@ -352,6 +399,7 @@ tbody tr:hover td { background: rgba(184, 255, 61, 0.045); }
   .franchise-metrics > div { min-height: 0; }
   .franchise-metrics > div + div, .franchise-metrics > div:nth-child(3) { border-top: 1px solid var(--line); border-left: 0; }
   .franchise-season-grid { grid-template-columns: 1fr; }
+  .power-gate-copy { padding: 32px 22px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

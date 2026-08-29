@@ -1,10 +1,15 @@
+import { calculatePowerRankings, MINIMUM_COMPLETED_WEEKS, POWER_WEIGHTS } from "./power-rankings.js?v=1";
+
 const SUPABASE_URL = "https://juosrzsffvjprqhdyado.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_7Bu9q2dKz0WEol94OGVhHw_xjSwHeHu";
 const CURRENT_SEASON = 2026;
+const SLEEPER_API = "https://api.sleeper.app/v1";
+const SLEEPER_LEAGUE_ID = "1392715510830878721";
 
 const routes = [
   ["home", "/", "Accueil"],
   ["standings", "/standings/", "Classements"],
+  ["power-rankings", "/power-rankings/", "Power"],
   ["matchups", "/matchups/", "Matchups"],
   ["history", "/history/", "Historique"],
   ["hall-of-fame", "/hall-of-fame/", "Hall of Fame"],
@@ -187,6 +192,38 @@ async function loadLiveStandings() {
   );
   if (!response.ok) throw new Error(`Supabase HTTP ${response.status}`);
   return response.json();
+}
+
+async function loadSleeperResource(path) {
+  const response = await fetch(`${SLEEPER_API}${path}`, { cache: "no-store" });
+  if (!response.ok) throw new Error(`Sleeper HTTP ${response.status}`);
+  return response.json();
+}
+
+async function loadSleeperMatchups() {
+  const select = "week,points,opponent_points,is_playoff,team:teams!matchups_team_id_fkey(team_name,season:seasons!inner(year,platform),owner:owners(display_name))";
+  const query = new URLSearchParams({
+    select,
+    "team.season.year": `eq.${CURRENT_SEASON}`,
+    "team.season.platform": "eq.sleeper"
+  });
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/matchups?${query}`, {
+    cache: "no-store",
+    headers: {
+      apikey: SUPABASE_PUBLISHABLE_KEY,
+      Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}`
+    }
+  });
+  if (!response.ok) throw new Error(`Supabase HTTP ${response.status}`);
+  const rows = await response.json();
+  return rows.map(row => ({
+    week: row.week,
+    manager: row.team?.owner?.display_name,
+    team: row.team?.team_name,
+    points: row.points,
+    opponentPoints: row.opponent_points,
+    isPlayoff: row.is_playoff
+  }));
 }
 
 function standingsTable(rows, isLive = false) {
@@ -761,9 +798,113 @@ async function renderFranchises(data) {
   showFranchise(managerSelect.value);
 }
 
+function sleeperStatusLabel(status) {
+  return ({
+    pre_draft: "Pré-draft",
+    drafting: "Draft en cours",
+    in_season: "Saison en cours",
+    complete: "Terminée"
+  })[status] || status || "À confirmer";
+}
+
+function formatDraftDate(timestamp) {
+  if (!Number.isFinite(Number(timestamp))) return "À programmer";
+  const formatted = new Intl.DateTimeFormat("fr-FR", {
+    timeZone: "Europe/Paris",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(new Date(Number(timestamp)));
+  return formatted.charAt(0).toUpperCase() + formatted.slice(1).replace(" à ", " · ");
+}
+
+async function renderPowerRankings() {
+  const [league, nflState, standings, matchupRows] = await Promise.all([
+    loadSleeperResource(`/league/${SLEEPER_LEAGUE_ID}`),
+    loadSleeperResource("/state/nfl"),
+    loadLiveStandings(),
+    loadSleeperMatchups()
+  ]);
+  const draft = league.draft_id
+    ? await loadSleeperResource(`/draft/${league.draft_id}`)
+    : null;
+  const expectedManagers = [...new Set(standings.map(row => row.owner_name).filter(Boolean))];
+  const currentWeek = league.status === "in_season" && nflState.season_type === "regular"
+    ? Number(nflState.week)
+    : null;
+  const result = calculatePowerRankings(matchupRows, { currentWeek, expectedManagers });
+  const leagueStatus = sleeperStatusLabel(league.status);
+  const draftDate = formatDraftDate(draft?.start_time);
+  const teamCount = Number(league.total_rosters) || standings.length;
+  const draftFormat = draft?.type === "snake" ? "Serpent" : draft?.type || "À confirmer";
+  const draftRounds = Number(draft?.settings?.rounds) || 0;
+  const pickTimer = Number(draft?.settings?.pick_timer) || 0;
+  const progress = Math.min(result.completedWeekCount / MINIMUM_COMPLETED_WEEKS, 1) * 100;
+  const latestWeek = result.completedWeeks.at(-1);
+
+  const rankingContent = result.ready ? `
+    <div class="power-podium">${result.rankings.slice(0, 3).map((row, index) => `<article>
+      <span>#${row.rank} · ${index === 0 ? "Leader" : "Challenger"}</span>
+      <strong>${escapeHtml(row.manager)}</strong>
+      <small>${escapeHtml(row.team)} · ${formatPoints(row.powerScore, 1)}</small>
+    </article>`).join("")}</div>
+    <div class="table-wrap power-table"><table>
+      <thead><tr><th>Rang</th><th>Manager</th><th>Équipe</th><th class="num">Power</th><th class="num">Bilan</th><th class="num">PPG</th><th class="num">Marge 3 sem.</th></tr></thead>
+      <tbody>${result.rankings.map(row => `<tr>
+        <td class="rank">#${row.rank}</td><td class="team-name">${escapeHtml(row.manager)}</td><td>${escapeHtml(row.team)}</td>
+        <td class="num power-score">${formatPoints(row.powerScore, 1)}</td>
+        <td class="num">${row.wins}—${row.losses}${row.ties ? `—${row.ties}` : ""}</td>
+        <td class="num">${formatPoints(row.pointsPerGame, 1)}</td>
+        <td class="num ${row.recentMargin >= 0 ? "positive" : "negative"}">${row.recentMargin >= 0 ? "+" : ""}${formatPoints(row.recentMargin, 1)}</td>
+      </tr>`).join("")}</tbody>
+    </table></div>
+    <p class="note"><strong>Données arrêtées :</strong> semaine ${latestWeek}. La semaine live et les playoffs sont exclus du calcul.</p>` : `
+    <div class="power-gate" aria-live="polite">
+      <div class="power-lock" aria-hidden="true"><span></span><strong>${result.completedWeekCount}/${MINIMUM_COMPLETED_WEEKS}</strong></div>
+      <div class="power-gate-copy">
+        <p class="eyebrow">Classement verrouillé</p>
+        <h2>Le terrain n’a pas encore parlé.</h2>
+        <p>Le premier Power Ranking sera publié automatiquement après deux semaines régulières complètes pour les ${teamCount} équipes. Aucun classement pré-draft ne sera inventé.</p>
+        <div class="power-progress" aria-label="${result.completedWeekCount} semaine complète sur ${MINIMUM_COMPLETED_WEEKS}"><span style="width:${progress}%"></span></div>
+        <small>${result.teamsReady}/${teamCount} équipes ont actuellement le minimum de résultats requis.</small>
+      </div>
+    </div>`;
+
+  document.getElementById("app").innerHTML = `${pageHero("Power Rankings · 2026", "Mesurer le <em>momentum.</em>", "Un thermomètre transparent de la saison Sleeper — jamais une opinion déguisée en statistique.", { label: "Publication", value: result.ready ? `S${latestWeek}` : `${result.completedWeekCount}/2`, note: result.ready ? "Mise à jour automatique" : "2 semaines complètes requises" })}
+    <section class="section power-command"><div class="shell">
+      <div class="section-head"><div><p class="eyebrow">Live Sleeper</p><h2>La salle de contrôle.</h2></div><a class="source-link" href="https://sleeper.com/leagues/${SLEEPER_LEAGUE_ID}" target="_blank" rel="noreferrer">Ouvrir la ligue Sleeper ↗</a></div>
+      <div class="power-status-grid">
+        <article class="power-status power-status-primary"><span>Saison 2026</span><strong>${escapeHtml(leagueStatus)}</strong><small>${teamCount} équipes confirmées</small></article>
+        <article class="power-status"><span>Draft</span><strong>${escapeHtml(draftDate)}</strong><small>${escapeHtml(sleeperStatusLabel(draft?.status))}</small></article>
+        <article class="power-status"><span>Format</span><strong>${escapeHtml(draftFormat)} · ${draftRounds || "—"}</strong><small>${draftRounds ? `${draftRounds} tours` : "Tours à confirmer"}${pickTimer ? ` · ${pickTimer} s par choix` : ""}</small></article>
+      </div>
+    </div></section>
+
+    <section class="section power-ranking-section"><div class="shell">
+      <div class="section-head"><div><p class="eyebrow">Indice de forme</p><h2>Le classement du présent.</h2></div><p>Les résultats comptent plus que le bruit. Le scoring et la dynamique récente départagent les bilans.</p></div>
+      ${rankingContent}
+    </div></section>
+
+    <section class="section"><div class="shell">
+      <div class="section-head"><div><p class="eyebrow">Méthode publique</p><h2>Trois signaux. Zéro boîte noire.</h2></div><p>Chaque métrique est transformée en percentile parmi les 12 équipes avant pondération. Une égalité parfaite reste une égalité.</p></div>
+      <div class="power-formula-grid">
+        <article class="power-formula"><span>01 · Résultats</span><strong>${Math.round(POWER_WEIGHTS.winRate * 100)}%</strong><h3>Taux de victoire</h3><p>Une égalité compte comme une demi-victoire.</p></article>
+        <article class="power-formula"><span>02 · Production</span><strong>${Math.round(POWER_WEIGHTS.pointsPerGame * 100)}%</strong><h3>Points par match</h3><p>La force offensive sur toutes les semaines terminées.</p></article>
+        <article class="power-formula"><span>03 · Forme</span><strong>${Math.round(POWER_WEIGHTS.recentMargin * 100)}%</strong><h3>Marge récente</h3><p>Le différentiel moyen sur les trois dernières semaines complètes.</p></article>
+      </div>
+      <p class="note"><strong>Garde-fous :</strong> saison régulière uniquement, semaine en cours exclue, couverture complète des équipes obligatoire. Le score va de 0 à 100 et ne remplace pas le classement officiel.</p>
+    </div></section>`;
+}
+
 async function start() {
   const app = document.getElementById("app");
   try {
+    if (page === "power-rankings") {
+      await renderPowerRankings();
+      return;
+    }
     const data = await loadHistory();
     if (page === "home") await renderHome(data);
     if (page === "standings") await renderStandings(data);

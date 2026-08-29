@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "python3 -m http.server 8000 -d public",
     "check": "node scripts/verify-static.js",
+    "test": "node --test",
     "sync:sleeper": "node scripts/sync-sleeper.js",
     "sync:sleeper:production": "node --env-file=.env.production scripts/sync-sleeper.js"
   },

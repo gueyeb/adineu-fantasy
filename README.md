@@ -2,13 +2,14 @@
 
 Public clubhouse and data pipeline for **Adineu**, a friends' NFL fantasy football league. The live site combines a verified Yahoo archive for 2019–2025 with [Sleeper](https://sleeper.com/) data from 2026 onward.
 
-Status: **live** at [adineu-fantasy.bakene.tech](https://adineu-fantasy.bakene.tech/). The 2026 Sleeper league now has all 12 managers and 12 rosters synced to Supabase.
+Status: **live** at [adineu-fantasy.bakene.tech](https://adineu-fantasy.bakene.tech/). The 2026 Sleeper league has all 12 managers and rosters synced; its draft is scheduled for September 6 at 22:00 Paris time.
 
 ## What's here
 
 - `supabase/schema.sql` — Postgres schema (owners, seasons, teams, matchups + a `v_standings` view). Designed so a season from any platform (Sleeper, Yahoo, eventually the old NFL Fantasy) slots into the same tables — no schema change per source.
 - `scripts/sync-sleeper.js` — pulls the live league from Sleeper's public API (no auth required) and upserts it into Supabase. Idempotent, safe to re-run or schedule.
-- `public/` — framework-free clubhouse with home, standings, matchups, history, Hall of Fame, and franchise routes.
+- `public/` — framework-free clubhouse with seven routes, including a data-ready 2026 Power Rankings page.
+- `public/assets/power-rankings.js` — pure, tested ranking engine. It waits for two complete regular-season weeks before publishing.
 - `public/data/yahoo-history.json` — season-scoped Yahoo archive: podiums, final standings, weekly highs and 2025 player leaders.
 - `public/data/yahoo-matchups.json` — 609 verified regular-season matchups for 2019–2025, with manager mappings and source URLs.
 - `public/data/yahoo-playoffs.json` — 44 authenticated championship-bracket matchups for 2019–2024; the UI combines them with the eight verified 2025 playoff games.
@@ -30,7 +31,7 @@ Yahoo profile history confirms all 88 team-season identities across 16 historica
    npm run sync:sleeper   # uses environment variables already exported by the shell
    npm run sync:sleeper:production # loads the ignored .env.production file
    ```
-3. Run `npm run dev` and open `http://localhost:8000`. Use `npm run check` to validate every route and archived season before deployment. Never expose the secret key in browser code.
+3. Run `npm run dev` and open `http://localhost:8000`. Use `npm test` for ranking logic and `npm run check` to validate every route and archived season before deployment. Never expose the secret key in browser code.
 
 Production is served by Coolify behind Cloudflare. n8n triggers the deployed sync weekly; the production command above is the manual refresh path. The sync is idempotent, so rerunning it updates existing rows instead of duplicating them.
 
@@ -55,7 +56,7 @@ That is the intended API path, but it is **not the source of the current archive
 4. Yahoo championship brackets and postseason records for 2019–2025 ✅
 5. All-time franchise dossiers and record table across 16 managers ✅
 6. All-time single-game records and regular-season winning streaks ✅
-7. Add 2026 power rankings once Sleeper matchups begin
+7. 2026 Power Rankings route, formula, tests, and automatic two-week activation ✅ (live rankings await real matchups)
 8. Nice-to-haves: draft grades and trade analyzer
 
 ## License

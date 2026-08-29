@@ -5,7 +5,7 @@ Read `AGENTS.md` first; its repository, testing, identity, and security rules ar
 ## Current State
 
 - Production: `https://adineu-fantasy.bakene.tech/`
-- Sleeper 2026: league `1392715510830878721`, 12 owners and 12 rosters, currently `pre_draft`.
+- Sleeper 2026: league `1392715510830878721`, 12 owners and 12 rosters, currently `pre_draft`. Draft `1392715511942352896` is scheduled for Sunday, September 6, 2026 at 22:00 Paris time (snake, 15 rounds, 90-second picks).
 - Yahoo archive: 2019–2025, seven seasons, 88/88 team-season identities across 16 managers.
 - Birama is a Yahoo-only owner for `El Fenomeno` (2019) and `Ethan Hunt` (2020). Jonnel played both 2019 and 2020.
 - Regular-season Yahoo scoreboards are complete: 609 matchups in `public/data/yahoo-matchups.json`, all reconciled against final W/L/T/PF/PA.
@@ -14,7 +14,11 @@ Read `AGENTS.md` first; its repository, testing, identity, and security rules ar
 - `/matchups/` also exposes all 52 postseason games by year and all-time postseason leaders.
 - `/franchises/` exposes 16 manager dossiers with aliases, season cards, regular-season totals, postseason records, finals, podiums, and titles.
 - `/hall-of-fame/` includes verified single-game records, every regular-season winning streak of at least seven games, and separate postseason records.
-- Next data milestone: add 2026 power rankings after Sleeper starts returning real matchups.
+- `/power-rankings/` is data-ready and intentionally locked at 0/2 until every team has two complete regular-season weeks. It then activates automatically from Supabase matchups.
+
+## Power Rankings Contract
+
+`public/assets/power-rankings.js` is the pure, unit-tested engine. The public score uses percentiles: 45% win rate, 35% points per game, and 20% average margin over the latest three completed weeks. Ties count as half a win. Exclude playoffs and the live current week; require two completed weeks for all 12 teams; preserve tied scores and ranks. Never substitute draft opinions, roster projections, or partial-week scores.
 
 ## Access Matrix
 
@@ -60,4 +64,4 @@ Yahoo throttles rapid archived-page navigation. Process one season at a time. If
 
 ## Verification
 
-Run `npm run check`, `git diff --check`, and a focused secret scan before committing. Keep the untracked `env.example` untouched unless the user explicitly asks to add it.
+Run `npm test`, `npm run check`, `git diff --check`, and a focused secret scan before committing. Keep the untracked `env.example` untouched unless the user explicitly asks to add it.
