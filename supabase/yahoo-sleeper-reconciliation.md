@@ -4,13 +4,13 @@ This checklist deliberately separates evidence from approval. Do not merge `owne
 
 ## 2025 → 2026 Matches — confirmed by Babacar (2026-08-27)
 
-All 12 Yahoo managers are now linked to a Sleeper owner. Together with the four Yahoo-only managers, the archive is fully reconciled at 88/88 team-season identities.
+All 12 Yahoo managers are now linked to a Sleeper owner. Together with the three Yahoo-only managers, the archive is fully reconciled at 88/88 team-season identities.
 
 | Yahoo manager | Yahoo team | Sleeper owner / team | Evidence | Status |
 | --- | --- | --- | --- | --- |
 | babttz | Boukki 🦅 | `t0z` / Boukki | Same team name | Confirmed |
 | Tamsir | Flemme | `flemme` / flemme | Same team name | Confirmed |
-| Bombeul22 | The Bad Man | `bm2222` / The Bad Man | Same team name | Confirmed |
+| Birama (`Bombeul22`) | The Bad Man | `bm2222` / The Bad Man | Commissioner confirmed the complete 2019–2026 identity chain | Confirmed 2026-08-30 |
 | Ado | Estocade | `ESTOCADE` / Estocade | Same team name | Confirmed |
 | Olivier | The energy's team | `Dioguito17` / The Energy's Team | Same team name | Confirmed |
 | Abdoulaye | Binaries | `layemasterz` / Binaries | Same team name | Confirmed |
@@ -28,17 +28,17 @@ Sleeper's 12 owned rosters now all have a confirmed Yahoo manager on the other e
 - The same 12 Yahoo profile identities participated from 2022 through 2025, even when their team names changed.
 - Erwan and Mountaga participated in 2020–2021 and were absent from 2022 onward.
 - Jonnel is confirmed in both 2019 and 2020.
-- All 88 Yahoo team-season identities are confirmed across 16 historical managers.
+- All 88 Yahoo team-season identities are confirmed across 15 historical managers.
 
 ## Import Rule
 
 Once approved, attach the Yahoo platform ID to the existing canonical `owner_id` in `owner_platform_ids`, then upsert the season-specific `teams`. Never create cross-platform links from team-name similarity alone.
 
-**Status: applied to Supabase (2026-08-27).** All 12 confirmed pairs above are written to `owner_platform_ids` as `(owner_id, platform='yahoo', platform_user_id=<Yahoo manager display name>)`. No true Yahoo GUID was captured for these 12 profiles because the archive came from page extraction rather than the API; Birama's later profile link is the exception. Backfill the other GUIDs only if Yahoo exposes verified identifiers again.
+**Status: applied to Supabase (updated 2026-08-30).** All 12 confirmed pairs above are written to `owner_platform_ids`. Most Yahoo links still use the manager display name because the archive came from page extraction rather than the API; Birama's verified GUID is the exception. Backfill the other 14 GUIDs only if Yahoo exposes verified identifiers again.
 
-Erwan, Mountaga and Jonnel are also written in as canonical Yahoo-only `owners` rows, each with a single `yahoo` platform link and no Sleeper link. Jonnel played in 2019 and 2020. Birama is the fourth Yahoo-only owner and is linked with his verified Yahoo GUID.
+Erwan, Mountaga and Jonnel are also written in as canonical Yahoo-only `owners` rows, each with a single `yahoo` platform link and no Sleeper link. Jonnel played in 2019 and 2020. Birama is not Yahoo-only: his verified Yahoo GUID and Sleeper account `bm2222` belong to the same owner.
 
-## The final 16/88 — resolved 2026-08-27
+## The final 16 participations — resolved 2026-08-27
 
 Babacar confirmed 14 team-seasons directly from memory, then confirmed Birama's two seasons from Yahoo team pages and his linked profile. These updates moved `identityCoverage.confirmedParticipations` from 72 to 88:
 
@@ -57,10 +57,12 @@ Babacar confirmed 14 team-seasons directly from memory, then confirmed Birama's 
 
 **Resolved 2026-08-27 — 88/88.** Babacar confirmed both via Yahoo's own team pages (`/2020/f1/67190/1` = "Ethan Hunt", `/2019/f1/103079/1` = "El Fenomeno") and a linked Yahoo profile: both are **Birama**. Also confirmed: Jonnel played both the 2019 and 2020 seasons (not just 2020 as first thought) — already reflected above.
 
+**Identity correction 2026-08-30.** Babacar confirmed `bm2222 = Bombeul22 = El Fenomeno = Ethan Hunt`. The first reconciliation had incorrectly split Birama into a 2019–2020 Yahoo-only owner and a 2021–2026 current owner. No scores were missing; the 2021–2025 results were stored under `Bombeul22`.
+
 Applied:
-- `managerHistory` in `yahoo-history.json` gained a `Birama` entry (`2020: "Ethan Hunt"`, `2019: "El Fenomeno"`); `identityCoverage.confirmedParticipations` is now 88/88.
-- A new `owners` row for Birama, linked via `owner_platform_ids` (`platform='yahoo'`, `platform_user_id='EJDLPDHIUHU3DRTZ35VD2RQORU'` — his actual Yahoo profile GUID, not a display-name placeholder like the other 15 links, since Babacar's link happened to surface it).
+- `managerHistory` now has one `Birama` entry spanning all seven Yahoo seasons; `Bombeul22` remains an alias, not a separate manager.
+- The verified Yahoo GUID moved onto the owner linked to Sleeper `bm2222`; the display-name placeholder and orphan Birama owner were removed.
 
 Nice detail: YeezyJr's 2021 team was literally named "Sauvons le soldat Birama" — the group already knew him well enough to make it a running joke.
 
-The archive is now fully identity-complete. Next real question is whether to backfill true Yahoo GUIDs for the other 15 `owner_platform_ids` rows (currently keyed on display name) — not urgent, nothing depends on it today.
+The archive is now fully identity-complete across 15 people. Backfilling true Yahoo GUIDs for the other 14 owners remains optional; nothing depends on it today.

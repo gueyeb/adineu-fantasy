@@ -19,7 +19,7 @@ Status: **live** at [adineu-fantasy.bakene.tech](https://adineu-fantasy.bakene.t
 
 The group is moving from Yahoo to Sleeper for 2026. Rather than depend on any one platform, this keeps a small, owned copy of the league's data and serves it as a public read-only site. Historical participation is stored per season; similarly named teams are never assumed to be the same manager.
 
-Yahoo profile history confirms all 88 team-season identities across 16 historical managers, including a stable 12-manager core from 2022 through 2025. Birama closes the archive with `El Fenomeno` (2019) and `Ethan Hunt` (2020).
+Yahoo profile history confirms all 88 team-season identities across 15 historical managers, including a stable 12-manager core from 2022 through 2025. Birama spans all seven seasons: `El Fenomeno` (2019), `Ethan Hunt` (2020), Yahoo manager `Bombeul22` (2021–2025), and Sleeper account `bm2222` are one person.
 
 ## Setup
 
@@ -54,7 +54,7 @@ That is the intended API path, but it is **not the source of the current archive
 2. Yahoo archive and Hall of Fame for 2019–2025 ✅
 3. Yahoo regular-season scoreboards + all-time head-to-head view ✅
 4. Yahoo championship brackets and postseason records for 2019–2025 ✅
-5. All-time franchise dossiers and record table across 16 managers ✅
+5. All-time franchise dossiers and record table across 15 managers ✅
 6. All-time single-game records and regular-season winning streaks ✅
 7. 2026 Power Rankings route, formula, tests, and automatic two-week activation ✅ (live rankings await real matchups)
 8. Nice-to-haves: draft grades and trade analyzer

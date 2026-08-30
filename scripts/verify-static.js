@@ -16,7 +16,7 @@ const requiredAssets = [
 for (const route of routes) {
   const htmlPath = resolve(root, route, "index.html");
   const html = await readFile(htmlPath, "utf8");
-  if (!html.includes('src="/assets/site.js?v=7"')) throw new Error(`${htmlPath} does not load the current site.js`);
+  if (!html.includes('src="/assets/site.js?v=8"')) throw new Error(`${htmlPath} does not load the current site.js`);
   if (!html.includes('href="/assets/styles.css?v=7"')) throw new Error(`${htmlPath} does not load the current styles.css`);
   if (!html.includes('rel="icon" href="/favicon.svg"')) throw new Error(`${htmlPath} does not load the favicon`);
 }
@@ -71,8 +71,15 @@ if (claims.size !== archive.identityCoverage.confirmedParticipations) {
 }
 
 const historicalManagers = new Set(archive.managerHistory.map(profile => profile.manager));
-if (historicalManagers.size !== 16) {
-  throw new Error(`Expected 16 historical franchises, found ${historicalManagers.size}`);
+if (historicalManagers.size !== 15) {
+  throw new Error(`Expected 15 historical franchises, found ${historicalManagers.size}`);
+}
+
+const biramaProfile = archive.managerHistory.find(profile => profile.manager === "Birama");
+if (!biramaProfile || archive.managerHistory.some(profile => profile.manager === "Bombeul22")
+  || JSON.stringify(Object.keys(biramaProfile.seasons).map(Number).sort())
+    !== JSON.stringify([2019, 2020, 2021, 2022, 2023, 2024, 2025])) {
+  throw new Error("Birama identity is not merged across all seven Yahoo seasons");
 }
 
 const stableYears = [2022, 2023, 2024, 2025];
@@ -268,7 +275,16 @@ if (!approximately(combinedScoreRecord.team1.points + combinedScoreRecord.team2.
   || highestLossRecord.manager !== "Louis François" || !approximately(highestLossRecord.points, 167.06)) {
   throw new Error("Unexpected combined-score or highest-scoring loss record");
 }
-if (winningStreakRecord.manager !== "Bombeul22" || winningStreakRecord.year !== 2024
+const biramaRegularSides = regularRecordSides.filter(side => side.manager === "Birama");
+if (biramaRegularSides.length !== 97
+  || biramaRegularSides.filter(side => side.points > side.opponent.points).length !== 65
+  || biramaRegularSides.filter(side => side.points < side.opponent.points).length !== 32
+  || !approximately(biramaRegularSides.reduce((sum, side) => sum + side.points, 0), 12243.20)
+  || !approximately(biramaRegularSides.reduce((sum, side) => sum + side.opponent.points, 0), 11235.76)) {
+  throw new Error("Unexpected merged Birama regular-season record");
+}
+
+if (winningStreakRecord.manager !== "Birama" || winningStreakRecord.year !== 2024
   || winningStreakRecord.startWeek !== 5 || winningStreakRecord.endWeek !== 14
   || winningStreakRecord.wins !== 10) {
   throw new Error("Unexpected regular-season winning streak record");
@@ -395,7 +411,14 @@ const postseasonWins = postseasonRecordSides.filter(side => side.points > side.o
 const playoffHighRecord = maximum(postseasonRecordSides, side => side.points);
 const playoffBiggestWinRecord = maximum(postseasonWins, side => side.points - side.opponentPoints);
 const playoffClosestWinRecord = minimum(postseasonWins, side => side.points - side.opponentPoints);
-if (playoffHighRecord.manager !== "Bombeul22" || playoffHighRecord.year !== 2024
+const biramaPostseasonSides = postseasonRecordSides.filter(side => side.manager === "Birama");
+if (biramaPostseasonSides.length !== 13
+  || biramaPostseasonSides.filter(side => side.points > side.opponentPoints).length !== 10
+  || biramaPostseasonSides.filter(side => side.points < side.opponentPoints).length !== 3) {
+  throw new Error("Unexpected merged Birama postseason record");
+}
+
+if (playoffHighRecord.manager !== "Birama" || playoffHighRecord.year !== 2024
   || !approximately(playoffHighRecord.points, 186.98)) {
   throw new Error("Unexpected postseason scoring record");
 }

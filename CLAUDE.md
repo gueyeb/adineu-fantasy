@@ -6,13 +6,13 @@ Read `AGENTS.md` first; its repository, testing, identity, and security rules ar
 
 - Production: `https://adineu-fantasy.bakene.tech/`
 - Sleeper 2026: league `1392715510830878721`, 12 owners and 12 rosters, currently `pre_draft`. Draft `1392715511942352896` is scheduled for Sunday, September 6, 2026 at 22:00 Paris time (snake, 15 rounds, 90-second picks).
-- Yahoo archive: 2019–2025, seven seasons, 88/88 team-season identities across 16 managers.
-- Birama is a Yahoo-only owner for `El Fenomeno` (2019) and `Ethan Hunt` (2020). Jonnel played both 2019 and 2020.
+- Yahoo archive: 2019–2025, seven seasons, 88/88 team-season identities across 15 managers.
+- Birama played all seven Yahoo seasons: `El Fenomeno` (2019), `Ethan Hunt` (2020), then Yahoo manager `Bombeul22` (2021–2025). His Sleeper account is `bm2222`; these aliases are one canonical owner. Jonnel played both 2019 and 2020.
 - Regular-season Yahoo scoreboards are complete: 609 matchups in `public/data/yahoo-matchups.json`, all reconciled against final W/L/T/PF/PA.
 - Yahoo championship brackets are complete: 44 authenticated games for 2019–2024 in `public/data/yahoo-playoffs.json`, plus eight verified 2025 games in the history archive.
 - `/matchups/` now exposes all-time regular-season head-to-head records with a manager selector.
 - `/matchups/` also exposes all 52 postseason games by year and all-time postseason leaders.
-- `/franchises/` exposes 16 manager dossiers with aliases, season cards, regular-season totals, postseason records, finals, podiums, and titles.
+- `/franchises/` exposes 15 manager dossiers with aliases, season cards, regular-season totals, postseason records, finals, podiums, and titles.
 - `/hall-of-fame/` includes verified single-game records, every regular-season winning streak of at least seven games, and separate postseason records.
 - `/power-rankings/` is data-ready and intentionally locked at 0/2 until every team has two complete regular-season weeks. It then activates automatically from Supabase matchups.
 

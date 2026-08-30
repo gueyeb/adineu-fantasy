@@ -69,7 +69,7 @@ function yahooUrl(season) {
 }
 
 async function loadHistory() {
-  const response = await fetch("/data/yahoo-history.json?v=3", { cache: "no-store" });
+  const response = await fetch("/data/yahoo-history.json?v=4", { cache: "no-store" });
   if (!response.ok) throw new Error(`Archive indisponible (${response.status})`);
   const data = await response.json();
   const normalizeTeam = value => String(value).replace(/\s+/g, " ").trim().toLocaleLowerCase("fr");
@@ -86,13 +86,13 @@ async function loadHistory() {
 }
 
 async function loadYahooMatchups() {
-  const response = await fetch("/data/yahoo-matchups.json?v=1", { cache: "no-store" });
+  const response = await fetch("/data/yahoo-matchups.json?v=2", { cache: "no-store" });
   if (!response.ok) throw new Error(`Matchups Yahoo indisponibles (${response.status})`);
   return response.json();
 }
 
 async function loadYahooPlayoffs() {
-  const response = await fetch("/data/yahoo-playoffs.json?v=1", { cache: "no-store" });
+  const response = await fetch("/data/yahoo-playoffs.json?v=2", { cache: "no-store" });
   if (!response.ok) throw new Error(`Playoffs Yahoo indisponibles (${response.status})`);
   return response.json();
 }
@@ -583,7 +583,7 @@ async function renderMatchups(data) {
         <div id="h2h-manager-summary" class="duel-summary" aria-live="polite"></div>
       </div>
       <div id="h2h-table"></div>
-      <p class="note"><strong>Source :</strong> 609 matchups Yahoo authentifiés, reliés à 16 managers et réconciliés avec les bilans et points finaux de chaque saison.</p>
+      <p class="note"><strong>Source :</strong> 609 matchups Yahoo authentifiés, reliés à 15 managers et réconciliés avec les bilans et points finaux de chaque saison.</p>
     </div></section>
     <section class="section"><div class="shell">
       <div class="section-head"><div><p class="eyebrow">Playoffs 2019—2025</p><h2>La route du titre.</h2></div><p>Chaque tableau de championnat Yahoo, séparé des matchs de consolation.</p></div>
