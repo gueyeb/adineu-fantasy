@@ -8,8 +8,9 @@ Status: **live** at [adineu-fantasy.bakene.tech](https://adineu-fantasy.bakene.t
 
 - `supabase/schema.sql` — Postgres schema (owners, seasons, teams, matchups + a `v_standings` view). Designed so a season from any platform (Sleeper, Yahoo, eventually the old NFL Fantasy) slots into the same tables — no schema change per source.
 - `scripts/sync-sleeper.js` — pulls the live league from Sleeper's public API (no auth required) and upserts it into Supabase. Idempotent, safe to re-run or schedule.
-- `public/` — framework-free clubhouse with seven routes, including a data-ready 2026 Power Rankings page.
+- `public/` — framework-free clubhouse with eight routes, including the 2026 Power Rankings and Rivalry Week pages.
 - `public/assets/power-rankings.js` — pure, tested ranking engine. It waits for two complete regular-season weeks before publishing.
+- `public/assets/rivalry-week.js` — tested records and Sleeper-mapping logic for the six proposed Week 8 rivalries.
 - `public/data/yahoo-history.json` — season-scoped Yahoo archive: podiums, final standings, weekly highs and 2025 player leaders.
 - `public/data/yahoo-matchups.json` — 609 verified regular-season matchups for 2019–2025, with manager mappings and source URLs.
 - `public/data/yahoo-playoffs.json` — 44 authenticated championship-bracket matchups for 2019–2024; the UI combines them with the eight verified 2025 playoff games.
@@ -57,7 +58,8 @@ That is the intended API path, but it is **not the source of the current archive
 5. All-time franchise dossiers and record table across 15 managers ✅
 6. All-time single-game records and regular-season winning streaks ✅
 7. 2026 Power Rankings route, formula, tests, and automatic two-week activation ✅ (live rankings await real matchups)
-8. Nice-to-haves: draft grades and trade analyzer
+8. Week 8 Rivalry Week route, head-to-head matrix, historical cards, and live Sleeper schedule detection ✅
+9. Nice-to-haves: weekly awards, draft grades, and trade analyzer
 
 ## License
 

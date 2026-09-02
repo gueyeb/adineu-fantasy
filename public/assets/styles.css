@@ -121,6 +121,10 @@ h1 { max-width: 850px; margin: 0; font-size: clamp(3.15rem, 9vw, 7.8rem); letter
 
 .feature-grid { display: grid; grid-template-columns: 1.25fr 0.75fr; gap: 22px; }
 .feature { position: relative; min-height: 290px; padding: 34px; overflow: hidden; border: 1px solid var(--line); background: var(--paper-soft); text-decoration: none; }
+.feature-rivalry { grid-column: 1 / -1; min-height: 245px; border-color: var(--gold); background:
+  linear-gradient(108deg, rgba(255, 180, 67, 0.13), transparent 52%),
+  repeating-linear-gradient(135deg, transparent 0 30px, rgba(184, 255, 61, 0.025) 30px 31px),
+  var(--paper-soft); }
 .feature:hover { border-color: var(--grass); }
 .feature-number { position: absolute; right: 12px; bottom: -36px; color: rgba(184, 255, 61, 0.08); font-family: var(--display); font-size: 12rem; line-height: 1; }
 .feature h3 { position: relative; max-width: 600px; margin: 55px 0 12px; font-size: clamp(2rem, 5vw, 4rem); letter-spacing: -0.04em; }
@@ -243,6 +247,25 @@ tbody tr:hover td { background: rgba(184, 255, 61, 0.045); }
 .duel-summary span { font-size: 0.68rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
 .duel-summary strong { display: block; margin-top: 34px; font-family: var(--display); font-size: clamp(1.4rem, 3vw, 2.4rem); line-height: 1; text-transform: uppercase; }
 .duel-summary small { margin-top: 10px; color: var(--grass); font-size: 0.8rem; font-weight: 700; }
+.matrix-head, .frequent-head { margin-top: 64px; }
+.matrix-wrap { background: #101d17; }
+.matchup-matrix { min-width: 980px; table-layout: fixed; }
+.matchup-matrix th, .matchup-matrix td { padding: 8px 6px; text-align: center; }
+.matchup-matrix thead th { height: 122px; vertical-align: bottom; }
+.matchup-matrix thead th:first-child { width: 150px; padding: 14px; text-align: left; vertical-align: bottom; }
+.matchup-matrix thead th:not(:first-child) { width: 61px; }
+.matchup-matrix thead th span { display: inline-block; writing-mode: vertical-rl; transform: rotate(180deg); }
+.matchup-matrix tbody th { position: sticky; z-index: 2; left: 0; width: 150px; padding: 12px 14px; background: var(--paper-soft); color: var(--ink); font-size: 0.75rem; text-align: left; text-transform: none; }
+.matrix-cell { background: rgba(255, 255, 255, 0.015); }
+.matrix-cell strong, .matrix-cell small { display: block; }
+.matrix-cell strong { font-family: var(--display); font-size: 0.82rem; }
+.matrix-cell small { margin-top: 3px; color: var(--muted); font-size: 0.58rem; }
+.matrix-close { background: rgba(184, 255, 61, 0.105); }
+.matrix-close strong { color: var(--grass); }
+.matrix-self { background: var(--panel); color: var(--line); }
+.matrix-empty { color: var(--line); }
+.frequent-table .positive { color: var(--grass); font-weight: 800; }
+.frequent-table .negative { color: var(--red); font-weight: 800; }
 .h2h-table { margin-top: 18px; }
 .h2h-table .h2h-win, .h2h-table .positive { color: var(--grass); font-weight: 800; }
 .h2h-table .negative { color: var(--red); font-weight: 800; }
@@ -331,6 +354,90 @@ tbody tr:hover td { background: rgba(184, 255, 61, 0.045); }
 .power-table .positive { color: var(--grass); font-weight: 800; }
 .power-table .negative { color: var(--red); font-weight: 800; }
 
+.rivalry-hero { position: relative; padding: 78px 0 62px; overflow: hidden; border-bottom: 1px solid var(--line); background:
+  linear-gradient(112deg, rgba(255, 180, 67, 0.14), transparent 42%),
+  repeating-linear-gradient(90deg, transparent 0 79px, rgba(184, 255, 61, 0.035) 79px 80px); }
+.rivalry-hero::after { position: absolute; top: -130px; right: 8%; width: 290px; height: 580px; border: 1px solid rgba(184, 255, 61, 0.16); content: ""; transform: rotate(24deg); }
+.rivalry-hero-grid { position: relative; z-index: 1; display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(230px, 0.45fr); align-items: end; gap: 56px; }
+.rivalry-hero h1 { font-size: clamp(3.35rem, 8vw, 7.3rem); }
+.rivalry-hero h1 em { color: var(--gold); font-style: normal; }
+.rivalry-hero-facts { display: flex; flex-wrap: wrap; margin-top: 32px; gap: 8px; }
+.rivalry-hero-facts span { padding: 8px 11px; border: 1px solid var(--line); background: rgba(13, 23, 19, 0.72); color: var(--grass); font-size: 0.68rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
+.rivalry-week-mark { position: relative; min-height: 270px; padding: 22px; overflow: hidden; border: 1px solid var(--gold); border-top-width: 7px; background: #101b16; box-shadow: 16px 16px 0 #07100c; }
+.rivalry-week-mark > span, .rivalry-week-mark small { display: block; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; }
+.rivalry-week-mark > span { color: var(--muted); }
+.rivalry-week-mark strong { display: block; margin-top: 22px; color: var(--grass); font-family: var(--display); font-size: clamp(7rem, 13vw, 10rem); line-height: 0.8; letter-spacing: -0.08em; }
+.rivalry-week-mark small { position: absolute; right: 22px; bottom: 18px; color: var(--gold); }
+.rivalry-slate { background: linear-gradient(180deg, rgba(184, 255, 61, 0.035), transparent 24%); }
+.rivalry-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.rivalry-card { position: relative; min-width: 0; overflow: hidden; border: 1px solid var(--line); background: var(--paper-soft); }
+.rivalry-card::before { position: absolute; top: 0; bottom: 0; left: 50%; width: 1px; background: linear-gradient(var(--grass), transparent 42%); content: ""; opacity: 0.18; }
+.rivalry-card header { position: relative; display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--line); gap: 16px; }
+.rivalry-card header span { color: var(--muted); font-size: 0.64rem; font-weight: 800; letter-spacing: 0.13em; text-transform: uppercase; }
+.rivalry-card header strong { color: var(--gold); font-size: 0.69rem; letter-spacing: 0.08em; text-align: right; text-transform: uppercase; }
+.rivalry-contenders { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 118px minmax(0, 1fr); align-items: center; min-height: 190px; padding: 26px 20px 20px; }
+.rivalry-manager { min-width: 0; }
+.rivalry-manager-b { text-align: right; }
+.rivalry-manager small, .rivalry-manager span { display: block; color: var(--muted); }
+.rivalry-manager small { font-size: 0.61rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
+.rivalry-manager strong { display: block; margin-top: 23px; font-family: var(--display); font-size: clamp(1.2rem, 2.1vw, 1.8rem); line-height: 0.95; text-transform: uppercase; }
+.rivalry-manager span { margin-top: 10px; color: var(--grass); font-size: 0.72rem; font-weight: 700; }
+.rivalry-score { text-align: center; }
+.rivalry-score > span, .rivalry-score small { display: block; color: var(--muted); font-size: 0.58rem; font-weight: 800; letter-spacing: 0.11em; text-transform: uppercase; }
+.rivalry-score strong { display: block; margin: 14px 0 9px; color: var(--ink); font-family: var(--display); font-size: clamp(2rem, 4vw, 3.2rem); line-height: 1; white-space: nowrap; }
+.rivalry-score i { color: var(--gold); font-style: normal; }
+.rivalry-note { position: relative; min-height: 58px; margin: 0; padding: 0 20px 18px; color: var(--muted); font-size: 0.8rem; text-align: center; }
+.rivalry-form { position: relative; display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-top: 1px solid var(--line); gap: 14px; }
+.rivalry-form > span { color: var(--muted); font-size: 0.61rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.rivalry-form > div { display: flex; gap: 5px; }
+.rivalry-form b { display: grid; width: 25px; height: 25px; place-items: center; font-size: 0.62rem; }
+.rivalry-form .result-w { background: var(--grass); color: #10180d; }
+.rivalry-form .result-l { background: var(--red); color: #1c0b07; }
+.rivalry-form .result-t { background: var(--gold); color: #171006; }
+.rivalry-card footer { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--line); background: rgba(13, 23, 19, 0.48); }
+.rivalry-card footer > div { min-width: 0; padding: 15px 13px; }
+.rivalry-card footer > div + div { border-left: 1px solid var(--line); }
+.rivalry-card footer span, .rivalry-card footer strong { display: block; }
+.rivalry-card footer span { color: var(--muted); font-size: 0.56rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.rivalry-card footer strong { margin-top: 7px; overflow-wrap: anywhere; color: var(--ink); font-size: 0.68rem; line-height: 1.25; }
+.rivalry-method { background:
+  linear-gradient(90deg, rgba(255, 180, 67, 0.025) 1px, transparent 1px),
+  linear-gradient(rgba(255, 180, 67, 0.025) 1px, transparent 1px);
+  background-size: 48px 48px; }
+.rivalry-criteria { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--line); background: var(--line); gap: 1px; }
+.rivalry-criteria article { position: relative; min-height: 220px; padding: 22px; overflow: hidden; background: var(--paper-soft); }
+.rivalry-criteria span { color: var(--muted); font-size: 0.63rem; font-weight: 800; letter-spacing: 0.11em; text-transform: uppercase; }
+.rivalry-criteria strong { display: block; margin-top: 38px; color: var(--grass); font-family: var(--display); font-size: clamp(2.9rem, 6vw, 5rem); line-height: 1; }
+.rivalry-criteria p { margin: 18px 0 0; color: var(--muted); font-size: 0.76rem; }
+.rivalry-schedule { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(260px, 0.85fr); align-items: end; margin-top: 22px; padding: 30px; border: 1px solid var(--gold); background: linear-gradient(120deg, rgba(255, 180, 67, 0.11), var(--paper-soft) 48%); gap: 34px; }
+.rivalry-schedule h3 { max-width: 620px; margin: 0; font-size: clamp(1.8rem, 4vw, 3.4rem); letter-spacing: -0.04em; }
+.rivalry-schedule ol { margin: 0; padding-left: 22px; color: var(--muted); font-size: 0.83rem; }
+.rivalry-schedule li + li { margin-top: 8px; }
+.rivalry-schedule .source-link { grid-column: 1 / -1; justify-self: end; }
+.schedule-planner { background:
+  linear-gradient(120deg, rgba(184, 255, 61, 0.055), transparent 38%),
+  repeating-linear-gradient(0deg, transparent 0 47px, rgba(53, 80, 68, 0.16) 47px 48px); }
+.schedule-source { padding: 8px 10px; border: 1px solid var(--line); color: var(--muted); font-size: 0.63rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.schedule-source-rivalry { border-color: var(--gold); color: var(--gold); }
+.schedule-source-live { border-color: var(--grass); color: var(--grass); }
+.rivalry-live-status { min-height: 245px; padding: 34px; border: 1px solid var(--gold); background:
+  linear-gradient(120deg, rgba(255, 180, 67, 0.12), transparent 52%),
+  var(--paper-soft); }
+.rivalry-live-status > span { display: inline-block; }
+.rivalry-live-status > strong { display: block; max-width: 820px; margin-top: 48px; font-family: var(--display); font-size: clamp(2rem, 5vw, 4.4rem); line-height: 0.95; text-transform: uppercase; }
+.rivalry-live-status > p { max-width: 720px; margin: 18px 0 0; color: var(--muted); }
+.schedule-grid { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--line); background: var(--line); gap: 1px; }
+.schedule-grid[hidden] { display: none; }
+.rivalry-live-status + .schedule-grid { margin-top: 18px; }
+.schedule-match { position: relative; min-height: 155px; padding: 18px; overflow: hidden; background: var(--paper-soft); }
+.schedule-match::after { position: absolute; top: -45px; right: -30px; width: 100px; height: 170px; border: 1px solid rgba(184, 255, 61, 0.08); content: ""; transform: rotate(24deg); }
+.schedule-match > span { color: var(--muted); font-size: 0.6rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
+.schedule-match > div { position: relative; z-index: 1; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; margin-top: 35px; gap: 8px; }
+.schedule-match strong { overflow-wrap: anywhere; font-family: var(--display); font-size: clamp(0.92rem, 1.6vw, 1.35rem); line-height: 1; text-transform: uppercase; }
+.schedule-match strong:last-child { text-align: right; }
+.schedule-match i { color: var(--gold); font-size: 0.65rem; font-style: normal; font-weight: 800; }
+.schedule-match > small { display: block; margin-top: 14px; color: var(--grass); font-family: var(--display); font-size: 0.82rem; text-align: center; }
+
 .bars { display: grid; gap: 12px; }
 .bar-row { display: grid; grid-template-columns: 190px 1fr 72px; align-items: center; gap: 16px; }
 .bar-label { overflow: hidden; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
@@ -377,6 +484,11 @@ tbody tr:hover td { background: rgba(184, 255, 61, 0.045); }
   .power-status { min-height: 185px; }
   .power-gate { grid-template-columns: 1fr; }
   .power-lock { min-height: 220px; border-right: 0; border-bottom: 1px solid var(--line); }
+  .rivalry-hero-grid, .rivalry-grid, .rivalry-schedule { grid-template-columns: 1fr; }
+  .rivalry-week-mark { max-width: 360px; }
+  .rivalry-criteria { grid-template-columns: repeat(2, 1fr); }
+  .rivalry-schedule .source-link { grid-column: auto; justify-self: start; }
+  .schedule-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
 @media (max-width: 580px) {
@@ -400,6 +512,18 @@ tbody tr:hover td { background: rgba(184, 255, 61, 0.045); }
   .franchise-metrics > div + div, .franchise-metrics > div:nth-child(3) { border-top: 1px solid var(--line); border-left: 0; }
   .franchise-season-grid { grid-template-columns: 1fr; }
   .power-gate-copy { padding: 32px 22px; }
+  .rivalry-hero { padding: 54px 0 46px; }
+  .rivalry-contenders { grid-template-columns: minmax(0, 1fr) 78px minmax(0, 1fr); padding-right: 14px; padding-left: 14px; }
+  .rivalry-manager strong { font-size: 1.18rem; }
+  .rivalry-score strong { font-size: 1.8rem; }
+  .rivalry-form { align-items: flex-start; flex-direction: column; }
+  .rivalry-card footer { grid-template-columns: 1fr; }
+  .rivalry-card footer > div + div { border-top: 1px solid var(--line); border-left: 0; }
+  .rivalry-criteria { grid-template-columns: 1fr; }
+  .rivalry-criteria article { min-height: 180px; }
+  .rivalry-schedule { padding: 24px 20px; }
+  .schedule-grid { grid-template-columns: 1fr; }
+  .rivalry-live-status { min-height: 220px; padding: 26px 22px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

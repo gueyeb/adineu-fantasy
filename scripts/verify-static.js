@@ -2,12 +2,13 @@ import { readFile, stat } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const root = resolve("public");
-const routes = ["", "standings", "power-rankings", "matchups", "history", "hall-of-fame", "franchises"];
+const routes = ["", "standings", "power-rankings", "rivalry-week", "matchups", "history", "hall-of-fame", "franchises"];
 const requiredAssets = [
   "favicon.svg",
   "assets/styles.css",
   "assets/site.js",
   "assets/power-rankings.js",
+  "assets/rivalry-week.js",
   "data/yahoo-history.json",
   "data/yahoo-matchups.json",
   "data/yahoo-playoffs.json"
@@ -16,8 +17,8 @@ const requiredAssets = [
 for (const route of routes) {
   const htmlPath = resolve(root, route, "index.html");
   const html = await readFile(htmlPath, "utf8");
-  if (!html.includes('src="/assets/site.js?v=8"')) throw new Error(`${htmlPath} does not load the current site.js`);
-  if (!html.includes('href="/assets/styles.css?v=7"')) throw new Error(`${htmlPath} does not load the current styles.css`);
+  if (!html.includes('src="/assets/site.js?v=10"')) throw new Error(`${htmlPath} does not load the current site.js`);
+  if (!html.includes('href="/assets/styles.css?v=9"')) throw new Error(`${htmlPath} does not load the current styles.css`);
   if (!html.includes('rel="icon" href="/favicon.svg"')) throw new Error(`${htmlPath} does not load the favicon`);
 }
 
@@ -25,7 +26,8 @@ for (const asset of requiredAssets) await stat(resolve(root, asset));
 
 const publicScripts = await Promise.all([
   readFile(resolve(root, "assets/site.js"), "utf8"),
-  readFile(resolve(root, "assets/power-rankings.js"), "utf8")
+  readFile(resolve(root, "assets/power-rankings.js"), "utf8"),
+  readFile(resolve(root, "assets/rivalry-week.js"), "utf8")
 ]);
 if (/sb_secret_|SUPABASE_SECRET_KEY|platform_user_id|refresh_token/i.test(publicScripts.join("\n"))) {
   throw new Error("Public JavaScript contains a server secret or private platform identifier");

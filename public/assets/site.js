@@ -1,4 +1,11 @@
 import { calculatePowerRankings, MINIMUM_COMPLETED_WEEKS, POWER_WEIGHTS } from "./power-rankings.js?v=1";
+import {
+  ACTIVE_MANAGERS_2026,
+  RIVALRY_CRITERIA,
+  RIVALRY_WEEK,
+  buildRivalryRecords,
+  buildSleeperWeek
+} from "./rivalry-week.js?v=2";
 
 const SUPABASE_URL = "https://juosrzsffvjprqhdyado.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_7Bu9q2dKz0WEol94OGVhHw_xjSwHeHu";
@@ -10,6 +17,7 @@ const routes = [
   ["home", "/", "Accueil"],
   ["standings", "/standings/", "Classements"],
   ["power-rankings", "/power-rankings/", "Power"],
+  ["rivalry-week", "/rivalry-week/", "Rivalités"],
   ["matchups", "/matchups/", "Matchups"],
   ["history", "/history/", "Historique"],
   ["hall-of-fame", "/hall-of-fame/", "Hall of Fame"],
@@ -62,6 +70,11 @@ function formatPoints(value, digits = 2) {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits
   });
+}
+
+function shortManagerName(name) {
+  const parts = String(name).split(" ");
+  return parts.length > 1 ? `${parts[0]} ${parts.at(-1)[0]}.` : name;
 }
 
 function yahooUrl(season) {
@@ -303,6 +316,7 @@ async function renderHome(data) {
     <section class="section"><div class="shell">
       <div class="section-head"><div><p class="eyebrow">Le clubhouse</p><h2>Tout le terrain.</h2></div><p>Le présent, les archives et les débats qui ne meurent jamais.</p></div>
       <div class="feature-grid">
+        <a class="feature feature-rivalry" href="/rivalry-week/"><span class="feature-kicker">Proposition · Semaine 8 · 2026</span><h3>Six rivalités. À vous de trancher.</h3><p>Les affiches proposées, leurs bilans Yahoo et le vrai calendrier Sleeper dès sa publication.</p><span class="feature-number">08</span></a>
         <a class="feature" href="/hall-of-fame/"><span class="feature-kicker">Palmarès officiel</span><h3>Les immortels d'Adineu</h3><p>Sept champions, les règnes multiples et les records qui tiennent encore.</p><span class="feature-number">7</span></a>
         <a class="feature" href="/history/"><span class="feature-kicker">2019 → 2025</span><h3>Saison par saison</h3><p>Les participants réels, les classements complets et les podiums.</p><span class="feature-number">19</span></a>
       </div>
@@ -561,6 +575,26 @@ async function renderMatchups(data) {
   const finalsLeaders = postseasonLeaders.filter(item => item.finals === maxFinals);
   const titlesLeaders = postseasonLeaders.filter(item => item.titles === maxTitles);
   const high = Math.max(...data.weeklyHighs2025.map(item => item.points));
+  const activeManagers = [...ACTIVE_MANAGERS_2026].sort((a, b) => a.localeCompare(b, "fr"));
+  const activePairs = headToHead.pairs.filter(pair =>
+    activeManagers.includes(pair.managerA) && activeManagers.includes(pair.managerB));
+  const pairByManagers = new Map(activePairs.map(pair => [[pair.managerA, pair.managerB]
+    .sort((a, b) => a.localeCompare(b, "fr")).join("::"), pair]));
+  const frequentPairs = [...activePairs].sort((a, b) => b.games - a.games
+    || Math.abs(a.winsA - a.winsB) - Math.abs(b.winsA - b.winsB)
+    || a.managerA.localeCompare(b.managerA, "fr")).slice(0, 12);
+
+  function matrixCell(rowManager, columnManager) {
+    if (rowManager === columnManager) return `<td class="matrix-self" aria-label="Même manager">—</td>`;
+    const key = [rowManager, columnManager].sort((a, b) => a.localeCompare(b, "fr")).join("::");
+    const pair = pairByManagers.get(key);
+    if (!pair) return `<td class="matrix-empty">—</td>`;
+    const rowIsA = pair.managerA === rowManager;
+    const wins = rowIsA ? pair.winsA : pair.winsB;
+    const losses = rowIsA ? pair.winsB : pair.winsA;
+    const close = Math.abs(wins - losses) <= 1;
+    return `<td class="matrix-cell${close ? " matrix-close" : ""}" title="${escapeHtml(rowManager)} contre ${escapeHtml(columnManager)} · ${pair.games} matchs"><strong>${wins}–${losses}</strong><small>${pair.games}</small></td>`;
+  }
 
   document.getElementById("app").innerHTML = `${pageHero("Matchups", "Le dimanche se <em>décide ici.</em>", "Sept saisons de duels Yahoo sont enfin réunies. Choisissez un manager, mesurez ses rivalités et retrouvez les parcours qui ont mené à chaque titre.", { label: "Duels vérifiés", value: matchupCount, note: "Saisons régulières · 2019—2025" })}
     <section class="section h2h-section"><div class="shell">
@@ -571,6 +605,19 @@ async function renderMatchups(data) {
         <article class="record"><span class="record-label">Roi des points</span><strong>${escapeHtml(pointsLeader.manager)}</strong><span>${formatPoints(pointsLeader.pointsFor)} PF cumulés</span></article>
         <article class="record"><span class="record-label">Rivalité la plus jouée</span><strong>${escapeHtml(longestRivalry.managerA)} × ${escapeHtml(longestRivalry.managerB)}</strong><span>${longestRivalry.games} confrontations</span></article>
       </div>
+
+      <div class="section-head matrix-head"><div><p class="eyebrow">Les 12 managers 2026</p><h2>La matrice des rivalités.</h2></div><p>Chaque cellule se lit du point de vue de la ligne : bilan victoires–défaites, puis nombre total de confrontations.</p></div>
+      <div class="table-wrap matrix-wrap"><table class="matchup-matrix">
+        <thead><tr><th>Manager</th>${activeManagers.map(manager => `<th><span title="${escapeHtml(manager)}">${escapeHtml(shortManagerName(manager))}</span></th>`).join("")}</tr></thead>
+        <tbody>${activeManagers.map(rowManager => `<tr><th>${escapeHtml(rowManager)}</th>${activeManagers.map(columnManager => matrixCell(rowManager, columnManager)).join("")}</tr>`).join("")}</tbody>
+      </table></div>
+
+      <div class="section-head frequent-head"><div><p class="eyebrow">Volume historique</p><h2>Les affiches les plus jouées.</h2></div><p>En cas d'égalité sur le nombre de matchs, le bilan le plus serré apparaît en premier.</p></div>
+      <div class="table-wrap"><table class="frequent-table"><thead><tr><th>Affiche</th><th class="num">Matchs</th><th>Bilan</th><th class="num">Diff. points</th></tr></thead><tbody>${frequentPairs.map(pair => `<tr>
+        <td class="team-name">${escapeHtml(pair.managerA)} × ${escapeHtml(pair.managerB)}</td><td class="num">${pair.games}</td>
+        <td>${escapeHtml(pair.managerA)} ${pair.winsA}–${pair.winsB} ${escapeHtml(pair.managerB)}</td>
+        <td class="num ${pair.pointsA >= pair.pointsB ? "positive" : "negative"}">${pair.pointsA >= pair.pointsB ? "+" : ""}${formatPoints(pair.pointsA - pair.pointsB)}</td>
+      </tr>`).join("")}</tbody></table></div>
 
       <div class="duel-board">
         <div class="duel-control">
@@ -653,6 +700,148 @@ async function renderMatchups(data) {
   playoffSeasonSelect.addEventListener("change", () => showPlayoffSeason(Number(playoffSeasonSelect.value)));
   showManager(managerSelect.value);
   showPlayoffSeason(Number(playoffSeasonSelect.value));
+}
+
+async function renderRivalryWeek(data) {
+  const [matchupArchive, playoffArchive] = await Promise.all([
+    loadYahooMatchups(),
+    loadYahooPlayoffs()
+  ]);
+  const playoffGames = allYahooPlayoffSeasons(data, playoffArchive).flatMap(season =>
+    season.games.map(game => ({ ...game, year: season.year })));
+  const rivalries = buildRivalryRecords(matchupArchive, playoffGames);
+  const totalMeetings = rivalries.reduce((total, rivalry) => total + rivalry.games, 0);
+  const formLabel = result => ({ W: "V", L: "D", T: "N" })[result];
+
+  function pointDifference(rivalry) {
+    if (Math.abs(rivalry.pointDifference) < 0.001) return "Points parfaitement égaux";
+    const leader = rivalry.pointDifference > 0 ? rivalry.managerA : rivalry.managerB;
+    return `${escapeHtml(leader)} +${formatPoints(Math.abs(rivalry.pointDifference))}`;
+  }
+
+  function playoffLabel(rivalry) {
+    if (!rivalry.playoffs.games) return "Aucun duel";
+    return `${rivalry.playoffs.winsA}—${rivalry.playoffs.winsB} · ${rivalry.playoffs.games} match${rivalry.playoffs.games > 1 ? "s" : ""}`;
+  }
+
+  document.getElementById("app").innerHTML = `
+    <section class="rivalry-hero"><div class="shell rivalry-hero-grid">
+      <div class="rivalry-hero-copy">
+        <p class="eyebrow">Adineu Rivalry Week · 2026</p>
+        <h1>Toute une histoire.<br><em>Un seul dimanche.</em></h1>
+        <p class="lede">Pour la semaine ${RIVALRY_WEEK}, les archives proposent six duels chargés d'histoire. À la ligue de décider ; quoi qu'il arrive, Sleeper restera la source du calendrier réel.</p>
+        <div class="rivalry-hero-facts"><span>6 affiches</span><span>${totalMeetings} précédents</span><span>12 managers</span></div>
+      </div>
+      <aside class="rivalry-week-mark" aria-label="Semaine proposée pour les rivalités">
+        <span>Saison régulière</span>
+        <strong>08</strong>
+        <small>Rivalry Week</small>
+      </aside>
+    </div></section>
+
+    <section class="section rivalry-slate"><div class="shell">
+      <div class="section-head"><div><p class="eyebrow">La carte proposée</p><h2>Les six affiches.</h2></div><p>Bilans de saison régulière Yahoo 2019–2025. Les résultats de playoffs sont volontairement affichés à part.</p></div>
+      <div class="rivalry-grid">${rivalries.map((rivalry, index) => `
+        <article class="rivalry-card">
+          <header><span>Proposition ${String(index + 1).padStart(2, "0")}</span><strong>${escapeHtml(rivalry.title)}</strong></header>
+          <div class="rivalry-contenders">
+            <div class="rivalry-manager rivalry-manager-a"><small>Manager</small><strong>${escapeHtml(rivalry.managerA)}</strong><span>${rivalry.winsA} victoire${rivalry.winsA > 1 ? "s" : ""}</span></div>
+            <div class="rivalry-score"><span>All-time</span><strong>${rivalry.winsA}<i>—</i>${rivalry.winsB}</strong><small>${rivalry.games} matchs</small></div>
+            <div class="rivalry-manager rivalry-manager-b"><small>Manager</small><strong>${escapeHtml(rivalry.managerB)}</strong><span>${rivalry.winsB} victoire${rivalry.winsB > 1 ? "s" : ""}</span></div>
+          </div>
+          <p class="rivalry-note">${escapeHtml(rivalry.note)}</p>
+          <div class="rivalry-form">
+            <span>5 derniers · vue ${escapeHtml(rivalry.managerA)}</span>
+            <div aria-label="Cinq derniers résultats de ${escapeHtml(rivalry.managerA)}">${rivalry.lastFive.map(game => `<b class="result-${game.resultA.toLocaleLowerCase()}" title="${game.year} S${game.week} · ${formatPoints(game.pointsA)}–${formatPoints(game.pointsB)}">${formLabel(game.resultA)}</b>`).join("")}</div>
+          </div>
+          <footer>
+            <div><span>Diff. points</span><strong>${pointDifference(rivalry)}</strong></div>
+            <div><span>Série</span><strong>${rivalry.streak ? `${escapeHtml(rivalry.streak.manager)} · ${rivalry.streak.games}` : "—"}</strong></div>
+            <div><span>Playoffs</span><strong>${playoffLabel(rivalry)}</strong></div>
+          </footer>
+        </article>`).join("")}</div>
+      <p class="note"><strong>Périmètre :</strong> les bilans principaux couvrent uniquement les matchs de saison régulière Yahoo. Un résultat Sleeper ne rejoindra l'archive qu'après un véritable matchup joué.</p>
+    </div></section>
+
+    <section class="section schedule-planner"><div class="shell">
+      <div class="section-head"><div><p class="eyebrow">Sleeper · Semaine ${RIVALRY_WEEK}</p><h2>La proposition et le réel.</h2></div><p>Le site n'écrit jamais le calendrier. Il vérifie seulement ce que Sleeper publie et indique combien d'affiches correspondent à la proposition.</p></div>
+      <div class="rivalry-live-status" aria-live="polite">
+        <span id="rivalry-live-source">Vérification Sleeper…</span>
+        <strong id="rivalry-live-title">Lecture du calendrier</strong>
+        <p id="rivalry-live-copy">Connexion à l'API publique de la ligue.</p>
+      </div>
+      <div class="schedule-grid" id="sleeper-rivalry-grid" aria-live="polite" hidden></div>
+      <p class="note"><strong>Source de vérité :</strong> l'API Sleeper est publique mais strictement en lecture seule. La proposition ne modifie donc aucun matchup et reste soumise au vote ou à l'accord du groupe.</p>
+    </div></section>
+
+    <section class="section rivalry-method"><div class="shell">
+      <div class="section-head"><div><p class="eyebrow">La méthode</p><h2>Des chiffres, puis un choix.</h2></div><p>La fréquence seule favorise parfois un duel à sens unique. Cette proposition équilibre l'histoire, la compétitivité et les matchs qui comptaient vraiment.</p></div>
+      <div class="rivalry-criteria">${RIVALRY_CRITERIA.map((criterion, index) => `<article><span>0${index + 1} · ${escapeHtml(criterion.label)}</span><strong>${criterion.weight}%</strong><p>${escapeHtml(criterion.detail)}</p></article>`).join("")}</div>
+      <div class="rivalry-schedule">
+        <div><p class="eyebrow">Si le groupe valide</p><h3>La semaine 8 peut devenir officielle.</h3></div>
+        <ol><li>Valider le principe avec les membres.</li><li>Ouvrir <strong>Edit Schedule Matchups</strong> après la draft.</li><li>Reporter les six affiches proposées.</li></ol>
+        <a class="source-link" href="https://support.sleeper.com/en/articles/1955931-can-i-randomize-my-league-s-schedule" target="_blank" rel="noreferrer">Guide officiel Sleeper ↗</a>
+      </div>
+      <p class="note"><strong>Équité :</strong> si elle est adoptée, la Rivalry Week remplace une semaine normale ; elle ne crée pas un match supplémentaire.</p>
+    </div></section>`;
+
+  const liveSource = document.getElementById("rivalry-live-source");
+  const liveTitle = document.getElementById("rivalry-live-title");
+  const liveCopy = document.getElementById("rivalry-live-copy");
+  const sleeperGrid = document.getElementById("sleeper-rivalry-grid");
+
+  function pairKey(matchup) {
+    return [matchup.managerA, matchup.managerB].sort((a, b) => a.localeCompare(b, "fr")).join("::");
+  }
+
+  function scheduleCards(matchups) {
+    return matchups.map((matchup, index) => `<article class="schedule-match">
+      <span>Match ${String(index + 1).padStart(2, "0")}</span>
+      <div><strong>${escapeHtml(matchup.managerA)}</strong><i>VS</i><strong>${escapeHtml(matchup.managerB)}</strong></div>
+      ${matchup.pointsA || matchup.pointsB ? `<small>${formatPoints(matchup.pointsA)} — ${formatPoints(matchup.pointsB)}</small>` : ""}
+    </article>`).join("");
+  }
+
+  function showProposalStatus(reason) {
+    liveSource.textContent = reason;
+    liveSource.className = "schedule-source schedule-source-rivalry";
+    liveTitle.textContent = "Une proposition, pas une décision.";
+    liveCopy.textContent = "Aucun matchup n'a été modifié. Les six affiches ci-dessus restent une idée à soumettre au groupe.";
+    sleeperGrid.hidden = true;
+  }
+
+  async function showSleeperRivalryWeek() {
+    const league = await loadSleeperResource(`/league/${SLEEPER_LEAGUE_ID}`).catch(() => null);
+    if (!league || league.status === "pre_draft") {
+      showProposalStatus(league ? "Sleeper · pré-draft" : "Sleeper · API indisponible");
+      return;
+    }
+    try {
+      const [rows, rosters, users] = await Promise.all([
+        loadSleeperResource(`/league/${SLEEPER_LEAGUE_ID}/matchups/${RIVALRY_WEEK}`),
+        loadSleeperResource(`/league/${SLEEPER_LEAGUE_ID}/rosters`),
+        loadSleeperResource(`/league/${SLEEPER_LEAGUE_ID}/users`)
+      ]);
+      const liveMatchups = buildSleeperWeek(rows, rosters, users);
+      if (liveMatchups.length !== 6) {
+        showProposalStatus("Sleeper · calendrier incomplet");
+        return;
+      }
+      const proposedKeys = new Set(rivalries.map(pairKey));
+      const matching = liveMatchups.filter(matchup => proposedKeys.has(pairKey(matchup))).length;
+      liveSource.textContent = "API Sleeper · calendrier publié";
+      liveSource.className = "schedule-source schedule-source-live";
+      liveTitle.textContent = `Semaine ${RIVALRY_WEEK} officielle : ${matching}/6 correspondances.`;
+      liveCopy.textContent = matching === 6
+        ? "La proposition Rivalry Week a été entièrement reprise dans Sleeper."
+        : "Voici les véritables affiches Sleeper ; elles restent prioritaires sur la proposition historique.";
+      sleeperGrid.innerHTML = scheduleCards(liveMatchups);
+      sleeperGrid.hidden = false;
+    } catch {
+      showProposalStatus("Sleeper · API indisponible");
+    }
+  }
+  await showSleeperRivalryWeek();
 }
 
 function buildFranchiseRecords(data, matchupArchive, playoffArchive) {
@@ -910,6 +1099,7 @@ async function start() {
     if (page === "standings") await renderStandings(data);
     if (page === "history") renderHistory(data);
     if (page === "hall-of-fame") await renderHallOfFame(data);
+    if (page === "rivalry-week") await renderRivalryWeek(data);
     if (page === "matchups") await renderMatchups(data);
     if (page === "franchises") await renderFranchises(data);
   } catch (error) {

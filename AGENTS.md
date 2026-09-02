@@ -4,8 +4,9 @@
 
 - `scripts/sync-sleeper.js` fetches Sleeper data and upserts it into Supabase.
 - `supabase/schema.sql` defines tables, constraints, RLS policies, and `v_standings`.
-- `public/` contains seven static routes, shared assets, Yahoo history, 609 verified regular-season matchups, and 44 archived playoff games.
+- `public/` contains eight static routes, shared assets, Yahoo history, 609 verified regular-season matchups, and 44 archived playoff games.
 - `public/assets/power-rankings.js` contains the pure 2026 ranking calculation; tests live in `test/`.
+- `public/assets/rivalry-week.js` owns the tested Week 8 pairings and historical rivalry calculations.
 - `supabase/yahoo-sleeper-reconciliation.md` records identity evidence and approvals.
 - `.env.example` documents server configuration; keep local values in `.env`.
 
@@ -21,6 +22,8 @@ The Hall of Fame record book also derives from the matchup archives. Single-game
 
 The `/power-rankings/` route activates only after two completed regular-season weeks for all 12 teams. Its score is 45% win-rate percentile, 35% points-per-game percentile, and 20% recent three-week margin percentile. Exclude the live week and playoffs, preserve tied scores/ranks, and never publish a pre-draft projection as a real ranking.
 
+The `/rivalry-week/` pairings are a community proposal, not an applied schedule. Never imply that matchups were changed unless Sleeper publishes them. The page may read Week 8 through Sleeper's public, read-only API and must treat that response as authoritative. The reconstructed NFL.com era (2017–2019) stays outside the public archive until its seasons and identities meet the same evidence standard as Yahoo.
+
 ## Yahoo Data & Access
 
 The published archive does not come from the Yahoo Fantasy API. OAuth authorization with `fspt-r` succeeded, but tested Fantasy resources returned HTTP 403 (`This application is not authorized to perform this action`). Do not claim the API is active and do not retry app creation unless Yahoo offers **Fantasy Sports Read**.
@@ -35,7 +38,7 @@ Supabase server credentials live only in ignored environment files and productio
 
 - `npm install` installs dependencies.
 - `npm run dev` serves `public/` at `http://localhost:8000`.
-- `npm test` runs the Node unit tests for the Power Rankings engine.
+- `npm test` runs the Node unit tests for Power Rankings and Rivalry Week logic.
 - `npm run check` validates routes, assets, season totals, regular-season reconciliation, playoff rounds, and podiums.
 - `npm run sync:sleeper` runs the idempotent Sleeper-to-Supabase synchronization. It requires `SUPABASE_URL` and `SUPABASE_SECRET_KEY`; `SLEEPER_LEAGUE_ID` and `SEASON_YEAR` are optional overrides.
 
@@ -47,7 +50,7 @@ Use two-space indentation in JavaScript, HTML, and CSS. Follow existing ES modul
 
 ## Testing Guidelines
 
-Add focused tests under `test/`, named like `sync-sleeper.test.js`. For ranking changes, cover activation thresholds, incomplete coverage, live-week/playoff exclusion, and ties. For schema changes, verify constraints, public-read policies, and private platform identifiers.
+Add focused tests under `test/`, named like `sync-sleeper.test.js`. For ranking changes, cover activation thresholds, incomplete coverage, live-week/playoff exclusion, and ties. For rivalry changes, preserve 12 unique managers and verified regular/postseason records. For schema changes, verify constraints, public-read policies, and private platform identifiers.
 
 ## Commit & Pull Request Guidelines
 
