@@ -2,13 +2,14 @@
 
 Public clubhouse and data pipeline for **Adineu**, a friends' NFL fantasy football league. The live site combines a verified Yahoo archive for 2019–2025 with [Sleeper](https://sleeper.com/) data from 2026 onward.
 
-Status: **live** at [adineu-fantasy.bakene.tech](https://adineu-fantasy.bakene.tech/). The 2026 Sleeper league has all 12 managers and rosters synced; its draft is scheduled for September 6 at 22:00 Paris time.
+Status: **live** at [adineu-fantasy.bakene.tech](https://adineu-fantasy.bakene.tech/). The 2026 Sleeper league has all 12 managers, and the completed draft roster is available to the Trade Hub.
 
 ## What's here
 
 - `supabase/schema.sql` — Postgres schema (owners, seasons, teams, matchups + a `v_standings` view). Designed so a season from any platform (Sleeper, Yahoo, eventually the old NFL Fantasy) slots into the same tables — no schema change per source.
 - `scripts/sync-sleeper.js` — pulls the live league from Sleeper's public API (no auth required) and upserts it into Supabase. Idempotent, safe to re-run or schedule.
 - `scripts/analyze-trades.js` — automatable in-season trade analyzer for CLI and n8n (roster diagnosis, win-win synergies, handcuff leverage).
+- `server.js` — production static server plus the read-only `/api/trades?team=t0z` endpoint used by n8n.
 - `public/` — framework-free clubhouse with nine routes, including the 2026 Power Rankings, Rivalry Week, and Trade Hub pages.
 - `public/assets/trade-value.js` & `public/assets/trade-recommender.js` — pure, tested deterministic trade valuation and matchmaking engines.
 - `public/assets/power-rankings.js` — pure, tested ranking engine. It waits for two complete regular-season weeks before publishing.
@@ -34,9 +35,9 @@ Yahoo profile history confirms all 88 team-season identities across 15 historica
    npm run sync:sleeper   # uses environment variables already exported by the shell
    npm run sync:sleeper:production # loads the ignored .env.production file
    ```
-3. Run `npm run dev` and open `http://localhost:8000`. Use `npm test` for ranking logic and `npm run check` to validate every route and archived season before deployment. Never expose the secret key in browser code.
+3. Run `npm run dev` and open `http://localhost:8000`. Use `npm test` for ranking and trade logic and `npm run check` to validate every route and archived season before deployment. `npm start` serves the production app on `PORT` (3000 by default). Never expose the secret key in browser code.
 
-Production is served by Coolify behind Cloudflare. n8n triggers the deployed sync weekly; the production command above is the manual refresh path. The sync is idempotent, so rerunning it updates existing rows instead of duplicating them.
+Production is served by Coolify behind Cloudflare. n8n triggers the deployed sync weekly; the production command above is the manual refresh path. The sync is idempotent, so rerunning it updates existing rows instead of duplicating them. A separate Tuesday workflow calls `/api/trades?team=t0z`, then forwards the returned `message` to the league manager's private notification channel. Sleeper data used by that endpoint is public; no Supabase or Yahoo secret is returned.
 
 ## How Yahoo data is acquired
 

@@ -5,7 +5,8 @@
   "description": "Public clubhouse and data pipeline for the Adineu NFL fantasy league (Yahoo 2019–2025 archive, Sleeper live sync).",
   "type": "module",
   "scripts": {
-    "dev": "python3 -m http.server 8000 -d public",
+    "start": "node server.js",
+    "dev": "PORT=8000 node server.js",
     "check": "node scripts/verify-static.js",
     "test": "node --test",
     "sync:sleeper": "node scripts/sync-sleeper.js",

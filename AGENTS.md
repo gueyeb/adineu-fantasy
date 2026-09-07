@@ -4,6 +4,7 @@
 
 - `scripts/sync-sleeper.js` fetches Sleeper data and upserts it into Supabase.
 - `scripts/analyze-trades.js` runs in-season trade analysis across all 12 teams for CLI and n8n workflows.
+- `server.js` serves `public/` in production and exposes the read-only `/api/trades` bridge for n8n.
 - `supabase/schema.sql` defines tables, constraints, RLS policies, and `v_standings`.
 - `public/` contains nine static routes, shared assets, Yahoo history, 609 verified regular-season matchups, and 44 archived playoff games.
 - `public/assets/trade-value.js` and `public/assets/trade-recommender.js` calculate deterministic player values and bilateral proposals.
@@ -40,11 +41,14 @@ Supabase server credentials live only in ignored environment files and productio
 
 - `npm install` installs dependencies.
 - `npm run dev` serves `public/` at `http://localhost:8000`.
+- `npm start` serves the production app and trade API on `PORT` (default `3000`).
 - `npm test` runs the Node unit tests for Power Rankings and Rivalry Week logic.
 - `npm run check` validates routes, assets, season totals, regular-season reconciliation, playoff rounds, and podiums.
 - `npm run sync:sleeper` runs the idempotent Sleeper-to-Supabase synchronization. It requires `SUPABASE_URL` and `SUPABASE_SECRET_KEY`; `SLEEPER_LEAGUE_ID` and `SEASON_YEAR` are optional overrides.
 
 There is no compile step or linter yet. Test data-writing changes against non-production Supabase and verify UI changes in a browser.
+
+The n8n trade-alert workflow should call `GET /api/trades?team=t0z` and pass the JSON `message` field to a private notification node. Unknown teams must fail explicitly; never fall back to another roster. Keep the endpoint read-only and free of Supabase or Yahoo credentials.
 
 ## Coding Style & Naming Conventions
 
