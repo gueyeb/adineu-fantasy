@@ -6,7 +6,7 @@ import {
   buildRivalryRecords,
   buildSleeperWeek
 } from "./rivalry-week.js?v=2";
-import { renderTradesPage } from "./trade-ui.js";
+import { renderTradesPage } from "./trade-ui.js?v=2";
 
 const SUPABASE_URL = "https://juosrzsffvjprqhdyado.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_7Bu9q2dKz0WEol94OGVhHw_xjSwHeHu";
@@ -19,7 +19,6 @@ const routes = [
   ["standings", "/standings/", "Classements"],
   ["power-rankings", "/power-rankings/", "Power"],
   ["rivalry-week", "/rivalry-week/", "Rivalités"],
-  ["trades", "/trades/", "Trades"],
   ["matchups", "/matchups/", "Matchups"],
   ["history", "/history/", "Historique"],
   ["hall-of-fame", "/hall-of-fame/", "Hall of Fame"],
@@ -37,7 +36,23 @@ document.getElementById("site-header").innerHTML = `
       </a>
       <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="main-nav">Menu</button>
       <nav class="nav-links" id="main-nav" aria-label="Navigation principale">
-        ${routes.map(([key, href, label]) => `<a href="${href}"${key === page ? ' aria-current="page"' : ""}>${label}</a>`).join("")}
+        ${routes.slice(0, 4).map(([key, href, label]) => `<a href="${href}"${key === page ? ' aria-current="page"' : ""}>${label}</a>`).join("")}
+        <div class="nav-menu${page === "trades" ? " active" : ""}">
+          <button class="nav-menu-trigger" type="button" aria-expanded="false" aria-controls="tools-menu">
+            Tools <span aria-hidden="true">⌄</span>
+          </button>
+          <div class="nav-submenu" id="tools-menu">
+            <a href="/trades/#recommendations"${page === "trades" ? ' aria-current="page"' : ""}>
+              <strong>Trade Finder</strong>
+              <small>Opportunités pour chaque équipe</small>
+            </a>
+            <a href="/trades/#calculator">
+              <strong>Trade Calculator</strong>
+              <small>Comparer deux groupes de joueurs</small>
+            </a>
+          </div>
+        </div>
+        ${routes.slice(4).map(([key, href, label]) => `<a href="${href}"${key === page ? ' aria-current="page"' : ""}>${label}</a>`).join("")}
       </nav>
     </div>
   </header>`;
@@ -51,10 +66,33 @@ document.getElementById("site-footer").innerHTML = `
   </footer>`;
 
 const navToggle = document.querySelector(".nav-toggle");
+const toolsMenu = document.querySelector(".nav-menu");
+const toolsMenuTrigger = document.querySelector(".nav-menu-trigger");
+
+function setToolsMenuOpen(open) {
+  toolsMenu.classList.toggle("open", open);
+  toolsMenuTrigger.setAttribute("aria-expanded", String(open));
+}
+
 navToggle.addEventListener("click", () => {
   const nav = document.getElementById("main-nav");
   const open = nav.classList.toggle("open");
   navToggle.setAttribute("aria-expanded", String(open));
+});
+
+toolsMenuTrigger.addEventListener("click", () => {
+  setToolsMenuOpen(!toolsMenu.classList.contains("open"));
+});
+
+document.addEventListener("click", event => {
+  if (!toolsMenu.contains(event.target)) setToolsMenuOpen(false);
+});
+
+document.addEventListener("keydown", event => {
+  if (event.key === "Escape" && toolsMenu.classList.contains("open")) {
+    setToolsMenuOpen(false);
+    toolsMenuTrigger.focus();
+  }
 });
 
 function escapeHtml(value) {

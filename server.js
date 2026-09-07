@@ -6,6 +6,12 @@ import { createServer } from "node:http";
 import { extname, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { analyzeTrades, formatTradeBulletin } from "./scripts/analyze-trades.js";
+import {
+  LEAGUE_METADATA_2026,
+  GENERAL_SETTINGS_2026,
+  ROSTER_SETTINGS_2026,
+  SCORING_SETTINGS_2026
+} from "./public/assets/league-settings.js";
 
 const DEFAULT_PUBLIC_ROOT = fileURLToPath(new URL("./public", import.meta.url));
 const MIME_TYPES = {
@@ -61,6 +67,16 @@ export function createAppServer({ publicRoot = DEFAULT_PUBLIC_ROOT, analyze = an
       return;
     }
 
+    if (url.pathname === "/api/settings") {
+      sendJson(response, 200, {
+        metadata: LEAGUE_METADATA_2026,
+        general: GENERAL_SETTINGS_2026,
+        roster: ROSTER_SETTINGS_2026,
+        scoring: SCORING_SETTINGS_2026
+      });
+      return;
+    }
+
     try {
       let filePath = resolvePublicPath(publicRoot, url.pathname);
       if (!filePath) {
@@ -71,9 +87,14 @@ export function createAppServer({ publicRoot = DEFAULT_PUBLIC_ROOT, analyze = an
       const fileStat = await stat(filePath);
       if (fileStat.isDirectory()) filePath = resolve(filePath, "index.html");
       const finalStat = await stat(filePath);
+      const extension = extname(filePath).toLowerCase();
+      const cacheControl = extension === ".html" || extension === ".json"
+        ? "no-cache"
+        : "public, max-age=3600";
       response.writeHead(200, {
-        "content-type": MIME_TYPES[extname(filePath).toLowerCase()] || "application/octet-stream",
+        "content-type": MIME_TYPES[extension] || "application/octet-stream",
         "content-length": finalStat.size,
+        "cache-control": cacheControl,
         "x-content-type-options": "nosniff"
       });
       if (request.method === "HEAD") response.end();

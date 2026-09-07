@@ -4,8 +4,13 @@
  * Gère le Calculateur de Trade interactif et le Moteur de Recommandations.
  */
 
-import { calculatePlayerTradeValue, evaluateTrade } from "./trade-value.js";
-import { diagnoseRoster, findTradeProposals } from "./trade-recommender.js";
+import { calculatePlayerTradeValue, evaluateTrade } from "./trade-value.js?v=2";
+import { diagnoseRoster, findTradeProposals } from "./trade-recommender.js?v=2";
+import {
+  GENERAL_SETTINGS_2026,
+  ROSTER_SETTINGS_2026,
+  SCORING_SETTINGS_2026
+} from "./league-settings.js";
 
 const SLEEPER_LEAGUE_ID = "1392715510830878721";
 const SLEEPER_API = "https://api.sleeper.app/v1";
@@ -24,13 +29,14 @@ export async function renderTradesPage(container) {
   container.innerHTML = `
     <section class="hero">
       <div class="shell">
-        <p class="eyebrow">Adineu NFL · In-Season Market</p>
+        <p class="eyebrow">Adineu NFL · In-Season Market & Rules</p>
         <h1>Trade Hub</h1>
-        <p class="lede">Calculateur de valeur déterministe et moteur de détection d'opportunités bilatérales pour la ligue.</p>
+        <p class="lede">Calculateur de valeur déterministe, opportunités bilatérales et règles officielles de la saison 2026.</p>
 
-        <div class="tabs-nav" style="display:flex; gap:12px; margin-top:28px; border-bottom:1px solid var(--line); padding-bottom:12px;">
-          <button id="tab-finder-btn" class="filter-btn active" type="button">💡 Opportunités de Trades</button>
-          <button id="tab-calc-btn" class="filter-btn" type="button">🧮 Calculateur de Trade</button>
+        <div class="tabs-nav" role="tablist" aria-label="Outils de trade">
+          <button id="tab-finder-btn" class="filter-btn" type="button" role="tab" aria-controls="trade-content">Trade Finder</button>
+          <button id="tab-calc-btn" class="filter-btn" type="button" role="tab" aria-controls="trade-content">Trade Calculator</button>
+          <button id="tab-rules-btn" class="filter-btn" type="button" role="tab" aria-controls="trade-content">Règles & Scoring 2026</button>
         </div>
       </div>
     </section>
@@ -90,7 +96,7 @@ export async function renderTradesPage(container) {
   });
 
   const content = document.getElementById("trade-content");
-  let currentTab = "finder";
+  let currentTab = window.location.hash === "#calculator" ? "calc" : "finder";
   let selectedRosterId = formattedRosters.find(r => r.ownerName.toLowerCase() === "t0z")?.roster_id || formattedRosters[0]?.roster_id || 1;
 
   function renderCurrentTab() {
@@ -365,23 +371,157 @@ export async function renderTradesPage(container) {
     });
   }
 
+  function renderRulesView() {
+    content.innerHTML = `
+      <div class="shell">
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:20px; margin-bottom:32px;">
+          <div class="card" style="background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:20px;">
+            <p class="eyebrow" style="color:var(--grass); margin-bottom:8px;">Format & Playoffs</p>
+            <h3 style="margin:0 0 12px; font-size:1.1rem;">12 Équipes · H2H</h3>
+            <ul style="padding-left:18px; margin:0; font-size:0.85rem; color:var(--muted); line-height:1.6;">
+              <li>Saison régulière : Semaines 1 à 14</li>
+              <li><strong>Playoffs : Semaines 15 à 17</strong></li>
+              <li><strong>8 équipes qualifiées</strong> en playoffs (bracket à 8)</li>
+              <li>Consolation bracket pour les 4 autres</li>
+            </ul>
+          </div>
+
+          <div class="card" style="background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:20px;">
+            <p class="eyebrow" style="color:var(--gold); margin-bottom:8px;">Waivers & Trades</p>
+            <h3 style="margin:0 0 12px; font-size:1.1rem;">FAAB 1 000 $</h3>
+            <ul style="padding-left:18px; margin:0; font-size:0.85rem; color:var(--muted); line-height:1.6;">
+              <li>Enchère minimum : 0 $</li>
+              <li>Déblocage : Mercredi à 09:00 Paris (traitement continu)</li>
+              <li><strong>Trade Deadline : Semaine 12</strong></li>
+              <li>Veto : 6 votes · Review : 1 jour · Pick trading : Oui</li>
+            </ul>
+          </div>
+
+          <div class="card" style="background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:20px;">
+            <p class="eyebrow" style="color:var(--ink); margin-bottom:8px;">Composition Roster</p>
+            <h3 style="margin:0 0 12px; font-size:1.1rem;">15 Joueurs + 1 IR</h3>
+            <ul style="padding-left:18px; margin:0; font-size:0.85rem; color:var(--muted); line-height:1.6;">
+              <li><strong>9 Titulaires :</strong> 1 QB, 2 RB, 2 WR, 1 TE, 1 FLEX, 1 K, 1 DEF</li>
+              <li><strong>6 Remplaçants (Banc)</strong></li>
+              <li><strong>1 Slot IR :</strong> Réservé aux joueurs déclarés Out (O) ou IR</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="card" style="background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:24px;">
+          <h3 style="margin:0 0 20px; font-size:1.2rem;">Grille Officielle du Scoring Adineu 2026</h3>
+
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:24px;">
+            <div>
+              <h4 style="color:var(--grass); margin:0 0 10px; font-size:0.95rem; text-transform:uppercase;">🏈 Passe (Passing)</h4>
+              <table style="width:100%; font-size:0.82rem; border-collapse:collapse;">
+                <tr style="border-bottom:1px solid var(--line);"><td style="padding:6px 0;">Yards à la passe</td><td style="text-align:right; font-weight:700;">1 pt / 25 yds (0.04)</td></tr>
+                <tr style="border-bottom:1px solid var(--line);"><td style="padding:6px 0;">Touchdown passe</td><td style="text-align:right; font-weight:700;">+4.0 pts</td></tr>
+                <tr style="border-bottom:1px solid var(--line);"><td style="padding:6px 0;">Interception lancée</td><td style="text-align:right; font-weight:700; color:var(--red);">-2.0 pts</td></tr>
+                <tr style="border-bottom:1px solid var(--line);"><td style="padding:6px 0;">Conversion 2 pts passe</td><td style="text-align:right; font-weight:700;">+2.0 pts</td></tr>
+                <tr><td style="padding:6px 0;">Sack subi par le QB</td><td style="text-align:right; color:var(--muted);">0 pt (aucun malus)</td></tr>
+              </table>
+            </div>
+
+            <div>
+              <h4 style="color:var(--grass); margin:0 0 10px; font-size:0.95rem; text-transform:uppercase;">🏃 Course (Rushing)</h4>
+              <table style="width:100%; font-size:0.82rem; border-collapse:collapse;">
+                <tr style="border-bottom:1px solid var(--line);"><td style="padding:6px 0;">Yards à la course</td><td style="text-align:right; font-weight:700;">1 pt / 10 yds (0.10)</td></tr>
+                <tr style="border-bottom:1px solid var(--line);"><td style="padding:6px 0;">Touchdown à la course</td><td style="text-align:right; font-weight:700;">+6.0 pts</td></tr>
+                <tr style="border-bottom:1px solid var(--line);"><td style="padding:6px 0;">Conversion 2 pts course</td><td style="text-align:right; font-weight:700;">+2.0 pts</td></tr>
+                <tr><td style="padding:6px 0;">Fumble perdu</td><td style="text-align:right; font-weight:700; color:var(--red);">-2.0 pts</td></tr>
+              </table>
+            </div>
+
+            <div>
+              <h4 style="color:var(--grass); margin:0 0 10px; font-size:0.95rem; text-transform:uppercase;">🎯 Réception (Full PPR)</h4>
+              <table style="width:100%; font-size:0.82rem; border-collapse:collapse;">
+                <tr style="border-bottom:1px solid var(--line);"><td style="padding:6px 0;">Réception (PPR)</td><td style="text-align:right; font-weight:700; color:var(--grass);">+1.0 pt (tous postes)</td></tr>
+                <tr style="border-bottom:1px solid var(--line);"><td style="padding:6px 0;">Yards à la réception</td><td style="text-align:right; font-weight:700;">1 pt / 10 yds (0.10)</td></tr>
+                <tr style="border-bottom:1px solid var(--line);"><td style="padding:6px 0;">Touchdown réception</td><td style="text-align:right; font-weight:700;">+6.0 pts</td></tr>
+                <tr style="border-bottom:1px solid var(--line);"><td style="padding:6px 0;">Conversion 2 pts réc.</td><td style="text-align:right; font-weight:700;">+2.0 pts</td></tr>
+                <tr><td style="padding:6px 0;">TE Premium (TEP)</td><td style="text-align:right; color:var(--muted);">Aucun (0.0 pt)</td></tr>
+              </table>
+            </div>
+
+            <div>
+              <h4 style="color:var(--gold); margin:0 0 10px; font-size:0.95rem; text-transform:uppercase;">👟 Kicking (0 Pénalité)</h4>
+              <table style="width:100%; font-size:0.82rem; border-collapse:collapse;">
+                <tr style="border-bottom:1px solid var(--line);"><td style="padding:6px 0;">Extra Point (PAT) réussi</td><td style="text-align:right; font-weight:700;">+1.0 pt</td></tr>
+                <tr style="border-bottom:1px solid var(--line);"><td style="padding:6px 0;">FG 0–39 yards</td><td style="text-align:right; font-weight:700;">+3.0 pts</td></tr>
+                <tr style="border-bottom:1px solid var(--line);"><td style="padding:6px 0;">FG 40–49 yards</td><td style="text-align:right; font-weight:700;">+4.0 pts</td></tr>
+                <tr style="border-bottom:1px solid var(--line);"><td style="padding:6px 0;">FG 50–59 yards</td><td style="text-align:right; font-weight:700;">+5.0 pts</td></tr>
+                <tr style="border-bottom:1px solid var(--line);"><td style="padding:6px 0;">FG 60+ yards</td><td style="text-align:right; font-weight:700;">+6.0 pts</td></tr>
+                <tr><td style="padding:6px 0;">FG / PAT Manqué</td><td style="text-align:right; font-weight:700; color:var(--grass);">0 pt (aucun malus)</td></tr>
+              </table>
+            </div>
+
+            <div>
+              <h4 style="color:var(--gold); margin:0 0 10px; font-size:0.95rem; text-transform:uppercase;">🛡️ Défense d'équipe (DEF)</h4>
+              <table style="width:100%; font-size:0.82rem; border-collapse:collapse;">
+                <tr style="border-bottom:1px solid var(--line);"><td style="padding:6px 0;">Sack</td><td style="text-align:right; font-weight:700;">+1.0 pt</td></tr>
+                <tr style="border-bottom:1px solid var(--line);"><td style="padding:6px 0;">Interception / Fumble Rec.</td><td style="text-align:right; font-weight:700;">+2.0 pts</td></tr>
+                <tr style="border-bottom:1px solid var(--line);"><td style="padding:6px 0;">Fumble provoqué (FF)</td><td style="text-align:right; font-weight:700;">+1.0 pt</td></tr>
+                <tr style="border-bottom:1px solid var(--line);"><td style="padding:6px 0;">Safety / Blocked Kick</td><td style="text-align:right; font-weight:700;">+2.0 pts</td></tr>
+                <tr style="border-bottom:1px solid var(--line);"><td style="padding:6px 0;">Touchdown DEF / ST</td><td style="text-align:right; font-weight:700;">+6.0 pts</td></tr>
+                <tr><td style="padding:6px 0;">Yards concédés</td><td style="text-align:right; color:var(--muted);">0 pt (non comptabilisés)</td></tr>
+              </table>
+            </div>
+
+            <div>
+              <h4 style="color:var(--gold); margin:0 0 10px; font-size:0.95rem; text-transform:uppercase;">📊 Barème Points Encaissés</h4>
+              <table style="width:100%; font-size:0.82rem; border-collapse:collapse;">
+                <tr style="border-bottom:1px solid var(--line);"><td style="padding:6px 0;">0 point (Shutout)</td><td style="text-align:right; font-weight:700; color:var(--grass);">+10.0 pts</td></tr>
+                <tr style="border-bottom:1px solid var(--line);"><td style="padding:6px 0;">1 à 6 points</td><td style="text-align:right; font-weight:700; color:var(--grass);">+7.0 pts</td></tr>
+                <tr style="border-bottom:1px solid var(--line);"><td style="padding:6px 0;">7 à 13 points</td><td style="text-align:right; font-weight:700; color:var(--grass);">+4.0 pts</td></tr>
+                <tr style="border-bottom:1px solid var(--line);"><td style="padding:6px 0;">14 à 20 points</td><td style="text-align:right; font-weight:700;">+1.0 pt</td></tr>
+                <tr style="border-bottom:1px solid var(--line);"><td style="padding:6px 0;">21 à 27 points</td><td style="text-align:right; font-weight:700;">0.0 pt</td></tr>
+                <tr style="border-bottom:1px solid var(--line);"><td style="padding:6px 0;">28 à 34 points</td><td style="text-align:right; font-weight:700; color:var(--red);">-1.0 pt</td></tr>
+                <tr><td style="padding:6px 0;">35+ points</td><td style="text-align:right; font-weight:700; color:var(--red);">-4.0 pts</td></tr>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   // Switch tabs
   const tabFinderBtn = document.getElementById("tab-finder-btn");
   const tabCalcBtn = document.getElementById("tab-calc-btn");
+  const tabRulesBtn = document.getElementById("tab-rules-btn");
+
+  function selectTab(tab, { updateUrl = true } = {}) {
+    currentTab = tab;
+    tabFinderBtn.classList.toggle("active", tab === "finder");
+    tabCalcBtn.classList.toggle("active", tab === "calc");
+    tabRulesBtn.classList.toggle("active", tab === "rules");
+    tabFinderBtn.setAttribute("aria-selected", String(tab === "finder"));
+    tabCalcBtn.setAttribute("aria-selected", String(tab === "calc"));
+    tabRulesBtn.setAttribute("aria-selected", String(tab === "rules"));
+    if (updateUrl) {
+      const hash = tab === "finder" ? "#recommendations" : tab === "calc" ? "#calculator" : "#rules";
+      window.history.replaceState(null, "", `${window.location.pathname}${hash}`);
+    }
+    renderCurrentTab();
+  }
 
   tabFinderBtn.addEventListener("click", () => {
-    currentTab = "finder";
-    tabFinderBtn.classList.add("active");
-    tabCalcBtn.classList.remove("active");
-    renderCurrentTab();
+    selectTab("finder");
   });
 
   tabCalcBtn.addEventListener("click", () => {
-    currentTab = "calc";
-    tabCalcBtn.classList.add("active");
-    tabFinderBtn.classList.remove("active");
-    renderCurrentTab();
+    selectTab("calc");
   });
 
-  renderCurrentTab();
+  tabRulesBtn.addEventListener("click", () => {
+    selectTab("rules");
+  });
+
+  window.addEventListener("hashchange", () => {
+    const h = window.location.hash;
+    selectTab(h === "#calculator" ? "calc" : h === "#rules" ? "rules" : "finder", { updateUrl: false });
+  });
+
+  selectTab(currentTab, { updateUrl: false });
 }

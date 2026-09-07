@@ -71,7 +71,7 @@ button, select { font: inherit; }
 .brand-copy small { display: block; color: var(--muted); font-family: var(--body); font-size: 0.66rem; font-weight: 600; letter-spacing: 0.13em; text-transform: uppercase; }
 
 .nav-links { display: flex; align-items: center; gap: 6px; }
-.nav-links a {
+.nav-links > a, .nav-menu-trigger {
   padding: 8px 10px;
   color: var(--muted);
   font-size: 0.78rem;
@@ -80,7 +80,44 @@ button, select { font: inherit; }
   text-decoration: none;
   text-transform: uppercase;
 }
-.nav-links a:hover, .nav-links a[aria-current="page"] { color: var(--grass); }
+.nav-links > a:hover, .nav-links > a[aria-current="page"], .nav-menu.active .nav-menu-trigger, .nav-menu-trigger:hover { color: var(--grass); }
+
+.nav-menu { position: relative; }
+.nav-menu-trigger {
+  display: flex;
+  align-items: center;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  gap: 6px;
+}
+.nav-menu-trigger span { font-size: 1rem; transition: transform 160ms ease; }
+.nav-menu.open .nav-menu-trigger span { transform: rotate(180deg); }
+.nav-submenu {
+  position: absolute;
+  top: calc(100% + 14px);
+  left: 50%;
+  display: none;
+  width: 280px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  box-shadow: 12px 12px 0 #07100c;
+  transform: translateX(-50%);
+}
+.nav-menu.open .nav-submenu, .nav-menu:focus-within .nav-submenu { display: grid; }
+.nav-submenu a {
+  display: grid;
+  padding: 13px 14px;
+  text-decoration: none;
+  gap: 3px;
+}
+.nav-submenu a:hover, .nav-submenu a:focus-visible { background: var(--paper-soft); outline: none; }
+.nav-submenu strong { color: var(--ink); font-family: var(--display); font-size: 0.76rem; letter-spacing: 0.04em; text-transform: uppercase; }
+.nav-submenu small { color: var(--muted); font-size: 0.72rem; }
+
+.tabs-nav { display: flex; margin-top: 28px; padding-bottom: 12px; border-bottom: 1px solid var(--line); gap: 12px; }
+.tabs-nav .filter-btn { cursor: pointer; }
 
 .nav-toggle {
   display: none;
@@ -452,11 +489,17 @@ tbody tr:hover td { background: rgba(184, 255, 61, 0.045); }
 .footer-wrap { display: flex; justify-content: space-between; max-width: 1180px; margin: 0 auto; padding: 28px 24px; color: var(--muted); font-size: 0.76rem; gap: 18px; }
 .footer-wrap strong { color: var(--ink); }
 
-@media (max-width: 860px) {
+@media (max-width: 1280px) {
   .nav-toggle { display: block; }
   .nav-links { position: absolute; top: 72px; right: 0; left: 0; display: none; flex-direction: column; align-items: stretch; padding: 16px 24px 22px; border-bottom: 1px solid var(--line); background: var(--paper); }
   .nav-links.open { display: flex; }
-  .nav-links a { padding: 12px 0; }
+  .nav-links > a { padding: 12px 0; }
+  .nav-menu-trigger { width: 100%; justify-content: space-between; padding: 12px 0; }
+  .nav-submenu { position: static; width: auto; margin: 0 0 8px; padding: 0 0 0 14px; border: 0; border-left: 2px solid var(--grass); background: transparent; box-shadow: none; transform: none; }
+  .nav-submenu a { padding: 10px 12px; }
+}
+
+@media (max-width: 860px) {
   .hero-grid, .feature-grid, .page-hero-grid { grid-template-columns: 1fr; }
   .page-stamp { min-height: 0; }
   .hero { padding-top: 60px; }

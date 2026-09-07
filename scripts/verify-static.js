@@ -12,6 +12,7 @@ const requiredAssets = [
   "assets/trade-value.js",
   "assets/trade-recommender.js",
   "assets/trade-ui.js",
+  "assets/league-settings.js",
   "data/yahoo-history.json",
   "data/yahoo-matchups.json",
   "data/yahoo-playoffs.json",
@@ -21,8 +22,8 @@ const requiredAssets = [
 for (const route of routes) {
   const htmlPath = resolve(root, route, "index.html");
   const html = await readFile(htmlPath, "utf8");
-  if (!html.includes('src="/assets/site.js?v=10"')) throw new Error(`${htmlPath} does not load the current site.js`);
-  if (!html.includes('href="/assets/styles.css?v=9"')) throw new Error(`${htmlPath} does not load the current styles.css`);
+  if (!html.includes('src="/assets/site.js?v=11"')) throw new Error(`${htmlPath} does not load the current site.js`);
+  if (!html.includes('href="/assets/styles.css?v=10"')) throw new Error(`${htmlPath} does not load the current styles.css`);
   if (!html.includes('rel="icon" href="/favicon.svg"')) throw new Error(`${htmlPath} does not load the favicon`);
 }
 
@@ -34,7 +35,8 @@ const publicScripts = await Promise.all([
   readFile(resolve(root, "assets/rivalry-week.js"), "utf8"),
   readFile(resolve(root, "assets/trade-value.js"), "utf8"),
   readFile(resolve(root, "assets/trade-recommender.js"), "utf8"),
-  readFile(resolve(root, "assets/trade-ui.js"), "utf8")
+  readFile(resolve(root, "assets/trade-ui.js"), "utf8"),
+  readFile(resolve(root, "assets/league-settings.js"), "utf8")
 ]);
 if (/sb_secret_|SUPABASE_SECRET_KEY|platform_user_id|refresh_token/i.test(publicScripts.join("\n"))) {
   throw new Error("Public JavaScript contains a server secret or private platform identifier");
