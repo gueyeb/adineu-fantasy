@@ -4,7 +4,7 @@
  * Gère le Calculateur de Trade interactif et le Moteur de Recommandations.
  */
 
-import { calculatePlayerTradeValue, evaluateTrade } from "./trade-value.js?v=2";
+import { calculatePlayerTradeValue, calculatePlayerTradeProfile, evaluateTrade } from "./trade-value.js?v=2";
 import { diagnoseRoster, findTradeProposals } from "./trade-recommender.js?v=2";
 import {
   GENERAL_SETTINGS_2026,
@@ -46,7 +46,7 @@ export async function renderTradesPage(container) {
     </section>
   `;
 
-  // 1. Charger le catalogue et les données Sleeper
+  // 1. Charger le catalogue, les données Sleeper, les projections et scores hebdomadaires
   let catalog = { players: [] };
   try {
     const catRes = await fetch("/data/players-catalog.json");
@@ -63,17 +63,67 @@ export async function renderTradesPage(container) {
 
   let rosters = [];
   let users = [];
+  let weeklyProjections = {};
+  const playerWeeklyScores = new Map();
+
   try {
-    const [rRes, uRes] = await Promise.all([
+    const [rRes, uRes, stateRes] = await Promise.all([
       fetch(`${SLEEPER_API}/league/${SLEEPER_LEAGUE_ID}/rosters`),
-      fetch(`${SLEEPER_API}/league/${SLEEPER_LEAGUE_ID}/users`)
+      fetch(`${SLEEPER_API}/league/${SLEEPER_LEAGUE_ID}/users`),
+      fetch(`${SLEEPER_API}/state/nfl`)
     ]);
     if (rRes.ok && uRes.ok) {
       rosters = await rRes.json();
       users = await uRes.json();
     }
+
+    if (stateRes.ok) {
+      const nflState = await stateRes.json();
+      const currentWeek = nflState.display_week || nflState.week || 1;
+      const season = nflState.season || "2026";
+
+      try {
+        const projRes = await fetch(`${SLEEPER_API}/projections/nfl/regular/${season}/${currentWeek}`);
+        if (projRes.ok) weeklyProjections = await projRes.json();
+      } catch {}
+
+      // Matchups hebdomadaires
+      for (let w = 1; w <= currentWeek; w++) {
+        try {
+          const mRes = await fetch(`${SLEEPER_API}/league/${SLEEPER_LEAGUE_ID}/matchups/${w}`);
+          if (mRes.ok) {
+            const matchups = await mRes.json();
+            const hasRealScores = matchups.some(m => (m.points || 0) > 0);
+            if (hasRealScores) {
+              for (const m of matchups) {
+                for (const [pid, pts] of Object.entries(m.players_points || {})) {
+                  if (typeof pts === "number") {
+                    if (!playerWeeklyScores.has(pid)) playerWeeklyScores.set(pid, []);
+                    playerWeeklyScores.get(pid).push(pts);
+                  }
+                }
+              }
+            }
+          }
+        } catch {}
+      }
+    }
   } catch (e) {
     console.warn("Erreur chargement Sleeper API", e);
+  }
+
+  // Enrichir les joueurs du catalogue avec projections
+  for (const p of catalog.players || []) {
+    const proj = weeklyProjections[p.sleeperId];
+    if (proj && typeof proj.pts_ppr === "number") {
+      p.projectedPpg = Number(proj.pts_ppr.toFixed(1));
+    }
+    const scores = playerWeeklyScores.get(p.sleeperId) || [];
+    if (scores.length > 0) {
+      p.weeklyScores = scores;
+      p.gamesPlayed = scores.length;
+      p.actualPpg = Number((scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1));
+    }
   }
 
   const userById = new Map(users.map(u => [u.user_id, u]));
@@ -89,8 +139,18 @@ export async function renderTradesPage(container) {
       name: teamName,
       players: (r.players || []).map(pid => {
         const found = playerMap.get(pid);
-        if (found) return found;
-        return { sleeperId: pid, name: `Player #${pid}`, position: "FLEX" };
+        const player = found ? { ...found } : { sleeperId: pid, name: `Player #${pid}`, position: "FLEX" };
+        const proj = weeklyProjections[pid];
+        if (proj && typeof proj.pts_ppr === "number") {
+          player.projectedPpg = Number(proj.pts_ppr.toFixed(1));
+        }
+        const scores = playerWeeklyScores.get(pid) || [];
+        if (scores.length > 0) {
+          player.weeklyScores = scores;
+          player.gamesPlayed = scores.length;
+          player.actualPpg = Number((scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1));
+        }
+        return player;
       })
     };
   });
@@ -172,19 +232,50 @@ export async function renderTradesPage(container) {
                         ${catBadge}
                         <h4 style="margin:8px 0 2px; font-size:1rem; color:var(--ink);">${escapeHtml(p.partnerName)}</h4>
                       </div>
-                      <span style="font-size:0.75rem; color:${verdictColor}; font-weight:700;">${p.evaluation.label}</span>
+                      <div style="text-align:right;">
+                        <span style="font-size:0.75rem; color:${verdictColor}; font-weight:700; display:block;">${p.evaluation.label}</span>
+                        ${p.evaluation.weeklyPointsDiff ? `
+                          <span style="font-size:0.7rem; color:var(--muted); font-weight:600;">
+                            Impact: ${p.evaluation.weeklyPointsDiff > 0 ? "+" : ""}${p.evaluation.weeklyPointsDiff} pts/sem
+                          </span>
+                        ` : ""}
+                      </div>
                     </div>
 
                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:14px 0; padding:12px; background:var(--paper-soft); border-radius:4px; border:1px solid var(--line);">
                       <div>
-                        <span style="font-size:0.68rem; text-transform:uppercase; color:var(--red); font-weight:700; display:block; margin-bottom:4px;">Tu Cèdes</span>
-                        ${p.give.map(g => `<div style="font-size:0.85rem; font-weight:600;">${escapeHtml(g.name)} <small style="color:var(--muted);">(${escapeHtml(g.position)})</small></div>`).join("")}
-                        <div style="font-size:0.7rem; color:var(--muted); margin-top:4px;">Valeur nette : ${p.evaluation.sideA.netTotal} pts</div>
+                        <span style="font-size:0.68rem; text-transform:uppercase; color:var(--red); font-weight:700; display:block; margin-bottom:6px;">Tu Cèdes</span>
+                        ${p.give.map(g => `
+                          <div style="font-size:0.85rem; font-weight:600; margin-bottom:2px;">
+                            ${escapeHtml(g.name)} <small style="color:var(--muted);">(${escapeHtml(g.position)})</small>
+                          </div>
+                          <div style="font-size:0.7rem; color:var(--muted); margin-bottom:6px;">
+                            ${typeof g.projectedPpg === "number" ? `Proj: <strong>${g.projectedPpg}</strong>` : ""}
+                            ${typeof g.actualPpg === "number" ? ` · Réel: <strong>${g.actualPpg}</strong>` : ""}
+                            ${g.signal === "BUY_LOW" ? ` · <span style="color:var(--grass); font-weight:700;">🟢 Buy-Low</span>` : ""}
+                            ${g.signal === "SELL_HIGH" ? ` · <span style="color:var(--gold); font-weight:700;">🔥 Sell-High</span>` : ""}
+                          </div>
+                        `).join("")}
+                        <div style="font-size:0.7rem; color:var(--muted); margin-top:4px; border-top:1px dashed var(--line); padding-top:4px;">
+                          Valeur nette : <strong>${p.evaluation.sideA.netTotal}</strong> pts
+                        </div>
                       </div>
                       <div>
-                        <span style="font-size:0.68rem; text-transform:uppercase; color:var(--grass); font-weight:700; display:block; margin-bottom:4px;">Tu Reçois</span>
-                        ${p.receive.map(r => `<div style="font-size:0.85rem; font-weight:600;">${escapeHtml(r.name)} <small style="color:var(--muted);">(${escapeHtml(r.position)})</small></div>`).join("")}
-                        <div style="font-size:0.7rem; color:var(--muted); margin-top:4px;">Valeur nette : ${p.evaluation.sideB.netTotal} pts</div>
+                        <span style="font-size:0.68rem; text-transform:uppercase; color:var(--grass); font-weight:700; display:block; margin-bottom:6px;">Tu Reçois</span>
+                        ${p.receive.map(r => `
+                          <div style="font-size:0.85rem; font-weight:600; margin-bottom:2px;">
+                            ${escapeHtml(r.name)} <small style="color:var(--muted);">(${escapeHtml(r.position)})</small>
+                          </div>
+                          <div style="font-size:0.7rem; color:var(--muted); margin-bottom:6px;">
+                            ${typeof r.projectedPpg === "number" ? `Proj: <strong>${r.projectedPpg}</strong>` : ""}
+                            ${typeof r.actualPpg === "number" ? ` · Réel: <strong>${r.actualPpg}</strong>` : ""}
+                            ${r.signal === "BUY_LOW" ? ` · <span style="color:var(--grass); font-weight:700;">🟢 Buy-Low</span>` : ""}
+                            ${r.signal === "SELL_HIGH" ? ` · <span style="color:var(--gold); font-weight:700;">🔥 Sell-High</span>` : ""}
+                          </div>
+                        `).join("")}
+                        <div style="font-size:0.7rem; color:var(--muted); margin-top:4px; border-top:1px dashed var(--line); padding-top:4px;">
+                          Valeur nette : <strong>${p.evaluation.sideB.netTotal}</strong> pts
+                        </div>
                       </div>
                     </div>
 
@@ -238,9 +329,14 @@ export async function renderTradesPage(container) {
             <div style="margin-bottom:14px;">
               <select id="calc-add-a" style="width:100%; padding:10px; background:var(--paper-soft); border:1px solid var(--line); color:var(--ink); font-weight:600; border-radius:4px;">
                 <option value="">+ Ajouter un joueur...</option>
-                ${allPlayers.slice(0, 180).map(p => `
-                  <option value="${escapeHtml(p.sleeperId)}">${escapeHtml(p.name)} (${escapeHtml(p.position)} - ${escapeHtml(p.nflTeam || "NFL")}) · Valeur ~${calculatePlayerTradeValue(p)}</option>
-                `).join("")}
+                ${allPlayers.slice(0, 200).map(p => {
+                  const prof = calculatePlayerTradeProfile(p);
+                  return `
+                    <option value="${escapeHtml(p.sleeperId)}">
+                      ${escapeHtml(p.name)} (${escapeHtml(p.position)} - ${escapeHtml(p.nflTeam || "NFL")}) · Val ~${prof.tradeValue} · Proj: ${prof.projectedPpg} pts/m
+                    </option>
+                  `;
+                }).join("")}
               </select>
             </div>
             <div id="side-a-list" style="min-height:120px; display:flex; flex-direction:column; gap:8px;">
@@ -254,9 +350,14 @@ export async function renderTradesPage(container) {
             <div style="margin-bottom:14px;">
               <select id="calc-add-b" style="width:100%; padding:10px; background:var(--paper-soft); border:1px solid var(--line); color:var(--ink); font-weight:600; border-radius:4px;">
                 <option value="">+ Ajouter un joueur...</option>
-                ${allPlayers.slice(0, 180).map(p => `
-                  <option value="${escapeHtml(p.sleeperId)}">${escapeHtml(p.name)} (${escapeHtml(p.position)} - ${escapeHtml(p.nflTeam || "NFL")}) · Valeur ~${calculatePlayerTradeValue(p)}</option>
-                `).join("")}
+                ${allPlayers.slice(0, 200).map(p => {
+                  const prof = calculatePlayerTradeProfile(p);
+                  return `
+                    <option value="${escapeHtml(p.sleeperId)}">
+                      ${escapeHtml(p.name)} (${escapeHtml(p.position)} - ${escapeHtml(p.nflTeam || "NFL")}) · Val ~${prof.tradeValue} · Proj: ${prof.projectedPpg} pts/m
+                    </option>
+                  `;
+                }).join("")}
               </select>
             </div>
             <div id="side-b-list" style="min-height:120px; display:flex; flex-direction:column; gap:8px;">
@@ -292,18 +393,31 @@ export async function renderTradesPage(container) {
           </span>
         </div>
 
-        <div style="display:grid; grid-template-columns:1fr auto 1fr; gap:24px; align-items:center; max-width:600px; margin:0 auto 16px;">
+        <div style="display:grid; grid-template-columns:1fr auto 1fr; gap:24px; align-items:center; max-width:640px; margin:0 auto 16px;">
           <div>
             <div style="font-size:0.75rem; color:var(--muted); text-transform:uppercase;">Valeur nette Équipe A</div>
             <div style="font-size:2rem; font-weight:800; color:var(--red); font-family:var(--display);">${evalTrade.sideA.netTotal}</div>
             <div style="font-size:0.75rem; color:var(--muted);">Brut : ${evalTrade.sideA.rawTotal} pts</div>
+            <div style="font-size:0.8rem; color:var(--ink); margin-top:4px;">
+              <strong>${evalTrade.sideA.blendedPpgTotal} pts/sem</strong> <small style="color:var(--muted);">(Proj: ${evalTrade.sideA.projectedPpgTotal})</small>
+            </div>
           </div>
           <div style="font-size:1.5rem; color:var(--muted); font-weight:700;">VS</div>
           <div>
             <div style="font-size:0.75rem; color:var(--muted); text-transform:uppercase;">Valeur nette Équipe B</div>
             <div style="font-size:2rem; font-weight:800; color:var(--grass); font-family:var(--display);">${evalTrade.sideB.netTotal}</div>
             <div style="font-size:0.75rem; color:var(--muted);">Brut : ${evalTrade.sideB.rawTotal} pts</div>
+            <div style="font-size:0.8rem; color:var(--ink); margin-top:4px;">
+              <strong>${evalTrade.sideB.blendedPpgTotal} pts/sem</strong> <small style="color:var(--muted);">(Proj: ${evalTrade.sideB.projectedPpgTotal})</small>
+            </div>
           </div>
+        </div>
+
+        <div style="background:var(--panel); border:1px solid var(--line); border-radius:4px; padding:10px 14px; max-width:540px; margin:12px auto; font-size:0.85rem;">
+          📊 <strong>Impact hebdomadaire :</strong> ${evalTrade.weeklyPointsDiff >= 0
+            ? `<span style="color:var(--grass); font-weight:700;">+${evalTrade.weeklyPointsDiff} pts/semaine pour Équipe A</span>`
+            : `<span style="color:var(--red); font-weight:700;">${evalTrade.weeklyPointsDiff} pts/semaine pour Équipe A</span>`}
+          <span style="color:var(--muted); display:block; font-size:0.75rem; margin-top:2px;">(Pondération bayésienne entre projections Sleeper et production réelle de la saison)</span>
         </div>
 
         ${evalTrade.starPlayer ? `
@@ -404,6 +518,21 @@ export async function renderTradesPage(container) {
               <li><strong>9 Titulaires :</strong> 1 QB, 2 RB, 2 WR, 1 TE, 1 FLEX, 1 K, 1 DEF</li>
               <li><strong>6 Remplaçants (Banc)</strong></li>
               <li><strong>1 Slot IR :</strong> Réservé aux joueurs déclarés Out (O) ou IR</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="card" style="background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:20px; margin-bottom:24px;">
+          <p class="eyebrow" style="color:var(--grass); margin-bottom:8px;">Évaluation Déterministe des Trades</p>
+          <h3 style="margin:0 0 12px; font-size:1.1rem;">Modèle Dynamique : Projections & Production Réelle Hebdomadaire</h3>
+          <div style="font-size:0.85rem; color:var(--muted); line-height:1.6;">
+            <p style="margin:0 0 8px;">Notre moteur de trade calcule la valeur de chaque joueur et le bénéfice pour les deux équipes en croisant plusieurs dimensions objectives :</p>
+            <ul style="padding-left:18px; margin:0 0 12px;">
+              <li><strong>Qualité & Rareté positionnelle :</strong> Prise en compte du format PPR 12 équipes (prime aux RB titulaires et TE élite, surplus QB).</li>
+              <li><strong>Projections hebdomadaires Sleeper :</strong> Points projetés par match calculés selon notre barème officiel.</li>
+              <li><strong>Production réelle hebdomadaire :</strong> Points réels marqués match par match en ligue Sleeper sous notre scoring 2026.</li>
+              <li><strong>Lissage bayésien (Bayesian Shrinkage) :</strong> Au fil des semaines jouées, le poids de la production réelle augmente progressivement sans sur-réagir à une anomalie isolée d'une semaine.</li>
+              <li><strong>Signaux Marché :</strong> Détection automatique des opportunités <em>Buy-Low</em> (production temporairement inférieure aux projections) et <em>Sell-High</em> (surperformance temporaire).</li>
             </ul>
           </div>
         </div>

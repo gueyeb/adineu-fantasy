@@ -51,6 +51,39 @@ export async function analyzeTrades({
   ]);
   const userById = new Map(users.map(user => [user.user_id, user]));
 
+  // Récupération facultative de l'état NFL, des projections et des scores hebdomadaires
+  let currentWeek = 1;
+  let season = "2026";
+  try {
+    const nflState = await sleeperGet("/state/nfl", { fetchImpl });
+    currentWeek = nflState?.display_week || nflState?.week || 1;
+    season = nflState?.season || "2026";
+  } catch {}
+
+  let weeklyProjections = {};
+  try {
+    weeklyProjections = await sleeperGet(`/projections/nfl/regular/${season}/${currentWeek}`, { fetchImpl });
+  } catch {}
+
+  const playerWeeklyScores = new Map();
+  // Ne collecter que les semaines terminées ou en cours ayant des points effectifs (> 0)
+  for (let w = 1; w <= currentWeek; w++) {
+    try {
+      const matchups = await sleeperGet(`/league/${leagueId}/matchups/${w}`, { fetchImpl });
+      const weekHasRealPoints = (matchups || []).some(m => (m.points || 0) > 0);
+      if (!weekHasRealPoints) continue;
+
+      for (const m of matchups || []) {
+        for (const [pid, pts] of Object.entries(m.players_points || {})) {
+          if (typeof pts === "number") {
+            if (!playerWeeklyScores.has(pid)) playerWeeklyScores.set(pid, []);
+            playerWeeklyScores.get(pid).push(pts);
+          }
+        }
+      }
+    } catch {}
+  }
+
   const formattedRosters = rosters.map(roster => {
     const user = userById.get(roster.owner_id);
     const ownerName = user?.display_name || `Manager ${roster.roster_id}`;
@@ -60,10 +93,25 @@ export async function analyzeTrades({
       owner_id: roster.owner_id,
       ownerName,
       name: teamName,
-      players: (roster.players || []).map(playerId => playerMap.get(playerId) || {
-        sleeperId: playerId,
-        name: `Player #${playerId}`,
-        position: "FLEX"
+      players: (roster.players || []).map(playerId => {
+        const catalogPlayer = playerMap.get(playerId);
+        const player = catalogPlayer
+          ? { ...catalogPlayer }
+          : { sleeperId: playerId, name: `Player #${playerId}`, position: "FLEX" };
+
+        const proj = weeklyProjections[playerId];
+        if (proj && typeof proj.pts_ppr === "number") {
+          player.projectedPpg = Number(proj.pts_ppr.toFixed(1));
+        }
+
+        const scores = playerWeeklyScores.get(playerId) || [];
+        if (scores.length > 0) {
+          player.weeklyScores = scores;
+          player.gamesPlayed = scores.length;
+          player.actualPpg = Number((scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1));
+        }
+
+        return player;
       })
     };
   });
@@ -106,7 +154,13 @@ export async function analyzeTrades({
 }
 
 function formatPlayers(players) {
-  return players.map(player => `${player.name} (${player.position})`).join(" + ");
+  return players.map(player => {
+    const metrics = [];
+    if (typeof player.projectedPpg === "number") metrics.push(`Proj: ${player.projectedPpg}`);
+    if (typeof player.actualPpg === "number") metrics.push(`Réel: ${player.actualPpg}`);
+    const metricsStr = metrics.length > 0 ? ` · ${metrics.join(" | ")}` : "";
+    return `${player.name} (${player.position}${metricsStr})`;
+  }).join(" + ");
 }
 
 export function formatTradeBulletin(analysis, { proposalLimit = 5 } = {}) {
@@ -128,9 +182,14 @@ export function formatTradeBulletin(analysis, { proposalLimit = 5 } = {}) {
     result.proposals.slice(0, proposalLimit).forEach((proposal, index) => {
       const icon = proposal.category === "HANDCUFF_INSURANCE" ? "🔒" :
         proposal.category === "WIN_WIN" ? "🤝" : "⚡";
+      const weeklyDiff = proposal.evaluation?.weeklyPointsDiff;
+      const weeklyStr = (typeof weeklyDiff === "number" && weeklyDiff !== 0)
+        ? ` (Diff hebdo: ${weeklyDiff > 0 ? "+" : ""}${weeklyDiff} pts/sem)`
+        : "";
+
       lines.push(
         "",
-        `${index + 1}. ${icon} ${proposal.partnerName} — ${proposal.evaluation.label}`,
+        `${index + 1}. ${icon} ${proposal.partnerName} — ${proposal.evaluation.label}${weeklyStr}`,
         `Tu donnes : ${formatPlayers(proposal.give)}`,
         `Tu reçois : ${formatPlayers(proposal.receive)}`,
         `Pourquoi : ${proposal.pitchTarget}`

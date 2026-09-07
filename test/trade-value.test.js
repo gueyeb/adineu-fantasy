@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { calculatePlayerTradeValue, evaluateTrade } from "../public/assets/trade-value.js";
+import { calculatePlayerTradeValue, calculatePlayerTradeProfile, evaluateTrade } from "../public/assets/trade-value.js";
 
 test("calculatePlayerTradeValue correctly values elite vs mid vs deep players", () => {
   const eliteWR = { name: "Puka Nacua", position: "WR", quality: { expertRank: 3 } };
@@ -59,3 +59,81 @@ test("evaluateTrade applies roster tax on 2-for-1 package", () => {
   assert.equal(evaluation.starPlayer.name, "Breece Hall");
   assert.ok(evaluation.sideA.netTotal > evaluation.sideB.netTotal);
 });
+
+test("calculatePlayerTradeProfile accurately blends projections and weekly actual production", () => {
+  // Breakout player: low pre-draft rank (80), but strong weekly production (22, 19, 21 pts)
+  const breakoutWR = {
+    name: "Breakout Star",
+    position: "WR",
+    quality: { expertRank: 80 },
+    projectedPpg: 10.0,
+    weeklyScores: [22.0, 19.0, 21.0] // actual PPG = 20.67
+  };
+
+  const baseWR = {
+    name: "Breakout Star (Preseason)",
+    position: "WR",
+    quality: { expertRank: 80 },
+    projectedPpg: 10.0
+  };
+
+  const profileBreakout = calculatePlayerTradeProfile(breakoutWR);
+  const profileBase = calculatePlayerTradeProfile(baseWR);
+
+  assert.equal(profileBreakout.gamesPlayed, 3);
+  assert.equal(profileBreakout.actualPpg, 20.7);
+  // Blended PPG should be between projected (10.0) and actual (20.7)
+  assert.ok(profileBreakout.blendedPpg > profileBreakout.projectedPpg);
+  assert.ok(profileBreakout.blendedPpg < profileBreakout.actualPpg);
+  // Trade value should dynamically increase based on verified on-field performance
+  assert.ok(
+    profileBreakout.tradeValue > profileBase.tradeValue,
+    `Expected trade value to rise from ${profileBase.tradeValue}, got ${profileBreakout.tradeValue}`
+  );
+  assert.equal(profileBreakout.signal, "SELL_HIGH"); // Actual >> Projected
+  assert.equal(profileBreakout.trend, "STABLE");
+});
+
+test("calculatePlayerTradeProfile identifies BUY_LOW candidates with bad luck", () => {
+  // Elite player with unlucky first 3 weeks (projected 18.0, scored 8, 9, 7 pts)
+  const buyLowRB = {
+    name: "Unlucky Stud",
+    position: "RB",
+    quality: { expertRank: 12 },
+    projectedPpg: 18.0,
+    weeklyScores: [8.0, 9.0, 7.0]
+  };
+
+  const profile = calculatePlayerTradeProfile(buyLowRB);
+  assert.equal(profile.actualPpg, 8.0);
+  assert.equal(profile.signal, "BUY_LOW");
+  // Regression anchor keeps blended value higher than pure 8.0 actual
+  assert.ok(profile.blendedPpg > 11.5, `Expected blended PPG > 11.5, got ${profile.blendedPpg}`);
+});
+
+test("evaluateTrade calculates weeklyPointsDiff alongside trade equity", () => {
+  const playerA = {
+    name: "Player A",
+    position: "WR",
+    quality: { expertRank: 30 },
+    projectedPpg: 14.5,
+    weeklyScores: [15.0, 16.0]
+  };
+  const playerB = {
+    name: "Player B",
+    position: "RB",
+    quality: { expertRank: 32 },
+    projectedPpg: 12.0,
+    weeklyScores: [11.0, 12.0]
+  };
+
+  const evaluation = evaluateTrade({
+    sideA: [playerA],
+    sideB: [playerB]
+  });
+
+  assert.ok(typeof evaluation.weeklyPointsDiff === "number");
+  assert.ok(evaluation.weeklyPointsDiff > 0, "Team A should have positive weekly points differential");
+  assert.ok(evaluation.sideA.blendedPpgTotal > evaluation.sideB.blendedPpgTotal);
+});
+
