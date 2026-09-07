@@ -6,6 +6,7 @@ import {
   buildRivalryRecords,
   buildSleeperWeek
 } from "./rivalry-week.js?v=2";
+import { renderTradesPage } from "./trade-ui.js";
 
 const SUPABASE_URL = "https://juosrzsffvjprqhdyado.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_7Bu9q2dKz0WEol94OGVhHw_xjSwHeHu";
@@ -18,6 +19,7 @@ const routes = [
   ["standings", "/standings/", "Classements"],
   ["power-rankings", "/power-rankings/", "Power"],
   ["rivalry-week", "/rivalry-week/", "Rivalités"],
+  ["trades", "/trades/", "Trades"],
   ["matchups", "/matchups/", "Matchups"],
   ["history", "/history/", "Historique"],
   ["hall-of-fame", "/hall-of-fame/", "Hall of Fame"],
@@ -1092,6 +1094,10 @@ async function start() {
   try {
     if (page === "power-rankings") {
       await renderPowerRankings();
+      return;
+    }
+    if (page === "trades") {
+      await renderTradesPage(app);
       return;
     }
     const data = await loadHistory();

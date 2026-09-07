@@ -3,8 +3,10 @@
 ## Project Structure & Module Organization
 
 - `scripts/sync-sleeper.js` fetches Sleeper data and upserts it into Supabase.
+- `scripts/analyze-trades.js` runs in-season trade analysis across all 12 teams for CLI and n8n workflows.
 - `supabase/schema.sql` defines tables, constraints, RLS policies, and `v_standings`.
-- `public/` contains eight static routes, shared assets, Yahoo history, 609 verified regular-season matchups, and 44 archived playoff games.
+- `public/` contains nine static routes, shared assets, Yahoo history, 609 verified regular-season matchups, and 44 archived playoff games.
+- `public/assets/trade-value.js` and `public/assets/trade-recommender.js` calculate deterministic player values and bilateral proposals.
 - `public/assets/power-rankings.js` contains the pure 2026 ranking calculation; tests live in `test/`.
 - `public/assets/rivalry-week.js` owns the tested Week 8 pairings and historical rivalry calculations.
 - `supabase/yahoo-sleeper-reconciliation.md` records identity evidence and approvals.

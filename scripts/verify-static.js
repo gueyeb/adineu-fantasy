@@ -2,16 +2,20 @@ import { readFile, stat } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const root = resolve("public");
-const routes = ["", "standings", "power-rankings", "rivalry-week", "matchups", "history", "hall-of-fame", "franchises"];
+const routes = ["", "standings", "power-rankings", "rivalry-week", "trades", "matchups", "history", "hall-of-fame", "franchises"];
 const requiredAssets = [
   "favicon.svg",
   "assets/styles.css",
   "assets/site.js",
   "assets/power-rankings.js",
   "assets/rivalry-week.js",
+  "assets/trade-value.js",
+  "assets/trade-recommender.js",
+  "assets/trade-ui.js",
   "data/yahoo-history.json",
   "data/yahoo-matchups.json",
-  "data/yahoo-playoffs.json"
+  "data/yahoo-playoffs.json",
+  "data/players-catalog.json"
 ];
 
 for (const route of routes) {
@@ -27,7 +31,10 @@ for (const asset of requiredAssets) await stat(resolve(root, asset));
 const publicScripts = await Promise.all([
   readFile(resolve(root, "assets/site.js"), "utf8"),
   readFile(resolve(root, "assets/power-rankings.js"), "utf8"),
-  readFile(resolve(root, "assets/rivalry-week.js"), "utf8")
+  readFile(resolve(root, "assets/rivalry-week.js"), "utf8"),
+  readFile(resolve(root, "assets/trade-value.js"), "utf8"),
+  readFile(resolve(root, "assets/trade-recommender.js"), "utf8"),
+  readFile(resolve(root, "assets/trade-ui.js"), "utf8")
 ]);
 if (/sb_secret_|SUPABASE_SECRET_KEY|platform_user_id|refresh_token/i.test(publicScripts.join("\n"))) {
   throw new Error("Public JavaScript contains a server secret or private platform identifier");

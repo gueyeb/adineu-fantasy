@@ -8,7 +8,9 @@ Status: **live** at [adineu-fantasy.bakene.tech](https://adineu-fantasy.bakene.t
 
 - `supabase/schema.sql` — Postgres schema (owners, seasons, teams, matchups + a `v_standings` view). Designed so a season from any platform (Sleeper, Yahoo, eventually the old NFL Fantasy) slots into the same tables — no schema change per source.
 - `scripts/sync-sleeper.js` — pulls the live league from Sleeper's public API (no auth required) and upserts it into Supabase. Idempotent, safe to re-run or schedule.
-- `public/` — framework-free clubhouse with eight routes, including the 2026 Power Rankings and Rivalry Week pages.
+- `scripts/analyze-trades.js` — automatable in-season trade analyzer for CLI and n8n (roster diagnosis, win-win synergies, handcuff leverage).
+- `public/` — framework-free clubhouse with nine routes, including the 2026 Power Rankings, Rivalry Week, and Trade Hub pages.
+- `public/assets/trade-value.js` & `public/assets/trade-recommender.js` — pure, tested deterministic trade valuation and matchmaking engines.
 - `public/assets/power-rankings.js` — pure, tested ranking engine. It waits for two complete regular-season weeks before publishing.
 - `public/assets/rivalry-week.js` — tested records and Sleeper-mapping logic for the six proposed Week 8 rivalries.
 - `public/data/yahoo-history.json` — season-scoped Yahoo archive: podiums, final standings, weekly highs and 2025 player leaders.
@@ -59,7 +61,8 @@ That is the intended API path, but it is **not the source of the current archive
 6. All-time single-game records and regular-season winning streaks ✅
 7. 2026 Power Rankings route, formula, tests, and automatic two-week activation ✅ (live rankings await real matchups)
 8. Week 8 Rivalry Week route, head-to-head matrix, historical cards, and live Sleeper schedule detection ✅
-9. Nice-to-haves: weekly awards, draft grades, and trade analyzer
+9. Trade Hub (Calculateur de trade, moteur de recommandations bilatérales et script n8n) ✅
+10. Nice-to-haves: weekly awards et notes de draft après saison
 
 ## License
 

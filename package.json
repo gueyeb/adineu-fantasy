@@ -9,7 +9,8 @@
     "check": "node scripts/verify-static.js",
     "test": "node --test",
     "sync:sleeper": "node scripts/sync-sleeper.js",
-    "sync:sleeper:production": "node --env-file=.env.production scripts/sync-sleeper.js"
+    "sync:sleeper:production": "node --env-file=.env.production scripts/sync-sleeper.js",
+    "analyze:trades": "node scripts/analyze-trades.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.0"
