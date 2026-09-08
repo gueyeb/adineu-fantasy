@@ -127,28 +127,25 @@ button, select { font: inherit; }
   padding: 8px 10px;
 }
 
+/* Discret à dessein : outil perso (export du roster/règles pour un chat IA),
+   pas une fonctionnalité publique du site. Pas de style bouton, se fond dans le footer. */
 .context-copy-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  border: 1px solid var(--grass);
+  gap: 5px;
+  margin-left: auto;
+  padding: 0;
+  border: 0;
   background: transparent;
-  color: var(--grass);
+  color: var(--muted);
   font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
+  opacity: 0.55;
 }
-.context-copy-btn:hover, .context-copy-btn:focus-visible { background: var(--grass); color: #07100c; outline: none; }
-.context-copy-btn[data-state="done"] { border-color: var(--gold); color: var(--gold); }
-.context-copy-btn[data-state="done"]:hover { background: var(--gold); color: #07100c; }
-
-@media (max-width: 580px) {
-  .context-copy-label { display: none; }
-}
+.context-copy-btn:hover, .context-copy-btn:focus-visible { color: var(--grass); opacity: 1; outline: none; }
+.context-copy-btn[data-state="done"] { color: var(--gold); opacity: 1; }
 
 main { min-height: calc(100vh - 150px); }
 .shell { width: min(1180px, calc(100% - 48px)); margin: 0 auto; }

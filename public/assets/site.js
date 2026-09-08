@@ -36,9 +36,6 @@ document.getElementById("site-header").innerHTML = `
         <span class="brand-mark">A</span>
         <span class="brand-copy">Adineu NFL<small>Fantasy League · depuis 2019</small></span>
       </a>
-      <button class="context-copy-btn" type="button" id="copy-context-btn" title="Copier ton roster et les règles de ligue pour un chat IA">
-        <span class="context-copy-icon" aria-hidden="true">📋</span><span class="context-copy-label">Copier contexte IA</span>
-      </button>
       <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="main-nav">Menu</button>
       <nav class="nav-links" id="main-nav" aria-label="Navigation principale">
         ${routes.slice(0, 4).map(([key, href, label]) => `<a href="${href}"${key === page ? ' aria-current="page"' : ""}>${label}</a>`).join("")}
@@ -71,6 +68,9 @@ document.getElementById("site-footer").innerHTML = `
     <div class="footer-wrap">
       <span><strong>Adineu NFL</strong> · notre ligue, nos archives.</span>
       <span>Yahoo 2019–2025 · Sleeper à partir de 2026</span>
+      <button class="context-copy-btn" type="button" id="copy-context-btn" title="Copier ton roster et les règles de ligue pour un chat IA">
+        <span class="context-copy-icon" aria-hidden="true">📋</span><span class="context-copy-label">Contexte IA</span>
+      </button>
     </div>
   </footer>`;
 
