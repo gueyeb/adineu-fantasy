@@ -5,7 +5,8 @@ import { readFile } from "node:fs/promises";
 import {
   RIVALRY_PAIRS,
   buildRivalryRecords,
-  buildSleeperWeek
+  buildSleeperWeek,
+  buildSleeperSeasonMeetings
 } from "../public/assets/rivalry-week.js";
 
 const matchupArchive = JSON.parse(await readFile(
@@ -72,6 +73,50 @@ test("keeps playoffs separate and exposes recent form", () => {
   assert.deepEqual(babttzTamsir.playoffs, { games: 2, winsA: 1, winsB: 1 });
   assert.equal(biramaMagatte.lastFive.length, 5);
   assert.equal(biramaMagatte.lastFive.at(-1).year, 2025);
+});
+
+test("folds a played 2026 Sleeper meeting into the all-time rivalry record", () => {
+  const liveMeetings = [{ managerA: "Magatte", managerB: "Birama", pointsA: 100, pointsB: 90, week: 3, year: 2026 }];
+  const withLive = buildRivalryRecords(matchupArchive, playoffGames(), liveMeetings);
+  const withoutLive = buildRivalryRecords(matchupArchive, playoffGames());
+  const biramaMagatteLive = withLive.find(record => record.managerA === "Birama");
+  const biramaMagatteFrozen = withoutLive.find(record => record.managerA === "Birama");
+
+  assert.equal(biramaMagatteLive.games, biramaMagatteFrozen.games + 1);
+  assert.equal(biramaMagatteLive.winsB, biramaMagatteFrozen.winsB + 1); // Magatte (managerB) a gagné ce match
+  assert.equal(biramaMagatteLive.lastFive.at(-1).year, 2026);
+  assert.equal(biramaMagatteLive.lastFive.at(-1).week, 3);
+  assert.equal(biramaMagatteLive.lastFive.at(-1).pointsA, 90); // pointsA = côté Birama (managerA de la paire)
+});
+
+test("ignores a live meeting between managers who are not the tracked pair", () => {
+  const liveMeetings = [{ managerA: "Birama", managerB: "Mat", pointsA: 100, pointsB: 90, week: 3, year: 2026 }];
+  const records = buildRivalryRecords(matchupArchive, playoffGames(), liveMeetings);
+  const biramaMagatte = records.find(record => record.managerA === "Birama");
+  const matToughness = records.find(record => record.managerA === "Mat");
+
+  assert.equal(biramaMagatte.games, 10); // inchangé : Mat n'est pas Magatte
+  assert.equal(matToughness.games, 10); // inchangé : Birama n'est pas Toughness
+});
+
+test("buildSleeperSeasonMeetings tags each meeting with its week and skips unplayed weeks", () => {
+  const users = [
+    { user_id: "user-a", display_name: "bm2222" },
+    { user_id: "user-b", display_name: "SneakySlayerMG" }
+  ];
+  const rosters = [
+    { roster_id: 3, owner_id: "user-a" },
+    { roster_id: 9, owner_id: "user-b" }
+  ];
+  const weeksOfRows = [
+    { week: 1, rows: [{ matchup_id: 2, roster_id: 3, points: 0 }, { matchup_id: 2, roster_id: 9, points: 0 }] },
+    { week: 2, rows: [{ matchup_id: 2, roster_id: 3, points: 121.4 }, { matchup_id: 2, roster_id: 9, points: 117.8 }] }
+  ];
+
+  const meetings = buildSleeperSeasonMeetings(weeksOfRows, rosters, users);
+  assert.deepEqual(meetings, [
+    { managerA: "Birama", managerB: "Magatte", pointsA: 121.4, pointsB: 117.8, week: 2, year: 2026 }
+  ]);
 });
 
 test("resolves a published Sleeper matchup without persisting platform IDs", () => {

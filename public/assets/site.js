@@ -4,10 +4,11 @@ import {
   RIVALRY_CRITERIA,
   RIVALRY_WEEK,
   buildRivalryRecords,
-  buildSleeperWeek
-} from "./rivalry-week.js?v=2";
+  buildSleeperWeek,
+  buildSleeperSeasonMeetings
+} from "./rivalry-week.js?v=3";
 import { renderTradesPage } from "./trade-ui.js?v=5";
-import { renderMatchupsHub } from "./matchups-live.js?v=4";
+import { renderMatchupsHub } from "./matchups-live.js?v=5";
 import { calculatePlayoffRace } from "./playoff-race.js?v=1";
 
 const SUPABASE_URL = "https://juosrzsffvjprqhdyado.supabase.co";
@@ -781,8 +782,36 @@ async function renderRivalryWeek(data) {
   ]);
   const playoffGames = allYahooPlayoffSeasons(data, playoffArchive).flatMap(season =>
     season.games.map(game => ({ ...game, year: season.year })));
-  const rivalries = buildRivalryRecords(matchupArchive, playoffGames);
+
+  // Rivalry Tracker 2026 : dès qu'un vrai matchup Sleeper est publié entre deux managers
+  // d'une paire suivie, il rejoint le bilan all-time ci-dessous (jamais deviné, jamais projeté).
+  let liveMeetings = [];
+  const sleeperContext = { league: null, rosters: [], users: [] };
+  try {
+    sleeperContext.league = await loadSleeperResource(`/league/${SLEEPER_LEAGUE_ID}`);
+    if (sleeperContext.league.status !== "pre_draft") {
+      const [nflState, rosters, users] = await Promise.all([
+        loadSleeperResource("/state/nfl"),
+        loadSleeperResource(`/league/${SLEEPER_LEAGUE_ID}/rosters`),
+        loadSleeperResource(`/league/${SLEEPER_LEAGUE_ID}/users`)
+      ]);
+      sleeperContext.rosters = rosters;
+      sleeperContext.users = users;
+      const currentWeek = Number(nflState.display_week || nflState.week || 1);
+      const completedWeeks = Array.from({ length: Math.max(0, currentWeek - 1) }, (_, index) => index + 1);
+      const weeksOfRows = await Promise.all(completedWeeks.map(async week => ({
+        week,
+        rows: await loadSleeperResource(`/league/${SLEEPER_LEAGUE_ID}/matchups/${week}`)
+      })));
+      liveMeetings = buildSleeperSeasonMeetings(weeksOfRows, rosters, users);
+    }
+  } catch {
+    // Sleeper indisponible : le tracker reste figé sur l'historique Yahoo, la page continue.
+  }
+
+  const rivalries = buildRivalryRecords(matchupArchive, playoffGames, liveMeetings);
   const totalMeetings = rivalries.reduce((total, rivalry) => total + rivalry.games, 0);
+  const liveRivalryCount = rivalries.filter(rivalry => rivalry.lastFive.some(game => game.year === 2026)).length;
   const formLabel = result => ({ W: "V", L: "D", T: "N" })[result];
 
   function pointDifference(rivalry) {
@@ -812,7 +841,7 @@ async function renderRivalryWeek(data) {
     </div></section>
 
     <section class="section rivalry-slate"><div class="shell">
-      <div class="section-head"><div><p class="eyebrow">La carte proposée</p><h2>Les six affiches.</h2></div><p>Bilans de saison régulière Yahoo 2019–2025. Les résultats de playoffs sont volontairement affichés à part.</p></div>
+      <div class="section-head"><div><p class="eyebrow">La carte proposée</p><h2>Les six affiches.</h2></div><p>Bilans de saison régulière Yahoo 2019–2025${liveRivalryCount > 0 ? `, mis à jour avec les résultats Sleeper 2026 déjà joués (${liveRivalryCount}/6 rivalités concernées)` : ""}. Les résultats de playoffs sont volontairement affichés à part.</p></div>
       <div class="rivalry-grid">${rivalries.map((rivalry, index) => `
         <article class="rivalry-card">
           <header><span>Proposition ${String(index + 1).padStart(2, "0")}</span><strong>${escapeHtml(rivalry.title)}</strong></header>
@@ -832,7 +861,7 @@ async function renderRivalryWeek(data) {
             <div><span>Playoffs</span><strong>${playoffLabel(rivalry)}</strong></div>
           </footer>
         </article>`).join("")}</div>
-      <p class="note"><strong>Périmètre :</strong> les bilans principaux couvrent uniquement les matchs de saison régulière Yahoo. Un résultat Sleeper ne rejoindra l'archive qu'après un véritable matchup joué.</p>
+      <p class="note"><strong>Périmètre :</strong> les bilans couvrent la saison régulière — Yahoo 2019–2025, et Sleeper 2026 dès qu'un vrai matchup entre les deux managers a été publié. Aucun résultat n'est jamais deviné ni projeté à l'avance.</p>
     </div></section>
 
     <section class="section schedule-planner"><div class="shell">
@@ -883,18 +912,14 @@ async function renderRivalryWeek(data) {
   }
 
   async function showSleeperRivalryWeek() {
-    const league = await loadSleeperResource(`/league/${SLEEPER_LEAGUE_ID}`).catch(() => null);
+    const league = sleeperContext.league;
     if (!league || league.status === "pre_draft") {
       showProposalStatus(league ? "Sleeper · pré-draft" : "Sleeper · API indisponible");
       return;
     }
     try {
-      const [rows, rosters, users] = await Promise.all([
-        loadSleeperResource(`/league/${SLEEPER_LEAGUE_ID}/matchups/${RIVALRY_WEEK}`),
-        loadSleeperResource(`/league/${SLEEPER_LEAGUE_ID}/rosters`),
-        loadSleeperResource(`/league/${SLEEPER_LEAGUE_ID}/users`)
-      ]);
-      const liveMatchups = buildSleeperWeek(rows, rosters, users);
+      const rows = await loadSleeperResource(`/league/${SLEEPER_LEAGUE_ID}/matchups/${RIVALRY_WEEK}`);
+      const liveMatchups = buildSleeperWeek(rows, sleeperContext.rosters, sleeperContext.users);
       if (liveMatchups.length !== 6) {
         showProposalStatus("Sleeper · calendrier incomplet");
         return;

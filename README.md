@@ -13,7 +13,7 @@ Status: **live** at [adineu-fantasy.bakene.tech](https://adineu-fantasy.bakene.t
 - `public/` — framework-free clubhouse with nine routes, including the 2026 Power Rankings, Rivalry Week, and Trade Hub pages.
 - `public/assets/trade-value.js` & `public/assets/trade-recommender.js` — pure, tested deterministic trade valuation and matchmaking engines.
 - `public/assets/power-rankings.js` — pure, tested ranking engine. It waits for two complete regular-season weeks before publishing.
-- `public/assets/rivalry-week.js` — tested records and Sleeper-mapping logic for the six proposed Week 8 rivalries.
+- `public/assets/rivalry-week.js` — tested records and Sleeper-mapping logic for the six proposed Week 8 rivalries, plus the Rivalry Tracker that folds played 2026 Sleeper meetings into each pair's all-time record.
 - `public/assets/matchups-live.js` — 2026 Game Center: current-week scores, pregame projections, schedule browser, a Récap Hebdo tab, lineup warnings, and Yahoo head-to-head context.
 - `public/assets/weekly-recap.js` — pure, tested: highest score, closest matchup, biggest upset vs. the pregame estimate, and bench points left for a completed week.
 - `public/assets/playoff-race.js` — pure, tested: current playoffs standings and games-back from the 8th seed, reusing Power Rankings' own win/loss/points-for math and activation gate.
@@ -71,7 +71,8 @@ That is the intended API path, but it is **not the source of the current archive
 10. 2026 Game Center with live Sleeper matchups, schedule, projections, and preserved Yahoo archives ✅
 11. AI Context, Waiver Wire, and Start/Sit Advisor tools (`/api/context`, `/api/free-agents`, `/api/lineup-advisor`) ✅ (with confirmed 2026 NFL bye-week schedule)
 12. Weekly Recap and Playoff Race, both in the Game Center / Power Rankings pages ✅
-13. Nice-to-haves: weekly awards et notes de draft après saison
+13. Rivalry Tracker 2026 — played Sleeper meetings automatically join each pair's all-time record ✅
+14. Nice-to-haves: weekly awards et notes de draft après saison
 
 ## License
 

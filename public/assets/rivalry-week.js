@@ -58,11 +58,18 @@ function resultFor(points, opponentPoints) {
   return "T";
 }
 
-export function buildRivalryRecords(matchupArchive, playoffGames = []) {
+/**
+ * @param {Object} matchupArchive Archive Yahoo (public/data/yahoo-matchups.json)
+ * @param {Array<Object>} [playoffGames] Games de playoffs Yahoo/2025, déjà résolus en managers
+ * @param {Array<Object>} [liveMeetings] Confrontations Sleeper 2026 déjà jouées, issues de
+ *   buildSleeperSeasonMeetings — chaque saison régulière 2026 rejoint le bilan all-time dès
+ *   qu'un vrai matchup est publié par Sleeper entre deux managers d'une paire suivie.
+ */
+export function buildRivalryRecords(matchupArchive, playoffGames = [], liveMeetings = []) {
   const games = regularGames(matchupArchive);
 
   return RIVALRY_PAIRS.map(pair => {
-    const meetings = games.filter(game => isPair(game.sides, pair.managerA, pair.managerB))
+    const yahooMeetings = games.filter(game => isPair(game.sides, pair.managerA, pair.managerB))
       .map(game => {
         const sideA = game.sides.find(side => side.manager === pair.managerA);
         const sideB = game.sides.find(side => side.manager === pair.managerB);
@@ -75,7 +82,23 @@ export function buildRivalryRecords(matchupArchive, playoffGames = []) {
           pointsB: sideB.points,
           resultA: resultFor(sideA.points, sideB.points)
         };
-      }).sort((a, b) => a.year - b.year || a.week - b.week);
+      });
+    const sleeperMeetings = liveMeetings
+      .filter(meeting => isPair([{ manager: meeting.managerA }, { manager: meeting.managerB }], pair.managerA, pair.managerB))
+      .map(meeting => {
+        const pointsA = meeting.managerA === pair.managerA ? meeting.pointsA : meeting.pointsB;
+        const pointsB = meeting.managerA === pair.managerA ? meeting.pointsB : meeting.pointsA;
+        return {
+          year: meeting.year,
+          week: meeting.week,
+          teamA: pair.managerA,
+          teamB: pair.managerB,
+          pointsA,
+          pointsB,
+          resultA: resultFor(pointsA, pointsB)
+        };
+      });
+    const meetings = [...yahooMeetings, ...sleeperMeetings].sort((a, b) => a.year - b.year || a.week - b.week);
     const postseason = playoffGames.filter(game =>
       isPair([game.winner, game.loser], pair.managerA, pair.managerB));
     const winsA = meetings.filter(game => game.resultA === "W").length;
@@ -142,4 +165,23 @@ export function buildSleeperWeek(matchupRows, rosters, users) {
     pointsA: Number(sides[0].points) || 0,
     pointsB: Number(sides[1].points) || 0
   })).filter(matchup => matchup.managerA && matchup.managerB);
+}
+
+/**
+ * Étend buildSleeperWeek à plusieurs semaines déjà jouées, pour nourrir le bilan all-time
+ * (Rivalry Tracker 2026) — pas seulement la semaine 8 proposée. Ignore les semaines pas
+ * encore jouées (0–0).
+ *
+ * @param {Array<{week: number, rows: Array<Object>}>} weeksOfRows
+ * @param {Array<Object>} rosters
+ * @param {Array<Object>} users
+ * @param {Object} [options]
+ * @param {number} [options.season=2026]
+ */
+export function buildSleeperSeasonMeetings(weeksOfRows, rosters, users, { season = 2026 } = {}) {
+  return weeksOfRows.flatMap(({ week, rows }) =>
+    buildSleeperWeek(rows, rosters, users)
+      .filter(matchup => matchup.pointsA > 0 || matchup.pointsB > 0)
+      .map(matchup => ({ ...matchup, week, year: season }))
+  );
 }
