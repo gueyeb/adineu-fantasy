@@ -27,6 +27,8 @@ The `/power-rankings/` route activates only after two completed regular-season w
 
 The `/rivalry-week/` pairings are a community proposal, not an applied schedule. Never imply that matchups were changed unless Sleeper publishes them. The page may read Week 8 through Sleeper's public, read-only API and must treat that response as authoritative. The reconstructed NFL.com era (2017–2019) stays outside the public archive until its seasons and identities meet the same evidence standard as Yahoo.
 
+The `/matchups/` route is the 2026 Game Center. Its Live and Calendar views read matchups, rosters, users, and projections from Sleeper; its Archives view preserves the verified Yahoo record book. Treat scores and schedules as official Sleeper data, but label win percentages as Adineu pregame estimates. Suppress probability when either lineup is incomplete or projection coverage is insufficient.
+
 ## Yahoo Data & Access
 
 The published archive does not come from the Yahoo Fantasy API. OAuth authorization with `fspt-r` succeeded, but tested Fantasy resources returned HTTP 403 (`This application is not authorized to perform this action`). Do not claim the API is active and do not retry app creation unless Yahoo offers **Fantasy Sports Read**.

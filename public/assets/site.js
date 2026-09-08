@@ -6,7 +6,8 @@ import {
   buildRivalryRecords,
   buildSleeperWeek
 } from "./rivalry-week.js?v=2";
-import { renderTradesPage } from "./trade-ui.js?v=2";
+import { renderTradesPage } from "./trade-ui.js?v=4";
+import { renderMatchupsHub } from "./matchups-live.js?v=3";
 
 const SUPABASE_URL = "https://juosrzsffvjprqhdyado.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_7Bu9q2dKz0WEol94OGVhHw_xjSwHeHu";
@@ -34,6 +35,9 @@ document.getElementById("site-header").innerHTML = `
         <span class="brand-mark">A</span>
         <span class="brand-copy">Adineu NFL<small>Fantasy League · depuis 2019</small></span>
       </a>
+      <button class="context-copy-btn" type="button" id="copy-context-btn" title="Copier ton roster et les règles de ligue pour un chat IA">
+        <span class="context-copy-icon" aria-hidden="true">📋</span><span class="context-copy-label">Copier contexte IA</span>
+      </button>
       <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="main-nav">Menu</button>
       <nav class="nav-links" id="main-nav" aria-label="Navigation principale">
         ${routes.slice(0, 4).map(([key, href, label]) => `<a href="${href}"${key === page ? ' aria-current="page"' : ""}>${label}</a>`).join("")}
@@ -49,6 +53,10 @@ document.getElementById("site-header").innerHTML = `
             <a href="/trades/#calculator">
               <strong>Trade Calculator</strong>
               <small>Comparer deux groupes de joueurs</small>
+            </a>
+            <a href="/trades/#waivers">
+              <strong>Waiver Wire</strong>
+              <small>Free agents disponibles par poste</small>
             </a>
           </div>
         </div>
@@ -86,6 +94,32 @@ toolsMenuTrigger.addEventListener("click", () => {
 
 document.addEventListener("click", event => {
   if (!toolsMenu.contains(event.target)) setToolsMenuOpen(false);
+});
+
+const copyContextBtn = document.getElementById("copy-context-btn");
+const copyContextIcon = copyContextBtn?.querySelector(".context-copy-icon");
+const copyContextLabel = copyContextBtn?.querySelector(".context-copy-label");
+
+copyContextBtn?.addEventListener("click", async () => {
+  try {
+    const response = await fetch("/api/context?format=text");
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const text = await response.text();
+    await navigator.clipboard.writeText(text);
+    copyContextBtn.dataset.state = "done";
+    copyContextIcon.textContent = "✅";
+    copyContextLabel.textContent = "Copié !";
+  } catch (error) {
+    console.warn("Impossible de copier le contexte IA", error);
+    copyContextIcon.textContent = "⚠️";
+    copyContextLabel.textContent = "Erreur";
+  } finally {
+    setTimeout(() => {
+      copyContextBtn.removeAttribute("data-state");
+      copyContextIcon.textContent = "📋";
+      copyContextLabel.textContent = "Copier contexte IA";
+    }, 2200);
+  }
 });
 
 document.addEventListener("keydown", event => {
@@ -578,14 +612,12 @@ function matchupsAgainst(pairs, manager) {
   }).sort((a, b) => b.games - a.games || b.wins - a.wins || a.opponent.localeCompare(b.opponent, "fr"));
 }
 
-async function renderMatchups(data) {
+async function renderMatchupArchives(data, container) {
   const [matchupArchive, playoffArchive] = await Promise.all([
     loadYahooMatchups(),
     loadYahooPlayoffs()
   ]);
   const headToHead = aggregateHeadToHead(matchupArchive);
-  const matchupCount = matchupArchive.seasons.reduce((total, season) => total
-    + season.weeks.reduce((seasonTotal, week) => seasonTotal + week.matchups.length, 0), 0);
   const winsLeader = headToHead.leaderboard[0];
   const pointsLeader = [...headToHead.leaderboard].sort((a, b) => b.pointsFor - a.pointsFor)[0];
   const rateLeader = [...headToHead.leaderboard].filter(item => item.games >= 20)
@@ -636,8 +668,7 @@ async function renderMatchups(data) {
     return `<td class="matrix-cell${close ? " matrix-close" : ""}" title="${escapeHtml(rowManager)} contre ${escapeHtml(columnManager)} · ${pair.games} matchs"><strong>${wins}–${losses}</strong><small>${pair.games}</small></td>`;
   }
 
-  document.getElementById("app").innerHTML = `${pageHero("Matchups", "Le dimanche se <em>décide ici.</em>", "Sept saisons de duels Yahoo sont enfin réunies. Choisissez un manager, mesurez ses rivalités et retrouvez les parcours qui ont mené à chaque titre.", { label: "Duels vérifiés", value: matchupCount, note: "Saisons régulières · 2019—2025" })}
-    <section class="section h2h-section"><div class="shell">
+  container.innerHTML = `<section class="section h2h-section"><div class="shell">
       <div class="section-head"><div><p class="eyebrow">Face-à-face all-time</p><h2>Choisis ton rival.</h2></div><p>Résultats de saison régulière uniquement. Les playoffs ont leur propre bilan ci-dessous pour préserver le contexte.</p></div>
       <div class="record-grid h2h-records">
         <article class="record"><span class="record-label">Plus de victoires</span><strong>${escapeHtml(winsLeader.manager)}</strong><span>${winsLeader.wins} victoires · ${winsLeader.games} matchs</span></article>
@@ -1138,13 +1169,18 @@ async function start() {
       await renderTradesPage(app);
       return;
     }
+    if (page === "matchups") {
+      await renderMatchupsHub(app, {
+        renderArchive: async container => renderMatchupArchives(await loadHistory(), container)
+      });
+      return;
+    }
     const data = await loadHistory();
     if (page === "home") await renderHome(data);
     if (page === "standings") await renderStandings(data);
     if (page === "history") renderHistory(data);
     if (page === "hall-of-fame") await renderHallOfFame(data);
     if (page === "rivalry-week") await renderRivalryWeek(data);
-    if (page === "matchups") await renderMatchups(data);
     if (page === "franchises") await renderFranchises(data);
   } catch (error) {
     app.innerHTML = `<section class="section"><div class="shell"><div class="state"><strong>Impossible de charger la page</strong>${escapeHtml(error.message)}</div></div></section>`;

@@ -7,6 +7,12 @@ import { extname, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { analyzeTrades, formatTradeBulletin } from "./scripts/analyze-trades.js";
 import {
+  getLeagueContext,
+  formatContextText,
+  getFreeAgents as getFreeAgentsDefault,
+  formatWaiverReport
+} from "./scripts/league-context.js";
+import {
   LEAGUE_METADATA_2026,
   GENERAL_SETTINGS_2026,
   ROSTER_SETTINGS_2026,
@@ -42,7 +48,12 @@ function resolvePublicPath(publicRoot, pathname) {
   return filePath;
 }
 
-export function createAppServer({ publicRoot = DEFAULT_PUBLIC_ROOT, analyze = analyzeTrades } = {}) {
+export function createAppServer({
+  publicRoot = DEFAULT_PUBLIC_ROOT,
+  analyze = analyzeTrades,
+  getContext = getLeagueContext,
+  getFreeAgents = getFreeAgentsDefault
+} = {}) {
   return createServer(async (request, response) => {
     if (request.method !== "GET" && request.method !== "HEAD") {
       response.writeHead(405, { allow: "GET, HEAD" });
@@ -63,6 +74,42 @@ export function createAppServer({ publicRoot = DEFAULT_PUBLIC_ROOT, analyze = an
       } catch (error) {
         const isUnknownTeam = error.message.startsWith("Équipe Sleeper inconnue");
         sendJson(response, isUnknownTeam ? 404 : 502, { error: error.message });
+      }
+      return;
+    }
+
+    if (url.pathname === "/api/context") {
+      try {
+        const context = await getContext({ team: url.searchParams.get("team") || "t0z" });
+        const message = formatContextText(context);
+        if (url.searchParams.get("format") === "text") {
+          response.writeHead(200, { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" });
+          response.end(message);
+          return;
+        }
+        sendJson(response, 200, { ...context, message });
+      } catch (error) {
+        const isUnknownTeam = error.message.startsWith("Équipe Sleeper inconnue");
+        sendJson(response, isUnknownTeam ? 404 : 502, { error: error.message });
+      }
+      return;
+    }
+
+    if (url.pathname === "/api/free-agents") {
+      try {
+        const report = await getFreeAgents({
+          position: url.searchParams.get("position"),
+          limitPerPosition: Number(url.searchParams.get("limit")) || 10
+        });
+        const message = formatWaiverReport(report);
+        if (url.searchParams.get("format") === "text") {
+          response.writeHead(200, { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" });
+          response.end(message);
+          return;
+        }
+        sendJson(response, 200, { ...report, message });
+      } catch (error) {
+        sendJson(response, 502, { error: error.message });
       }
       return;
     }

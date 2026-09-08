@@ -11,7 +11,9 @@
     "test": "node --test",
     "sync:sleeper": "node scripts/sync-sleeper.js",
     "sync:sleeper:production": "node --env-file=.env.production scripts/sync-sleeper.js",
-    "analyze:trades": "node scripts/analyze-trades.js"
+    "analyze:trades": "node scripts/analyze-trades.js",
+    "context": "node scripts/league-context.js",
+    "waivers": "node scripts/league-context.js --free-agents"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.0"

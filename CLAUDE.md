@@ -1,67 +1,49 @@
-# Claude Project Handoff
+# CLAUDE.md
 
-Read `AGENTS.md` first; its repository, testing, identity, and security rules are authoritative.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Current State
+Read `AGENTS.md` first — its repository, testing, identity, and security rules (Power Rankings formula, Access Matrix, Yahoo API/archive procedures, coding style) are authoritative and are not repeated here.
+
+## Current State (not derivable from code)
 
 - Production: `https://adineu-fantasy.bakene.tech/`
-- Sleeper 2026: league `1392715510830878721`, 12 owners and 12 rosters, currently `pre_draft`. Draft `1392715511942352896` is scheduled for Sunday, September 6, 2026 at 22:00 Paris time (snake, 15 rounds, 90-second picks).
-- Yahoo archive: 2019–2025, seven seasons, 88/88 team-season identities across 15 managers.
-- Birama played all seven Yahoo seasons: `El Fenomeno` (2019), `Ethan Hunt` (2020), then Yahoo manager `Bombeul22` (2021–2025). His Sleeper account is `bm2222`; these aliases are one canonical owner. Jonnel played both 2019 and 2020.
-- Regular-season Yahoo scoreboards are complete: 609 matchups in `public/data/yahoo-matchups.json`, all reconciled against final W/L/T/PF/PA.
-- Yahoo championship brackets are complete: 44 authenticated games for 2019–2024 in `public/data/yahoo-playoffs.json`, plus eight verified 2025 games in the history archive.
-- `/matchups/` now exposes all-time regular-season head-to-head records with a manager selector.
-- `/matchups/` also exposes all 52 postseason games by year and all-time postseason leaders.
-- `/franchises/` exposes 15 manager dossiers with aliases, season cards, regular-season totals, postseason records, finals, podiums, and titles.
-- `/hall-of-fame/` includes verified single-game records, every regular-season winning streak of at least seven games, and separate postseason records.
-- `/power-rankings/` is data-ready and intentionally locked at 0/2 until every team has two complete regular-season weeks. It then activates automatically from Supabase matchups.
+- Sleeper 2026: league `1392715510830878721`, 12 owners/rosters, `pre_draft`. Draft `1392715511942352896` is Sunday, September 6, 2026, 22:00 Paris time (snake, 15 rounds, 90s picks).
+- Yahoo archive: 2019–2025 complete and reconciled — 609 regular-season matchups, 44+8 playoff games, 88/88 identities across 15 managers. Birama = `El Fenomeno` (2019) / `Ethan Hunt` (2020) / Yahoo `Bombeul22` (2021–2025) / Sleeper `bm2222`, one canonical owner.
+- `/power-rankings/` is data-ready but intentionally locked at 0/2 until every 2026 team has two complete regular-season weeks.
+- `/franchises/`, `/hall-of-fame/`, Trade Hub are all live and derive client-side from the archive JSON + Supabase.
+- `/matchups/` is the 2026 **Game Center** (`public/assets/matchups-live.js`): Live (current-week Sleeper scores + pregame win estimate), Calendrier 2026 (week picker), and Archives 2019-2025 (the original Yahoo head-to-head/rivalry matrix, now lazy-loaded as a tab instead of the whole page). Win probability is explicitly labeled an Adineu estimate and is suppressed whenever a lineup or projection coverage is incomplete — never shown as an official number.
+- `GET /api/context` (JSON or `?format=text`) aggregates league rules + the caller's live Sleeper roster (starters/bench/IR) into one copy-pasteable block; the site header's "Copier contexte IA" button is its main consumer. `GET /api/free-agents` (optional `position`/`limit`) returns the players-catalog entries not on any of the 12 rosters, grouped by position — surfaced as the Trade Hub's "Waiver Wire" tab. Both live in `scripts/league-context.js`, mirroring the `/api/trades` pattern (pure functions + a CLI + an injectable server route).
 
-## Power Rankings Contract
+## Commands
 
-`public/assets/power-rankings.js` is the pure, unit-tested engine. The public score uses percentiles: 45% win rate, 35% points per game, and 20% average margin over the latest three completed weeks. Ties count as half a win. Exclude playoffs and the live current week; require two completed weeks for all 12 teams; preserve tied scores and ranks. Never substitute draft opinions, roster projections, or partial-week scores.
+```bash
+npm install                        # install deps (only dependency: @supabase/supabase-js)
+npm run dev                        # serve public/ at http://localhost:8000
+npm start                          # production server + /api/trades on $PORT (default 3000)
+npm test                           # node --test — runs everything in test/
+node --test test/trade-value.test.js   # run a single test file
+npm run check                      # scripts/verify-static.js — validates routes, asset versions, data reconciliation
+npm run sync:sleeper                # Sleeper -> Supabase, needs SUPABASE_URL/SUPABASE_SECRET_KEY
+npm run sync:sleeper:production     # same, loads ignored .env.production
+npm run analyze:trades -- --team=t0z --json   # CLI trade analyzer (also --team=all)
+npm run context -- --team=t0z --json          # CLI "Copy AI Context"
+npm run waivers -- --position=RB --limit=15   # CLI waiver wire report
+```
 
-## Access Matrix
+There is no build step, bundler, or linter — plain ES modules run directly by Node and loaded natively by the browser.
 
-| System | Working access | Rules |
-| --- | --- | --- |
-| Sleeper | Public REST API | No authentication; sync with `npm run sync:sleeper:production`. |
-| Supabase | MCP when connected, otherwise ignored `.env.production` | Secret key is server-only. Never print, commit, or place it in frontend code. |
-| Yahoo archive | Existing authenticated Chrome session | Read-only extraction. Never inspect cookies/local storage or persist browser credentials. |
-| Yahoo Fantasy API | Currently blocked after successful OAuth | Every tested Fantasy resource returned 403. Do not describe it as the archive source. |
-| Coolify | GitHub deployment/UI | No assumed MCP. A push to `main` triggers the configured deployment. |
-| n8n | Deployed weekly Sleeper workflow | Supabase secret is already stored there; do not duplicate it in tracked files. |
+## Architecture
 
-## Yahoo API Procedure
+Three data layers feed one static, framework-free frontend:
 
-If Yahoo enables **Fantasy Sports Read**, use OAuth 2.0 authorization code flow with scope `fspt-r`:
+1. **Frozen Yahoo archive** — `public/data/yahoo-*.json`. Hand-verified historical evidence (2019–2025). Never regenerated at runtime; only replace it after the reconciliation checks in `AGENTS.md` pass.
+2. **Live Supabase (Postgres)** — `supabase/schema.sql`. `owners` is the canonical cross-platform identity; `owner_platform_ids` maps a Sleeper/Yahoo/NFL platform user ID to one `owner`, so `seasons`/`teams`/`matchups` work identically for any platform without a schema change. `supabase/functions/sync-sleeper` is an edge-function mirror of `scripts/sync-sleeper.js`.
+3. **Live Sleeper REST API** — called directly, unauthenticated, both from the browser (`public/assets/site.js`) and from Node (`scripts/analyze-trades.js`, `scripts/sync-sleeper.js`) for anything that must reflect the current week (rosters, settings, standings).
 
-1. Send the authorized Yahoo member to `https://api.login.yahoo.com/oauth2/request_auth`.
-2. Exchange the returned code at `https://api.login.yahoo.com/oauth2/get_token`.
-3. Store access/refresh tokens only in a server-side secret store.
-4. Discover valid game, league, and team keys with:
+**Server (`server.js`)**: a dependency-free `node:http` static file server for `public/`, plus three read-only JSON routes: `/api/health`, `/api/settings` (serves `public/assets/league-settings.js` constants), and `/api/trades` (wraps `scripts/analyze-trades.js`, used by n8n's weekly workflow). `resolvePublicPath` guards against path traversal outside `public/`. `createAppServer({ analyze })` accepts an injected `analyze` function specifically so `test/trade-api.test.js` can hit the real HTTP handler without a network call.
 
-   ```text
-   GET https://fantasysports.yahooapis.com/fantasy/v2/users;use_login=1/games;game_keys=nfl/teams?format=json
-   Authorization: Bearer <access-token>
-   ```
+**Frontend**: every route is a static `index.html` that loads `public/assets/site.js`, the single shared entry point. It reads `document.body.dataset.page` to render the header/nav, then imports per-feature pure modules — `power-rankings.js`, `rivalry-week.js`, `matchups-live.js` (Game Center), `trade-ui.js` (which itself uses `trade-value.js` + `trade-recommender.js`). These modules take data in and return computed results with no DOM/network access, which is what makes them unit-testable in `test/` via plain `node --test`. Module imports are cache-busted with `?v=N` query strings; `scripts/verify-static.js` (`npm run check`) enforces that every route's HTML references the same `site.js`/`styles.css` version, so bumping a version means updating it everywhere and re-running `check`.
 
-5. Use the returned keys to fetch `league`, `standings`, `scoreboard`, `team`, `roster`, and `draftresults` resources. Refresh the access token server-side when required.
+**Trade Hub data flow**: `scripts/analyze-trades.js` fetches live rosters/users from Sleeper, loads `public/data/players-catalog.json`, and calls the pure `trade-recommender.js`/`trade-value.js` logic — usable identically from the CLI, from `/api/trades`, and from the n8n trade-alert workflow.
 
-Do not invent Yahoo league keys from the numeric league IDs. The API integration is inactive until an authorized Fantasy request returns 200.
-
-## Authenticated Archive Procedure
-
-The reliable source is Yahoo's archived HTML in the logged-in Chrome session:
-
-- Base URL: `https://football.fantasysports.yahoo.com/{year}/f1/{league_id}`
-- Weekly results: append `?matchup_week={week}&module=matchups&lhst=matchups`
-- Championship bracket: append `?module=standings&lhst=playoff#lhstplayoff`
-- League IDs: 2019 `103079`, 2020 `67190`, 2021 `75892`, 2022 `109259`, 2023 `767350`, 2024 `534755`, 2025 `518783`.
-
-Extract final team scores, team IDs/names, week, and season. Resolve managers through `public/data/yahoo-history.json` and preserve the page URL as provenance. For regular-season pages, validate `teamCount / 2` matchups per complete week—six for 12-team seasons, seven for 2020–2021—and reconcile every team's wins, losses, PF, and PA. For brackets, keep only the championship tree (not consolation), require two semifinals, one final, and one third-place game; 2020–2024 also require four quarterfinals. Reconcile the final and third-place results against the verified podium before importing.
-
-Yahoo throttles rapid archived-page navigation. Process one season at a time. If the page becomes `Request denied`, stop immediately, save the validated seasons outside the repository, and resume later from the first missing week. Do not loop on reloads or replace verified history with inferred data.
-
-## Verification
-
-Run `npm test`, `npm run check`, `git diff --check`, and a focused secret scan before committing. Keep the untracked `env.example` untouched unless the user explicitly asks to add it.
+**Tests** (`test/*.test.js`) mirror the pure modules 1:1 (`power-rankings`, `rivalry-week`, `matchups-live`, `trade-value`, `trade-recommender`, `league-settings`) plus `*-api.test.js` files for each HTTP route (`/api/trades`, `/api/context`, `/api/free-agents`) via `createAppServer`'s injected dependencies. No test touches real Supabase or the network.

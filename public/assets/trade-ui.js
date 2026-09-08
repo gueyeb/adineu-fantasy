@@ -36,6 +36,7 @@ export async function renderTradesPage(container) {
         <div class="tabs-nav" role="tablist" aria-label="Outils de trade">
           <button id="tab-finder-btn" class="filter-btn" type="button" role="tab" aria-controls="trade-content">Trade Finder</button>
           <button id="tab-calc-btn" class="filter-btn" type="button" role="tab" aria-controls="trade-content">Trade Calculator</button>
+          <button id="tab-waivers-btn" class="filter-btn" type="button" role="tab" aria-controls="trade-content">Waiver Wire</button>
           <button id="tab-rules-btn" class="filter-btn" type="button" role="tab" aria-controls="trade-content">Règles & Scoring 2026</button>
         </div>
       </div>
@@ -156,15 +157,16 @@ export async function renderTradesPage(container) {
   });
 
   const content = document.getElementById("trade-content");
-  let currentTab = window.location.hash === "#calculator" ? "calc" : "finder";
+  let currentTab = window.location.hash === "#calculator" ? "calc" :
+    window.location.hash === "#waivers" ? "waivers" :
+    window.location.hash === "#rules" ? "rules" : "finder";
   let selectedRosterId = formattedRosters.find(r => r.ownerName.toLowerCase() === "t0z")?.roster_id || formattedRosters[0]?.roster_id || 1;
 
   function renderCurrentTab() {
-    if (currentTab === "finder") {
-      renderFinderView();
-    } else {
-      renderCalculatorView();
-    }
+    if (currentTab === "finder") renderFinderView();
+    else if (currentTab === "calc") renderCalculatorView();
+    else if (currentTab === "waivers") renderWaiverView();
+    else renderRulesView();
   }
 
   function renderFinderView() {
@@ -322,22 +324,19 @@ export async function renderTradesPage(container) {
 
     content.innerHTML = `
       <div class="shell">
+        <datalist id="calc-players-datalist">
+          ${allPlayers.map(p => {
+            const prof = calculatePlayerTradeProfile(p);
+            return `<option value="${escapeHtml(p.name)}">${escapeHtml(p.name)} (${escapeHtml(p.position)} - ${escapeHtml(p.nflTeam || "NFL")}) · Val ~${prof.tradeValue} · Proj: ${prof.projectedPpg} pts/m</option>`;
+          }).join("")}
+        </datalist>
+
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:24px; margin-bottom:28px;">
           <!-- SIDE A -->
           <div class="card" style="background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:20px;">
             <h3 style="margin:0 0 14px; font-size:1.1rem; color:var(--red);">Équipe A (Donne)</h3>
             <div style="margin-bottom:14px;">
-              <select id="calc-add-a" style="width:100%; padding:10px; background:var(--paper-soft); border:1px solid var(--line); color:var(--ink); font-weight:600; border-radius:4px;">
-                <option value="">+ Ajouter un joueur...</option>
-                ${allPlayers.slice(0, 200).map(p => {
-                  const prof = calculatePlayerTradeProfile(p);
-                  return `
-                    <option value="${escapeHtml(p.sleeperId)}">
-                      ${escapeHtml(p.name)} (${escapeHtml(p.position)} - ${escapeHtml(p.nflTeam || "NFL")}) · Val ~${prof.tradeValue} · Proj: ${prof.projectedPpg} pts/m
-                    </option>
-                  `;
-                }).join("")}
-              </select>
+              <input type="text" id="calc-add-a" list="calc-players-datalist" autocomplete="off" placeholder="Tape un nom de joueur…" style="width:100%; padding:10px; background:var(--paper-soft); border:1px solid var(--line); color:var(--ink); font-weight:600; border-radius:4px;">
             </div>
             <div id="side-a-list" style="min-height:120px; display:flex; flex-direction:column; gap:8px;">
               <span style="color:var(--muted); font-size:0.85rem;">Aucun joueur sélectionné.</span>
@@ -348,17 +347,7 @@ export async function renderTradesPage(container) {
           <div class="card" style="background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:20px;">
             <h3 style="margin:0 0 14px; font-size:1.1rem; color:var(--grass);">Équipe B (Reçoit)</h3>
             <div style="margin-bottom:14px;">
-              <select id="calc-add-b" style="width:100%; padding:10px; background:var(--paper-soft); border:1px solid var(--line); color:var(--ink); font-weight:600; border-radius:4px;">
-                <option value="">+ Ajouter un joueur...</option>
-                ${allPlayers.slice(0, 200).map(p => {
-                  const prof = calculatePlayerTradeProfile(p);
-                  return `
-                    <option value="${escapeHtml(p.sleeperId)}">
-                      ${escapeHtml(p.name)} (${escapeHtml(p.position)} - ${escapeHtml(p.nflTeam || "NFL")}) · Val ~${prof.tradeValue} · Proj: ${prof.projectedPpg} pts/m
-                    </option>
-                  `;
-                }).join("")}
-              </select>
+              <input type="text" id="calc-add-b" list="calc-players-datalist" autocomplete="off" placeholder="Tape un nom de joueur…" style="width:100%; padding:10px; background:var(--paper-soft); border:1px solid var(--line); color:var(--ink); font-weight:600; border-radius:4px;">
             </div>
             <div id="side-b-list" style="min-height:120px; display:flex; flex-direction:column; gap:8px;">
               <span style="color:var(--muted); font-size:0.85rem;">Aucun joueur sélectionné.</span>
@@ -460,28 +449,79 @@ export async function renderTradesPage(container) {
       });
     }
 
-    document.getElementById("calc-add-a")?.addEventListener("change", (e) => {
-      const pid = e.target.value;
-      if (!pid) return;
-      const player = playerMap.get(pid);
-      if (player && sideA.length < 3) {
-        sideA.push(player);
-        renderSideList(sideA, "side-a-list");
-        updateCalcResult();
-      }
-      e.target.value = "";
-    });
+    function wirePlayerPicker(inputId, side, listId) {
+      document.getElementById(inputId)?.addEventListener("input", (e) => {
+        const player = playerMap.get(e.target.value.trim());
+        if (!player) return; // texte partiel, l'utilisateur n'a pas encore choisi une suggestion
+        if (side.length < 3) {
+          side.push(player);
+          renderSideList(side, listId);
+          updateCalcResult();
+        }
+        e.target.value = "";
+      });
+    }
 
-    document.getElementById("calc-add-b")?.addEventListener("change", (e) => {
-      const pid = e.target.value;
-      if (!pid) return;
-      const player = playerMap.get(pid);
-      if (player && sideB.length < 3) {
-        sideB.push(player);
-        renderSideList(sideB, "side-b-list");
-        updateCalcResult();
-      }
-      e.target.value = "";
+    wirePlayerPicker("calc-add-a", sideA, "side-a-list");
+    wirePlayerPicker("calc-add-b", sideB, "side-b-list");
+  }
+
+  async function renderWaiverView() {
+    content.innerHTML = `<div class="shell state">Chargement des free agents…</div>`;
+
+    let report = { byPosition: {}, message: "" };
+    try {
+      const res = await fetch("/api/free-agents");
+      if (res.ok) report = await res.json();
+    } catch (e) {
+      console.warn("Impossible de charger les free agents", e);
+    }
+
+    if (currentTab !== "waivers") return; // l'utilisateur a changé d'onglet pendant le chargement
+
+    const positionOrder = ["QB", "RB", "WR", "TE", "K", "DEF"];
+    const positionCards = positionOrder
+      .map(pos => {
+        const players = report.byPosition?.[pos] || [];
+        if (players.length === 0) return "";
+        return `
+          <div class="card" style="background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:18px;">
+            <h4 style="margin:0 0 12px; font-size:0.95rem; color:var(--grass); text-transform:uppercase;">${pos}</h4>
+            ${players.map((p, i) => `
+              <div style="display:flex; justify-content:space-between; gap:8px; padding:6px 0; border-bottom:1px solid var(--line); font-size:0.82rem;">
+                <span><strong>${i + 1}.</strong> ${escapeHtml(p.name)} <small style="color:var(--muted);">(${escapeHtml(p.nflTeam || "FA")})</small></span>
+                <span style="color:var(--muted); font-size:0.72rem; white-space:nowrap;">
+                  ${Number.isFinite(p.quality?.expertRank) ? `ECR #${p.quality.expertRank}` : ""}${Number.isFinite(p.market?.sleeperAdp) ? ` · ADP ${p.market.sleeperAdp}` : ""}
+                </span>
+              </div>
+            `).join("")}
+          </div>
+        `;
+      })
+      .join("");
+
+    content.innerHTML = `
+      <div class="shell">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; margin-bottom:24px;">
+          <div>
+            <h3 style="margin:0 0 4px; font-size:1.2rem;">Free Agents Disponibles${report.week ? ` · Semaine ${report.week}` : ""}</h3>
+            <p style="margin:0; color:var(--muted); font-size:0.82rem;">Triés par rang expert (ECR) puis par ADP Sleeper, hors joueurs déjà sur un des 12 rosters.</p>
+          </div>
+          <button type="button" id="copy-waiver-btn" class="filter-btn" style="padding:8px 14px; font-size:0.75rem;">📋 Copier le rapport Waiver Wire</button>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:20px;">
+          ${positionCards || `<div class="card" style="padding:24px; text-align:center; color:var(--muted);">Aucun free agent trouvé.</div>`}
+        </div>
+      </div>
+    `;
+
+    document.getElementById("copy-waiver-btn")?.addEventListener("click", event => {
+      const btn = event.currentTarget;
+      navigator.clipboard.writeText(report.message || "").then(() => {
+        const prev = btn.textContent;
+        btn.textContent = "✅ Rapport copié !";
+        setTimeout(() => { btn.textContent = prev; }, 2000);
+      });
     });
   }
 
@@ -618,38 +658,31 @@ export async function renderTradesPage(container) {
   // Switch tabs
   const tabFinderBtn = document.getElementById("tab-finder-btn");
   const tabCalcBtn = document.getElementById("tab-calc-btn");
+  const tabWaiversBtn = document.getElementById("tab-waivers-btn");
   const tabRulesBtn = document.getElementById("tab-rules-btn");
+  const tabButtons = { finder: tabFinderBtn, calc: tabCalcBtn, waivers: tabWaiversBtn, rules: tabRulesBtn };
+  const tabHashes = { finder: "#recommendations", calc: "#calculator", waivers: "#waivers", rules: "#rules" };
 
   function selectTab(tab, { updateUrl = true } = {}) {
     currentTab = tab;
-    tabFinderBtn.classList.toggle("active", tab === "finder");
-    tabCalcBtn.classList.toggle("active", tab === "calc");
-    tabRulesBtn.classList.toggle("active", tab === "rules");
-    tabFinderBtn.setAttribute("aria-selected", String(tab === "finder"));
-    tabCalcBtn.setAttribute("aria-selected", String(tab === "calc"));
-    tabRulesBtn.setAttribute("aria-selected", String(tab === "rules"));
+    for (const [key, btn] of Object.entries(tabButtons)) {
+      btn.classList.toggle("active", tab === key);
+      btn.setAttribute("aria-selected", String(tab === key));
+    }
     if (updateUrl) {
-      const hash = tab === "finder" ? "#recommendations" : tab === "calc" ? "#calculator" : "#rules";
-      window.history.replaceState(null, "", `${window.location.pathname}${hash}`);
+      window.history.replaceState(null, "", `${window.location.pathname}${tabHashes[tab]}`);
     }
     renderCurrentTab();
   }
 
-  tabFinderBtn.addEventListener("click", () => {
-    selectTab("finder");
-  });
-
-  tabCalcBtn.addEventListener("click", () => {
-    selectTab("calc");
-  });
-
-  tabRulesBtn.addEventListener("click", () => {
-    selectTab("rules");
-  });
+  for (const [tab, btn] of Object.entries(tabButtons)) {
+    btn.addEventListener("click", () => selectTab(tab));
+  }
 
   window.addEventListener("hashchange", () => {
     const h = window.location.hash;
-    selectTab(h === "#calculator" ? "calc" : h === "#rules" ? "rules" : "finder", { updateUrl: false });
+    const tab = h === "#calculator" ? "calc" : h === "#waivers" ? "waivers" : h === "#rules" ? "rules" : "finder";
+    selectTab(tab, { updateUrl: false });
   });
 
   selectTab(currentTab, { updateUrl: false });

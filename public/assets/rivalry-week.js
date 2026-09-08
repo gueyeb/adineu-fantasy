@@ -114,7 +114,7 @@ export function buildRivalryRecords(matchupArchive, playoffGames = []) {
   });
 }
 
-function sleeperManager(user) {
+export function sleeperManager(user) {
   const candidates = [user?.display_name, user?.username]
     .filter(Boolean)
     .map(value => String(value).trim().toLocaleLowerCase("fr"));

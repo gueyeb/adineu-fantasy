@@ -14,6 +14,7 @@ Status: **live** at [adineu-fantasy.bakene.tech](https://adineu-fantasy.bakene.t
 - `public/assets/trade-value.js` & `public/assets/trade-recommender.js` — pure, tested deterministic trade valuation and matchmaking engines.
 - `public/assets/power-rankings.js` — pure, tested ranking engine. It waits for two complete regular-season weeks before publishing.
 - `public/assets/rivalry-week.js` — tested records and Sleeper-mapping logic for the six proposed Week 8 rivalries.
+- `public/assets/matchups-live.js` — 2026 Game Center: current-week scores, pregame projections, schedule browser, lineup warnings, and Yahoo head-to-head context.
 - `public/data/yahoo-history.json` — season-scoped Yahoo archive: podiums, final standings, weekly highs and 2025 player leaders.
 - `public/data/yahoo-matchups.json` — 609 verified regular-season matchups for 2019–2025, with manager mappings and source URLs.
 - `public/data/yahoo-playoffs.json` — 44 authenticated championship-bracket matchups for 2019–2024; the UI combines them with the eight verified 2025 playoff games.
@@ -63,7 +64,8 @@ That is the intended API path, but it is **not the source of the current archive
 7. 2026 Power Rankings route, formula, tests, and automatic two-week activation ✅ (live rankings await real matchups)
 8. Week 8 Rivalry Week route, head-to-head matrix, historical cards, and live Sleeper schedule detection ✅
 9. Trade Hub (Calculateur de trade, moteur de recommandations bilatérales et script n8n) ✅
-10. Nice-to-haves: weekly awards et notes de draft après saison
+10. 2026 Game Center with live Sleeper matchups, schedule, projections, and preserved Yahoo archives ✅
+11. Nice-to-haves: weekly awards et notes de draft après saison
 
 ## License
 
