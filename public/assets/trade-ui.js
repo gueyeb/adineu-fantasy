@@ -37,6 +37,7 @@ export async function renderTradesPage(container) {
           <button id="tab-finder-btn" class="filter-btn" type="button" role="tab" aria-controls="trade-content">Trade Finder</button>
           <button id="tab-calc-btn" class="filter-btn" type="button" role="tab" aria-controls="trade-content">Trade Calculator</button>
           <button id="tab-waivers-btn" class="filter-btn" type="button" role="tab" aria-controls="trade-content">Waiver Wire</button>
+          <button id="tab-advisor-btn" class="filter-btn" type="button" role="tab" aria-controls="trade-content">Start/Sit Advisor</button>
           <button id="tab-rules-btn" class="filter-btn" type="button" role="tab" aria-controls="trade-content">Règles & Scoring 2026</button>
         </div>
       </div>
@@ -159,6 +160,7 @@ export async function renderTradesPage(container) {
   const content = document.getElementById("trade-content");
   let currentTab = window.location.hash === "#calculator" ? "calc" :
     window.location.hash === "#waivers" ? "waivers" :
+    window.location.hash === "#advisor" ? "advisor" :
     window.location.hash === "#rules" ? "rules" : "finder";
   let selectedRosterId = formattedRosters.find(r => r.ownerName.toLowerCase() === "t0z")?.roster_id || formattedRosters[0]?.roster_id || 1;
 
@@ -166,6 +168,7 @@ export async function renderTradesPage(container) {
     if (currentTab === "finder") renderFinderView();
     else if (currentTab === "calc") renderCalculatorView();
     else if (currentTab === "waivers") renderWaiverView();
+    else if (currentTab === "advisor") renderAdvisorView();
     else renderRulesView();
   }
 
@@ -525,6 +528,69 @@ export async function renderTradesPage(container) {
     });
   }
 
+  async function renderAdvisorView() {
+    content.innerHTML = `<div class="shell state">Analyse du lineup en cours…</div>`;
+
+    let advisory = { alerts: [], message: "" };
+    try {
+      const res = await fetch("/api/lineup-advisor?team=t0z");
+      if (res.ok) advisory = await res.json();
+    } catch (e) {
+      console.warn("Impossible de charger le Start/Sit Advisor", e);
+    }
+
+    if (currentTab !== "advisor") return; // l'utilisateur a changé d'onglet pendant le chargement
+
+    const alertCards = advisory.alerts.map(alert => {
+      const severityColor = alert.severity === "ALERT" ? "var(--red)" : "var(--gold)";
+      const severityLabel = alert.severity === "ALERT" ? "🔴 ALERTE" : "🟡 À SURVEILLER";
+      const who = alert.player
+        ? `${escapeHtml(alert.player.name)} <small style="color:var(--muted);">(${escapeHtml(alert.player.position)}${alert.player.nflTeam ? " " + escapeHtml(alert.player.nflTeam) : ""})</small>`
+        : `<em style="color:var(--muted);">Slot vide</em>`;
+      const replacement = alert.replacement
+        ? `${escapeHtml(alert.replacement.player.name)} <small style="color:var(--muted);">(${escapeHtml(alert.replacement.player.position)}${alert.replacement.player.nflTeam ? " " + escapeHtml(alert.replacement.player.nflTeam) : ""} · ${alert.replacement.source === "bench" ? "banc" : "free agent"})</small>`
+        : `<span style="color:var(--muted);">Aucun remplaçant évident.</span>`;
+
+      return `
+        <div class="card" style="background:var(--panel); border:1px solid var(--line); border-left:4px solid ${severityColor}; border-radius:6px; padding:18px; margin-bottom:14px;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
+            <div>
+              <span style="font-size:0.7rem; font-weight:800; letter-spacing:0.08em; color:${severityColor};">${severityLabel} · ${escapeHtml(alert.slot)}</span>
+              <div style="font-size:0.95rem; margin-top:6px;">${who}</div>
+              <div style="font-size:0.78rem; color:var(--muted); margin-top:4px;">${escapeHtml(alert.reason)}</div>
+            </div>
+            <div style="text-align:right;">
+              <span style="font-size:0.68rem; text-transform:uppercase; color:var(--muted); display:block; margin-bottom:4px;">Remplaçant conseillé</span>
+              <div style="font-size:0.9rem;">${replacement}</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    content.innerHTML = `
+      <div class="shell">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; margin-bottom:24px;">
+          <div>
+            <h3 style="margin:0 0 4px; font-size:1.2rem;">Start/Sit Advisor${advisory.week ? ` · Semaine ${advisory.week}` : ""}</h3>
+            <p style="margin:0; color:var(--muted); font-size:0.82rem;">Croise ton lineup avec le statut blessure Sleeper. Un slot vide compte comme alerte.</p>
+          </div>
+          <button type="button" id="copy-advisor-btn" class="filter-btn" style="padding:8px 14px; font-size:0.75rem;">📋 Copier le rapport</button>
+        </div>
+        ${alertCards || `<div class="card" style="padding:24px; text-align:center; color:var(--muted);">✅ Aucune alerte : lineup complet, personne à risque signalé par Sleeper.</div>`}
+      </div>
+    `;
+
+    document.getElementById("copy-advisor-btn")?.addEventListener("click", event => {
+      const btn = event.currentTarget;
+      navigator.clipboard.writeText(advisory.message || "").then(() => {
+        const prev = btn.textContent;
+        btn.textContent = "✅ Rapport copié !";
+        setTimeout(() => { btn.textContent = prev; }, 2000);
+      });
+    });
+  }
+
   function renderRulesView() {
     content.innerHTML = `
       <div class="shell">
@@ -659,9 +725,10 @@ export async function renderTradesPage(container) {
   const tabFinderBtn = document.getElementById("tab-finder-btn");
   const tabCalcBtn = document.getElementById("tab-calc-btn");
   const tabWaiversBtn = document.getElementById("tab-waivers-btn");
+  const tabAdvisorBtn = document.getElementById("tab-advisor-btn");
   const tabRulesBtn = document.getElementById("tab-rules-btn");
-  const tabButtons = { finder: tabFinderBtn, calc: tabCalcBtn, waivers: tabWaiversBtn, rules: tabRulesBtn };
-  const tabHashes = { finder: "#recommendations", calc: "#calculator", waivers: "#waivers", rules: "#rules" };
+  const tabButtons = { finder: tabFinderBtn, calc: tabCalcBtn, waivers: tabWaiversBtn, advisor: tabAdvisorBtn, rules: tabRulesBtn };
+  const tabHashes = { finder: "#recommendations", calc: "#calculator", waivers: "#waivers", advisor: "#advisor", rules: "#rules" };
 
   function selectTab(tab, { updateUrl = true } = {}) {
     currentTab = tab;
@@ -681,7 +748,7 @@ export async function renderTradesPage(container) {
 
   window.addEventListener("hashchange", () => {
     const h = window.location.hash;
-    const tab = h === "#calculator" ? "calc" : h === "#waivers" ? "waivers" : h === "#rules" ? "rules" : "finder";
+    const tab = h === "#calculator" ? "calc" : h === "#waivers" ? "waivers" : h === "#advisor" ? "advisor" : h === "#rules" ? "rules" : "finder";
     selectTab(tab, { updateUrl: false });
   });
 

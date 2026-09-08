@@ -36,6 +36,13 @@ export const GENERAL_SETTINGS_2026 = {
   }
 };
 
+/**
+ * Bye weeks 2026 par équipe NFL (abréviation -> numéro de semaine).
+ * TODO : à remplir depuis le calendrier NFL 2026 officiel une fois confirmé.
+ * Tant que c'est vide, le Start/Sit Advisor ne signale aucun bye (pas de faux positif).
+ */
+export const BYE_WEEKS_2026 = {};
+
 export const ROSTER_SETTINGS_2026 = {
   starters: {
     QB: 1,

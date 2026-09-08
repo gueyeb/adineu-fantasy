@@ -6,7 +6,7 @@ import {
   buildRivalryRecords,
   buildSleeperWeek
 } from "./rivalry-week.js?v=2";
-import { renderTradesPage } from "./trade-ui.js?v=4";
+import { renderTradesPage } from "./trade-ui.js?v=5";
 import { renderMatchupsHub } from "./matchups-live.js?v=3";
 
 const SUPABASE_URL = "https://juosrzsffvjprqhdyado.supabase.co";

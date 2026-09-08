@@ -13,10 +13,16 @@ import {
   formatWaiverReport
 } from "./scripts/league-context.js";
 import {
+  getInjuryStatuses as getInjuryStatusesDefault,
+  diagnoseLineup,
+  formatLineupAdvisory
+} from "./scripts/lineup-advisor.js";
+import {
   LEAGUE_METADATA_2026,
   GENERAL_SETTINGS_2026,
   ROSTER_SETTINGS_2026,
-  SCORING_SETTINGS_2026
+  SCORING_SETTINGS_2026,
+  BYE_WEEKS_2026
 } from "./public/assets/league-settings.js";
 
 const DEFAULT_PUBLIC_ROOT = fileURLToPath(new URL("./public", import.meta.url));
@@ -52,7 +58,8 @@ export function createAppServer({
   publicRoot = DEFAULT_PUBLIC_ROOT,
   analyze = analyzeTrades,
   getContext = getLeagueContext,
-  getFreeAgents = getFreeAgentsDefault
+  getFreeAgents = getFreeAgentsDefault,
+  getInjuryStatuses = getInjuryStatusesDefault
 } = {}) {
   return createServer(async (request, response) => {
     if (request.method !== "GET" && request.method !== "HEAD") {
@@ -110,6 +117,35 @@ export function createAppServer({
         sendJson(response, 200, { ...report, message });
       } catch (error) {
         sendJson(response, 502, { error: error.message });
+      }
+      return;
+    }
+
+    if (url.pathname === "/api/lineup-advisor") {
+      try {
+        const team = url.searchParams.get("team") || "t0z";
+        const [context, playerStatuses, freeAgents] = await Promise.all([
+          getContext({ team }),
+          getInjuryStatuses(),
+          getFreeAgents({ limitPerPosition: 5 })
+        ]);
+        const diagnosis = diagnoseLineup({
+          myTeam: context.myTeam,
+          playerStatuses,
+          freeAgentsByPosition: freeAgents.byPosition,
+          byeWeeks: BYE_WEEKS_2026,
+          currentWeek: context.week
+        });
+        const message = formatLineupAdvisory(diagnosis);
+        if (url.searchParams.get("format") === "text") {
+          response.writeHead(200, { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" });
+          response.end(message);
+          return;
+        }
+        sendJson(response, 200, { ...diagnosis, week: context.week, message });
+      } catch (error) {
+        const isUnknownTeam = error.message.startsWith("Équipe Sleeper inconnue");
+        sendJson(response, isUnknownTeam ? 404 : 502, { error: error.message });
       }
       return;
     }

@@ -29,6 +29,8 @@ The `/rivalry-week/` pairings are a community proposal, not an applied schedule.
 
 The `/matchups/` route is the 2026 Game Center. Its Live and Calendar views read matchups, rosters, users, and projections from Sleeper; its Archives view preserves the verified Yahoo record book. Treat scores and schedules as official Sleeper data, but label win percentages as Adineu pregame estimates. Suppress probability when either lineup is incomplete or projection coverage is insufficient.
 
+The Trade Hub's "Start/Sit Advisor" tab (`GET /api/lineup-advisor`, `scripts/lineup-advisor.js`) flags empty starter slots and Sleeper `injury_status` values, and suggests a bench or free-agent replacement. Bye-week detection reads `BYE_WEEKS_2026` in `public/assets/league-settings.js`, which starts empty on purpose — never hardcode bye weeks from memory; only fill that table from the confirmed official 2026 NFL schedule, the same evidence bar as everything else in this file.
+
 ## Yahoo Data & Access
 
 The published archive does not come from the Yahoo Fantasy API. OAuth authorization with `fspt-r` succeeded, but tested Fantasy resources returned HTTP 403 (`This application is not authorized to perform this action`). Do not claim the API is active and do not retry app creation unless Yahoo offers **Fantasy Sports Read**.

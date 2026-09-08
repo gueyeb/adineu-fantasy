@@ -13,6 +13,7 @@ Read `AGENTS.md` first — its repository, testing, identity, and security rules
 - `/franchises/`, `/hall-of-fame/`, Trade Hub are all live and derive client-side from the archive JSON + Supabase.
 - `/matchups/` is the 2026 **Game Center** (`public/assets/matchups-live.js`): Live (current-week Sleeper scores + pregame win estimate), Calendrier 2026 (week picker), and Archives 2019-2025 (the original Yahoo head-to-head/rivalry matrix, now lazy-loaded as a tab instead of the whole page). Win probability is explicitly labeled an Adineu estimate and is suppressed whenever a lineup or projection coverage is incomplete — never shown as an official number.
 - `GET /api/context` (JSON or `?format=text`) aggregates league rules + the caller's live Sleeper roster (starters/bench/IR) into one copy-pasteable block; the site header's "Copier contexte IA" button is its main consumer. `GET /api/free-agents` (optional `position`/`limit`) returns the players-catalog entries not on any of the 12 rosters, grouped by position — surfaced as the Trade Hub's "Waiver Wire" tab. Both live in `scripts/league-context.js`, mirroring the `/api/trades` pattern (pure functions + a CLI + an injectable server route).
+- `GET /api/lineup-advisor` (`scripts/lineup-advisor.js`) flags every starter that is an empty slot, has a Sleeper `injury_status`, or (once `BYE_WEEKS_2026` in `league-settings.js` is filled in — currently empty, so no false positives) is on a bye, and suggests the best bench player or free agent to swap in. Surfaced as the Trade Hub's "Start/Sit Advisor" tab. Fetches Sleeper's full `/players/nfl` dump (~15MB) for injury status, cached in-process for 6h.
 
 ## Commands
 
@@ -28,6 +29,7 @@ npm run sync:sleeper:production     # same, loads ignored .env.production
 npm run analyze:trades -- --team=t0z --json   # CLI trade analyzer (also --team=all)
 npm run context -- --team=t0z --json          # CLI "Copy AI Context"
 npm run waivers -- --position=RB --limit=15   # CLI waiver wire report
+npm run advisor -- --team=t0z --json          # CLI Start/Sit Advisor
 ```
 
 There is no build step, bundler, or linter — plain ES modules run directly by Node and loaded natively by the browser.
@@ -46,4 +48,4 @@ Three data layers feed one static, framework-free frontend:
 
 **Trade Hub data flow**: `scripts/analyze-trades.js` fetches live rosters/users from Sleeper, loads `public/data/players-catalog.json`, and calls the pure `trade-recommender.js`/`trade-value.js` logic — usable identically from the CLI, from `/api/trades`, and from the n8n trade-alert workflow.
 
-**Tests** (`test/*.test.js`) mirror the pure modules 1:1 (`power-rankings`, `rivalry-week`, `matchups-live`, `trade-value`, `trade-recommender`, `league-settings`) plus `*-api.test.js` files for each HTTP route (`/api/trades`, `/api/context`, `/api/free-agents`) via `createAppServer`'s injected dependencies. No test touches real Supabase or the network.
+**Tests** (`test/*.test.js`) mirror the pure modules 1:1 (`power-rankings`, `rivalry-week`, `matchups-live`, `trade-value`, `trade-recommender`, `league-settings`, `lineup-advisor`) plus `*-api.test.js` files for each HTTP route (`/api/trades`, `/api/context`, `/api/free-agents`, `/api/lineup-advisor`) via `createAppServer`'s injected dependencies. No test touches real Supabase or the network.

@@ -15,6 +15,8 @@ Status: **live** at [adineu-fantasy.bakene.tech](https://adineu-fantasy.bakene.t
 - `public/assets/power-rankings.js` — pure, tested ranking engine. It waits for two complete regular-season weeks before publishing.
 - `public/assets/rivalry-week.js` — tested records and Sleeper-mapping logic for the six proposed Week 8 rivalries.
 - `public/assets/matchups-live.js` — 2026 Game Center: current-week scores, pregame projections, schedule browser, lineup warnings, and Yahoo head-to-head context.
+- `scripts/league-context.js` — powers `/api/context` ("Copy AI Context" button) and `/api/free-agents` (Trade Hub's Waiver Wire tab).
+- `scripts/lineup-advisor.js` — powers `/api/lineup-advisor` (Trade Hub's Start/Sit Advisor tab): flags empty slots and injured starters, suggests a bench or free-agent swap.
 - `public/data/yahoo-history.json` — season-scoped Yahoo archive: podiums, final standings, weekly highs and 2025 player leaders.
 - `public/data/yahoo-matchups.json` — 609 verified regular-season matchups for 2019–2025, with manager mappings and source URLs.
 - `public/data/yahoo-playoffs.json` — 44 authenticated championship-bracket matchups for 2019–2024; the UI combines them with the eight verified 2025 playoff games.
@@ -65,7 +67,8 @@ That is the intended API path, but it is **not the source of the current archive
 8. Week 8 Rivalry Week route, head-to-head matrix, historical cards, and live Sleeper schedule detection ✅
 9. Trade Hub (Calculateur de trade, moteur de recommandations bilatérales et script n8n) ✅
 10. 2026 Game Center with live Sleeper matchups, schedule, projections, and preserved Yahoo archives ✅
-11. Nice-to-haves: weekly awards et notes de draft après saison
+11. AI Context, Waiver Wire, and Start/Sit Advisor tools (`/api/context`, `/api/free-agents`, `/api/lineup-advisor`) ✅ (bye-week detection awaits the confirmed 2026 NFL schedule)
+12. Nice-to-haves: weekly awards et notes de draft après saison
 
 ## License
 
