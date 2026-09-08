@@ -17,7 +17,7 @@ Keep ingestion logic in `scripts/`, database changes in `supabase/`, and browser
 
 ## Architecture & Scope
 
-Keep platform sources, Supabase, and the read-only UI separate. Sleeper is live data for 2026 onward; `public/data/yahoo-history.json` holds the verified 2019–2025 Yahoo archive and public manager names. Identity coverage is complete at 88/88 across 15 managers. `owners` is canonical, with private platform IDs linked through `owner_platform_ids`. Never guess cross-platform owner matches; use `supabase/yahoo-sleeper-reconciliation.md` for evidence and approval. Birama is one identity across `El Fenomeno`, `Ethan Hunt`, Yahoo manager `Bombeul22`, and Sleeper account `bm2222`.
+Keep platform sources, Supabase, and the read-only UI separate. Sleeper is live data for 2026 onward; `public/data/yahoo-history.json` holds the verified 2019–2025 Yahoo archive and public manager names. Identity coverage is complete at 88/88 across 15 managers. `owners` is canonical, with private platform IDs linked through `owner_platform_ids`. Never guess cross-platform owner matches; use `supabase/yahoo-sleeper-reconciliation.md` for evidence and approval. Birama is one identity across `El Fenomeno`, `Ethan Hunt`, Yahoo manager `Bombeul22`, and Sleeper displays `bm2222`/`bmb22`. Mat's confirmed Sleeper displays are `MouhammadAT`/`Shiro00` for Kuro.
 
 The `/franchises/` route derives all-time records client-side from the three public Yahoo archives. A franchise means one confirmed manager identity, even when team names change. Keep regular-season and postseason records separate, and never turn their display order into an undocumented power-ranking formula.
 

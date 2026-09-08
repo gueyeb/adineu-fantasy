@@ -28,7 +28,7 @@ Status: **live** at [adineu-fantasy.bakene.tech](https://adineu-fantasy.bakene.t
 
 The group is moving from Yahoo to Sleeper for 2026. Rather than depend on any one platform, this keeps a small, owned copy of the league's data and serves it as a public read-only site. Historical participation is stored per season; similarly named teams are never assumed to be the same manager.
 
-Yahoo profile history confirms all 88 team-season identities across 15 historical managers, including a stable 12-manager core from 2022 through 2025. Birama spans all seven seasons: `El Fenomeno` (2019), `Ethan Hunt` (2020), Yahoo manager `Bombeul22` (2021–2025), and Sleeper account `bm2222` are one person.
+Yahoo profile history confirms all 88 team-season identities across 15 historical managers, including a stable 12-manager core from 2022 through 2025. Birama spans all seven seasons: `El Fenomeno` (2019), `Ethan Hunt` (2020), Yahoo manager `Bombeul22` (2021–2025), and Sleeper displays `bm2222`/`bmb22` are one person. Mat's confirmed Sleeper displays are `MouhammadAT`/`Shiro00` for Kuro.
 
 ## Setup
 

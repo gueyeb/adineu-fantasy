@@ -25,6 +25,7 @@ const SLEEPER_MANAGER_ALIASES = Object.freeze({
   flemme: "Tamsir",
   dioguito17: "Olivier",
   bm2222: "Birama",
+  bmb22: "Birama",
   bigruisma: "Marius",
   mouzay: "YeezyJr",
   layemasterz: "Abdoulaye",
@@ -32,7 +33,8 @@ const SLEEPER_MANAGER_ALIASES = Object.freeze({
   lfmendes: "Louis François",
   estocade: "Ado",
   saitaamaa22: "Toughness",
-  mouhammadat: "Mat"
+  mouhammadat: "Mat",
+  shiro00: "Mat"
 });
 
 function regularGames(matchupArchive) {

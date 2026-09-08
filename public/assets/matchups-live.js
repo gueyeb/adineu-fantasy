@@ -1,4 +1,4 @@
-import { sleeperManager } from "./rivalry-week.js?v=3";
+import { sleeperManager } from "./rivalry-week.js?v=4";
 import { buildWeeklyRecap } from "./weekly-recap.js?v=1";
 
 const SLEEPER_API = "https://api.sleeper.app/v1";

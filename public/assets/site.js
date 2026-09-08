@@ -6,9 +6,9 @@ import {
   buildRivalryRecords,
   buildSleeperWeek,
   buildSleeperSeasonMeetings
-} from "./rivalry-week.js?v=3";
+} from "./rivalry-week.js?v=4";
 import { renderTradesPage } from "./trade-ui.js?v=5";
-import { renderMatchupsHub } from "./matchups-live.js?v=5";
+import { renderMatchupsHub } from "./matchups-live.js?v=6";
 import { calculatePlayoffRace } from "./playoff-race.js?v=1";
 
 const SUPABASE_URL = "https://juosrzsffvjprqhdyado.supabase.co";

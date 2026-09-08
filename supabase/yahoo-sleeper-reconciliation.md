@@ -10,7 +10,7 @@ All 12 Yahoo managers are now linked to a Sleeper owner. Together with the three
 | --- | --- | --- | --- | --- |
 | babttz | Boukki 🦅 | `t0z` / Boukki | Same team name | Confirmed |
 | Tamsir | Flemme | `flemme` / flemme | Same team name | Confirmed |
-| Birama (`Bombeul22`) | The Bad Man | `bm2222` / The Bad Man | Commissioner confirmed the complete 2019–2026 identity chain | Confirmed 2026-08-30 |
+| Birama (`Bombeul22`) | The Bad Man | `bm2222`, current display `bmb22` / The Bad Man | Commissioner confirmed the complete 2019–2026 identity chain | Confirmed 2026-08-30 |
 | Ado | Estocade | `ESTOCADE` / Estocade | Same team name | Confirmed |
 | Olivier | The energy's team | `Dioguito17` / The Energy's Team | Same team name | Confirmed |
 | Abdoulaye | Binaries | `layemasterz` / Binaries | Same team name | Confirmed |
@@ -18,7 +18,7 @@ All 12 Yahoo managers are now linked to a Sleeper owner. Together with the three
 | Magatte | Don't choke | `SneakySlayerMG` / SneakySlayerMG | Matches an older Yahoo franchise name | Confirmed |
 | Louis François | Roc boyz | `LFMendes` / Gridiron gang | Display-name initials only | Confirmed |
 | Marius | The JeantyMan | `BigRuisma` | Confirmed by Babacar directly (no name overlap) | Confirmed |
-| Mat | Hunters | `MouhammadAT` / Kuro | Confirmed by Babacar directly (no name overlap) | Confirmed |
+| Mat | Hunters | `MouhammadAT`, current display `Shiro00` / Kuro | Confirmed by Babacar directly (no name overlap) | Confirmed |
 | YeezyJr | Charger Charger | `mouzay` | Confirmed by Babacar directly (no name overlap) | Confirmed |
 
 Sleeper's 12 owned rosters now all have a confirmed Yahoo manager on the other end. Nothing left unmatched at the owner level for the current core.

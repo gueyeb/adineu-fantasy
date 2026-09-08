@@ -7,8 +7,8 @@ Read `AGENTS.md` first — its repository, testing, identity, and security rules
 ## Current State (not derivable from code)
 
 - Production: `https://adineu-fantasy.bakene.tech/`
-- Sleeper 2026: league `1392715510830878721`, 12 owners/rosters, `pre_draft`. Draft `1392715511942352896` is Sunday, September 6, 2026, 22:00 Paris time (snake, 15 rounds, 90s picks).
-- Yahoo archive: 2019–2025 complete and reconciled — 609 regular-season matchups, 44+8 playoff games, 88/88 identities across 15 managers. Birama = `El Fenomeno` (2019) / `Ethan Hunt` (2020) / Yahoo `Bombeul22` (2021–2025) / Sleeper `bm2222`, one canonical owner.
+- Sleeper 2026: league `1392715510830878721`, 12 owners/rosters, `in_season`. Draft `1392715511942352896` completed Sunday, September 6, 2026 at 22:04 Paris time (snake, 15 rounds, 60s picks).
+- Yahoo archive: 2019–2025 complete and reconciled — 609 regular-season matchups, 44+8 playoff games, 88/88 identities across 15 managers. Birama = `El Fenomeno` (2019) / `Ethan Hunt` (2020) / Yahoo `Bombeul22` (2021–2025) / Sleeper `bm2222` then display `bmb22`, one canonical owner. Mat's confirmed Sleeper displays are `MouhammadAT` then `Shiro00` for Kuro.
 - `/power-rankings/` is data-ready but intentionally locked at 0/2 until every 2026 team has two complete regular-season weeks. The same page's **Playoff Race** section (`public/assets/playoff-race.js`) shares that exact gate — it reuses `calculatePowerRankings`'s wins/losses/points-for output, just re-sorted into classic standings order, with "games back" from the 8th seed. No simulated odds, ever.
 - `/franchises/`, `/hall-of-fame/`, Trade Hub are all live and derive client-side from the archive JSON + Supabase.
 - `/rivalry-week/`'s Rivalry Tracker (`buildSleeperSeasonMeetings` + `buildRivalryRecords`' third `liveMeetings` argument, both in `public/assets/rivalry-week.js`) folds a 2026 Sleeper meeting into a pair's all-time record as soon as a real, non-zero-score matchup between those two managers is published — any week, not just the proposed Week 8 slot.

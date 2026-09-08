@@ -6,7 +6,8 @@ import {
   RIVALRY_PAIRS,
   buildRivalryRecords,
   buildSleeperWeek,
-  buildSleeperSeasonMeetings
+  buildSleeperSeasonMeetings,
+  sleeperManager
 } from "../public/assets/rivalry-week.js";
 
 const matchupArchive = JSON.parse(await readFile(
@@ -101,7 +102,7 @@ test("ignores a live meeting between managers who are not the tracked pair", () 
 
 test("buildSleeperSeasonMeetings tags each meeting with its week and skips unplayed weeks", () => {
   const users = [
-    { user_id: "user-a", display_name: "bm2222" },
+    { user_id: "user-a", display_name: "bmb22" },
     { user_id: "user-b", display_name: "SneakySlayerMG" }
   ];
   const rosters = [
@@ -139,4 +140,11 @@ test("resolves a published Sleeper matchup without persisting platform IDs", () 
     pointsA: 121.4,
     pointsB: 117.8
   }]);
+});
+
+test("resolves current and former Sleeper display names to canonical managers", () => {
+  assert.equal(sleeperManager({ display_name: "bmb22" }), "Birama");
+  assert.equal(sleeperManager({ display_name: "bm2222" }), "Birama");
+  assert.equal(sleeperManager({ display_name: "Shiro00" }), "Mat");
+  assert.equal(sleeperManager({ display_name: "MouhammadAT" }), "Mat");
 });

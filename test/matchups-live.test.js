@@ -7,7 +7,7 @@ import {
 } from "../public/assets/matchups-live.js";
 
 const users = [
-  { user_id: "u1", display_name: "bm2222", metadata: { team_name: "The Bad Man" } },
+  { user_id: "u1", display_name: "bmb22", metadata: { team_name: "The Bad Man" } },
   { user_id: "u2", display_name: "ESTOCADE", metadata: { team_name: "Estocade" } }
 ];
 const rosters = [
