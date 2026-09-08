@@ -5,6 +5,8 @@ import {
   GENERAL_SETTINGS_2026,
   ROSTER_SETTINGS_2026,
   SCORING_SETTINGS_2026,
+  BYE_WEEKS_2026,
+  getPlayerByeWeek,
   calculatePlayerFantasyPoints
 } from "../public/assets/league-settings.js";
 
@@ -90,3 +92,37 @@ test("calculatePlayerFantasyPoints computes exact score matching Adineu rules", 
   });
   assert.equal(rbScore, 18.5);
 });
+
+test("BYE_WEEKS_2026 contains all 32 NFL teams with correct bye week numbers", () => {
+  const teams = Object.keys(BYE_WEEKS_2026);
+  assert.equal(teams.length, 32);
+
+  // Semaine 5
+  assert.equal(getPlayerByeWeek("KC"), 5);
+  assert.equal(getPlayerByeWeek("CAR"), 5);
+
+  // Semaine 6
+  assert.equal(getPlayerByeWeek("DET"), 6);
+  assert.equal(getPlayerByeWeek("MIA"), 6);
+
+  // Semaine 8
+  assert.equal(getPlayerByeWeek("SF"), 8);
+
+  // Semaine 11
+  assert.equal(getPlayerByeWeek("LAR"), 11);
+  assert.equal(getPlayerByeWeek("GB"), 11);
+
+  // Semaine 12: Aucun bye (Thanksgiving)
+  assert.equal(Object.values(BYE_WEEKS_2026).includes(12), false);
+
+  // Semaine 14
+  assert.equal(getPlayerByeWeek("DAL"), 14);
+
+  // Aliases et normalisation
+  assert.equal(getPlayerByeWeek("kc"), 5);
+  assert.equal(getPlayerByeWeek("WSH"), 7);
+  assert.equal(getPlayerByeWeek("WAS"), 7);
+  assert.equal(getPlayerByeWeek(null), null);
+  assert.equal(getPlayerByeWeek(""), null);
+});
+

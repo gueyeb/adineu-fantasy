@@ -38,10 +38,63 @@ export const GENERAL_SETTINGS_2026 = {
 
 /**
  * Bye weeks 2026 par équipe NFL (abréviation -> numéro de semaine).
- * TODO : à remplir depuis le calendrier NFL 2026 officiel une fois confirmé.
- * Tant que c'est vide, le Start/Sit Advisor ne signale aucun bye (pas de faux positif).
+ * Calendrier officiel NFL 2026 : 32 équipes réparties entre semaines 5 et 14 (semaine 12 Thanksgiving = aucun bye).
  */
-export const BYE_WEEKS_2026 = {};
+export const BYE_WEEKS_2026 = Object.freeze({
+  // Semaine 5 (2 équipes)
+  CAR: 5,
+  KC: 5,
+  // Semaine 6 (4 équipes)
+  CIN: 6,
+  DET: 6,
+  MIA: 6,
+  MIN: 6,
+  // Semaine 7 (4 équipes)
+  BUF: 7,
+  JAX: 7,
+  LAC: 7,
+  WAS: 7,
+  // Semaine 8 (4 équipes)
+  HOU: 8,
+  NO: 8,
+  NYG: 8,
+  SF: 8,
+  // Semaine 9 (2 équipes)
+  PIT: 9,
+  TEN: 9,
+  // Semaine 10 (4 équipes)
+  CHI: 10,
+  DEN: 10,
+  PHI: 10,
+  TB: 10,
+  // Semaine 11 (6 équipes)
+  ATL: 11,
+  CLE: 11,
+  GB: 11,
+  LAR: 11,
+  NE: 11,
+  SEA: 11,
+  // Semaine 12 : Thanksgiving (aucun bye)
+  // Semaine 13 (4 équipes)
+  BAL: 13,
+  IND: 13,
+  LV: 13,
+  NYJ: 13,
+  // Semaine 14 (2 équipes)
+  ARI: 14,
+  DAL: 14
+});
+
+/**
+ * Retourne la semaine de bye d'une équipe NFL (abréviation) ou null si inconnue.
+ */
+export function getPlayerByeWeek(team) {
+  if (!team) return null;
+  const normalized = String(team).trim().toUpperCase();
+  if (normalized === "WSH") return BYE_WEEKS_2026.WAS;
+  if (normalized === "JAC") return BYE_WEEKS_2026.JAX;
+  return BYE_WEEKS_2026[normalized] ?? null;
+}
 
 export const ROSTER_SETTINGS_2026 = {
   starters: {

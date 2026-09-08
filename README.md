@@ -67,7 +67,7 @@ That is the intended API path, but it is **not the source of the current archive
 8. Week 8 Rivalry Week route, head-to-head matrix, historical cards, and live Sleeper schedule detection ✅
 9. Trade Hub (Calculateur de trade, moteur de recommandations bilatérales et script n8n) ✅
 10. 2026 Game Center with live Sleeper matchups, schedule, projections, and preserved Yahoo archives ✅
-11. AI Context, Waiver Wire, and Start/Sit Advisor tools (`/api/context`, `/api/free-agents`, `/api/lineup-advisor`) ✅ (bye-week detection awaits the confirmed 2026 NFL schedule)
+11. AI Context, Waiver Wire, and Start/Sit Advisor tools (`/api/context`, `/api/free-agents`, `/api/lineup-advisor`) ✅ (with confirmed 2026 NFL bye-week schedule)
 12. Nice-to-haves: weekly awards et notes de draft après saison
 
 ## License

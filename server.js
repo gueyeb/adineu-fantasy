@@ -155,7 +155,8 @@ export function createAppServer({
         metadata: LEAGUE_METADATA_2026,
         general: GENERAL_SETTINGS_2026,
         roster: ROSTER_SETTINGS_2026,
-        scoring: SCORING_SETTINGS_2026
+        scoring: SCORING_SETTINGS_2026,
+        byeWeeks: BYE_WEEKS_2026
       });
       return;
     }
