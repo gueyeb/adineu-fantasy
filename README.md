@@ -14,9 +14,11 @@ Status: **live** at [adineu-fantasy.bakene.tech](https://adineu-fantasy.bakene.t
 - `public/assets/trade-value.js` & `public/assets/trade-recommender.js` — pure, tested deterministic trade valuation and matchmaking engines.
 - `public/assets/power-rankings.js` — pure, tested ranking engine. It waits for two complete regular-season weeks before publishing.
 - `public/assets/rivalry-week.js` — tested records and Sleeper-mapping logic for the six proposed Week 8 rivalries.
-- `public/assets/matchups-live.js` — 2026 Game Center: current-week scores, pregame projections, schedule browser, lineup warnings, and Yahoo head-to-head context.
+- `public/assets/matchups-live.js` — 2026 Game Center: current-week scores, pregame projections, schedule browser, a Récap Hebdo tab, lineup warnings, and Yahoo head-to-head context.
+- `public/assets/weekly-recap.js` — pure, tested: highest score, closest matchup, biggest upset vs. the pregame estimate, and bench points left for a completed week.
+- `public/assets/playoff-race.js` — pure, tested: current playoffs standings and games-back from the 8th seed, reusing Power Rankings' own win/loss/points-for math and activation gate.
 - `scripts/league-context.js` — powers `/api/context` ("Copy AI Context" button) and `/api/free-agents` (Trade Hub's Waiver Wire tab).
-- `scripts/lineup-advisor.js` — powers `/api/lineup-advisor` (Trade Hub's Start/Sit Advisor tab): flags empty slots and injured starters, suggests a bench or free-agent swap.
+- `scripts/lineup-advisor.js` — powers `/api/lineup-advisor` (Trade Hub's Start/Sit Advisor tab): flags empty slots, injured starters, and bye weeks, suggests a bench or free-agent swap.
 - `public/data/yahoo-history.json` — season-scoped Yahoo archive: podiums, final standings, weekly highs and 2025 player leaders.
 - `public/data/yahoo-matchups.json` — 609 verified regular-season matchups for 2019–2025, with manager mappings and source URLs.
 - `public/data/yahoo-playoffs.json` — 44 authenticated championship-bracket matchups for 2019–2024; the UI combines them with the eight verified 2025 playoff games.
@@ -68,7 +70,8 @@ That is the intended API path, but it is **not the source of the current archive
 9. Trade Hub (Calculateur de trade, moteur de recommandations bilatérales et script n8n) ✅
 10. 2026 Game Center with live Sleeper matchups, schedule, projections, and preserved Yahoo archives ✅
 11. AI Context, Waiver Wire, and Start/Sit Advisor tools (`/api/context`, `/api/free-agents`, `/api/lineup-advisor`) ✅ (with confirmed 2026 NFL bye-week schedule)
-12. Nice-to-haves: weekly awards et notes de draft après saison
+12. Weekly Recap and Playoff Race, both in the Game Center / Power Rankings pages ✅
+13. Nice-to-haves: weekly awards et notes de draft après saison
 
 ## License
 

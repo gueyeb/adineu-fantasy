@@ -7,7 +7,8 @@ import {
   buildSleeperWeek
 } from "./rivalry-week.js?v=2";
 import { renderTradesPage } from "./trade-ui.js?v=5";
-import { renderMatchupsHub } from "./matchups-live.js?v=3";
+import { renderMatchupsHub } from "./matchups-live.js?v=4";
+import { calculatePlayoffRace } from "./playoff-race.js?v=1";
 
 const SUPABASE_URL = "https://juosrzsffvjprqhdyado.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_7Bu9q2dKz0WEol94OGVhHw_xjSwHeHu";
@@ -1095,6 +1096,7 @@ async function renderPowerRankings() {
     ? Number(nflState.week)
     : null;
   const result = calculatePowerRankings(matchupRows, { currentWeek, expectedManagers });
+  const playoffRace = calculatePlayoffRace(matchupRows, { currentWeek, expectedManagers });
   const leagueStatus = sleeperStatusLabel(league.status);
   const draftDate = formatDraftDate(draft?.start_time);
   const teamCount = Number(league.total_rosters) || standings.length;
@@ -1145,6 +1147,23 @@ async function renderPowerRankings() {
     <section class="section power-ranking-section"><div class="shell">
       <div class="section-head"><div><p class="eyebrow">Indice de forme</p><h2>Le classement du présent.</h2></div><p>Les résultats comptent plus que le bruit. Le scoring et la dynamique récente départagent les bilans.</p></div>
       ${rankingContent}
+    </div></section>
+
+    <section class="section power-ranking-section"><div class="shell">
+      <div class="section-head"><div><p class="eyebrow">Course aux Playoffs</p><h2>Qui tiendrait le rang aujourd'hui.</h2></div><p>Classement victoires puis points marqués — pas de simulation, pas de pourcentage. "Écart" = matchs à rattraper sur la 8e place pour entrer dans le bracket.</p></div>
+      ${playoffRace.ready ? `
+        <div class="table-wrap power-table"><table>
+          <thead><tr><th>Seed</th><th>Manager</th><th>Équipe</th><th class="num">Bilan</th><th class="num">PF</th><th class="num">Écart</th><th>Statut</th></tr></thead>
+          <tbody>${playoffRace.standings.map(row => `<tr>
+            <td class="rank">#${row.seed}</td><td class="team-name">${escapeHtml(row.manager)}</td><td>${escapeHtml(row.team)}</td>
+            <td class="num">${row.wins}—${row.losses}${row.ties ? `—${row.ties}` : ""}</td>
+            <td class="num">${formatPoints(row.pointsFor, 1)}</td>
+            <td class="num ${row.gamesBack <= 0 ? "positive" : "negative"}">${row.gamesBack <= 0 ? "—" : row.gamesBack}</td>
+            <td class="${row.inPlayoffs ? "positive" : "negative"}">${row.inPlayoffs ? "Qualifié" : "Dehors"}</td>
+          </tr>`).join("")}</tbody>
+        </table></div>
+        <p class="note"><strong>${playoffRace.playoffSpots} places</strong> sur ${playoffRace.teamCount} équipes. Basé sur les mêmes semaines complètes que le Power Ranking ci-dessus.</p>
+      ` : `<p class="note">La Course aux Playoffs se déverrouille en même temps que le Power Ranking, une fois deux semaines régulières complètes disponibles pour les ${teamCount} équipes.</p>`}
     </div></section>
 
     <section class="section"><div class="shell">
