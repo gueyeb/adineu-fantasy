@@ -15,6 +15,7 @@ import {
   GENERAL_SETTINGS_2026,
   ROSTER_SETTINGS_2026
 } from "../public/assets/league-settings.js";
+import { resolveOperationalWeek, resolveLastCompletedWeek } from "../public/assets/nfl-week.js";
 
 export const DEFAULT_SLEEPER_LEAGUE_ID = process.env.SLEEPER_LEAGUE_ID || "1392715510830878721";
 const SLEEPER_API = "https://api.sleeper.app/v1";
@@ -94,7 +95,7 @@ export async function getLeagueContext({
   let week = 1;
   try {
     const nflState = await sleeperGet("/state/nfl", { fetchImpl });
-    week = nflState?.display_week || nflState?.week || 1;
+    week = resolveOperationalWeek(nflState);
   } catch {}
 
   const starterIds = roster.starters || [];
@@ -191,15 +192,47 @@ export async function getFreeAgents({
   const rosteredIds = new Set(rosters.flatMap(roster => roster.players || []));
 
   let week = 1;
+  let nflState = {};
   try {
-    const nflState = await sleeperGet("/state/nfl", { fetchImpl });
-    week = nflState?.display_week || nflState?.week || 1;
+    nflState = await sleeperGet("/state/nfl", { fetchImpl });
+    week = resolveOperationalWeek(nflState);
   } catch {}
+
+  const season = nflState?.season || "2026";
+  let weeklyProjections = {};
+  try {
+    weeklyProjections = await sleeperGet(`/projections/nfl/regular/${season}/${week}`, { fetchImpl });
+  } catch {}
+
+  const recentScores = new Map();
+  const lastCompletedWeek = resolveLastCompletedWeek(nflState);
+  if (lastCompletedWeek > 0) {
+    try {
+      const matchups = await sleeperGet(`/league/${leagueId}/matchups/${lastCompletedWeek}`, { fetchImpl });
+      for (const matchup of matchups || []) {
+        for (const [playerId, points] of Object.entries(matchup.players_points || {})) {
+          if (Number.isFinite(points)) recentScores.set(playerId, points);
+        }
+      }
+    } catch {}
+  }
 
   const normalizedPosition = position ? String(position).toUpperCase() : null;
   const available = (catalog.players || [])
     .filter(player => !rosteredIds.has(player.sleeperId))
-    .filter(player => !normalizedPosition || player.position === normalizedPosition);
+    .filter(player => !normalizedPosition || player.position === normalizedPosition)
+    .map(player => {
+      const projected = Number(weeklyProjections?.[player.sleeperId]?.pts_ppr);
+      const recent = recentScores.get(player.sleeperId);
+      const rank = player.quality?.expertRank ?? player.market?.sleeperAdp ?? 300;
+      const baseline = Math.max(0, 16 - (rank / 18));
+      const projectedPpg = Number.isFinite(projected) ? projected : baseline;
+      const recentPpg = Number.isFinite(recent) ? recent : null;
+      const score = Number((projectedPpg * 0.65 + (recentPpg ?? baseline) * 0.25 + baseline * 0.10).toFixed(1));
+      const category = score >= 12 ? "PRIORITÉ" : score >= 8 ? "STREAMING" : score >= 5 ? "STASH" : "PROFONDEUR";
+      const faabPct = category === "PRIORITÉ" ? [8, 15] : category === "STREAMING" ? [3, 7] : category === "STASH" ? [1, 3] : [0, 1];
+      return { ...player, waiver: { score, category, projectedPpg: Number(projectedPpg.toFixed(1)), recentPpg, faabPct } };
+    });
 
   const byPosition = {};
   for (const player of available) {
@@ -210,6 +243,7 @@ export async function getFreeAgents({
 
   for (const pos of Object.keys(byPosition)) {
     byPosition[pos].sort((a, b) => {
+      if (a.waiver.score !== b.waiver.score) return b.waiver.score - a.waiver.score;
       const rankA = a.quality?.expertRank ?? Infinity;
       const rankB = b.quality?.expertRank ?? Infinity;
       if (rankA !== rankB) return rankA - rankB;
@@ -220,7 +254,7 @@ export async function getFreeAgents({
     byPosition[pos] = byPosition[pos].slice(0, limitPerPosition);
   }
 
-  return { generatedAt: new Date().toISOString(), week, byPosition };
+  return { generatedAt: new Date().toISOString(), week, lastCompletedWeek, rankingModel: "IN_SEASON_V1", byPosition };
 }
 
 /** Rend la liste de free agents en un bulletin texte, groupé par poste. */
@@ -235,7 +269,10 @@ export function formatWaiverReport({ byPosition, week }) {
       const rank = Number.isFinite(player.quality?.expertRank) ? ` · ECR #${player.quality.expertRank}` : "";
       const adp = Number.isFinite(player.market?.sleeperAdp) ? ` · ADP ${player.market.sleeperAdp}` : "";
       const note = player.adineu?.thesis ? ` — ${player.adineu.thesis}` : "";
-      lines.push(`${index + 1}. ${player.name} (${player.nflTeam || "FA"})${rank}${adp}${note}`);
+      const waiver = player.waiver
+        ? ` · ${player.waiver.category} · Proj. ${player.waiver.projectedPpg} · FAAB ${player.waiver.faabPct[0]}–${player.waiver.faabPct[1]}%`
+        : "";
+      lines.push(`${index + 1}. ${player.name} (${player.nflTeam || "FA"})${waiver}${rank}${adp}${note}`);
     });
   }
 

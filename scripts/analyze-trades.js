@@ -12,6 +12,7 @@
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { diagnoseRoster, findTradeProposals } from "../public/assets/trade-recommender.js";
+import { resolveOperationalWeek } from "../public/assets/nfl-week.js";
 
 export const DEFAULT_SLEEPER_LEAGUE_ID = process.env.SLEEPER_LEAGUE_ID || "1392715510830878721";
 const SLEEPER_API = "https://api.sleeper.app/v1";
@@ -56,7 +57,7 @@ export async function analyzeTrades({
   let season = "2026";
   try {
     const nflState = await sleeperGet("/state/nfl", { fetchImpl });
-    currentWeek = nflState?.display_week || nflState?.week || 1;
+    currentWeek = resolveOperationalWeek(nflState);
     season = nflState?.season || "2026";
   } catch {}
 
@@ -150,7 +151,7 @@ export async function analyzeTrades({
     };
   });
 
-  return { generatedAt: new Date().toISOString(), results };
+  return { generatedAt: new Date().toISOString(), week: currentWeek, results };
 }
 
 function formatPlayers(players) {
@@ -182,7 +183,7 @@ export function formatTradeBulletin(analysis, { proposalLimit = 5 } = {}) {
     result.proposals.slice(0, proposalLimit).forEach((proposal, index) => {
       const icon = proposal.category === "HANDCUFF_INSURANCE" ? "🔒" :
         proposal.category === "WIN_WIN" ? "🤝" : "⚡";
-      const weeklyDiff = proposal.evaluation?.weeklyPointsDiff;
+      const weeklyDiff = proposal.targetWeeklyGain;
       const weeklyStr = (typeof weeklyDiff === "number" && weeklyDiff !== 0)
         ? ` (Diff hebdo: ${weeklyDiff > 0 ? "+" : ""}${weeklyDiff} pts/sem)`
         : "";

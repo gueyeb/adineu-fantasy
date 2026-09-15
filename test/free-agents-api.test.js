@@ -40,22 +40,24 @@ test("free-agents API returns JSON grouped by position with a text alias", async
   assert.match(textResponse.headers.get("content-type"), /text\/plain/);
 });
 
-test("getFreeAgents excludes every rostered player and sorts by expert rank", async () => {
+test("getFreeAgents excludes rostered players, targets the operational week and ranks in-season value", async () => {
   const fetchImpl = async url => ({
     ok: true,
-    json: async () => url.endsWith("/rosters")
-      ? [{ roster_id: 1, players: ["7564"] }]
-      : { display_week: 2, week: 2, season: "2026" }
+    json: async () => {
+      if (url.endsWith("/rosters")) return [{ roster_id: 1, players: ["7564"] }];
+      if (url.endsWith("/state/nfl")) return { display_week: 1, week: 2, season: "2026", season_has_scores: true };
+      if (url.includes("/projections/nfl/regular/2026/2")) return { "11625": { pts_ppr: 18 } };
+      if (url.includes("/matchups/1")) return [{ points: 100, players_points: { "11625": 20 } }];
+      return {};
+    }
   });
   const catalogUrl = new URL("../public/data/players-catalog.json", import.meta.url);
 
   const report = await getFreeAgents({ fetchImpl, catalogUrl, position: "WR", limitPerPosition: 3 });
 
+  assert.equal(report.week, 2);
   assert.ok(report.byPosition.WR.length > 0);
   assert.ok(report.byPosition.WR.every(player => player.sleeperId !== "7564"));
-  for (let i = 1; i < report.byPosition.WR.length; i++) {
-    const prevRank = report.byPosition.WR[i - 1].quality?.expertRank ?? Infinity;
-    const rank = report.byPosition.WR[i].quality?.expertRank ?? Infinity;
-    assert.ok(rank >= prevRank);
-  }
+  assert.equal(report.byPosition.WR[0].sleeperId, "11625");
+  assert.equal(report.byPosition.WR[0].waiver.category, "PRIORITÉ");
 });

@@ -24,6 +24,7 @@ import {
   SCORING_SETTINGS_2026,
   BYE_WEEKS_2026
 } from "./public/assets/league-settings.js";
+import { buildCoachPlan, formatCoachPlan } from "./scripts/coach-assistant.js";
 
 const DEFAULT_PUBLIC_ROOT = fileURLToPath(new URL("./public", import.meta.url));
 const MIME_TYPES = {
@@ -59,7 +60,8 @@ export function createAppServer({
   analyze = analyzeTrades,
   getContext = getLeagueContext,
   getFreeAgents = getFreeAgentsDefault,
-  getInjuryStatuses = getInjuryStatusesDefault
+  getInjuryStatuses = getInjuryStatusesDefault,
+  coachToken = process.env.COACH_API_TOKEN || ""
 } = {}) {
   return createServer(async (request, response) => {
     if (request.method !== "GET" && request.method !== "HEAD") {
@@ -143,6 +145,35 @@ export function createAppServer({
           return;
         }
         sendJson(response, 200, { ...diagnosis, week: context.week, message });
+      } catch (error) {
+        const isUnknownTeam = error.message.startsWith("Équipe Sleeper inconnue");
+        sendJson(response, isUnknownTeam ? 404 : 502, { error: error.message });
+      }
+      return;
+    }
+
+    if (url.pathname === "/api/coach") {
+      if (!coachToken || request.headers.authorization !== `Bearer ${coachToken}`) {
+        sendJson(response, 404, { error: "Not found" });
+        return;
+      }
+      try {
+        const team = url.searchParams.get("team") || "t0z";
+        const [context, playerStatuses, freeAgents, trades] = await Promise.all([
+          getContext({ team }),
+          getInjuryStatuses().catch(() => new Map()),
+          getFreeAgents({ limitPerPosition: 8 }),
+          analyze({ team })
+        ]);
+        const lineup = diagnoseLineup({
+          myTeam: context.myTeam,
+          playerStatuses,
+          freeAgentsByPosition: freeAgents.byPosition,
+          byeWeeks: BYE_WEEKS_2026,
+          currentWeek: context.week
+        });
+        const plan = buildCoachPlan({ context, lineup, waivers: freeAgents, trades });
+        sendJson(response, 200, { ...plan, message: formatCoachPlan(plan) });
       } catch (error) {
         const isUnknownTeam = error.message.startsWith("Équipe Sleeper inconnue");
         sendJson(response, isUnknownTeam ? 404 : 502, { error: error.message });

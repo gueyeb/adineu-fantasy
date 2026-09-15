@@ -95,3 +95,17 @@ test("findTradeProposals ignores stale cross-team handcuff links", () => {
     "Allgeier must not be treated as Bijan Robinson's handcuff after changing teams"
   );
 });
+
+test("findTradeProposals rejects consolidation packages for replacement-level returns", () => {
+  const target = { roster_id: 1, players: [
+    { name: "Useful WR", position: "WR", quality: { expertRank: 70 } },
+    { name: "Bench WR", position: "WR", quality: { expertRank: 120 } },
+    { name: "Star WR", position: "WR", quality: { expertRank: 8 } },
+    { name: "Second WR", position: "WR", quality: { expertRank: 20 } }
+  ] };
+  const partner = { roster_id: 2, players: [
+    { name: "Replacement RB", position: "RB", quality: { expertRank: 210 } }
+  ] };
+  const proposals = findTradeProposals({ targetRosterId: 1, rosters: [target, partner] });
+  assert.equal(proposals.some(proposal => proposal.category === "CONSOLIDATION"), false);
+});

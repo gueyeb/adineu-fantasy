@@ -1,5 +1,6 @@
 import { sleeperManager } from "./rivalry-week.js?v=4";
 import { buildWeeklyRecap } from "./weekly-recap.js?v=1";
+import { resolveOperationalWeek } from "./nfl-week.js?v=1";
 
 const SLEEPER_API = "https://api.sleeper.app/v1";
 const DEFAULT_LEAGUE_ID = "1392715510830878721";
@@ -260,7 +261,7 @@ export async function renderMatchupsHub(container, {
     fetchJson(urls.history, { optional: true })
   ]);
   const historicalRecords = buildHistoricalRecords(archive);
-  const currentWeek = Number(nflState.display_week || nflState.week || 1);
+  const currentWeek = resolveOperationalWeek(nflState);
   const season = nflState.season || league.season || "2026";
   const regularWeekCount = Math.max(1, Number(league.settings?.playoff_week_start || 15) - 1);
   document.getElementById("hub-week").textContent = String(currentWeek).padStart(2, "0");

@@ -7,9 +7,10 @@ import {
   buildSleeperWeek,
   buildSleeperSeasonMeetings
 } from "./rivalry-week.js?v=4";
-import { renderTradesPage } from "./trade-ui.js?v=5";
+import { renderTradesPage } from "./trade-ui.js?v=6";
 import { renderMatchupsHub } from "./matchups-live.js?v=6";
 import { calculatePlayoffRace } from "./playoff-race.js?v=1";
+import { resolveOperationalWeek } from "./nfl-week.js?v=1";
 
 const SUPABASE_URL = "https://juosrzsffvjprqhdyado.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_7Bu9q2dKz0WEol94OGVhHw_xjSwHeHu";
@@ -797,7 +798,7 @@ async function renderRivalryWeek(data) {
       ]);
       sleeperContext.rosters = rosters;
       sleeperContext.users = users;
-      const currentWeek = Number(nflState.display_week || nflState.week || 1);
+      const currentWeek = resolveOperationalWeek(nflState);
       const completedWeeks = Array.from({ length: Math.max(0, currentWeek - 1) }, (_, index) => index + 1);
       const weeksOfRows = await Promise.all(completedWeeks.map(async week => ({
         week,

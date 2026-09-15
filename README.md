@@ -44,6 +44,8 @@ Yahoo profile history confirms all 88 team-season identities across 15 historica
 
 Production is served by Coolify behind Cloudflare. n8n triggers the deployed sync weekly; the production command above is the manual refresh path. The sync is idempotent, so rerunning it updates existing rows instead of duplicating them. A separate Tuesday workflow calls `/api/trades?team=t0z`, then forwards the returned `message` to the league manager's private notification channel. Sleeper data used by that endpoint is public; no Supabase or Yahoo secret is returned.
 
+The personal weekly coach is intentionally absent from the public UI. Configure a long random `COACH_API_TOKEN`, then let the private n8n workflow call `GET /api/coach?team=t0z` with `Authorization: Bearer <COACH_API_TOKEN>`. Forward its `message` field only to the manager's private channel. Without the token, the route returns `404` and does not expose its recommendations.
+
 ## How Yahoo data is acquired
 
 Yahoo's documented integration uses OAuth 2.0. A Yahoo member who can access the private league authorizes an application with Fantasy Sports Read access; the server exchanges the authorization code for an access token and refresh token, then calls resources below `https://fantasysports.yahooapis.com/fantasy/v2/`. A typical discovery request is:

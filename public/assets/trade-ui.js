@@ -11,6 +11,7 @@ import {
   ROSTER_SETTINGS_2026,
   SCORING_SETTINGS_2026
 } from "./league-settings.js";
+import { resolveOperationalWeek } from "./nfl-week.js?v=1";
 
 const SLEEPER_LEAGUE_ID = "1392715510830878721";
 const SLEEPER_API = "https://api.sleeper.app/v1";
@@ -81,7 +82,7 @@ export async function renderTradesPage(container) {
 
     if (stateRes.ok) {
       const nflState = await stateRes.json();
-      const currentWeek = nflState.display_week || nflState.week || 1;
+      const currentWeek = resolveOperationalWeek(nflState);
       const season = nflState.season || "2026";
 
       try {
@@ -494,7 +495,7 @@ export async function renderTradesPage(container) {
               <div style="display:flex; justify-content:space-between; gap:8px; padding:6px 0; border-bottom:1px solid var(--line); font-size:0.82rem;">
                 <span><strong>${i + 1}.</strong> ${escapeHtml(p.name)} <small style="color:var(--muted);">(${escapeHtml(p.nflTeam || "FA")})</small></span>
                 <span style="color:var(--muted); font-size:0.72rem; white-space:nowrap;">
-                  ${Number.isFinite(p.quality?.expertRank) ? `ECR #${p.quality.expertRank}` : ""}${Number.isFinite(p.market?.sleeperAdp) ? ` · ADP ${p.market.sleeperAdp}` : ""}
+                  ${p.waiver ? `${escapeHtml(p.waiver.category)} · Proj. ${p.waiver.projectedPpg} · FAAB ${p.waiver.faabPct[0]}–${p.waiver.faabPct[1]}%` : ""}
                 </span>
               </div>
             `).join("")}
@@ -508,7 +509,7 @@ export async function renderTradesPage(container) {
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; margin-bottom:24px;">
           <div>
             <h3 style="margin:0 0 4px; font-size:1.2rem;">Free Agents Disponibles${report.week ? ` · Semaine ${report.week}` : ""}</h3>
-            <p style="margin:0; color:var(--muted); font-size:0.82rem;">Triés par rang expert (ECR) puis par ADP Sleeper, hors joueurs déjà sur un des 12 rosters.</p>
+            <p style="margin:0; color:var(--muted); font-size:0.82rem;">Classés pour la semaine ${report.week || "en cours"} par projections Sleeper, production récente et ancre ECR.</p>
           </div>
           <button type="button" id="copy-waiver-btn" class="filter-btn" style="padding:8px 14px; font-size:0.75rem;">📋 Copier le rapport Waiver Wire</button>
         </div>

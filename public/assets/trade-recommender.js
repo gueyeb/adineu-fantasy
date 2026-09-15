@@ -15,6 +15,23 @@ export const KNOWN_HANDCUFFS = [
   { starter: "James Cook", handcuff: "Ray Davis", nflTeam: "BUF" }
 ];
 
+function playerTier(player) {
+  const value = player?.value ?? calculatePlayerTradeValue(player);
+  if (value >= 70) return "joueur premium";
+  if (value >= 35) return "titulaire solide";
+  if (value >= 15) return "titulaire potentiel";
+  return "joueur de rotation";
+}
+
+function decorateProposal(proposal) {
+  const strongestGiven = Math.max(0, ...proposal.evaluation.sideA.players.map(player => player.blendedPpg));
+  const strongestReceived = Math.max(0, ...proposal.evaluation.sideB.players.map(player => player.blendedPpg));
+  return {
+    ...proposal,
+    targetWeeklyGain: Number((strongestReceived - strongestGiven).toFixed(1))
+  };
+}
+
 function isCurrentHandcuffPair(link, starterPlayer, handcuffPlayer) {
   const expectedTeam = link.nflTeam.toUpperCase();
   return starterPlayer?.nflTeam?.toUpperCase() === expectedTeam &&
@@ -232,7 +249,14 @@ export function findTradeProposals({ targetRosterId, rosters = [], playerCatalog
             const p2 = giveCandidates[j];
             for (const receiveP of receiveCandidates) {
               const eval2 = evaluateTrade({ sideA: [p1, p2], sideB: [receiveP] });
-              if (eval2.verdict === "FAIR" || eval2.verdict === "SLIGHT_ADVANTAGE_A" || eval2.verdict === "SLIGHT_ADVANTAGE_B") {
+              const receiveValue = receiveP.value ?? calculatePlayerTradeValue(receiveP);
+              const bestGiveValue = Math.max(p1.value ?? calculatePlayerTradeValue(p1), p2.value ?? calculatePlayerTradeValue(p2));
+              const bestGiveWeekly = Math.max(
+                eval2.sideA.players.find(player => player.name === p1.name)?.blendedPpg || 0,
+                eval2.sideA.players.find(player => player.name === p2.name)?.blendedPpg || 0
+              );
+              const receiveWeekly = eval2.sideB.players.find(player => player.name === receiveP.name)?.blendedPpg || 0;
+              if (receiveValue >= 15 && receiveValue >= bestGiveValue + 8 && receiveWeekly >= bestGiveWeekly && (eval2.verdict === "FAIR" || eval2.verdict === "SLIGHT_ADVANTAGE_A" || eval2.verdict === "SLIGHT_ADVANTAGE_B")) {
                 proposals.push({
                   id: `winwin-2-${p1.name}-${p2.name}-${receiveP.name}`,
                   partnerRosterId: partnerRosterRaw.roster_id,
@@ -242,7 +266,7 @@ export function findTradeProposals({ targetRosterId, rosters = [], playerCatalog
                   give: [p1, p2],
                   receive: [receiveP],
                   evaluation: eval2,
-                  pitchTarget: `Consolide deux receveurs en un ${receiveP.position} d'élite (${receiveP.name}) pour maximiser tes points de départ.`,
+                  pitchTarget: `Consolide deux actifs en un ${playerTier(receiveP)} en ${receiveP.position} (${receiveP.name}) pour améliorer ta lineup.`,
                   pitchPartner: `${partnerName} transforme un titulaire en 2 excellents receveurs partants chaque semaine.`,
                   score: 84 - Math.abs(eval2.diff)
                 });
@@ -263,7 +287,7 @@ export function findTradeProposals({ targetRosterId, rosters = [], playerCatalog
     const key = `${p.partnerRosterId}:${p.give.map(g => g.name).sort().join(",")}:${p.receive.map(r => r.name).sort().join(",")}`;
     if (!seen.has(key)) {
       seen.add(key);
-      uniqueProposals.push(p);
+      uniqueProposals.push(decorateProposal(p));
     }
   }
 
