@@ -643,6 +643,7 @@ tbody tr:hover td { background: rgba(184, 255, 61, 0.045); }
   .rivalry-criteria { grid-template-columns: repeat(2, 1fr); }
   .rivalry-schedule .source-link { grid-column: auto; justify-self: start; }
   .schedule-grid { grid-template-columns: repeat(2, 1fr); }
+  .team-roster-grid { grid-template-columns: 1fr 1fr; }
 }
 
 @media (max-width: 580px) {
@@ -687,6 +688,9 @@ tbody tr:hover td { background: rgba(184, 255, 61, 0.045); }
   .rivalry-schedule { padding: 24px 20px; }
   .schedule-grid { grid-template-columns: 1fr; }
   .rivalry-live-status { min-height: 220px; padding: 26px 22px; }
+  .team-profile-head { align-items: flex-start; flex-direction: column; }
+  .team-record { text-align: left; }
+  .team-roster-grid { grid-template-columns: 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -700,3 +704,59 @@ tbody tr:hover td { background: rgba(184, 255, 61, 0.045); }
 .trade-lineup-detail { margin: 16px 0; }
 .trade-lineup-detail summary { cursor: pointer; font-weight: 700; }
 .trade-lineup-detail table { font-size: .75rem; }
+
+/* Team profile (/teams/) */
+.team-profile-head { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 18px; padding-bottom: 24px; border-bottom: 1px solid var(--line); }
+.team-profile-head h2 { margin: 10px 0 4px; font-family: var(--display); font-size: clamp(1.6rem, 3vw, 2.3rem); text-transform: uppercase; line-height: 1.05; }
+.team-profile-head p { margin: 0; color: var(--muted); }
+.team-record { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.team-record strong { display: block; font-family: var(--display); font-size: 1.8rem; color: var(--grass); }
+.team-record span { display: block; color: var(--muted); font-size: 0.82rem; }
+.team-roster-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin: 24px 0; }
+.team-roster-group { padding: 20px; border: 1px solid var(--line); background: var(--paper-soft); }
+.team-roster-group h3 { margin: 0 0 14px; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.11em; text-transform: uppercase; color: var(--muted); }
+.team-roster-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.team-roster-list li { display: flex; align-items: baseline; gap: 8px; font-size: 0.9rem; }
+.team-roster-list small { color: var(--muted); font-weight: 600; }
+.team-slot-label { flex: 0 0 auto; padding: 2px 6px; border: 1px solid var(--line); color: var(--gold); font-size: 0.62rem; font-weight: 800; letter-spacing: 0.08em; }
+.team-slot-empty { color: var(--muted); font-style: italic; }
+.team-roster-empty { margin: 0; color: var(--muted); font-size: 0.85rem; }
+.team-alerts { margin-top: 8px; }
+.team-alerts h3 { margin: 0 0 12px; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.06em; }
+.team-alert-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.team-alert { padding: 12px 16px; border-left: 4px solid var(--line); background: var(--paper-soft); font-size: 0.88rem; }
+.team-alert-watch { border-left-color: var(--gold); }
+.team-alert-severe { border-left-color: var(--red); }
+.team-power-badge { display: block; margin-top: 8px; color: var(--gold); font-size: 0.76rem; font-weight: 700; }
+.team-strength { margin-top: 28px; }
+.team-strength h3, .team-alerts h3 { margin: 0 0 14px; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.06em; }
+.team-strength-grid { display: flex; flex-direction: column; gap: 10px; }
+.team-strength-row { display: grid; grid-template-columns: 48px 1fr 70px; align-items: center; gap: 12px; }
+.team-strength-label { color: var(--muted); font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; }
+.team-strength-bar { position: relative; height: 8px; background: var(--paper-soft); border: 1px solid var(--line); }
+.team-strength-fill { display: block; height: 100%; background: var(--grass); }
+.team-strength-value { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--muted); font-weight: 700; }
+.team-strength-tag { padding: 2px 6px; font-size: 0.6rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
+.team-strength-surplus { color: var(--grass); border: 1px solid var(--grass); }
+.team-strength-need { color: var(--gold); border: 1px solid var(--gold); }
+.team-all-play { margin-top: 28px; }
+.team-all-play h3 { margin: 0 0 12px; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.06em; }
+.team-all-play p { margin: 0 0 6px; }
+.team-all-play .note { margin-top: 6px; }
+.team-record-watch { margin-top: 28px; }
+.team-record-watch h3 { margin: 0 0 12px; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.06em; }
+.team-record-watch .note { margin-top: 6px; }
+.team-record-watch-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.team-record-watch-item { padding: 10px 14px; border-left: 4px solid var(--line); background: var(--paper-soft); font-size: 0.88rem; display: flex; flex-direction: column; gap: 2px; }
+.team-record-watch-item.team-record-watch-broken { border-left-color: var(--grass); }
+.team-record-watch-label { color: var(--muted); font-size: 0.72rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
+.team-record-watch-value { font-weight: 600; }
+.team-transactions { margin-top: 28px; }
+.team-transactions h3 { margin: 0 0 12px; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.06em; }
+.team-transactions h3 small { text-transform: none; letter-spacing: normal; color: var(--muted); font-weight: 600; }
+.team-transaction-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.team-transaction { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border-left: 4px solid var(--line); background: var(--paper-soft); font-size: 0.86rem; }
+.team-transaction-type { flex: 0 0 auto; padding: 2px 6px; border: 1px solid var(--line); color: var(--gold); font-size: 0.62rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+.team-transaction-detail { flex: 1 1 auto; }
+.team-transaction-date { flex: 0 0 auto; color: var(--muted); font-size: 0.76rem; }
+.team-links { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--line); }

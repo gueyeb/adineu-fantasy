@@ -16,25 +16,13 @@ import {
   ROSTER_SETTINGS_2026
 } from "../public/assets/league-settings.js";
 import { resolveOperationalWeek, resolveLastCompletedWeek } from "../public/assets/nfl-week.js";
+import { findRosterByTeam, buildStarterSlotOrder, buildRosterSlots } from "../public/assets/roster-view.js";
 
 export const DEFAULT_SLEEPER_LEAGUE_ID = process.env.SLEEPER_LEAGUE_ID || "1392715510830878721";
 const SLEEPER_API = "https://api.sleeper.app/v1";
 const DEFAULT_CATALOG_URL = new URL("../public/data/players-catalog.json", import.meta.url);
 const POSITION_ORDER = ["QB", "RB", "WR", "TE", "K", "DEF"];
-
-// Ordre des slots titulaires côté Sleeper : QB, RB, RB, WR, WR, TE, FLEX, K, DEF.
-function buildStarterSlotOrder() {
-  const order = [];
-  for (const pos of ["QB", "RB", "WR", "TE"]) {
-    for (let i = 0; i < (ROSTER_SETTINGS_2026.starters[pos] || 0); i++) order.push(pos);
-  }
-  for (let i = 0; i < (ROSTER_SETTINGS_2026.starters.FLEX || 0); i++) order.push("FLEX");
-  for (let i = 0; i < (ROSTER_SETTINGS_2026.starters.K || 0); i++) order.push("K");
-  for (let i = 0; i < (ROSTER_SETTINGS_2026.starters.DEF || 0); i++) order.push("DEF");
-  return order;
-}
-
-const STARTER_SLOT_ORDER = buildStarterSlotOrder();
+const STARTER_SLOT_ORDER = buildStarterSlotOrder(ROSTER_SETTINGS_2026);
 
 async function sleeperGet(path, { fetchImpl = fetch } = {}) {
   const response = await fetchImpl(`${SLEEPER_API}${path}`, { signal: AbortSignal.timeout(10_000) });
@@ -50,28 +38,6 @@ async function loadPlayerCatalog(catalogUrl = DEFAULT_CATALOG_URL) {
     playerMap.set(player.name, player);
   }
   return { catalog, playerMap };
-}
-
-function resolvePlayer(playerMap, id) {
-  return playerMap.get(id) || { sleeperId: id, name: `Player #${id}`, position: "FLEX" };
-}
-
-function findRosterByTeam(rosters, users, team) {
-  const normalizedTeam = String(team).trim().toLowerCase();
-  const userById = new Map(users.map(user => [user.user_id, user]));
-  const named = rosters.map(roster => {
-    const user = userById.get(roster.owner_id);
-    const ownerName = user?.display_name || `Manager ${roster.roster_id}`;
-    const teamName = user?.metadata?.team_name || ownerName;
-    return { roster, ownerName, teamName };
-  });
-  const found = named.find(entry =>
-    entry.ownerName.toLowerCase() === normalizedTeam ||
-    entry.teamName.toLowerCase() === normalizedTeam ||
-    String(entry.roster.roster_id) === normalizedTeam
-  );
-  if (!found) throw new Error(`Équipe Sleeper inconnue : ${team}`);
-  return found;
 }
 
 /**
@@ -98,20 +64,7 @@ export async function getLeagueContext({
     week = resolveOperationalWeek(nflState);
   } catch {}
 
-  const starterIds = roster.starters || [];
-  const reserveIds = new Set(roster.reserve || []);
-  const startedIds = new Set(starterIds.filter(id => id && id !== "0"));
-
-  const starters = starterIds.map((id, index) => ({
-    slot: STARTER_SLOT_ORDER[index] || "FLEX",
-    player: (!id || id === "0") ? null : resolvePlayer(playerMap, id)
-  }));
-
-  const bench = (roster.players || [])
-    .filter(id => !startedIds.has(id) && !reserveIds.has(id))
-    .map(id => resolvePlayer(playerMap, id));
-
-  const ir = [...reserveIds].map(id => resolvePlayer(playerMap, id));
+  const { starters, bench, ir } = buildRosterSlots({ roster, playerMap, starterSlotOrder: STARTER_SLOT_ORDER });
 
   return {
     generatedAt: new Date().toISOString(),

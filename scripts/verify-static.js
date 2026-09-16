@@ -2,7 +2,7 @@ import { readFile, stat } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const root = resolve("public");
-const routes = ["", "standings", "power-rankings", "rivalry-week", "trades", "matchups", "history", "hall-of-fame", "franchises"];
+const routes = ["", "standings", "power-rankings", "rivalry-week", "trades", "matchups", "history", "hall-of-fame", "franchises", "teams"];
 const requiredAssets = [
   "favicon.svg",
   "assets/styles.css",
@@ -19,6 +19,14 @@ const requiredAssets = [
   "coach/index.html",
   "assets/trade-ui.js",
   "assets/league-settings.js",
+  "assets/roster-view.js",
+  "assets/roster-strength.js",
+  "assets/all-play.js",
+  "assets/team-metrics.js",
+  "assets/record-book.js",
+  "assets/record-watch.js",
+  "assets/transactions.js",
+  "assets/teams.js",
   "data/yahoo-history.json",
   "data/yahoo-matchups.json",
   "data/yahoo-playoffs.json",
@@ -28,8 +36,8 @@ const requiredAssets = [
 for (const route of routes) {
   const htmlPath = resolve(root, route, "index.html");
   const html = await readFile(htmlPath, "utf8");
-  if (!html.includes('src="/assets/site.js?v=21"')) throw new Error(`${htmlPath} does not load the current site.js`);
-  if (!html.includes('href="/assets/styles.css?v=16"')) throw new Error(`${htmlPath} does not load the current styles.css`);
+  if (!html.includes('src="/assets/site.js?v=25"')) throw new Error(`${htmlPath} does not load the current site.js`);
+  if (!html.includes('href="/assets/styles.css?v=20"')) throw new Error(`${htmlPath} does not load the current styles.css`);
   if (!html.includes('rel="icon" href="/favicon.svg"')) throw new Error(`${htmlPath} does not load the favicon`);
 }
 
@@ -47,7 +55,15 @@ const publicScripts = await Promise.all([
   readFile(resolve(root, "assets/trade-score.js"), "utf8"),
   readFile(resolve(root, "assets/coach-ui.js"), "utf8"),
   readFile(resolve(root, "assets/trade-ui.js"), "utf8"),
-  readFile(resolve(root, "assets/league-settings.js"), "utf8")
+  readFile(resolve(root, "assets/league-settings.js"), "utf8"),
+  readFile(resolve(root, "assets/roster-view.js"), "utf8"),
+  readFile(resolve(root, "assets/roster-strength.js"), "utf8"),
+  readFile(resolve(root, "assets/all-play.js"), "utf8"),
+  readFile(resolve(root, "assets/team-metrics.js"), "utf8"),
+  readFile(resolve(root, "assets/record-book.js"), "utf8"),
+  readFile(resolve(root, "assets/record-watch.js"), "utf8"),
+  readFile(resolve(root, "assets/transactions.js"), "utf8"),
+  readFile(resolve(root, "assets/teams.js"), "utf8")
 ]);
 if (/sb_secret_|SUPABASE_SECRET_KEY|platform_user_id|refresh_token/i.test(publicScripts.join("\n"))) {
   throw new Error("Public JavaScript contains a server secret or private platform identifier");

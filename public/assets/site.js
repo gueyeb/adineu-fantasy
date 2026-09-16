@@ -7,10 +7,12 @@ import {
   buildSleeperWeek,
   buildSleeperSeasonMeetings
 } from "./rivalry-week.js?v=4";
-import { renderTradesPage } from "./trade-ui.js?v=8";
+import { renderTradesPage } from "./trade-ui.js?v=10";
 import { renderMatchupsHub } from "./matchups-live.js?v=6";
 import { calculatePlayoffRace } from "./playoff-race.js?v=1";
 import { resolveOperationalWeek } from "./nfl-week.js?v=1";
+import { renderTeamsHub } from "./teams.js?v=4";
+import { buildYahooRecordBook } from "./record-book.js?v=1";
 
 const SUPABASE_URL = "https://juosrzsffvjprqhdyado.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_7Bu9q2dKz0WEol94OGVhHw_xjSwHeHu";
@@ -21,6 +23,7 @@ const SLEEPER_LEAGUE_ID = "1392715510830878721";
 const routes = [
   ["home", "/", "Accueil"],
   ["standings", "/standings/", "Classements"],
+  ["teams", "/teams/", "Équipes"],
   ["power-rankings", "/power-rankings/", "Power"],
   ["rivalry-week", "/rivalry-week/", "Rivalités"],
   ["matchups", "/matchups/", "Matchups"],
@@ -40,7 +43,7 @@ document.getElementById("site-header").innerHTML = `
       </a>
       <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="main-nav">Menu</button>
       <nav class="nav-links" id="main-nav" aria-label="Navigation principale">
-        ${routes.slice(0, 4).map(([key, href, label]) => `<a href="${href}"${key === page ? ' aria-current="page"' : ""}>${label}</a>`).join("")}
+        ${routes.slice(0, 5).map(([key, href, label]) => `<a href="${href}"${key === page ? ' aria-current="page"' : ""}>${label}</a>`).join("")}
         <div class="nav-menu${page === "trades" ? " active" : ""}">
           <button class="nav-menu-trigger" type="button" aria-expanded="false" aria-controls="tools-menu">
             Tools <span aria-hidden="true">⌄</span>
@@ -60,7 +63,7 @@ document.getElementById("site-header").innerHTML = `
             </a>
           </div>
         </div>
-        ${routes.slice(4).map(([key, href, label]) => `<a href="${href}"${key === page ? ' aria-current="page"' : ""}>${label}</a>`).join("")}
+        ${routes.slice(5).map(([key, href, label]) => `<a href="${href}"${key === page ? ' aria-current="page"' : ""}>${label}</a>`).join("")}
       </nav>
     </div>
   </header>`;
@@ -210,65 +213,6 @@ function allYahooPlayoffSeasons(data, playoffArchive) {
       loser: { team: match.loser, manager: managerForHistoryTeam(data, 2025, match.loser), points: match.loserPoints }
     }))
   }].sort((a, b) => b.year - a.year);
-}
-
-function buildYahooRecordBook(data, matchupArchive, playoffArchive) {
-  const regularGames = matchupArchive.seasons.flatMap(season => season.weeks.flatMap(week =>
-    week.matchups.map(matchup => ({
-      year: season.year,
-      week: week.week,
-      team1: { manager: matchup.team1Manager, team: matchup.team1Name, points: matchup.team1Score },
-      team2: { manager: matchup.team2Manager, team: matchup.team2Name, points: matchup.team2Score }
-    }))));
-  const regularSides = regularGames.flatMap(game => [
-    { ...game.team1, opponent: game.team2, year: game.year, week: game.week },
-    { ...game.team2, opponent: game.team1, year: game.year, week: game.week }
-  ]);
-  const wins = regularSides.filter(side => side.points > side.opponent.points);
-  const losses = regularSides.filter(side => side.points < side.opponent.points);
-  const maximum = (items, value) => [...items].sort((a, b) => value(b) - value(a))[0];
-  const minimum = (items, value) => [...items].sort((a, b) => value(a) - value(b))[0];
-
-  const streaks = [];
-  for (const manager of [...new Set(regularSides.map(side => side.manager))]) {
-    for (const season of matchupArchive.seasons) {
-      const games = regularSides.filter(side => side.manager === manager && side.year === season.year)
-        .sort((a, b) => a.week - b.week);
-      let active = null;
-      for (const game of games) {
-        if (game.points > game.opponent.points) {
-          active ||= { manager, team: game.team, year: season.year, startWeek: game.week, endWeek: game.week, wins: 0 };
-          active.wins += 1;
-          active.endWeek = game.week;
-        } else if (active) {
-          streaks.push(active);
-          active = null;
-        }
-      }
-      if (active) streaks.push(active);
-    }
-  }
-
-  const playoffGames = allYahooPlayoffSeasons(data, playoffArchive).flatMap(season =>
-    season.games.map(game => ({ ...game, year: season.year })));
-  const playoffSides = playoffGames.flatMap(game => [
-    { ...game.winner, opponent: game.loser, year: game.year, week: game.week, round: game.round },
-    { ...game.loser, opponent: game.winner, year: game.year, week: game.week, round: game.round }
-  ]);
-  const playoffWins = playoffSides.filter(side => side.points > side.opponent.points);
-
-  return {
-    highScore: maximum(regularSides, side => side.points),
-    biggestWin: maximum(wins, side => side.points - side.opponent.points),
-    closestWin: minimum(wins, side => side.points - side.opponent.points),
-    highestCombined: maximum(regularGames, game => game.team1.points + game.team2.points),
-    highestLoss: maximum(losses, side => side.points),
-    topStreaks: [...streaks].sort((a, b) => b.wins - a.wins || b.year - a.year || a.manager.localeCompare(b.manager, "fr"))
-      .filter(streak => streak.wins >= 7),
-    playoffHigh: maximum(playoffSides, side => side.points),
-    playoffBiggestWin: maximum(playoffWins, side => side.points - side.opponent.points),
-    playoffClosestWin: minimum(playoffWins, side => side.points - side.opponent.points)
-  };
 }
 
 async function loadLiveStandings() {
@@ -478,7 +422,7 @@ async function renderHallOfFame(data) {
     loadYahooMatchups(),
     loadYahooPlayoffs()
   ]);
-  const recordBook = buildYahooRecordBook(data, matchupArchive, playoffArchive);
+  const recordBook = buildYahooRecordBook(matchupArchive, allYahooPlayoffSeasons(data, playoffArchive));
   const titles = Object.values(data.seasons.reduce((result, season) => {
     const manager = season.champion.manager;
     result[manager] ||= { manager, count: 0, years: [] };
@@ -1219,6 +1163,10 @@ async function start() {
       await renderMatchupsHub(app, {
         renderArchive: async container => renderMatchupArchives(await loadHistory(), container)
       });
+      return;
+    }
+    if (page === "teams") {
+      await renderTeamsHub(app);
       return;
     }
     const data = await loadHistory();

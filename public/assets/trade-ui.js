@@ -13,6 +13,7 @@ import {
   SCORING_SETTINGS_2026
 } from "./league-settings.js";
 import { resolveOperationalWeek } from "./nfl-week.js?v=1";
+import { listRosterIdentities } from "./roster-view.js?v=1";
 
 const SLEEPER_LEAGUE_ID = "1392715510830878721";
 const SLEEPER_API = "https://api.sleeper.app/v1";
@@ -130,12 +131,7 @@ export async function renderTradesPage(container) {
     }
   }
 
-  const userById = new Map(users.map(u => [u.user_id, u]));
-  const formattedRosters = rosters.map(r => {
-    const user = userById.get(r.owner_id);
-    const ownerName = user?.display_name || `Manager ${r.roster_id}`;
-    const teamName = user?.metadata?.team_name || ownerName;
-
+  const formattedRosters = listRosterIdentities(rosters, users).map(({ roster: r, ownerName, teamName }) => {
     return {
       roster_id: r.roster_id,
       owner_id: r.owner_id,
@@ -164,7 +160,14 @@ export async function renderTradesPage(container) {
     window.location.hash === "#waivers" ? "waivers" :
     window.location.hash === "#advisor" ? "advisor" :
     window.location.hash === "#rules" ? "rules" : "finder";
-  let selectedRosterId = formattedRosters.find(r => r.ownerName.toLowerCase() === "t0z")?.roster_id || formattedRosters[0]?.roster_id || 1;
+  const requestedTeam = new URLSearchParams(window.location.search).get("team");
+  const requestedRoster = requestedTeam
+    ? formattedRosters.find(r => r.ownerName.toLowerCase() === requestedTeam.toLowerCase() || String(r.roster_id) === requestedTeam)
+    : null;
+  let selectedRosterId = requestedRoster?.roster_id
+    || formattedRosters.find(r => r.ownerName.toLowerCase() === "t0z")?.roster_id
+    || formattedRosters[0]?.roster_id
+    || 1;
 
   function renderCurrentTab() {
     if (currentTab === "finder") renderFinderView();
