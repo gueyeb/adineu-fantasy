@@ -692,3 +692,11 @@ tbody tr:hover td { background: rgba(184, 255, 61, 0.045); }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
 }
+/* Trade decision prototype: make bilateral production distinct from asset value. */
+.trade-impact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 14px 0; border-block: 1px solid var(--line); }
+.trade-impact-grid small, .trade-impact-grid strong { display: block; }
+.trade-impact-grid small { color: var(--muted); text-transform: uppercase; font-size: .7rem; }
+.trade-impact-grid strong { margin-top: 4px; font-family: var(--display); font-size: 1.2rem; }
+.trade-lineup-detail { margin: 16px 0; }
+.trade-lineup-detail summary { cursor: pointer; font-weight: 700; }
+.trade-lineup-detail table { font-size: .75rem; }

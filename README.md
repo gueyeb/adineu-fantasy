@@ -44,7 +44,11 @@ Yahoo profile history confirms all 88 team-season identities across 15 historica
 
 Production is served by Coolify behind Cloudflare. n8n triggers the deployed sync weekly; the production command above is the manual refresh path. The sync is idempotent, so rerunning it updates existing rows instead of duplicating them. A separate Tuesday workflow calls `/api/trades?team=t0z`, then forwards the returned `message` to the league manager's private notification channel. Sleeper data used by that endpoint is public; no Supabase or Yahoo secret is returned.
 
-The personal weekly coach is intentionally absent from the public UI. Configure a long random `COACH_API_TOKEN`, then let the private n8n workflow call `GET /api/coach?team=t0z` with `Authorization: Bearer <COACH_API_TOKEN>`. Forward its `message` field only to the manager's private channel. Without the token, the route returns `404` and does not expose its recommendations.
+The footer links to `/coach/`, a password login shell with no private recommendations embedded. Configure `COACH_WEB_PASSWORD` as a runtime-only secret. Login creates an HttpOnly, Secure, SameSite=Strict session lasting eight hours; logout invalidates it. Sessions and attempt limits are in-memory (single-instance deployment; restarts log out everyone). Ten failed attempts per connection IP are allowed per 15 minutes; behind Coolify this may be a shared proxy address. Use HTTPS in production. For local HTTP, set `NODE_ENV=development`. Browser sessions are restricted to Boukki (`t0z`), regardless of query parameters.
+
+The n8n integration remains independent: configure a long random `COACH_API_TOKEN`, then call `GET /api/coach?team=t0z` with `Authorization: Bearer <COACH_API_TOKEN>`. Forward its `message` field only to the manager's private channel. Anonymous requests return `404`. Never put either secret in browser assets or build-time variables.
+
+TradeRecommendationScore separates market values from optimal weekly lineup deltas for both rosters, confidence, and heuristic tradeability (not acceptance odds). Missing lineup projections suppress deltas and win-win claims. The first Finder card expands into before/after lineups for both teams. Market adjustments are anchored to ECR/ADP and capped to avoid one-week crashes; absent projections cannot drive dynamic market adjustments.
 
 ## How Yahoo data is acquired
 

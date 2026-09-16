@@ -7,7 +7,7 @@ import {
   buildSleeperWeek,
   buildSleeperSeasonMeetings
 } from "./rivalry-week.js?v=4";
-import { renderTradesPage } from "./trade-ui.js?v=6";
+import { renderTradesPage } from "./trade-ui.js?v=7";
 import { renderMatchupsHub } from "./matchups-live.js?v=6";
 import { calculatePlayoffRace } from "./playoff-race.js?v=1";
 import { resolveOperationalWeek } from "./nfl-week.js?v=1";
@@ -70,6 +70,7 @@ document.getElementById("site-footer").innerHTML = `
     <div class="footer-wrap">
       <span><strong>Adineu NFL</strong> · notre ligue, nos archives.</span>
       <span>Yahoo 2019–2025 · Sleeper à partir de 2026</span>
+      <a class="context-copy-btn" href="/coach/">Coach privé</a>
       <button class="context-copy-btn" type="button" id="copy-context-btn" title="Copier ton roster et les règles de ligue pour un chat IA">
         <span class="context-copy-icon" aria-hidden="true">📋</span><span class="context-copy-label">Contexte IA</span>
       </button>

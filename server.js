@@ -25,6 +25,7 @@ import {
   BYE_WEEKS_2026
 } from "./public/assets/league-settings.js";
 import { buildCoachPlan, formatCoachPlan } from "./scripts/coach-assistant.js";
+import { createCoachAuth } from "./scripts/coach-auth.js";
 
 const DEFAULT_PUBLIC_ROOT = fileURLToPath(new URL("./public", import.meta.url));
 const MIME_TYPES = {
@@ -61,16 +62,47 @@ export function createAppServer({
   getContext = getLeagueContext,
   getFreeAgents = getFreeAgentsDefault,
   getInjuryStatuses = getInjuryStatusesDefault,
-  coachToken = process.env.COACH_API_TOKEN || ""
+  coachToken = process.env.COACH_API_TOKEN || "",
+  coachPassword = process.env.COACH_WEB_PASSWORD || "",
+  secureCookies = process.env.NODE_ENV !== "development"
 } = {}) {
+  const coachAuth = createCoachAuth({ password: coachPassword, secure: secureCookies });
   return createServer(async (request, response) => {
+    const url = new URL(request.url, "http://localhost");
+    if (url.pathname.startsWith("/coach/") || url.pathname.startsWith("/api/coach")) {
+      response.setHeader("x-robots-tag", "noindex, nofollow");
+      response.setHeader("referrer-policy", "no-referrer");
+      response.setHeader("x-frame-options", "DENY");
+      response.setHeader("content-security-policy", "default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
+    }
+    if (url.pathname === "/api/coach-session" && request.method === "POST") {
+      if (!coachAuth.enabled) return sendJson(response, 503, { error: "Accès privé non configuré." });
+      const origin = request.headers.origin;
+      if (!origin || !URL.canParse(origin) || new URL(origin).host !== request.headers.host) return sendJson(response, 403, { error: "Forbidden" });
+      if (url.searchParams.get("logout") === "1") {
+        response.setHeader("set-cookie", coachAuth.logout(request.headers.cookie));
+        return sendJson(response, 200, { ok: true });
+      }
+      try {
+        let body = "";
+        for await (const chunk of request) {
+          body += chunk;
+          if (Buffer.byteLength(body) > 1024) return sendJson(response, 413, { error: "Payload too large" });
+        }
+        const result = coachAuth.login(JSON.parse(body).password, request.socket.remoteAddress);
+        if (result.cookie) response.setHeader("set-cookie", result.cookie);
+        if (result.status === 429) response.setHeader("retry-after", "900");
+        return sendJson(response, result.status, { ok: result.status === 200 });
+      } catch {
+        return sendJson(response, 400, { error: "Invalid request" });
+      }
+    }
     if (request.method !== "GET" && request.method !== "HEAD") {
       response.writeHead(405, { allow: "GET, HEAD" });
       response.end();
       return;
     }
 
-    const url = new URL(request.url, "http://localhost");
     if (url.pathname === "/api/health") {
       sendJson(response, 200, { status: "ok" });
       return;
@@ -153,12 +185,14 @@ export function createAppServer({
     }
 
     if (url.pathname === "/api/coach") {
-      if (!coachToken || request.headers.authorization !== `Bearer ${coachToken}`) {
+      const apiAuthorized = coachToken && request.headers.authorization === `Bearer ${coachToken}`;
+      const webAuthorized = coachAuth.authenticated(request.headers.cookie);
+      if (!apiAuthorized && !webAuthorized) {
         sendJson(response, 404, { error: "Not found" });
         return;
       }
       try {
-        const team = url.searchParams.get("team") || "t0z";
+        const team = apiAuthorized ? url.searchParams.get("team") || "t0z" : "t0z";
         const [context, playerStatuses, freeAgents, trades] = await Promise.all([
           getContext({ team }),
           getInjuryStatuses().catch(() => new Map()),
@@ -203,7 +237,7 @@ export function createAppServer({
       if (fileStat.isDirectory()) filePath = resolve(filePath, "index.html");
       const finalStat = await stat(filePath);
       const extension = extname(filePath).toLowerCase();
-      const cacheControl = extension === ".html" || extension === ".json"
+      const cacheControl = url.pathname.startsWith("/coach/") ? "no-store" : extension === ".html" || extension === ".json"
         ? "no-cache"
         : "public, max-age=3600";
       response.writeHead(200, {

@@ -14,6 +14,9 @@ const requiredAssets = [
   "assets/weekly-recap.js",
   "assets/trade-value.js",
   "assets/trade-recommender.js",
+  "assets/trade-score.js",
+  "assets/coach-ui.js",
+  "coach/index.html",
   "assets/trade-ui.js",
   "assets/league-settings.js",
   "data/yahoo-history.json",
@@ -25,8 +28,8 @@ const requiredAssets = [
 for (const route of routes) {
   const htmlPath = resolve(root, route, "index.html");
   const html = await readFile(htmlPath, "utf8");
-  if (!html.includes('src="/assets/site.js?v=19"')) throw new Error(`${htmlPath} does not load the current site.js`);
-  if (!html.includes('href="/assets/styles.css?v=15"')) throw new Error(`${htmlPath} does not load the current styles.css`);
+  if (!html.includes('src="/assets/site.js?v=20"')) throw new Error(`${htmlPath} does not load the current site.js`);
+  if (!html.includes('href="/assets/styles.css?v=16"')) throw new Error(`${htmlPath} does not load the current styles.css`);
   if (!html.includes('rel="icon" href="/favicon.svg"')) throw new Error(`${htmlPath} does not load the favicon`);
 }
 
@@ -41,6 +44,8 @@ const publicScripts = await Promise.all([
   readFile(resolve(root, "assets/weekly-recap.js"), "utf8"),
   readFile(resolve(root, "assets/trade-value.js"), "utf8"),
   readFile(resolve(root, "assets/trade-recommender.js"), "utf8"),
+  readFile(resolve(root, "assets/trade-score.js"), "utf8"),
+  readFile(resolve(root, "assets/coach-ui.js"), "utf8"),
   readFile(resolve(root, "assets/trade-ui.js"), "utf8"),
   readFile(resolve(root, "assets/league-settings.js"), "utf8")
 ]);

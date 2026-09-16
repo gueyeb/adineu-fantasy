@@ -7,7 +7,8 @@
  * 3. Les propositions d'échange équitables avec argumentaires bilatéraux
  */
 
-import { calculatePlayerTradeValue, evaluateTrade } from "./trade-value.js";
+import { calculatePlayerTradeValue, evaluateTrade } from "./trade-value.js?v=3";
+import { scoreTradeRecommendation } from "./trade-score.js?v=1";
 
 export const KNOWN_HANDCUFFS = [
   { starter: "Breece Hall", handcuff: "Braelon Allen", nflTeam: "NYJ" },
@@ -23,12 +24,14 @@ function playerTier(player) {
   return "joueur de rotation";
 }
 
-function decorateProposal(proposal) {
-  const strongestGiven = Math.max(0, ...proposal.evaluation.sideA.players.map(player => player.blendedPpg));
-  const strongestReceived = Math.max(0, ...proposal.evaluation.sideB.players.map(player => player.blendedPpg));
+function decorateProposal(proposal, myPlayers, theirPlayers) {
+  const recommendationScore = scoreTradeRecommendation({ myPlayers, theirPlayers, give: proposal.give, receive: proposal.receive });
   return {
     ...proposal,
-    targetWeeklyGain: Number((strongestReceived - strongestGiven).toFixed(1))
+    category: proposal.category === "WIN_WIN" && !recommendationScore.winWin ? "POSITIONAL_SWAP" : proposal.category,
+    recommendationScore,
+    targetWeeklyGain: recommendationScore.my_lineup_delta,
+    score: recommendationScore.rankScore
   };
 }
 
@@ -287,9 +290,11 @@ export function findTradeProposals({ targetRosterId, rosters = [], playerCatalog
     const key = `${p.partnerRosterId}:${p.give.map(g => g.name).sort().join(",")}:${p.receive.map(r => r.name).sort().join(",")}`;
     if (!seen.has(key)) {
       seen.add(key);
-      uniqueProposals.push(decorateProposal(p));
+      const partner = rosters.find(roster => String(roster.roster_id) === String(p.partnerRosterId));
+      const partnerPlayers = (partner?.players || []).map(player => typeof player === "string" ? { ...getPlayerInfo(player), sleeperId: player } : player);
+      uniqueProposals.push(decorateProposal(p, targetPlayers, partnerPlayers));
     }
   }
 
-  return uniqueProposals.slice(0, 15);
+  return uniqueProposals.sort((a, b) => b.score - a.score).slice(0, 15);
 }

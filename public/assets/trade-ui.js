@@ -4,8 +4,8 @@
  * Gère le Calculateur de Trade interactif et le Moteur de Recommandations.
  */
 
-import { calculatePlayerTradeValue, calculatePlayerTradeProfile, evaluateTrade } from "./trade-value.js?v=2";
-import { diagnoseRoster, findTradeProposals } from "./trade-recommender.js?v=2";
+import { calculatePlayerTradeValue, calculatePlayerTradeProfile, evaluateTrade } from "./trade-value.js?v=3";
+import { diagnoseRoster, findTradeProposals } from "./trade-recommender.js?v=3";
 import {
   GENERAL_SETTINGS_2026,
   ROSTER_SETTINGS_2026,
@@ -221,12 +221,14 @@ export async function renderTradesPage(container) {
           </div>
         ` : `
           <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(360px, 1fr)); gap:20px;">
-            ${proposals.map(p => {
+            ${proposals.map((p, index) => {
+              const score = p.recommendationScore;
+              const delta = value => value === null ? "Indisponible" : `${value >= 0 ? "+" : ""}${value} pts/sem`;
               const catBadge = p.category === "HANDCUFF_INSURANCE"
                 ? `<span style="background:rgba(255,180,67,0.15); color:var(--gold); border:1px solid var(--gold); font-size:0.7rem; padding:3px 8px; border-radius:3px; font-weight:700;">🔒 SÉCURITÉ MENOTTE</span>`
                 : p.category === "WIN_WIN"
                 ? `<span style="background:rgba(184,255,61,0.15); color:var(--grass); border:1px solid var(--grass); font-size:0.7rem; padding:3px 8px; border-radius:3px; font-weight:700;">🤝 WIN-WIN</span>`
-                : `<span style="background:rgba(159,177,168,0.15); color:var(--ink); border:1px solid var(--line); font-size:0.7rem; padding:3px 8px; border-radius:3px; font-weight:700;">⚡ CONSOLIDATION</span>`;
+                : `<span style="background:rgba(159,177,168,0.15); color:var(--ink); border:1px solid var(--line); font-size:0.7rem; padding:3px 8px; border-radius:3px; font-weight:700;">${p.category === "CONSOLIDATION" ? "⚡ CONSOLIDATION" : "ÉCHANGE À ÉTUDIER"}</span>`;
 
               const verdictColor = p.evaluation.verdict === "FAIR" ? "var(--grass)" : "var(--gold)";
 
@@ -240,13 +242,19 @@ export async function renderTradesPage(container) {
                       </div>
                       <div style="text-align:right;">
                         <span style="font-size:0.75rem; color:${verdictColor}; font-weight:700; display:block;">${p.evaluation.label}</span>
-                        ${p.evaluation.weeklyPointsDiff ? `
-                          <span style="font-size:0.7rem; color:var(--muted); font-weight:600;">
-                            Impact: ${p.evaluation.weeklyPointsDiff > 0 ? "+" : ""}${p.evaluation.weeklyPointsDiff} pts/sem
-                          </span>
-                        ` : ""}
+                        <span style="font-size:0.7rem; color:var(--muted);">Valeur marché uniquement</span>
                       </div>
                     </div>
+
+                    <div class="trade-impact-grid">
+                      <div><small>Ta lineup</small><strong>${delta(score.my_lineup_delta)}</strong></div>
+                      <div><small>Sa lineup</small><strong>${delta(score.their_lineup_delta)}</strong></div>
+                    </div>
+                    <p class="note">Faisabilité : ${escapeHtml(score.tradeability)} · Confiance : ${score.confidence === "HIGH" ? "bonne" : "faible"}. Estimations de la semaine, pas garanties de saison.</p>
+                    ${score.warnings.length ? `<p class="note">⚠ ${score.warnings.map(escapeHtml).join(" · ")}</p>` : ""}
+                    ${index === 0 ? `<details class="trade-lineup-detail"><summary>Prototype · Lineups avant → après</summary>
+                      ${[["Ton équipe", score.lineups.mine], [p.partnerName, score.lineups.theirs]].map(([name, lineups]) => `<h5>${escapeHtml(name)}</h5><div class="table-wrap"><table><thead><tr><th>Slot</th><th>Avant</th><th>Après</th></tr></thead><tbody>${lineups.before.slots.map((slot, i) => `<tr><td>${escapeHtml(slot.slot)}</td><td>${escapeHtml(slot.name)} · ${slot.projectedPpg ?? "—"}</td><td>${escapeHtml(lineups.after.slots[i].name)} · ${lineups.after.slots[i].projectedPpg ?? "—"}</td></tr>`).join("")}</tbody></table></div>`).join("")}
+                      <p class="note">Lineups optimales projetées, pas les titulaires actuellement choisis. Les coupes de banc et acquisitions futures ne sont pas simulées.</p></details>` : ""}
 
                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:14px 0; padding:12px; background:var(--paper-soft); border-radius:4px; border:1px solid var(--line);">
                       <div>
@@ -257,7 +265,7 @@ export async function renderTradesPage(container) {
                           </div>
                           <div style="font-size:0.7rem; color:var(--muted); margin-bottom:6px;">
                             ${typeof g.projectedPpg === "number" ? `Proj: <strong>${g.projectedPpg}</strong>` : ""}
-                            ${typeof g.actualPpg === "number" ? ` · Réel: <strong>${g.actualPpg}</strong>` : ""}
+                            ${typeof g.actualPpg === "number" ? ` · Moyenne (${g.gamesPlayed || 1} match${g.gamesPlayed > 1 ? "s" : ""}): <strong>${g.actualPpg}</strong>` : ""}
                             ${g.signal === "BUY_LOW" ? ` · <span style="color:var(--grass); font-weight:700;">🟢 Buy-Low</span>` : ""}
                             ${g.signal === "SELL_HIGH" ? ` · <span style="color:var(--gold); font-weight:700;">🔥 Sell-High</span>` : ""}
                           </div>
@@ -274,7 +282,7 @@ export async function renderTradesPage(container) {
                           </div>
                           <div style="font-size:0.7rem; color:var(--muted); margin-bottom:6px;">
                             ${typeof r.projectedPpg === "number" ? `Proj: <strong>${r.projectedPpg}</strong>` : ""}
-                            ${typeof r.actualPpg === "number" ? ` · Réel: <strong>${r.actualPpg}</strong>` : ""}
+                            ${typeof r.actualPpg === "number" ? ` · Moyenne (${r.gamesPlayed || 1} match${r.gamesPlayed > 1 ? "s" : ""}): <strong>${r.actualPpg}</strong>` : ""}
                             ${r.signal === "BUY_LOW" ? ` · <span style="color:var(--grass); font-weight:700;">🟢 Buy-Low</span>` : ""}
                             ${r.signal === "SELL_HIGH" ? ` · <span style="color:var(--gold); font-weight:700;">🔥 Sell-High</span>` : ""}
                           </div>
@@ -407,10 +415,10 @@ export async function renderTradesPage(container) {
         </div>
 
         <div style="background:var(--panel); border:1px solid var(--line); border-radius:4px; padding:10px 14px; max-width:540px; margin:12px auto; font-size:0.85rem;">
-          📊 <strong>Impact hebdomadaire :</strong> ${evalTrade.weeklyPointsDiff >= 0
+          📊 <strong>Écart de production des joueurs échangés :</strong> ${evalTrade.weeklyPointsDiff >= 0
             ? `<span style="color:var(--grass); font-weight:700;">+${evalTrade.weeklyPointsDiff} pts/semaine pour Équipe A</span>`
             : `<span style="color:var(--red); font-weight:700;">${evalTrade.weeklyPointsDiff} pts/semaine pour Équipe A</span>`}
-          <span style="color:var(--muted); display:block; font-size:0.75rem; margin-top:2px;">(Pondération bayésienne entre projections Sleeper et production réelle de la saison)</span>
+          <span style="color:var(--muted); display:block; font-size:0.75rem; margin-top:2px;">Somme pondérée des joueurs uniquement : ce n'est pas un gain de lineup. Consulte le Trade Finder pour l'impact des remplacements.</span>
         </div>
 
         ${evalTrade.starPlayer ? `

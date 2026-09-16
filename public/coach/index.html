@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Coach privé — Adineu NFL</title>
+  <link rel="icon" href="/favicon.svg">
+  <link rel="stylesheet" href="/assets/styles.css?v=16">
+  <script type="module" src="/assets/coach-ui.js?v=1"></script>
+</head>
+<body>
+  <main class="shell" style="max-width:780px; padding-top:64px; padding-bottom:64px;">
+    <a href="/trades/">← Trade Hub</a>
+    <p class="eyebrow">Espace personnel · Boukki</p>
+    <h1>COACH PRIVÉ</h1>
+    <p>Ton plan de semaine : lineup, waivers et pistes de négociation.</p>
+    <form id="coach-login">
+      <label for="coach-password">Mot de passe</label>
+      <input id="coach-password" type="password" autocomplete="current-password" required maxlength="128">
+      <button class="filter-btn" type="submit">Accéder au coaching</button>
+    </form>
+    <p id="coach-status" role="status" aria-live="polite"></p>
+    <section id="coach-report" hidden>
+      <button id="coach-refresh" class="filter-btn" type="button">Actualiser</button>
+      <button id="coach-logout" class="filter-btn" type="button">Se déconnecter</button>
+      <pre id="coach-message" style="white-space:pre-wrap; font:inherit; line-height:1.7; border-top:1px solid var(--line); padding-top:24px;"></pre>
+    </section>
+  </main>
+</body>
+</html>

@@ -176,9 +176,10 @@ export function calculatePlayerTradeProfile(player, options = {}) {
 
   // 7. Ajustement dynamique de la valeur de trade
   let tradeValue = baseValue;
-  if (actualPpg !== null && gamesPlayed > 0) {
+  if (actualPpg !== null && gamesPlayed > 0 && Number.isFinite(player.projectedPpg ?? player.projection?.pts_ppr)) {
     const delta = blendedPpg - projectedPpg;
-    const dynamicAdjustment = Math.round(delta * 2.5 * posMultiplier);
+    const limit = Math.max(1, baseValue * Math.min(0.5, gamesPlayed * 0.15));
+    const dynamicAdjustment = Math.round(Math.max(-limit, Math.min(limit, delta * 2.5 * posMultiplier)));
     tradeValue = Math.max(1, Math.min(100, baseValue + dynamicAdjustment));
   } else {
     tradeValue = Math.max(1, Math.min(100, baseValue));
