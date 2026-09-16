@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { buildProjectedLineup, scoreTradeRecommendation } from "../public/assets/trade-score.js";
 import { calculatePlayerTradeProfile } from "../public/assets/trade-value.js";
+import { findTradeProposals } from "../public/assets/trade-recommender.js";
 
 const player = (name, position, projectedPpg, rank = 40) => ({ name, position, projectedPpg, quality: { expertRank: rank } });
 const core = prefix => [player(`${prefix}QB`, "QB", 20), player(`${prefix}TE`, "TE", 10), player(`${prefix}K`, "K", 8), player(`${prefix}DEF`, "DEF", 8)];
@@ -17,6 +18,11 @@ test("bilateral lineup deltas use replacements and FLEX, not package point sums"
   assert.equal(score.winWin, true);
   assert.equal(score.tradeability, "Naturelle");
   assert.equal(new Set(buildProjectedLineup(mine).slots.map(slot => slot.sleeperId)).size, 9);
+  const proposals = findTradeProposals({ targetRosterId: 1, rosters: [{ roster_id: 1, players: mine }, { roster_id: 2, players: theirs }] });
+  const swap = proposals.find(proposal => proposal.give[0].name === give.name && proposal.receive[0].name === receive.name);
+  assert.ok(swap);
+  assert.equal(swap.recommendationScore.my_lineup_delta, 7);
+  assert.equal(swap.category, "WIN_WIN");
 });
 
 test("negative impact and missing projection cannot be advertised as win-win", () => {

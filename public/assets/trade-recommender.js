@@ -132,7 +132,7 @@ export function findTradeProposals({ targetRosterId, rosters = [], playerCatalog
 
   const targetPlayers = (targetRosterRaw.players || []).map(p => {
     const info = typeof p === "string" ? getPlayerInfo(p) : p;
-    return { ...info, sleeperId: info.sleeperId || p };
+    return { ...info, sleeperId: info.sleeperId || (typeof p === "string" ? p : undefined) };
   });
 
   const targetDiag = diagnoseRoster(targetPlayers);
@@ -150,7 +150,7 @@ export function findTradeProposals({ targetRosterId, rosters = [], playerCatalog
 
     const partnerPlayers = (partnerRosterRaw.players || []).map(p => {
       const info = typeof p === "string" ? getPlayerInfo(p) : p;
-      return { ...info, sleeperId: info.sleeperId || p };
+      return { ...info, sleeperId: info.sleeperId || (typeof p === "string" ? p : undefined) };
     });
 
     const partnerDiag = diagnoseRoster(partnerPlayers);
