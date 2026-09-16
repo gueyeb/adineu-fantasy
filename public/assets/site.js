@@ -348,6 +348,8 @@ async function renderHome(data) {
       <div class="section-head"><div><p class="eyebrow">Le clubhouse</p><h2>Tout le terrain.</h2></div><p>Le présent, les archives et les débats qui ne meurent jamais.</p></div>
       <div class="feature-grid">
         <a class="feature feature-rivalry" href="/rivalry-week/"><span class="feature-kicker">Proposition · Semaine 8 · 2026</span><h3>Six rivalités. À vous de trancher.</h3><p>Les affiches proposées, leurs bilans Yahoo et le vrai calendrier Sleeper dès sa publication.</p><span class="feature-number">08</span></a>
+        <a class="feature" href="/power-rankings/"><span class="feature-kicker">Saison 2026 en direct</span><h3>Power Rankings & Playoffs</h3><p>Le vrai classement de force, la course aux playoffs et l'estimation de qualification de chaque équipe.</p><span class="feature-number">26</span></a>
+        <a class="feature" href="/trades/"><span class="feature-kicker">Trade Hub</span><h3>Trouve ton prochain deal</h3><p>Opportunités bilatérales, contre-offres et coût d'opportunité waiver, équipe par équipe.</p><span class="feature-number">$</span></a>
         <a class="feature" href="/hall-of-fame/"><span class="feature-kicker">Palmarès officiel</span><h3>Les immortels d'Adineu</h3><p>Sept champions, les règnes multiples et les records qui tiennent encore.</p><span class="feature-number">7</span></a>
         <a class="feature" href="/history/"><span class="feature-kicker">2019 → 2025</span><h3>Saison par saison</h3><p>Les participants réels, les classements complets et les podiums.</p><span class="feature-number">19</span></a>
       </div>
