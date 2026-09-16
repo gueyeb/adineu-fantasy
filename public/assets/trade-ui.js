@@ -14,6 +14,8 @@ import {
 } from "./league-settings.js";
 import { resolveOperationalWeek } from "./nfl-week.js?v=1";
 import { listRosterIdentities } from "./roster-view.js?v=1";
+import { calculateFaabRemaining } from "./team-metrics.js?v=2";
+import { identifyFreeAgents, findWaiverOpportunities } from "./waiver-opportunity.js?v=1";
 
 const SLEEPER_LEAGUE_ID = "1392715510830878721";
 const SLEEPER_API = "https://api.sleeper.app/v1";
@@ -69,6 +71,8 @@ export async function renderTradesPage(container) {
   let rosters = [];
   let users = [];
   let weeklyProjections = {};
+  let currentWeek = null;
+  let season = "2026";
   const playerWeeklyScores = new Map();
 
   try {
@@ -84,8 +88,8 @@ export async function renderTradesPage(container) {
 
     if (stateRes.ok) {
       const nflState = await stateRes.json();
-      const currentWeek = resolveOperationalWeek(nflState);
-      const season = nflState.season || "2026";
+      currentWeek = resolveOperationalWeek(nflState);
+      season = nflState.season || "2026";
 
       try {
         const projRes = await fetch(`${SLEEPER_API}/projections/nfl/regular/${season}/${currentWeek}`);
@@ -528,7 +532,52 @@ export async function renderTradesPage(container) {
       console.warn("Impossible de charger les free agents", e);
     }
 
+    // Coût d'opportunité, par équipe (docs/prd-waiver-opportunity-cost.md). Réutilise tel quel le
+    // moteur de delta de lineup déjà livré et testé pour les trades (buildProjectedLineup dans
+    // trade-score.js) : le gain d'un free agent, c'est juste (lineup optimale avec lui) - (lineup
+    // optimale sans lui). Le pool de free agents vient des projections Sleeper EN DIRECT pour la
+    // semaine en cours (endpoint déjà vérifié et utilisé par Playoff Probabilities), pas du
+    // catalogue statique pré-saison ci-dessous qui raterait les révélations en cours de saison.
+    const currentRoster = formattedRosters.find(r => String(r.roster_id) === String(selectedRosterId));
+    let opportunities = [];
+    let opportunityError = null;
+    if (currentRoster && currentWeek) {
+      try {
+        const positions = ["QB", "RB", "WR", "TE", "K", "DEF"];
+        const query = positions.map(pos => `position[]=${pos}`).join("&");
+        const projRes = await fetch(`https://api.sleeper.app/projections/nfl/${season}/${currentWeek}?season_type=regular&${query}`);
+        if (projRes.ok) {
+          const rows = await projRes.json();
+          const candidates = rows
+            .filter(row => row.stats && Number.isFinite(row.stats.pts_ppr))
+            .map(row => ({
+              sleeperId: String(row.player_id),
+              name: row.player ? `${row.player.first_name || ""} ${row.player.last_name || ""}`.trim() || `Player #${row.player_id}` : `Player #${row.player_id}`,
+              position: row.player?.position || row.player?.fantasy_positions?.[0] || "FLEX",
+              nflTeam: row.player?.team || row.team || null,
+              projectedPpg: Number(row.stats.pts_ppr)
+            }));
+          const freeAgents = identifyFreeAgents(candidates, rosters);
+          const diag = diagnoseRoster(currentRoster.players);
+          opportunities = findWaiverOpportunities({
+            myPlayers: currentRoster.players,
+            freeAgents,
+            positionsOfInterest: diag.deficits.length ? diag.deficits : null,
+            cap: 40
+          });
+        } else {
+          opportunityError = "Projections Sleeper indisponibles pour le moment.";
+        }
+      } catch (e) {
+        console.warn("Impossible de calculer le coût d'opportunité waiver", e);
+        opportunityError = "Calcul indisponible pour le moment.";
+      }
+    }
+
     if (currentTab !== "waivers") return; // l'utilisateur a changé d'onglet pendant le chargement
+
+    const rawRoster = rosters.find(r => String(r.roster_id) === String(selectedRosterId));
+    const faabRemaining = rawRoster ? calculateFaabRemaining(GENERAL_SETTINGS_2026.waiver.budget, rawRoster.settings?.waiver_budget_used) : null;
 
     const positionOrder = ["QB", "RB", "WR", "TE", "K", "DEF"];
     const positionCards = positionOrder
@@ -553,6 +602,48 @@ export async function renderTradesPage(container) {
 
     content.innerHTML = `
       <div class="shell">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; margin-bottom:20px;">
+          <div>
+            <label for="waiver-roster-select" style="font-size:0.78rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--muted); font-weight:700; display:block; margin-bottom:6px;">Équipe analysée :</label>
+            <select id="waiver-roster-select" style="padding:10px 14px; background:var(--panel); border:1px solid var(--line); color:var(--ink); font-weight:600; border-radius:4px;">
+              ${formattedRosters.map(r => `
+                <option value="${r.roster_id}" ${String(r.roster_id) === String(selectedRosterId) ? "selected" : ""}>
+                  ${escapeHtml(r.name)} (@${escapeHtml(r.ownerName)})
+                </option>
+              `).join("")}
+            </select>
+          </div>
+          <div style="background:var(--paper-soft); border:1px solid var(--line); padding:10px 14px; border-radius:4px;">
+            <span style="font-size:0.7rem; color:var(--muted); text-transform:uppercase; display:block;">FAAB restant</span>
+            <strong style="font-size:0.95rem;">${faabRemaining !== null ? `${faabRemaining} $` : "Indisponible"}</strong>
+          </div>
+        </div>
+
+        <h3 style="margin:0 0 6px; font-size:1.2rem;">Coût d'opportunité${currentWeek ? ` · Semaine ${currentWeek}` : ""}</h3>
+        <p class="note" style="margin:0 0 16px;">Gain de lineup optimale si tu ajoutes ce joueur maintenant (même moteur avant/après que le Trade Finder). Jamais un pourcentage de chance de gagner l'enchère : personne ne voit les enchères des autres.</p>
+        ${opportunityError ? `
+          <div class="card" style="padding:20px; text-align:center; color:var(--muted); margin-bottom:28px;">${escapeHtml(opportunityError)}</div>
+        ` : opportunities.length === 0 ? `
+          <div class="card" style="padding:20px; text-align:center; color:var(--muted); margin-bottom:28px;">Aucune opportunité claire cette semaine pour cette équipe.</div>
+        ` : `
+          <div class="table-wrap" style="margin-bottom:28px;">
+            <table>
+              <thead><tr><th>Joueur</th><th>Poste</th><th>Slot gagné</th><th>Gain lineup</th><th>Proj. semaine</th></tr></thead>
+              <tbody>
+                ${opportunities.map(o => `
+                  <tr>
+                    <td>${escapeHtml(o.player.name)} ${o.player.nflTeam ? `<small style="color:var(--muted);">(${escapeHtml(o.player.nflTeam)})</small>` : ""}</td>
+                    <td>${escapeHtml(o.player.position)}</td>
+                    <td>${escapeHtml(o.slot || "—")}</td>
+                    <td style="color:var(--grass); font-weight:700;">+${o.gain} pts/sem</td>
+                    <td>${o.player.projectedPpg}</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+        `}
+
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; margin-bottom:24px;">
           <div>
             <h3 style="margin:0 0 4px; font-size:1.2rem;">Free Agents Disponibles${report.week ? ` · Semaine ${report.week}` : ""}</h3>
@@ -565,6 +656,11 @@ export async function renderTradesPage(container) {
         </div>
       </div>
     `;
+
+    document.getElementById("waiver-roster-select")?.addEventListener("change", (e) => {
+      selectedRosterId = e.target.value;
+      renderWaiverView();
+    });
 
     document.getElementById("copy-waiver-btn")?.addEventListener("click", event => {
       const btn = event.currentTarget;

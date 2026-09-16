@@ -27,6 +27,7 @@ const requiredAssets = [
   "assets/record-watch.js",
   "assets/transactions.js",
   "assets/playoff-probabilities.js",
+  "assets/waiver-opportunity.js",
   "assets/teams.js",
   "data/yahoo-history.json",
   "data/yahoo-matchups.json",
@@ -37,7 +38,7 @@ const requiredAssets = [
 for (const route of routes) {
   const htmlPath = resolve(root, route, "index.html");
   const html = await readFile(htmlPath, "utf8");
-  if (!html.includes('src="/assets/site.js?v=26"')) throw new Error(`${htmlPath} does not load the current site.js`);
+  if (!html.includes('src="/assets/site.js?v=27"')) throw new Error(`${htmlPath} does not load the current site.js`);
   if (!html.includes('href="/assets/styles.css?v=20"')) throw new Error(`${htmlPath} does not load the current styles.css`);
   if (!html.includes('rel="icon" href="/favicon.svg"')) throw new Error(`${htmlPath} does not load the favicon`);
 }
@@ -65,6 +66,7 @@ const publicScripts = await Promise.all([
   readFile(resolve(root, "assets/record-watch.js"), "utf8"),
   readFile(resolve(root, "assets/transactions.js"), "utf8"),
   readFile(resolve(root, "assets/playoff-probabilities.js"), "utf8"),
+  readFile(resolve(root, "assets/waiver-opportunity.js"), "utf8"),
   readFile(resolve(root, "assets/teams.js"), "utf8")
 ]);
 if (/sb_secret_|SUPABASE_SECRET_KEY|platform_user_id|refresh_token/i.test(publicScripts.join("\n"))) {
