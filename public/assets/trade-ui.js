@@ -5,7 +5,8 @@
  */
 
 import { calculatePlayerTradeValue, calculatePlayerTradeProfile, evaluateTrade } from "./trade-value.js?v=3";
-import { diagnoseRoster, findTradeProposals } from "./trade-recommender.js?v=3";
+import { diagnoseRoster, findTradeProposals, findCounterOffers } from "./trade-recommender.js?v=4";
+import { PLAYER_STATUSES, playerKey, playerStatus } from "./trade-preferences.js?v=1";
 import {
   GENERAL_SETTINGS_2026,
   ROSTER_SETTINGS_2026,
@@ -181,10 +182,17 @@ export async function renderTradesPage(container) {
     }
 
     const diag = diagnoseRoster(currentRoster.players);
+    const storageKey = `adineu:trade-preferences:2026:${SLEEPER_LEAGUE_ID}:${selectedRosterId}`;
+    let preferences = {};
+    try {
+      const saved = JSON.parse(localStorage.getItem(storageKey) || "{}");
+      if (saved && typeof saved === "object" && !Array.isArray(saved)) preferences = saved;
+    } catch { /* Defaults remain usable when storage is unavailable. */ }
     const proposals = findTradeProposals({
       targetRosterId: selectedRosterId,
       rosters: formattedRosters,
-      playerCatalog: playerMap
+      playerCatalog: playerMap,
+      playerPreferences: preferences
     });
 
     content.innerHTML = `
@@ -213,6 +221,11 @@ export async function renderTradesPage(container) {
           </div>
         </div>
 
+        <details class="trade-lineup-detail"><summary>Mes préférences de joueurs</summary>
+          <p class="note">Sur ce navigateur uniquement, sans synchronisation Coach/n8n. Shop favorise les propositions, Keep les réduit, Untouchable les exclut. Tous restent dans le calcul de lineup.</p>
+          <div class="table-wrap"><table><thead><tr><th>Joueur</th><th>Préférence</th></tr></thead><tbody>
+          ${currentRoster.players.map(player => `<tr><td>${escapeHtml(player.name)}</td><td><select class="player-preference" data-player="${escapeHtml(playerKey(player))}" aria-label="Préférence pour ${escapeHtml(player.name)}">${Object.entries(PLAYER_STATUSES).map(([status, label]) => `<option value="${status}" ${playerStatus(player, preferences) === status ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}</select></td></tr>`).join("")}
+          </tbody></table></div><p class="note" id="preference-status" role="status"></p></details>
         <h3 style="margin:24px 0 16px; font-size:1.2rem;">Opportunités de Trades Détectées (${proposals.length})</h3>
 
         ${proposals.length === 0 ? `
@@ -293,6 +306,8 @@ export async function renderTradesPage(container) {
                       </div>
                     </div>
 
+                    <button type="button" class="counter-offer-btn filter-btn" data-index="${index}">Explorer les contre-offres</button>
+                    <div id="counter-offers-${index}" aria-live="polite"></div>
                     <div style="font-size:0.8rem; color:var(--ink); margin-bottom:8px;">
                       <strong>🎯 Impact :</strong> ${escapeHtml(p.pitchTarget)}
                     </div>
@@ -317,6 +332,27 @@ export async function renderTradesPage(container) {
       renderFinderView();
     });
 
+    document.querySelectorAll(".player-preference").forEach(select => {
+      select.addEventListener("change", () => {
+        preferences[select.dataset.player] = select.value;
+        try { localStorage.setItem(storageKey, JSON.stringify(preferences)); }
+        catch {
+          document.getElementById("preference-status").textContent = "Stockage indisponible : préférence non enregistrée.";
+          return;
+        }
+        renderFinderView();
+        content.querySelector("details").open = true;
+      });
+    });
+    document.querySelectorAll(".counter-offer-btn").forEach(button => {
+      button.addEventListener("click", () => {
+        const proposal = proposals[Number(button.dataset.index)];
+        const partner = formattedRosters.find(roster => String(roster.roster_id) === String(proposal.partnerRosterId));
+        const offers = findCounterOffers({ proposal, myPlayers: currentRoster.players, theirPlayers: partner?.players, playerPreferences: preferences });
+        const container = document.getElementById(`counter-offers-${button.dataset.index}`);
+        container.innerHTML = offers.length ? offers.map(offer => `<p class="note"><strong>${offer.give.map(player => escapeHtml(player.name)).join(" + ")} → ${offer.receive.map(player => escapeHtml(player.name)).join(" + ")}</strong><br>Ta lineup : +${offer.recommendationScore.my_lineup_delta} · Sa lineup : +${offer.recommendationScore.their_lineup_delta} pts/sem<br>Marché : ${offer.evaluation.sideA.netTotal} ↔ ${offer.evaluation.sideB.netTotal} · ${escapeHtml(offer.recommendationScore.tradeability)}</p>`).join("") : '<p class="note">Aucune alternative fiable avec gain pour toi et sans perte adverse. Les joueurs Untouchable restent exclus.</p>';
+      });
+    });
     document.querySelectorAll(".copy-pitch-btn").forEach(btn => {
       btn.addEventListener("click", () => {
         const text = btn.dataset.pitch;

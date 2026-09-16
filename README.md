@@ -6,6 +6,8 @@ Status: **live** at [adineu-fantasy.bakene.tech](https://adineu-fantasy.bakene.t
 
 ## What's here
 
+Trade Finder preferences (Listen, Keep, Shop, Untouchable) are saved per league, season and roster in this browser only; they do not synchronize with Coach/n8n. Untouchable excludes outgoing packages without removing players from lineup calculations. Counter-offers explore up to three alternative one/two-player outgoing packages for the same target, using the same bilateral score, market checks and projection-confidence gate. No qualifying offer means no invented recommendation.
+
 - `supabase/schema.sql` — Postgres schema (owners, seasons, teams, matchups + a `v_standings` view). Designed so a season from any platform (Sleeper, Yahoo, eventually the old NFL Fantasy) slots into the same tables — no schema change per source.
 - `scripts/sync-sleeper.js` — pulls the live league from Sleeper's public API (no auth required) and upserts it into Supabase. Idempotent, safe to re-run or schedule.
 - `scripts/analyze-trades.js` — automatable in-season trade analyzer for CLI and n8n (roster diagnosis, win-win synergies, handcuff leverage).

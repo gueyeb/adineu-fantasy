@@ -9,6 +9,7 @@
 
 import { calculatePlayerTradeValue, evaluateTrade } from "./trade-value.js?v=3";
 import { scoreTradeRecommendation } from "./trade-score.js?v=1";
+import { playerKey, preferenceAdjustment } from "./trade-preferences.js?v=1";
 
 export const KNOWN_HANDCUFFS = [
   { starter: "Breece Hall", handcuff: "Braelon Allen", nflTeam: "NYJ" },
@@ -119,7 +120,7 @@ export function diagnoseRoster(players = []) {
  * @param {Map<string, Object>|Object} options.playerCatalog Map ou dict des joueurs par ID ou nom
  * @returns {Array<Object>} Propositions de trades triées par pertinence
  */
-export function findTradeProposals({ targetRosterId, rosters = [], playerCatalog = {} }) {
+export function findTradeProposals({ targetRosterId, rosters = [], playerCatalog = {}, playerPreferences = {} }) {
   const getPlayerInfo = (idOrName) => {
     if (playerCatalog instanceof Map) {
       return playerCatalog.get(idOrName) || { name: idOrName };
@@ -287,14 +288,40 @@ export function findTradeProposals({ targetRosterId, rosters = [], playerCatalog
   proposals.sort((a, b) => b.score - a.score);
 
   for (const p of proposals) {
+    const adjustment = preferenceAdjustment(p.give, playerPreferences);
+    if (adjustment === null) continue;
     const key = `${p.partnerRosterId}:${p.give.map(g => g.name).sort().join(",")}:${p.receive.map(r => r.name).sort().join(",")}`;
     if (!seen.has(key)) {
       seen.add(key);
       const partner = rosters.find(roster => String(roster.roster_id) === String(p.partnerRosterId));
       const partnerPlayers = (partner?.players || []).map(player => typeof player === "string" ? { ...getPlayerInfo(player), sleeperId: player } : player);
-      uniqueProposals.push(decorateProposal(p, targetPlayers, partnerPlayers));
+      const decorated = decorateProposal(p, targetPlayers, partnerPlayers);
+      uniqueProposals.push({ ...decorated, score: decorated.score + adjustment });
     }
   }
 
   return uniqueProposals.sort((a, b) => b.score - a.score).slice(0, 15);
+}
+
+/** Bounded neighboring offers for the same target; never fabricate a beneficial deal. */
+export function findCounterOffers({ proposal, myPlayers = [], theirPlayers = [], playerPreferences = {} }) {
+  const own = new Set(myPlayers.map(playerKey));
+  const theirs = new Set(theirPlayers.map(playerKey));
+  if (!proposal?.receive?.length || !proposal.give?.length ||
+      !proposal.receive.every(player => theirs.has(playerKey(player))) ||
+      !proposal.give.every(player => own.has(playerKey(player)))) return [];
+  const eligible = [...new Map(myPlayers.filter(player => ["QB", "RB", "WR", "TE"].includes(player.position) && preferenceAdjustment([player], playerPreferences) !== null).map(player => [playerKey(player), player])).values()];
+  const packages = eligible.map(player => [player]);
+  for (let i = 0; i < eligible.length; i++) {
+    for (let j = i + 1; j < eligible.length; j++) packages.push([eligible[i], eligible[j]]);
+  }
+  const original = proposal.give.map(playerKey).sort().join("|");
+  return packages.filter(give => give.map(playerKey).sort().join("|") !== original).map(give => {
+    const evaluation = evaluateTrade({ sideA: give, sideB: proposal.receive });
+    const decorated = decorateProposal({ ...proposal, give, evaluation }, myPlayers, theirPlayers);
+    return { ...decorated, score: decorated.score + preferenceAdjustment(give, playerPreferences) };
+  }).filter(offer => ["FAIR", "SLIGHT_ADVANTAGE_A", "SLIGHT_ADVANTAGE_B"].includes(offer.evaluation.verdict) &&
+    offer.recommendationScore.my_lineup_delta > 0 && offer.recommendationScore.their_lineup_delta >= 0 &&
+    offer.recommendationScore.confidence === "HIGH")
+    .sort((a, b) => b.score - a.score).slice(0, 3);
 }
