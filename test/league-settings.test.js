@@ -93,6 +93,33 @@ test("calculatePlayerFantasyPoints computes exact score matching Adineu rules", 
   assert.equal(rbScore, 18.5);
 });
 
+test("calculatePlayerFantasyPoints scores defense: sack, INT, TD and points-allowed bracket", () => {
+  // 3 sacks (3), 1 INT (2), 1 defensive TD (6), 22 points allowed -> 21-27 bracket (0) = 11 pts
+  const defScore = calculatePlayerFantasyPoints({
+    defSack: 3,
+    defInterception: 1,
+    defTouchdown: 1,
+    defPointsAllowed: 22
+  });
+  assert.equal(defScore, 11.0);
+});
+
+test("calculatePlayerFantasyPoints buckets points-allowed correctly at every boundary, shutout to 35+", () => {
+  assert.equal(calculatePlayerFantasyPoints({ defPointsAllowed: 0 }), 10.0);
+  assert.equal(calculatePlayerFantasyPoints({ defPointsAllowed: 6 }), 7.0);
+  assert.equal(calculatePlayerFantasyPoints({ defPointsAllowed: 7 }), 4.0);
+  assert.equal(calculatePlayerFantasyPoints({ defPointsAllowed: 20 }), 1.0);
+  assert.equal(calculatePlayerFantasyPoints({ defPointsAllowed: 21 }), 0.0);
+  assert.equal(calculatePlayerFantasyPoints({ defPointsAllowed: 34 }), -1.0);
+  assert.equal(calculatePlayerFantasyPoints({ defPointsAllowed: 35 }), -4.0);
+});
+
+test("calculatePlayerFantasyPoints ignores yards allowed for defense (Adineu rule: 0 points either way)", () => {
+  const withHighYards = calculatePlayerFantasyPoints({ defPointsAllowed: 10, defYardsAllowed: 500 });
+  const withoutYards = calculatePlayerFantasyPoints({ defPointsAllowed: 10 });
+  assert.equal(withHighYards, withoutYards);
+});
+
 test("BYE_WEEKS_2026 contains all 32 NFL teams with correct bye week numbers", () => {
   const teams = Object.keys(BYE_WEEKS_2026);
   assert.equal(teams.length, 32);

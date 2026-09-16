@@ -13,6 +13,15 @@ import { calculatePlayoffRace } from "./playoff-race.js?v=1";
 import { resolveOperationalWeek } from "./nfl-week.js?v=1";
 import { renderTeamsHub } from "./teams.js?v=4";
 import { buildYahooRecordBook } from "./record-book.js?v=1";
+import { listRosterIdentities } from "./roster-view.js?v=2";
+import { GENERAL_SETTINGS_2026 } from "./league-settings.js";
+import {
+  simulatePlayoffProbabilities,
+  projectPlayerFantasyPoints,
+  resolvePlayerProjection,
+  sumTeamProjection,
+  DEFAULT_SIMULATIONS
+} from "./playoff-probabilities.js?v=1";
 
 const SUPABASE_URL = "https://juosrzsffvjprqhdyado.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_7Bu9q2dKz0WEol94OGVhHw_xjSwHeHu";
@@ -1052,6 +1061,141 @@ function formatDraftDate(timestamp) {
   return formatted.charAt(0).toUpperCase() + formatted.slice(1).replace(" à ", " · ");
 }
 
+/**
+ * Playoff Probabilities data pipeline (docs/prd-playoff-probabilities.md). Builds everything
+ * playoff-probabilities.js's pure simulatePlayoffProbabilities() needs: the remaining schedule
+ * (Sleeper publishes matchup_id pairings for future weeks already), each team's current lineup
+ * held fixed across all remaining weeks (nobody can predict other managers' future lineup
+ * changes — an explicit, stated assumption), and a 3-tier per-player projection fallback (direct
+ * weekly projection -> this player's own season-average actual score -> position replacement
+ * level) so a missing projection never becomes a silent zero.
+ */
+async function loadSleeperProjections(week) {
+  const positions = ["QB", "RB", "WR", "TE", "K", "DEF"];
+  const query = positions.map(position => `position[]=${position}`).join("&");
+  const response = await fetch(`https://api.sleeper.app/projections/nfl/${CURRENT_SEASON}/${week}?season_type=regular&${query}`, { cache: "no-store" });
+  if (!response.ok) throw new Error(`Projections Sleeper HTTP ${response.status}`);
+  const rows = await response.json();
+  const byPlayerId = new Map();
+  for (const row of rows) byPlayerId.set(String(row.player_id), row.stats || null);
+  return byPlayerId;
+}
+
+async function loadPlayerCatalogPositions() {
+  const response = await fetch("/data/players-catalog.json", { cache: "no-store" });
+  if (!response.ok) throw new Error(`Catalogue joueurs HTTP ${response.status}`);
+  const catalog = await response.json();
+  const positionById = new Map();
+  for (const player of catalog.players || []) positionById.set(String(player.sleeperId), player.position);
+  return positionById;
+}
+
+async function buildPlayoffProbabilityContext(currentWeek) {
+  const regularSeasonWeeks = GENERAL_SETTINGS_2026.regularSeasonWeeks;
+  if (!Number.isFinite(currentWeek) || currentWeek > regularSeasonWeeks) return null;
+
+  const remainingWeeks = [];
+  for (let week = currentWeek; week <= regularSeasonWeeks; week += 1) remainingWeeks.push(week);
+  const completedWeeks = [];
+  for (let week = 1; week < currentWeek; week += 1) completedWeeks.push(week);
+
+  const [rosters, users, positionById, remainingData, completedMatchups] = await Promise.all([
+    loadSleeperResource(`/league/${SLEEPER_LEAGUE_ID}/rosters`),
+    loadSleeperResource(`/league/${SLEEPER_LEAGUE_ID}/users`),
+    loadPlayerCatalogPositions(),
+    Promise.all(remainingWeeks.map(async week => {
+      const [matchups, projections] = await Promise.all([
+        loadSleeperResource(`/league/${SLEEPER_LEAGUE_ID}/matchups/${week}`),
+        loadSleeperProjections(week)
+      ]);
+      return { week, matchups, projections };
+    })),
+    Promise.all(completedWeeks.map(week => loadSleeperResource(`/league/${SLEEPER_LEAGUE_ID}/matchups/${week}`)))
+  ]);
+
+  const identities = listRosterIdentities(rosters, users);
+  const managerByRosterId = new Map(identities.map(entry => [entry.roster.roster_id, entry.ownerName]));
+  const startersByRosterId = new Map(identities.map(entry =>
+    [entry.roster.roster_id, (entry.roster.starters || []).filter(id => id && id !== "0")]));
+
+  // Remaining schedule: Sleeper already assigns matchup_id pairings for future weeks (verified
+  // live — see the mini-PRD), so this is read directly rather than simulated or guessed.
+  const schedule = new Map();
+  for (const { week, matchups } of remainingData) {
+    const byMatchupId = new Map();
+    for (const entry of matchups) {
+      if (!byMatchupId.has(entry.matchup_id)) byMatchupId.set(entry.matchup_id, []);
+      byMatchupId.get(entry.matchup_id).push(entry.roster_id);
+    }
+    const pairs = [];
+    for (const rosterIds of byMatchupId.values()) {
+      if (rosterIds.length !== 2) continue; // safety: only clean 1v1 pairings
+      const [managerA, managerB] = rosterIds.map(id => managerByRosterId.get(id));
+      if (managerA && managerB) pairs.push([managerA, managerB]);
+    }
+    schedule.set(week, pairs);
+  }
+
+  // Fallback source (b): each player's own season-average actual score, from Sleeper's raw
+  // per-player weekly points already returned alongside every played week's matchups.
+  const playerPointTotals = new Map();
+  for (const weekRosters of completedMatchups) {
+    for (const roster of weekRosters) {
+      for (const [playerId, points] of Object.entries(roster.players_points || {})) {
+        if (!playerPointTotals.has(playerId)) playerPointTotals.set(playerId, { sum: 0, count: 0 });
+        const entry = playerPointTotals.get(playerId);
+        entry.sum += Number(points) || 0;
+        entry.count += 1;
+      }
+    }
+  }
+  const seasonAverageByPlayerId = new Map();
+  for (const [playerId, { sum, count }] of playerPointTotals) {
+    seasonAverageByPlayerId.set(playerId, count > 0 ? sum / count : null);
+  }
+
+  // Fallback source (c): mean Adineu-scored projection across every directly-projected player at
+  // that position that week — a reasonably deep pool (Sleeper projects hundreds per position,
+  // well past startable depth), used only when neither (a) nor (b) has anything for this player.
+  const replacementByWeekPosition = new Map();
+  for (const { week, projections } of remainingData) {
+    const sums = new Map();
+    for (const [playerId, stats] of projections) {
+      if (!stats) continue;
+      const position = positionById.get(playerId);
+      if (!position) continue;
+      const points = projectPlayerFantasyPoints(stats);
+      if (!sums.has(position)) sums.set(position, { sum: 0, count: 0 });
+      const entry = sums.get(position);
+      entry.sum += points;
+      entry.count += 1;
+    }
+    for (const [position, { sum, count }] of sums) {
+      replacementByWeekPosition.set(`${week}|${position}`, count > 0 ? sum / count : 0);
+    }
+  }
+
+  const teamProjectionsByWeek = new Map();
+  for (const { week, projections } of remainingData) {
+    for (const [rosterId, starters] of startersByRosterId) {
+      const manager = managerByRosterId.get(rosterId);
+      if (!manager) continue;
+      const resolutions = starters.map(playerId => {
+        const stats = projections.get(playerId);
+        const position = positionById.get(playerId);
+        return resolvePlayerProjection({
+          directPoints: stats ? projectPlayerFantasyPoints(stats) : undefined,
+          seasonAveragePoints: seasonAverageByPlayerId.get(playerId) ?? undefined,
+          replacementPoints: replacementByWeekPosition.get(`${week}|${position}`)
+        });
+      });
+      teamProjectionsByWeek.set(`${week}|${manager}`, sumTeamProjection(resolutions));
+    }
+  }
+
+  return { remainingWeeks, schedule, teamProjectionsByWeek };
+}
+
 async function renderPowerRankings() {
   const [league, nflState, standings, matchupRows] = await Promise.all([
     loadSleeperResource(`/league/${SLEEPER_LEAGUE_ID}`),
@@ -1068,6 +1212,40 @@ async function renderPowerRankings() {
     : null;
   const result = calculatePowerRankings(matchupRows, { currentWeek, expectedManagers });
   const playoffRace = calculatePlayoffRace(matchupRows, { currentWeek, expectedManagers });
+
+  // Playoff Probabilities: same gate as Power Rankings above (only attempted once result.ready),
+  // then degrades independently on any fetch failure — never blocks the rest of the page.
+  // Fixed seed so the SAME underlying data reproduces the SAME numbers on every reload; only a
+  // real change in scores/projections should move them (docs/prd-playoff-probabilities.md).
+  let playoffProbabilities = null;
+  let playoffProbabilitiesNote = "Le Power Ranking ci-dessus doit d'abord se déverrouiller.";
+  if (result.ready) {
+    if (currentWeek != null && currentWeek > GENERAL_SETTINGS_2026.regularSeasonWeeks) {
+      playoffProbabilitiesNote = "Saison régulière terminée — plus rien à simuler.";
+    } else {
+      try {
+        const context = await buildPlayoffProbabilityContext(currentWeek);
+        if (context) {
+          playoffProbabilities = simulatePlayoffProbabilities(matchupRows, {
+            currentWeek,
+            expectedManagers,
+            playoffSpots: GENERAL_SETTINGS_2026.playoffTeams,
+            remainingWeeks: context.remainingWeeks,
+            schedule: context.schedule,
+            teamProjectionsByWeek: context.teamProjectionsByWeek,
+            simulations: DEFAULT_SIMULATIONS,
+            seed: 1,
+            modelDate: new Date().toISOString()
+          });
+        } else {
+          playoffProbabilitiesNote = "Saison régulière terminée — plus rien à simuler.";
+        }
+      } catch {
+        playoffProbabilitiesNote = "Estimation indisponible pour le moment — réessayez plus tard."; // independent failure, never blocks the rest of the page
+      }
+    }
+  }
+
   const leagueStatus = sleeperStatusLabel(league.status);
   const draftDate = formatDraftDate(draft?.start_time);
   const teamCount = Number(league.total_rosters) || standings.length;
@@ -1135,6 +1313,24 @@ async function renderPowerRankings() {
         </table></div>
         <p class="note"><strong>${playoffRace.playoffSpots} places</strong> sur ${playoffRace.teamCount} équipes. Basé sur les mêmes semaines complètes que le Power Ranking ci-dessus.</p>
       ` : `<p class="note">La Course aux Playoffs se déverrouille en même temps que le Power Ranking, une fois deux semaines régulières complètes disponibles pour les ${teamCount} équipes.</p>`}
+    </div></section>
+
+    <section class="section power-ranking-section"><div class="shell">
+      <div class="section-head"><div><p class="eyebrow">Estimation Adineu · pas une donnée Sleeper</p><h2>Playoff Probabilities.</h2></div><p>Simulation du reste du calendrier (projections joueurs + calendrier réel Sleeper, rescorés aux règles Adineu) — distincte de la Course aux Playoffs ci-dessus, qui reste purement arithmétique.</p></div>
+      ${playoffProbabilities?.ready ? `
+        <div class="table-wrap power-table"><table>
+          <thead><tr><th>Manager</th><th>Équipe</th><th class="num">Probabilité</th><th class="num">Couverture directe</th></tr></thead>
+          <tbody>${playoffProbabilities.probabilities.map(row => {
+            const teamName = result.rankings.find(rank => rank.manager === row.manager)?.team || row.manager;
+            return `<tr>
+              <td class="team-name">${escapeHtml(row.manager)}</td><td>${escapeHtml(teamName)}</td>
+              <td class="num ${row.probability >= 0.5 ? "positive" : "negative"}">${Math.round(row.probability * 100)}%</td>
+              <td class="num">${row.coveragePct != null ? `${row.coveragePct}%` : "—"}</td>
+            </tr>`;
+          }).join("")}</tbody>
+        </table></div>
+        <p class="note"><strong>${GENERAL_SETTINGS_2026.playoffTeams} places</strong> sur ${teamCount} équipes · ${playoffProbabilities.simulations.toLocaleString("fr-FR")} simulations seedées (seed ${playoffProbabilities.seed}, reproductible) · calendrier restant simulé jusqu'à S${GENERAL_SETTINGS_2026.regularSeasonWeeks} · lineups figés à la date du modèle (${new Date(playoffProbabilities.modelDate).toLocaleDateString("fr-FR")}). "Couverture directe" = part des points projetés d'une équipe qui vient d'une projection Sleeper de la semaine plutôt que d'une moyenne de repli. <strong>Estimation Adineu, jamais une donnée officielle Sleeper.</strong></p>
+      ` : `<p class="note">${escapeHtml(playoffProbabilitiesNote)}</p>`}
     </div></section>
 
     <section class="section"><div class="shell">

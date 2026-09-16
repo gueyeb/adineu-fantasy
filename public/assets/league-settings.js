@@ -174,6 +174,20 @@ export const SCORING_SETTINGS_2026 = {
   }
 };
 
+/** Adineu's points-allowed bracket score for a defense, from the numeric points given up. */
+function pointsAllowedScore(pointsAllowed) {
+  const value = Number(pointsAllowed);
+  if (!Number.isFinite(value)) return 0;
+  const brackets = SCORING_SETTINGS_2026.defense.pointsAllowed;
+  if (value <= 0) return brackets.shutout;
+  if (value <= 6) return brackets.points1To6;
+  if (value <= 13) return brackets.points7To13;
+  if (value <= 20) return brackets.points14To20;
+  if (value <= 27) return brackets.points21To27;
+  if (value <= 34) return brackets.points28To34;
+  return brackets.points35Plus;
+}
+
 /**
  * Calcule les points fantasy d'une ligne de stats selon les règles officielles Adineu 2026.
  * @param {Object} stats Statistiques du joueur
@@ -208,6 +222,24 @@ export function calculatePlayerFantasyPoints(stats = {}) {
   if (stats.fg40To49) pts += stats.fg40To49 * SCORING_SETTINGS_2026.kicking.fieldGoal40To49;
   if (stats.fg50To59) pts += stats.fg50To59 * SCORING_SETTINGS_2026.kicking.fieldGoal50To59;
   if (stats.fg60Plus) pts += stats.fg60Plus * SCORING_SETTINGS_2026.kicking.fieldGoal60Plus;
+
+  // Defense (added for the Playoff Probabilities simulation — the first real caller of this
+  // function; SCORING_SETTINGS_2026.defense already existed but nothing scored it until now)
+  if (stats.defSack) pts += stats.defSack * SCORING_SETTINGS_2026.defense.sack;
+  if (stats.defInterception) pts += stats.defInterception * SCORING_SETTINGS_2026.defense.interception;
+  if (stats.defFumbleRecovery) pts += stats.defFumbleRecovery * SCORING_SETTINGS_2026.defense.fumbleRecovery;
+  if (stats.defForcedFumble) pts += stats.defForcedFumble * SCORING_SETTINGS_2026.defense.forcedFumble;
+  if (stats.defSafety) pts += stats.defSafety * SCORING_SETTINGS_2026.defense.safety;
+  if (stats.defBlockedKick) pts += stats.defBlockedKick * SCORING_SETTINGS_2026.defense.blockedKick;
+  if (stats.defTouchdown) pts += stats.defTouchdown * SCORING_SETTINGS_2026.defense.touchdown;
+  if (stats.defTwoPointReturn) pts += stats.defTwoPointReturn * SCORING_SETTINGS_2026.defense.twoPointReturn;
+  if (stats.defSpecialTeamsFumbleRecovery) {
+    pts += stats.defSpecialTeamsFumbleRecovery * SCORING_SETTINGS_2026.defense.specialTeamsFumbleRecovery;
+  }
+  if (stats.defPointsAllowed !== undefined && stats.defPointsAllowed !== null) {
+    pts += pointsAllowedScore(stats.defPointsAllowed);
+  }
+  // Yards allowed intentionally not scored: Adineu's rule gives 0 points either way (yardsAllowedPoints).
 
   return Math.round(pts * 100) / 100;
 }
