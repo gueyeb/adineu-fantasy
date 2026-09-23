@@ -23,6 +23,45 @@ const SLEEPER_API = "https://api.sleeper.app/v1";
 const DEFAULT_CATALOG_URL = new URL("../public/data/players-catalog.json", import.meta.url);
 const POSITION_ORDER = ["QB", "RB", "WR", "TE", "K", "DEF"];
 const STARTER_SLOT_ORDER = buildStarterSlotOrder(ROSTER_SETTINGS_2026);
+const INJURY_STATUS_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // le dump Sleeper /players/nfl pèse ~15 Mo, on ne le refetch pas à chaque requête
+
+// Statuts Sleeper connus : Questionable, Doubtful, Out, IR, PUP, Sus, NA.
+export const SEVERITY_BY_STATUS = {
+  Questionable: "WATCH",
+  Doubtful: "ALERT",
+  Out: "ALERT",
+  IR: "ALERT",
+  PUP: "ALERT",
+  Sus: "ALERT",
+  NA: "ALERT"
+};
+
+let injuryStatusCache = null;
+let injuryStatusCacheAt = 0;
+
+/**
+ * Récupère (et met en cache en mémoire) le statut blessure de chaque joueur NFL depuis Sleeper.
+ * Ne conserve que les joueurs ayant un `injury_status` non nul, pour rester léger. Partagé par
+ * le Start/Sit Advisor (lineup-advisor.js) et le Waiver Wire (getFreeAgents ci-dessous), pour
+ * qu'un joueur en IR/Out n'y soit jamais recommandé avec une fausse projection.
+ */
+export async function getInjuryStatuses({ fetchImpl = fetch, forceRefresh = false } = {}) {
+  const now = Date.now();
+  if (!forceRefresh && injuryStatusCache && (now - injuryStatusCacheAt) < INJURY_STATUS_CACHE_TTL_MS) return injuryStatusCache;
+
+  const response = await fetchImpl(`${SLEEPER_API}/players/nfl`, { signal: AbortSignal.timeout(20_000) });
+  if (!response.ok) throw new Error(`Sleeper API /players/nfl -> HTTP ${response.status}`);
+  const raw = await response.json();
+
+  const statuses = new Map();
+  for (const [playerId, player] of Object.entries(raw)) {
+    if (player?.injury_status) statuses.set(playerId, player.injury_status);
+  }
+
+  injuryStatusCache = statuses;
+  injuryStatusCacheAt = now;
+  return statuses;
+}
 
 async function sleeperGet(path, { fetchImpl = fetch } = {}) {
   const response = await fetchImpl(`${SLEEPER_API}${path}`, { signal: AbortSignal.timeout(10_000) });
@@ -138,7 +177,8 @@ export async function getFreeAgents({
   fetchImpl = fetch,
   catalogUrl = DEFAULT_CATALOG_URL,
   position = null,
-  limitPerPosition = 10
+  limitPerPosition = 10,
+  forceRefreshInjuryStatuses = false
 } = {}) {
   const { catalog } = await loadPlayerCatalog(catalogUrl);
   const rosters = await sleeperGet(`/league/${leagueId}/rosters`, { fetchImpl });
@@ -170,10 +210,19 @@ export async function getFreeAgents({
     } catch {}
   }
 
+  // Un free agent en IR/Out/Doubtful/PUP/Sus/NA ne peut pas jouer cette semaine (ni, pour l'IR,
+  // avant plusieurs semaines) : jamais recommandé avec une projection fabriquée. Même sévérité
+  // ALERT que le Start/Sit Advisor (SEVERITY_BY_STATUS ci-dessus).
+  let injuryStatuses = new Map();
+  try {
+    injuryStatuses = await getInjuryStatuses({ fetchImpl, forceRefresh: forceRefreshInjuryStatuses });
+  } catch {}
+
   const normalizedPosition = position ? String(position).toUpperCase() : null;
   const available = (catalog.players || [])
     .filter(player => !rosteredIds.has(player.sleeperId))
     .filter(player => !normalizedPosition || player.position === normalizedPosition)
+    .filter(player => SEVERITY_BY_STATUS[injuryStatuses.get(player.sleeperId)] !== "ALERT")
     .map(player => {
       const projected = Number(weeklyProjections?.[player.sleeperId]?.pts_ppr);
       const recent = recentScores.get(player.sleeperId);

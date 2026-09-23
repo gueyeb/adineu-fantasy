@@ -11,49 +11,13 @@
  */
 
 import { pathToFileURL } from "node:url";
-import { getLeagueContext, getFreeAgents } from "./league-context.js";
+import { getLeagueContext, getFreeAgents, getInjuryStatuses, SEVERITY_BY_STATUS } from "./league-context.js";
 import { calculatePlayerTradeProfile } from "../public/assets/trade-value.js";
 import { BYE_WEEKS_2026 } from "../public/assets/league-settings.js";
 
-const SLEEPER_API = "https://api.sleeper.app/v1";
 const FLEX_ELIGIBLE = ["RB", "WR", "TE"];
-const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // le dump Sleeper /players/nfl pèse ~15 Mo, on ne le refetch pas à chaque requête
 
-// Statuts Sleeper connus : Questionable, Doubtful, Out, IR, PUP, Sus, NA.
-const SEVERITY_BY_STATUS = {
-  Questionable: "WATCH",
-  Doubtful: "ALERT",
-  Out: "ALERT",
-  IR: "ALERT",
-  PUP: "ALERT",
-  Sus: "ALERT",
-  NA: "ALERT"
-};
-
-let statusCache = null;
-let statusCacheAt = 0;
-
-/**
- * Récupère (et met en cache en mémoire) le statut blessure de chaque joueur NFL depuis Sleeper.
- * Ne conserve que les joueurs ayant un `injury_status` non nul, pour rester léger.
- */
-export async function getInjuryStatuses({ fetchImpl = fetch, forceRefresh = false } = {}) {
-  const now = Date.now();
-  if (!forceRefresh && statusCache && (now - statusCacheAt) < CACHE_TTL_MS) return statusCache;
-
-  const response = await fetchImpl(`${SLEEPER_API}/players/nfl`, { signal: AbortSignal.timeout(20_000) });
-  if (!response.ok) throw new Error(`Sleeper API /players/nfl -> HTTP ${response.status}`);
-  const raw = await response.json();
-
-  const statuses = new Map();
-  for (const [playerId, player] of Object.entries(raw)) {
-    if (player?.injury_status) statuses.set(playerId, player.injury_status);
-  }
-
-  statusCache = statuses;
-  statusCacheAt = now;
-  return statuses;
-}
+export { getInjuryStatuses };
 
 function isEligibleForSlot(position, slot) {
   if (slot === "FLEX") return FLEX_ELIGIBLE.includes(position);

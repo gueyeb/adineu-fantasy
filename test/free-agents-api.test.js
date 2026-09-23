@@ -61,3 +61,22 @@ test("getFreeAgents excludes rostered players, targets the operational week and 
   assert.equal(report.byPosition.WR[0].sleeperId, "11625");
   assert.equal(report.byPosition.WR[0].waiver.category, "PRIORITÉ");
 });
+
+test("getFreeAgents never recommends a player Sleeper has marked IR/Out/Doubtful/PUP/Sus/NA", async () => {
+  const fetchImpl = async url => ({
+    ok: true,
+    json: async () => {
+      if (url.endsWith("/rosters")) return [{ roster_id: 1, players: [] }];
+      if (url.endsWith("/state/nfl")) return { display_week: 1, week: 2, season: "2026", season_has_scores: true };
+      if (url.includes("/projections/nfl/regular/2026/2")) return { "11625": { pts_ppr: 18 } };
+      if (url.includes("/matchups/1")) return [];
+      if (url.endsWith("/players/nfl")) return { "11625": { injury_status: "IR" } };
+      return {};
+    }
+  });
+  const catalogUrl = new URL("../public/data/players-catalog.json", import.meta.url);
+
+  const report = await getFreeAgents({ fetchImpl, catalogUrl, position: "WR", limitPerPosition: 40, forceRefreshInjuryStatuses: true });
+
+  assert.ok(report.byPosition.WR.every(player => player.sleeperId !== "11625"), "an IR player must never be recommended with a fabricated projection");
+});
