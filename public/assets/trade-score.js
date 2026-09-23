@@ -22,7 +22,11 @@ export function buildProjectedLineup(players = []) {
     for (let i = 0; i < count; i++) {
       const player = candidates[i];
       if (player) used.add(identity(player));
-      slots.push({ slot: count > 1 ? `${position}${i + 1}` : position, name: player?.name || "Slot vide", sleeperId: player ? identity(player) : null, projectedPpg: player ? projection(player) : null });
+      // Sleeper often hasn't published a live weekly number yet (early week, bye, inactive) —
+      // fall back to the same expert-rank estimate already used to rank candidates above,
+      // instead of leaving the slot (and therefore the whole team delta) unresolvable.
+      const slotPpg = player ? (projection(player) ?? calculatePlayerTradeProfile(player).projectedPpg) : null;
+      slots.push({ slot: count > 1 ? `${position}${i + 1}` : position, name: player?.name || "Slot vide", sleeperId: player ? identity(player) : null, projectedPpg: slotPpg });
     }
   }
   return { slots, complete: slots.every(slot => slot.projectedPpg !== null), total: round(slots.reduce((sum, slot) => sum + (slot.projectedPpg || 0), 0)) };
@@ -34,7 +38,10 @@ function exchange(players, give, receive) {
 }
 
 /** Three separate dimensions. Deltas are optimal projected lineups, not asset sums.
- * Missing projections suppress deltas and win-win. Tradeability is a heuristic, not odds.
+ * A player missing a live Sleeper projection falls back to an expert-rank estimate so one
+ * unprojected roster player can't null out the whole team delta; deltas stay null only when a
+ * starter slot has no eligible player at all. A missing projection on a traded asset still
+ * warns and suppresses win-win/confidence. Tradeability is a heuristic, not odds.
  */
 export function scoreTradeRecommendation({ myPlayers = [], theirPlayers = [], give = [], receive = [] }) {
   const myBefore = buildProjectedLineup(myPlayers);

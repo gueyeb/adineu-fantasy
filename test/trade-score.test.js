@@ -36,9 +36,21 @@ test("negative impact and missing projection cannot be advertised as win-win", (
   assert.equal(score.tradeability, "Peu réaliste");
   delete receive.projectedPpg;
   const missing = scoreTradeRecommendation({ myPlayers: mine, theirPlayers: theirs, give: [give], receive: [receive] });
-  assert.equal(missing.my_lineup_delta, null);
+  assert.ok(Number.isFinite(missing.my_lineup_delta), "falls back to an expert-rank estimate instead of nulling the whole team delta");
   assert.equal(missing.winWin, false);
   assert.equal(missing.confidence, "LOW");
+});
+
+test("a single unprojected roster player (bye/inactive/pre-publish) doesn't null the whole team delta", () => {
+  const give = player("WR surplus", "WR", 15);
+  const receive = player("RB surplus", "RB", 15);
+  const mine = [...core("M"), player("RB1", "RB", 14), player("RB2", "RB", 7), player("WR1", "WR", 18), player("WR2", "WR", 17), give, player("WR bench", "WR", 14)];
+  const theirs = [...core("T"), player("TRB1", "RB", 18), player("TRB2", "RB", 17), receive, player("TRB bench", "RB", 14), player("TWR1", "WR", 14), player("TWR2", "WR", 7)];
+  // A starter unrelated to the trade (mine.WR1) has no live Sleeper projection yet.
+  delete mine.find(p => p.name === "WR1").projectedPpg;
+  const score = scoreTradeRecommendation({ myPlayers: mine, theirPlayers: theirs, give: [give], receive: [receive] });
+  assert.ok(Number.isFinite(score.my_lineup_delta));
+  assert.ok(Number.isFinite(score.their_lineup_delta));
 });
 
 test("premium market value cannot collapse on missing projection and one zero score", () => {
