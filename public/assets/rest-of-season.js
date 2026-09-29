@@ -1,12 +1,13 @@
 /**
  * Shared rest-of-season pace for Trade Finder and Waiver Wire.
  * Sleeper remains authoritative for the next two weeks. Later weeks are deliberately less
- * trusted: RB/WR/TE projections are blended 50/50 with the player's recent volume-based xFP.
+ * trusted: RB/WR/TE projections are blended with the player's recent volume-based xFP (80/20).
  */
 import { BYE_WEEKS_2026, GENERAL_SETTINGS_2026 } from "./league-settings.js";
 
 export const DIRECT_PROJECTION_WEEKS = 2;
-export const FAR_WEEK_USAGE_WEIGHT = 0.5;
+// Backtest 2024–2025 (docs/backtest-usage.md): 0.2 minimizes error on both seasons; 0.5 was worse than Sleeper alone.
+export const FAR_WEEK_USAGE_WEIGHT = 0.2;
 const LAST_REGULAR_WEEK = GENERAL_SETTINGS_2026.playoffWeekStart - 1;
 const round = value => Number(value.toFixed(1));
 

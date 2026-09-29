@@ -9,3 +9,4 @@ dist/
 output/playwright/
 .claude/
 FORBabacar.md
+.cache/
