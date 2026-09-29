@@ -268,6 +268,31 @@ export async function getUsageReport({ leagueId = DEFAULT_SLEEPER_LEAGUE_ID, fet
   };
 }
 
+/** Stats Sleeper d'une semaine terminée (cache 1 h). */
+export async function getWeeklyStats({ week, season = "2026", fetchImpl = fetch } = {}) {
+  return cachedWeekly(`/stats/nfl/regular/${season}/${week}`, fetchImpl);
+}
+
+const NFLVERSE_GAMES_URL = "https://raw.githubusercontent.com/nflverse/nfldata/master/data/games.csv";
+const NFLVERSE_TO_SLEEPER_TEAM = { LA: "LAR" };
+const scheduleCaches = new WeakMap();
+/** Calendrier NFL de la saison régulière (nflverse games.csv, gratuit), codes d'équipe Sleeper. Cache 12 h. */
+export async function getSchedule({ season = "2026", fetchImpl = fetch } = {}) {
+  const hit = scheduleCaches.get(fetchImpl);
+  if (hit && hit.season === season && Date.now() - hit.at < 12 * 3600 * 1000) return hit.games;
+  const response = await fetchImpl(NFLVERSE_GAMES_URL, { signal: AbortSignal.timeout(20_000) });
+  if (!response.ok) throw new Error(`nflverse games.csv -> HTTP ${response.status}`);
+  const [header, ...lines] = (await response.text()).trim().split("\n");
+  const columns = header.split(",");
+  const at = name => columns.indexOf(name);
+  const team = code => NFLVERSE_TO_SLEEPER_TEAM[code] || code;
+  const games = lines.map(line => line.split(","))
+    .filter(cells => cells[at("season")] === String(season) && cells[at("game_type")] === "REG")
+    .map(cells => ({ week: Number(cells[at("week")]), away_team: team(cells[at("away_team")]), home_team: team(cells[at("home_team")]) }));
+  scheduleCaches.set(fetchImpl, { at: Date.now(), season, games });
+  return games;
+}
+
 /** Projections Sleeper d'une semaine (cache 1 h), pour le Start/Sit Advisor. */
 export async function getWeeklyProjections({ week, season = "2026", fetchImpl = fetch } = {}) {
   return cachedWeekly(`/projections/nfl/regular/${season}/${week}`, fetchImpl);

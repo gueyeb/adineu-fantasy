@@ -816,3 +816,11 @@ td.num.negative { color: var(--red); font-weight: 800; }
 @media (max-width: 580px) { .team-roster-grid { grid-template-columns: 1fr; } }
 .team-roster-group { min-width: 0; }
 .team-roster-list li { flex-wrap: wrap; overflow-wrap: anywhere; }
+
+/* Start/Sit comparator */
+.chip-red { color: var(--red); border-color: var(--red); background: rgba(255, 107, 82, .12); }
+.compare-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.compare-bar input { flex: 1 1 220px; padding: 9px 12px; background: var(--paper-soft); border: 1px solid var(--line); color: var(--ink); border-radius: 4px; }
+.compare-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.compare-chip { cursor: pointer; }
+tr.compare-best td { background: rgba(184, 255, 61, .08); }

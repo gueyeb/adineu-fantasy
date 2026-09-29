@@ -645,10 +645,15 @@ export async function renderTradesPage(container) {
     content.innerHTML = `<div class="shell state">Analyse du lineup en cours…</div>`;
 
     let advisory = { alerts: [], message: "" };
+    let startSit = null;
     const requestedRosterId = selectedRosterId;
     try {
-      const res = await fetch(`/api/lineup-advisor?team=${encodeURIComponent(requestedRosterId)}`);
+      const [res, sitRes] = await Promise.all([
+        fetch(`/api/lineup-advisor?team=${encodeURIComponent(requestedRosterId)}`),
+        fetch(`/api/start-sit?team=${encodeURIComponent(requestedRosterId)}`).catch(() => null)
+      ]);
       if (res.ok) advisory = await res.json();
+      if (sitRes?.ok) startSit = await sitRes.json();
     } catch (e) {
       console.warn("Impossible de charger le Start/Sit Advisor", e);
     }
@@ -705,8 +710,22 @@ export async function renderTradesPage(container) {
           <br><small style="color:var(--muted);">Même moteur que le Trade Finder : projection Sleeper de la semaine, 0 pt pour un joueur Out/IR, IR exclu.</small>
         </div>` : ""}
         ${alertCards || `<div class="card" style="padding:24px; text-align:center; color:var(--muted);">✅ Aucune alerte : lineup complet, personne à risque signalé par Sleeper.</div>`}
+        ${startSit ? `
+          <h3 style="margin:28px 0 6px; font-size:1.2rem;">Ton roster cette semaine</h3>
+          <p class="note" style="margin:0 0 10px;">Matchup = points concédés par l'adversaire à ce poste depuis le début de saison (semaines ${startSit.completedWeeks.join(", ") || "—"}), ramenés vers la moyenne tant que l'échantillon est petit. Rang 1 = défense la plus généreuse.</p>
+          ${startSitTable(startSit.players, { markStarters: true })}
+          <h3 style="margin:28px 0 6px; font-size:1.2rem;">Comparer jusqu'à ${MAX_COMPARE} joueurs</h3>
+          <div class="compare-bar">
+            <input type="text" id="compare-input" list="compare-datalist" autocomplete="off" placeholder="Nom d'un joueur…" aria-label="Ajouter un joueur à comparer">
+            <datalist id="compare-datalist">${(catalog.players || []).filter(player => ["QB", "RB", "WR", "TE", "K", "DEF"].includes(player.position)).map(player => `<option value="${escapeHtml(player.name)}"></option>`).join("")}</datalist>
+            <button type="button" id="compare-add" class="filter-btn">Ajouter</button>
+            <button type="button" id="compare-run" class="filter-btn">Comparer</button>
+          </div>
+          <div id="compare-chips" class="compare-chips"></div>
+          <div id="compare-result" aria-live="polite"></div>` : ""}
       </div>
     `;
+    bindComparator();
 
     document.getElementById("advisor-roster-select")?.addEventListener("change", e => {
       selectedRosterId = e.target.value;
@@ -721,6 +740,62 @@ export async function renderTradesPage(container) {
         setTimeout(() => { btn.textContent = prev; }, 2000);
       });
     });
+  }
+
+  // Comparateur Start/Sit (benchmark Fantasy Life, lot 3) : projection, matchup DvP, usage, statut.
+  const MAX_COMPARE = 8;
+  const compareIds = [];
+  function startSitTable(players, { markStarters = false } = {}) {
+    const best = Math.max(...players.map(player => player.projection ?? -Infinity));
+    const matchupChip = matchup => !matchup ? "—"
+      : matchup.label === "BYE" ? `<span class="chip">Bye</span>`
+      : `<span class="chip ${matchup.label === "FACILE" ? "chip-grass" : matchup.label === "DIFFICILE" ? "chip-red" : ""}">${escapeHtml(matchup.opponent)} · ${matchup.label === "FACILE" ? "facile" : matchup.label === "DIFFICILE" ? "difficile" : "neutre"}${matchup.rank ? ` (${matchup.rank}e)` : ""}</span>`;
+    return `<div class="table-wrap"><table>
+      <thead><tr><th>Joueur</th>${markStarters ? "<th>Rôle</th>" : ""}<th class="num">Proj. semaine</th><th>Matchup</th><th class="num">ROS</th><th class="num">Usage</th><th>Statut</th></tr></thead>
+      <tbody>${players.map(player => `<tr${!markStarters && player.projection === best && best > 0 ? ' class="compare-best"' : ""}>
+        <td><strong>${escapeHtml(player.name)}</strong> <small style="color:var(--muted);">${escapeHtml(player.position || "?")}${player.nflTeam ? ` · ${escapeHtml(player.nflTeam)}` : ""}</small></td>
+        ${markStarters ? `<td>${player.starter ? "Titulaire" : "Banc"}</td>` : ""}
+        <td class="num"><strong>${player.projection ?? "—"}</strong></td>
+        <td>${matchupChip(player.matchup)}</td>
+        <td class="num">${player.rosPpg ?? "—"}</td>
+        <td class="num">${player.usageScore ?? "—"}${player.signal === "BUY_LOW" ? " 🟢" : player.signal === "SELL_HIGH" ? " 🔥" : ""}</td>
+        <td>${player.injuryStatus ? `<span class="tf-injury">${escapeHtml(player.injuryStatus)}</span>` : "OK"}</td>
+      </tr>`).join("")}</tbody></table></div>`;
+  }
+
+  function bindComparator() {
+    const input = document.getElementById("compare-input");
+    if (!input) return;
+    const chips = document.getElementById("compare-chips");
+    const renderChips = () => {
+      chips.innerHTML = compareIds.map(id => `<button type="button" class="chip compare-chip" data-id="${escapeHtml(id)}" title="Retirer">${escapeHtml(playerMap.get(id)?.name || id)} ✕</button>`).join("");
+      chips.querySelectorAll(".compare-chip").forEach(chip => chip.addEventListener("click", () => {
+        compareIds.splice(compareIds.indexOf(chip.dataset.id), 1);
+        renderChips();
+      }));
+    };
+    const add = () => {
+      const player = playerMap.get(input.value.trim());
+      if (player && !compareIds.includes(player.sleeperId) && compareIds.length < MAX_COMPARE) compareIds.push(player.sleeperId);
+      input.value = "";
+      renderChips();
+    };
+    document.getElementById("compare-add").addEventListener("click", add);
+    input.addEventListener("keydown", event => { if (event.key === "Enter") add(); });
+    document.getElementById("compare-run").addEventListener("click", async () => {
+      const result = document.getElementById("compare-result");
+      if (compareIds.length < 2) { result.innerHTML = `<p class="note">Ajoute au moins 2 joueurs.</p>`; return; }
+      result.innerHTML = `<p class="note">Comparaison…</p>`;
+      try {
+        const res = await fetch(`/api/start-sit?ids=${compareIds.map(encodeURIComponent).join(",")}`);
+        const body = await res.json();
+        const sorted = [...body.players].sort((a, b) => (b.projection ?? -1) - (a.projection ?? -1));
+        result.innerHTML = startSitTable(sorted) + `<p class="note">Classé par projection de la semaine. Le matchup et l'usage départagent les cas serrés ; un joueur Out vaut 0.</p>`;
+      } catch {
+        result.innerHTML = `<p class="note">Comparaison indisponible pour le moment.</p>`;
+      }
+    });
+    renderChips();
   }
 
   // Usage Score (docs/prd-usage-score.md) : parts d'usage réelles vs production, calculées côté serveur.

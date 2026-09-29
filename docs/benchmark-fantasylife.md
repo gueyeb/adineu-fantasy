@@ -37,8 +37,8 @@ Xfinity) ne sont connues que par leur description.
 8. Boom / Bust % et lineups Boom / Safe (variance par joueur).
 
 **Lot 3**
-9. DvP et matchup boost, Game Exposure (calendrier NFL via nflverse).
-10. Comparateur Start/Sit jusqu'à 8 joueurs.
+9. ✅ DvP / difficulté du matchup (livré le 29/09 : calendrier nflverse, onglet Start/Sit). Game Exposure : à faire.
+10. ✅ Comparateur Start/Sit jusqu'à 8 joueurs (livré le 29/09 : projection, matchup, ROS, usage, statut).
 
 Principe maintenu : tout pourcentage affiché est une estimation Adineu étiquetée, jamais un
 « Trade Win % » ni une probabilité de gagner une enchère.

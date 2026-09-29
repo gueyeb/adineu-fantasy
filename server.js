@@ -18,6 +18,7 @@ import {
   getInjuryStatuses as getInjuryStatusesDefault,
   diagnoseLineup,
   compareWithOptimalLineup,
+  getStartSit as getStartSitDefault,
   formatLineupAdvisory
 } from "./scripts/lineup-advisor.js";
 import {
@@ -68,6 +69,7 @@ export function createAppServer({
   getProjections = getWeeklyProjectionsDefault,
   getUsage = getUsageReportDefault,
   getPlayerValues = loadPlayerValues,
+  getStartSit = getStartSitDefault,
   coachToken = process.env.COACH_API_TOKEN || "",
   coachPassword = process.env.COACH_WEB_PASSWORD || "",
   secureCookies = process.env.NODE_ENV !== "development"
@@ -158,6 +160,17 @@ export function createAppServer({
         sendJson(response, 200, { ...report, message });
       } catch (error) {
         sendJson(response, 502, { error: error.message });
+      }
+      return;
+    }
+
+    if (url.pathname === "/api/start-sit") {
+      try {
+        const ids = (url.searchParams.get("ids") || "").split(",").map(id => id.trim()).filter(Boolean);
+        sendJson(response, 200, await getStartSit({ team: url.searchParams.get("team") || null, ids }));
+      } catch (error) {
+        const isUnknownTeam = error.message.startsWith("Équipe Sleeper inconnue");
+        sendJson(response, isUnknownTeam ? 404 : 502, { error: error.message });
       }
       return;
     }

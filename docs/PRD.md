@@ -94,7 +94,7 @@ Onglets :
   (titulaire blessé devant lui : PROMOTION, avec une durée qui dépend de la blessure ; SNAP/USAGE_SURGE).
   Deux scores séparés : **Market** (valeur pour la ligue, FAAB marché en $) et **Fit** (gain
   réel de TA lineup optimale, « Max pour toi » plafonné par ton FAAB). Jamais d'enchère exprimée en % de réussite.
-- **Start/Sit Advisor** : alerte sur slot vide, blessure, bye ; propose un remplaçant (banc puis FA) ; **lineup optimisée** vs actuelle (gain en points, jamais un joueur Out titularisé).
+- **Start/Sit Advisor** : alerte sur slot vide, blessure, bye ; propose un remplaçant (banc puis FA) ; **lineup optimisée** vs actuelle (gain en points, jamais un joueur Out titularisé) ; tableau du roster de la semaine avec **difficulté du matchup** (DvP : points concédés par l'adversaire à ce poste, ramenés vers la moyenne en début de saison) ; **comparateur jusqu'à 8 joueurs**.
 - **Waiver Wire, signaux de ligue** : tendances Sleeper 48 h (ajouts plateforme croisés avec la ligue et le modèle) et **historique FAAB** des enchères gagnées (médiane et max par poste).
 - **Usage & Buy-Low** (`docs/prd-usage-score.md`) : Usage Score 0–100 (part de l'attaque de son
   équipe : targets, air yards, snaps, courses, red zone), points attendus (xFP) selon le volume, et

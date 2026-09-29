@@ -11,7 +11,10 @@
  */
 
 import { pathToFileURL } from "node:url";
-import { getLeagueContext, getFreeAgents, getInjuryStatuses, SEVERITY_BY_STATUS } from "./league-context.js";
+import { getLeagueContext, getFreeAgents, getInjuryStatuses, getPlayersIndex, getSchedule, getWeeklyProjections, getWeeklyStats, SEVERITY_BY_STATUS } from "./league-context.js";
+import { loadPlayerValues } from "./analyze-trades.js";
+import { buildDefenseVsPosition, buildOpponents, matchupFor } from "../public/assets/defense-vs-position.js";
+import { resolveOperationalWeek } from "../public/assets/nfl-week.js";
 import { calculatePlayerTradeProfile } from "../public/assets/trade-value.js";
 import { buildProjectedLineup, weeklyEstimate } from "../public/assets/trade-score.js";
 import { BYE_WEEKS_2026 } from "../public/assets/league-settings.js";
@@ -138,6 +141,64 @@ export function compareWithOptimalLineup({ myTeam, projections = {}, playerStatu
     bench: gain > 0 ? [...currentIds].filter(id => !optimalIds.has(id)).map(id => byId.get(String(id))) : [],
     slots: optimal.slots
   };
+}
+
+export const MAX_COMPARE = 8;
+
+/**
+ * Comparateur Start/Sit (benchmark Fantasy Life, lot 3) : pour les joueurs demandés (par défaut
+ * le roster de l'équipe), projection Sleeper de la semaine, valeur reste de saison, usage, statut
+ * blessure et difficulté du matchup (DvP : points concédés par l'adversaire à ce poste).
+ */
+export async function getStartSit({ team = null, ids = [], fetchImpl = fetch } = {}) {
+  const context = team ? await getLeagueContext({ team, fetchImpl }) : null;
+  const week = context?.week ?? null;
+  const index = await getPlayersIndex({ fetchImpl });
+  const rosterIds = context ? [...context.myTeam.starters.map(starter => starter.player?.sleeperId), ...context.myTeam.bench.map(player => player.sleeperId)].filter(Boolean) : [];
+  const starterIds = new Set(context ? context.myTeam.starters.map(starter => starter.player?.sleeperId).filter(Boolean) : []);
+  const requested = ids.length ? ids.slice(0, MAX_COMPARE) : rosterIds;
+  // Sans équipe (comparateur libre), la semaine vient de l'état NFL Sleeper — jamais une semaine 1 par défaut.
+  let currentWeek = week;
+  if (!Number.isFinite(currentWeek)) {
+    const state = await fetchImpl("https://api.sleeper.app/v1/state/nfl", { signal: AbortSignal.timeout(10_000) }).then(res => res.json()).catch(() => null);
+    currentWeek = state ? resolveOperationalWeek(state) : null;
+  }
+  if (!Number.isFinite(currentWeek)) throw new Error("Semaine NFL courante introuvable (Sleeper /state/nfl).");
+
+  const [projections, games, values] = await Promise.all([
+    getWeeklyProjections({ week: currentWeek, fetchImpl }).catch(() => ({})),
+    getSchedule({ fetchImpl }).catch(() => []),
+    loadPlayerValues({ fetchImpl, week: currentWeek, playerIds: requested }).catch(() => ({ byId: new Map() }))
+  ]);
+  const statsByWeek = [];
+  for (let w = 1; w < currentWeek; w++) {
+    try { statsByWeek.push({ week: w, stats: await getWeeklyStats({ week: w, fetchImpl }) }); } catch {}
+  }
+  const opponents = buildOpponents(games);
+  const dvp = buildDefenseVsPosition(statsByWeek, {
+    teamOf: id => index.get(id)?.nflTeam || null,
+    positionOf: id => index.get(id)?.position || null,
+    opponents
+  });
+  const players = requested.map(id => {
+    const meta = index.get(id) || {};
+    const value = values.byId.get(id) || {};
+    const projection = projections?.[id]?.pts_ppr;
+    return {
+      sleeperId: id,
+      name: meta.name || `Player #${id}`,
+      position: meta.position || null,
+      nflTeam: meta.nflTeam || null,
+      injuryStatus: meta.injuryStatus || null,
+      starter: starterIds.has(id),
+      projection: Number.isFinite(projection) && !["Out", "IR", "PUP", "Sus", "NA", "Doubtful"].includes(meta.injuryStatus) ? Number(projection.toFixed(1)) : (["Out", "IR", "PUP", "Sus", "NA"].includes(meta.injuryStatus) ? 0 : null),
+      rosPpg: value.rosPpg ?? null,
+      usageScore: value.usageScore ?? null,
+      signal: value.signal ?? null,
+      matchup: meta.nflTeam ? matchupFor({ team: meta.nflTeam, position: meta.position, week: currentWeek, opponents, dvp }) : null
+    };
+  });
+  return { week: currentWeek, team, completedWeeks: statsByWeek.map(entry => entry.week), players };
 }
 
 function describePlayer(player) {

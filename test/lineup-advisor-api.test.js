@@ -50,3 +50,22 @@ test("lineup-advisor API rejects an unknown team instead of guessing a roster", 
   const response = await fetch(`http://127.0.0.1:${port}/api/lineup-advisor?team=personne`);
   assert.equal(response.status, 404);
 });
+
+test("start-sit API forwards ids and team, and 404s an unknown team", async t => {
+  const calls = [];
+  const server = createAppServer({
+    getStartSit: async args => {
+      calls.push(args);
+      if (args.team === "personne") throw new Error("Équipe Sleeper inconnue : personne");
+      return { week: 4, players: [{ name: "Alpha", matchup: { label: "FACILE" } }] };
+    }
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(() => server.close());
+  const { port } = server.address();
+  const ok = await fetch(`http://127.0.0.1:${port}/api/start-sit?team=t0z&ids=1,2`);
+  assert.equal(ok.status, 200);
+  assert.deepEqual(calls[0], { team: "t0z", ids: ["1", "2"] });
+  assert.equal((await fetch(`http://127.0.0.1:${port}/api/start-sit?team=personne`)).status, 404);
+});
