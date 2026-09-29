@@ -8,7 +8,7 @@
  */
 
 import { calculatePlayerTradeValue, evaluateTrade } from "./trade-value.js?v=3";
-import { scoreTradeRecommendation } from "./trade-score.js?v=1";
+import { buildProjectedLineup, restOfSeasonEstimate, scoreTradeRecommendation } from "./trade-score.js?v=2";
 import { playerKey, preferenceAdjustment } from "./trade-preferences.js?v=1";
 
 export const KNOWN_HANDCUFFS = [
@@ -25,8 +25,8 @@ function playerTier(player) {
   return "joueur de rotation";
 }
 
-function decorateProposal(proposal, myPlayers, theirPlayers) {
-  const recommendationScore = scoreTradeRecommendation({ myPlayers, theirPlayers, give: proposal.give, receive: proposal.receive });
+function decorateProposal(proposal, myPlayers, theirPlayers, week = null) {
+  const recommendationScore = scoreTradeRecommendation({ myPlayers, theirPlayers, give: proposal.give, receive: proposal.receive, week });
   return {
     ...proposal,
     category: proposal.category === "WIN_WIN" && !recommendationScore.winWin ? "POSITIONAL_SWAP" : proposal.category,
@@ -34,6 +34,58 @@ function decorateProposal(proposal, myPlayers, theirPlayers) {
     targetWeeklyGain: recommendationScore.my_lineup_delta,
     score: recommendationScore.rankScore
   };
+}
+
+const FAIR_VERDICTS = new Set(["FAIR", "SLIGHT_ADVANTAGE_A", "SLIGHT_ADVANTAGE_B"]);
+const TRADEABLE = new Set(["QB", "RB", "WR", "TE"]);
+const LINEUP_SEARCH_PER_PARTNER = 3;
+
+/** Exhaustive 1-for-1, 2-for-1 and 1-for-2 search between two rosters, kept only when BOTH optimal
+ * lineups improve (rest of season) and the market values are close enough to be accepted. This is
+ * what finds trades for balanced rosters the surplus/deficit heuristics never look at. */
+function findLineupUpgrades({ myPlayers, theirPlayers, partnerRosterId, partnerName, week, playerPreferences }) {
+  const estimate = restOfSeasonEstimate(week);
+  const key = player => String(player.sleeperId || player.name);
+  const total = players => buildProjectedLineup(players, { estimate }).total;
+  const swap = (players, out, incoming) => {
+    const outgoing = new Set(out.map(key));
+    return [...players.filter(player => !outgoing.has(key(player))), ...incoming];
+  };
+  const myBase = total(myPlayers);
+  const theirBase = total(theirPlayers);
+  // Untouchables are excluded before the per-partner cap, or they could crowd out valid offers.
+  const mine = myPlayers.filter(player => TRADEABLE.has(player.position) && preferenceAdjustment([player], playerPreferences) !== null);
+  const theirs = theirPlayers.filter(player => TRADEABLE.has(player.position));
+  const pairs = list => list.flatMap((a, i) => list.slice(i + 1).map(b => [a, b]));
+  const packages = [
+    ...mine.flatMap(a => theirs.map(b => [[a], [b]])),
+    ...pairs(mine).flatMap(give => theirs.map(b => [give, [b]])),
+    ...mine.flatMap(a => pairs(theirs).map(receive => [[a], receive]))
+  ];
+  const found = [];
+  for (const [give, receive] of packages) {
+    const myGain = total(swap(myPlayers, give, receive)) - myBase;
+    if (myGain <= 0.5) continue;
+    const theirGain = total(swap(theirPlayers, receive, give)) - theirBase;
+    if (theirGain < 0) continue;
+    const evaluation = evaluateTrade({ sideA: give, sideB: receive });
+    if (!FAIR_VERDICTS.has(evaluation.verdict)) continue;
+    const names = players => players.map(player => player.name).join(" + ");
+    found.push({
+      id: `lineup-${give.map(key).join("-")}-${receive.map(key).join("-")}`,
+      partnerRosterId,
+      partnerName,
+      category: "LINEUP_UPGRADE",
+      title: `Upgrade de lineup : ${names(give)} contre ${names(receive)}`,
+      give,
+      receive,
+      evaluation,
+      pitchTarget: `Ta lineup optimale gagne ≈${myGain.toFixed(1)} pts/sem sur le reste de la saison régulière.`,
+      pitchPartner: `${partnerName} y gagne aussi (≈${theirGain.toFixed(1)} pts/sem) : échange défendable des deux côtés.`,
+      score: Math.min(myGain, theirGain) * 10 + myGain
+    });
+  }
+  return found.sort((a, b) => b.score - a.score).slice(0, LINEUP_SEARCH_PER_PARTNER);
 }
 
 function isCurrentHandcuffPair(link, starterPlayer, handcuffPlayer) {
@@ -120,7 +172,7 @@ export function diagnoseRoster(players = []) {
  * @param {Map<string, Object>|Object} options.playerCatalog Map ou dict des joueurs par ID ou nom
  * @returns {Array<Object>} Propositions de trades triées par pertinence
  */
-export function findTradeProposals({ targetRosterId, rosters = [], playerCatalog = {}, playerPreferences = {} }) {
+export function findTradeProposals({ targetRosterId, rosters = [], playerCatalog = {}, playerPreferences = {}, currentWeek = null }) {
   const getPlayerInfo = (idOrName) => {
     if (playerCatalog instanceof Map) {
       return playerCatalog.get(idOrName) || { name: idOrName };
@@ -218,6 +270,9 @@ export function findTradeProposals({ targetRosterId, rosters = [], playerCatalog
       }
     }
 
+    // C. RECHERCHE EXHAUSTIVE : gains de lineup des deux côtés
+    proposals.push(...findLineupUpgrades({ myPlayers: targetPlayers, theirPlayers: partnerPlayers, partnerRosterId: partnerRosterRaw.roster_id, partnerName, week: currentWeek, playerPreferences }));
+
     // B. COMPLÉMENTARITÉ PURE (WIN-WIN) & CONSOLIDATION
     for (const givePos of targetDiag.surpluses) {
       for (const receivePos of targetWants) {
@@ -295,7 +350,10 @@ export function findTradeProposals({ targetRosterId, rosters = [], playerCatalog
       seen.add(key);
       const partner = rosters.find(roster => String(roster.roster_id) === String(p.partnerRosterId));
       const partnerPlayers = (partner?.players || []).map(player => typeof player === "string" ? { ...getPlayerInfo(player), sleeperId: player } : player);
-      const decorated = decorateProposal(p, targetPlayers, partnerPlayers);
+      const decorated = decorateProposal(p, targetPlayers, partnerPlayers, currentWeek);
+      const { my_lineup_delta: mine, their_lineup_delta: theirs } = decorated.recommendationScore;
+      // Un trade qui n'améliore pas ta lineup, ou qui fait perdre le partenaire, n'est pas une opportunité.
+      if (p.category !== "HANDCUFF_INSURANCE" && (mine <= 0 || theirs < 0)) continue;
       uniqueProposals.push({ ...decorated, score: decorated.score + adjustment });
     }
   }
@@ -304,7 +362,7 @@ export function findTradeProposals({ targetRosterId, rosters = [], playerCatalog
 }
 
 /** Bounded neighboring offers for the same target; never fabricate a beneficial deal. */
-export function findCounterOffers({ proposal, myPlayers = [], theirPlayers = [], playerPreferences = {} }) {
+export function findCounterOffers({ proposal, myPlayers = [], theirPlayers = [], playerPreferences = {}, currentWeek = null }) {
   const own = new Set(myPlayers.map(playerKey));
   const theirs = new Set(theirPlayers.map(playerKey));
   if (!proposal?.receive?.length || !proposal.give?.length ||
@@ -318,10 +376,10 @@ export function findCounterOffers({ proposal, myPlayers = [], theirPlayers = [],
   const original = proposal.give.map(playerKey).sort().join("|");
   return packages.filter(give => give.map(playerKey).sort().join("|") !== original).map(give => {
     const evaluation = evaluateTrade({ sideA: give, sideB: proposal.receive });
-    const decorated = decorateProposal({ ...proposal, give, evaluation }, myPlayers, theirPlayers);
+    const decorated = decorateProposal({ ...proposal, give, evaluation }, myPlayers, theirPlayers, currentWeek);
     return { ...decorated, score: decorated.score + preferenceAdjustment(give, playerPreferences) };
   }).filter(offer => ["FAIR", "SLIGHT_ADVANTAGE_A", "SLIGHT_ADVANTAGE_B"].includes(offer.evaluation.verdict) &&
     offer.recommendationScore.my_lineup_delta > 0 && offer.recommendationScore.their_lineup_delta >= 0 &&
-    offer.recommendationScore.confidence === "HIGH")
+    offer.recommendationScore.confidence !== "LOW")
     .sort((a, b) => b.score - a.score).slice(0, 3);
 }

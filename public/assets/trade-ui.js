@@ -5,7 +5,7 @@
  */
 
 import { calculatePlayerTradeValue, calculatePlayerTradeProfile, evaluateTrade } from "./trade-value.js?v=3";
-import { diagnoseRoster, findTradeProposals, findCounterOffers } from "./trade-recommender.js?v=4";
+import { diagnoseRoster, findTradeProposals, findCounterOffers } from "./trade-recommender.js?v=5";
 import { PLAYER_STATUSES, playerKey, playerStatus } from "./trade-preferences.js?v=1";
 import {
   GENERAL_SETTINGS_2026,
@@ -15,7 +15,8 @@ import {
 import { resolveOperationalWeek } from "./nfl-week.js?v=1";
 import { listRosterIdentities } from "./roster-view.js?v=1";
 import { calculateFaabRemaining } from "./team-metrics.js?v=2";
-import { identifyFreeAgents, findWaiverOpportunities } from "./waiver-opportunity.js?v=1";
+import { identifyFreeAgents, findWaiverOpportunities } from "./waiver-opportunity.js?v=3";
+import { buildProjectedLineup, restOfSeasonEstimate } from "./trade-score.js?v=2";
 
 const SLEEPER_LEAGUE_ID = "1392715510830878721";
 const SLEEPER_API = "https://api.sleeper.app/v1";
@@ -74,6 +75,11 @@ export async function renderTradesPage(container) {
   let currentWeek = null;
   let season = "2026";
   const playerWeeklyScores = new Map();
+  // Statuts blessure Sleeper (Out/IR…), servis par notre API (le dump Sleeper fait ~15 Mo).
+  const injuryStatuses = await fetch("/api/player-status")
+    .then(res => res.ok ? res.json() : { statuses: {} })
+    .then(body => body.statuses || {})
+    .catch(() => ({}));
 
   try {
     const [rRes, uRes, stateRes] = await Promise.all([
@@ -144,6 +150,7 @@ export async function renderTradesPage(container) {
       players: (r.players || []).map(pid => {
         const found = playerMap.get(pid);
         const player = found ? { ...found } : { sleeperId: pid, name: `Player #${pid}`, position: "FLEX" };
+        if (injuryStatuses[pid]) player.injuryStatus = injuryStatuses[pid];
         const proj = weeklyProjections[pid];
         if (proj && typeof proj.pts_ppr === "number") {
           player.projectedPpg = Number(proj.pts_ppr.toFixed(1));
@@ -199,8 +206,10 @@ export async function renderTradesPage(container) {
       targetRosterId: selectedRosterId,
       rosters: formattedRosters,
       playerCatalog: playerMap,
-      playerPreferences: preferences
+      playerPreferences: preferences,
+      currentWeek
     });
+    const myLineup = buildProjectedLineup(currentRoster.players, { estimate: restOfSeasonEstimate(currentWeek) });
 
     content.innerHTML = `
       <div class="shell">
@@ -233,6 +242,7 @@ export async function renderTradesPage(container) {
           <div class="table-wrap"><table><thead><tr><th>Joueur</th><th>Préférence</th></tr></thead><tbody>
           ${currentRoster.players.map(player => `<tr><td>${escapeHtml(player.name)}</td><td><select class="player-preference" data-player="${escapeHtml(playerKey(player))}" aria-label="Préférence pour ${escapeHtml(player.name)}">${Object.entries(PLAYER_STATUSES).map(([status, label]) => `<option value="${status}" ${playerStatus(player, preferences) === status ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}</select></td></tr>`).join("")}
           </tbody></table></div><p class="note" id="preference-status" role="status"></p></details>
+        ${myLineup.emptySlots.length ? `<div class="card" style="padding:14px 18px; margin:16px 0; border-left:4px solid var(--red);">⚠ Aucun joueur éligible pour ${myLineup.emptySlots.map(escapeHtml).join(", ")} : ce slot vaut 0 pt chaque semaine. Priorité au <a href="#waivers" id="empty-slot-waivers">Waiver Wire</a> avant tout trade.</div>` : ""}
         <h3 style="margin:24px 0 16px; font-size:1.2rem;">Opportunités de Trades Détectées (${proposals.length})</h3>
 
         ${proposals.length === 0 ? `
@@ -248,7 +258,7 @@ export async function renderTradesPage(container) {
                 ? `<span style="background:rgba(255,180,67,0.15); color:var(--gold); border:1px solid var(--gold); font-size:0.7rem; padding:3px 8px; border-radius:3px; font-weight:700;">🔒 SÉCURITÉ MENOTTE</span>`
                 : p.category === "WIN_WIN"
                 ? `<span style="background:rgba(184,255,61,0.15); color:var(--grass); border:1px solid var(--grass); font-size:0.7rem; padding:3px 8px; border-radius:3px; font-weight:700;">🤝 WIN-WIN</span>`
-                : `<span style="background:rgba(159,177,168,0.15); color:var(--ink); border:1px solid var(--line); font-size:0.7rem; padding:3px 8px; border-radius:3px; font-weight:700;">${p.category === "CONSOLIDATION" ? "⚡ CONSOLIDATION" : "ÉCHANGE À ÉTUDIER"}</span>`;
+                : `<span style="background:rgba(159,177,168,0.15); color:var(--ink); border:1px solid var(--line); font-size:0.7rem; padding:3px 8px; border-radius:3px; font-weight:700;">${p.category === "CONSOLIDATION" ? "⚡ CONSOLIDATION" : p.category === "LINEUP_UPGRADE" ? "📈 UPGRADE LINEUP" : "ÉCHANGE À ÉTUDIER"}</span>`;
 
               const verdictColor = p.evaluation.verdict === "FAIR" ? "var(--grass)" : "var(--gold)";
 
@@ -270,11 +280,12 @@ export async function renderTradesPage(container) {
                       <div><small>Ta lineup</small><strong>${delta(score.my_lineup_delta)}</strong></div>
                       <div><small>Sa lineup</small><strong>${delta(score.their_lineup_delta)}</strong></div>
                     </div>
-                    <p class="note">Faisabilité : ${escapeHtml(score.tradeability)} · Confiance : ${score.confidence === "HIGH" ? "bonne" : "faible"}. Estimations de la semaine, pas garanties de saison.</p>
+                    <p class="note">Faisabilité : ${escapeHtml(score.tradeability)} · Confiance : ${{ HIGH: "bonne", MEDIUM: "moyenne (blessure)", LOW: "faible" }[score.confidence]}. ${score.horizon === "ROS" ? `Moyenne hebdo projetée, semaines ${currentWeek}→${GENERAL_SETTINGS_2026.playoffWeekStart - 1} (blessures et byes inclus)` : "Estimation de la semaine"} : estimation Adineu, pas une garantie.</p>
                     ${score.warnings.length ? `<p class="note">⚠ ${score.warnings.map(escapeHtml).join(" · ")}</p>` : ""}
-                    ${index === 0 ? `<details class="trade-lineup-detail"><summary>Prototype · Lineups avant → après</summary>
+                    ${score.notes?.length ? `<p class="note">ℹ ${score.notes.map(escapeHtml).join(" · ")}</p>` : ""}
+                    ${index === 0 ? `<details class="trade-lineup-detail"><summary>Lineups avant → après</summary>
                       ${[["Ton équipe", score.lineups.mine], [p.partnerName, score.lineups.theirs]].map(([name, lineups]) => `<h5>${escapeHtml(name)}</h5><div class="table-wrap"><table><thead><tr><th>Slot</th><th>Avant</th><th>Après</th></tr></thead><tbody>${lineups.before.slots.map((slot, i) => `<tr><td>${escapeHtml(slot.slot)}</td><td>${escapeHtml(slot.name)} · ${slot.projectedPpg ?? "—"}</td><td>${escapeHtml(lineups.after.slots[i].name)} · ${lineups.after.slots[i].projectedPpg ?? "—"}</td></tr>`).join("")}</tbody></table></div>`).join("")}
-                      <p class="note">Lineups optimales projetées, pas les titulaires actuellement choisis. Les coupes de banc et acquisitions futures ne sont pas simulées.</p></details>` : ""}
+                      <p class="note">Lineups optimales projetées (moyenne reste de saison), pas les titulaires actuellement choisis. Les acquisitions futures ne sont pas simulées.</p></details>` : ""}
 
                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:14px 0; padding:12px; background:var(--paper-soft); border-radius:4px; border:1px solid var(--line);">
                       <div>
@@ -355,7 +366,7 @@ export async function renderTradesPage(container) {
       button.addEventListener("click", () => {
         const proposal = proposals[Number(button.dataset.index)];
         const partner = formattedRosters.find(roster => String(roster.roster_id) === String(proposal.partnerRosterId));
-        const offers = findCounterOffers({ proposal, myPlayers: currentRoster.players, theirPlayers: partner?.players, playerPreferences: preferences });
+        const offers = findCounterOffers({ proposal, myPlayers: currentRoster.players, theirPlayers: partner?.players, playerPreferences: preferences, currentWeek });
         const container = document.getElementById(`counter-offers-${button.dataset.index}`);
         container.innerHTML = offers.length ? offers.map(offer => `<p class="note"><strong>${offer.give.map(player => escapeHtml(player.name)).join(" + ")} → ${offer.receive.map(player => escapeHtml(player.name)).join(" + ")}</strong><br>Ta lineup : +${offer.recommendationScore.my_lineup_delta} · Sa lineup : +${offer.recommendationScore.their_lineup_delta} pts/sem<br>Marché : ${offer.evaluation.sideA.netTotal} ↔ ${offer.evaluation.sideB.netTotal} · ${escapeHtml(offer.recommendationScore.tradeability)}</p>`).join("") : '<p class="note">Aucune alternative fiable avec gain pour toi et sans perte adverse. Les joueurs Untouchable restent exclus.</p>';
       });
@@ -677,7 +688,7 @@ export async function renderTradesPage(container) {
 
     let advisory = { alerts: [], message: "" };
     try {
-      const res = await fetch("/api/lineup-advisor?team=t0z");
+      const res = await fetch(`/api/lineup-advisor?team=${encodeURIComponent(selectedRosterId)}`);
       if (res.ok) advisory = await res.json();
     } catch (e) {
       console.warn("Impossible de charger le Start/Sit Advisor", e);

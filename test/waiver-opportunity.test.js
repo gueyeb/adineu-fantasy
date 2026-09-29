@@ -79,3 +79,13 @@ test("findWaiverOpportunities' cap limits how many candidates are ever evaluated
   assert.equal(capped.length, 1);
   assert.equal(capped[0].player.sleeperId, "fa-a"); // only the top-projected candidate survives the cap
 });
+
+test("an empty starter slot's position is always evaluated, even outside positionsOfInterest and the cap", () => {
+  const p = (sleeperId, position, projectedPpg) => ({ sleeperId, name: sleeperId, position, projectedPpg });
+  const myPlayers = [p("qb", "QB", 18), p("rb1", "RB", 14), p("rb2", "RB", 12), p("wr1", "WR", 15), p("wr2", "WR", 13), p("wr3", "WR", 9), p("te", "TE", 8), p("k", "K", 8)];
+  const freeAgents = [p("fa-rb", "RB", 13), p("fa-def", "DEF", 7)];
+  const result = findWaiverOpportunities({ myPlayers, freeAgents, positionsOfInterest: ["RB"], cap: 1 });
+  assert.equal(result[0].player.sleeperId, "fa-def");
+  assert.equal(result[0].slot, "DEF");
+  assert.equal(result[0].gain, 7);
+});

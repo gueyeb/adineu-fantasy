@@ -13,6 +13,7 @@ import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { diagnoseRoster, findTradeProposals } from "../public/assets/trade-recommender.js";
 import { resolveOperationalWeek } from "../public/assets/nfl-week.js";
+import { getInjuryStatuses } from "./league-context.js";
 
 export const DEFAULT_SLEEPER_LEAGUE_ID = process.env.SLEEPER_LEAGUE_ID || "1392715510830878721";
 const SLEEPER_API = "https://api.sleeper.app/v1";
@@ -42,7 +43,8 @@ export async function analyzeTrades({
   team = "t0z",
   leagueId = DEFAULT_SLEEPER_LEAGUE_ID,
   fetchImpl = fetch,
-  catalogUrl = DEFAULT_CATALOG_URL
+  catalogUrl = DEFAULT_CATALOG_URL,
+  getStatuses = getInjuryStatuses
 } = {}) {
   const normalizedTeam = String(team).trim().toLowerCase();
   const playerMap = await loadPlayerCatalog(catalogUrl);
@@ -64,6 +66,12 @@ export async function analyzeTrades({
   let weeklyProjections = {};
   try {
     weeklyProjections = await sleeperGet(`/projections/nfl/regular/${season}/${currentWeek}`, { fetchImpl });
+  } catch {}
+
+  // Statuts blessure Sleeper (Out/IR…) : sans eux, un joueur blessé n'a juste « pas de projection ».
+  let injuryStatuses = new Map();
+  try {
+    injuryStatuses = await getStatuses({ fetchImpl });
   } catch {}
 
   const playerWeeklyScores = new Map();
@@ -99,6 +107,9 @@ export async function analyzeTrades({
         const player = catalogPlayer
           ? { ...catalogPlayer }
           : { sleeperId: playerId, name: `Player #${playerId}`, position: "FLEX" };
+
+        const injuryStatus = injuryStatuses.get(playerId);
+        if (injuryStatus) player.injuryStatus = injuryStatus;
 
         const proj = weeklyProjections[playerId];
         if (proj && typeof proj.pts_ppr === "number") {
@@ -146,7 +157,8 @@ export async function analyzeTrades({
       proposals: findTradeProposals({
         targetRosterId: target.roster_id,
         rosters: formattedRosters,
-        playerCatalog: playerMap
+        playerCatalog: playerMap,
+        currentWeek
       })
     };
   });
@@ -182,7 +194,7 @@ export function formatTradeBulletin(analysis, { proposalLimit = 5 } = {}) {
 
     result.proposals.slice(0, proposalLimit).forEach((proposal, index) => {
       const icon = proposal.category === "HANDCUFF_INSURANCE" ? "🔒" :
-        proposal.category === "WIN_WIN" ? "🤝" : "⚡";
+        proposal.category === "WIN_WIN" ? "🤝" : proposal.category === "LINEUP_UPGRADE" ? "📈" : "⚡";
       const weeklyDiff = proposal.targetWeeklyGain;
       const weeklyStr = (typeof weeklyDiff === "number" && weeklyDiff !== 0)
         ? ` (Diff hebdo: ${weeklyDiff > 0 ? "+" : ""}${weeklyDiff} pts/sem)`

@@ -36,3 +36,14 @@ test("counteroffers are owned, distinct, bounded and bilaterally scored", () => 
   assert.deepEqual(findCounterOffers({ proposal, myPlayers: mine, theirPlayers: theirs, playerPreferences: locked }), []);
   assert.deepEqual(findCounterOffers({ proposal: { ...proposal, receive: [player("Unknown", "RB", 20)] }, myPlayers: mine, theirPlayers: theirs }), []);
 });
+
+test("untouchable players never crowd out the exhaustive lineup search", () => {
+  const p = (name, position, projectedPpg, rank) => ({ sleeperId: name, name, position, projectedPpg, quality: { expertRank: rank } });
+  const core = x => [p(`${x}QB`, "QB", 18, 60), p(`${x}TE`, "TE", 9, 90), p(`${x}K`, "K", 8, 150), p(`${x}DEF`, "DEF", 8, 150)];
+  const mine = [...core("M"), p("MRB1", "RB", 16, 20), p("MRB2", "RB", 15, 24), p("MRB3", "RB", 14, 30), p("MRB4", "RB", 13, 36), p("MWR1", "WR", 16, 22), p("MWR2", "WR", 6, 110)];
+  const theirs = [...core("T"), p("TWR1", "WR", 16, 21), p("TWR2", "WR", 15, 25), p("TWR3", "WR", 14, 31), p("TWR4", "WR", 13, 35), p("TRB1", "RB", 16, 23), p("TRB2", "RB", 6, 115)];
+  const playerPreferences = { MRB3: "UNTOUCHABLE" };
+  const proposals = findTradeProposals({ targetRosterId: 1, rosters: [{ roster_id: 1, players: mine }, { roster_id: 2, players: theirs }], currentWeek: 4, playerPreferences });
+  assert.ok(proposals.length > 0);
+  assert.ok(proposals.every(proposal => !proposal.give.some(player => player.name === "MRB3")));
+});

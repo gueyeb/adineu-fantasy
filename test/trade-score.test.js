@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildProjectedLineup, scoreTradeRecommendation } from "../public/assets/trade-score.js";
+import { buildProjectedLineup, restOfSeasonEstimate, scoreTradeRecommendation, weeklyEstimate } from "../public/assets/trade-score.js";
 import { calculatePlayerTradeProfile } from "../public/assets/trade-value.js";
 import { findTradeProposals } from "../public/assets/trade-recommender.js";
 
@@ -57,4 +57,69 @@ test("premium market value cannot collapse on missing projection and one zero sc
   const base = { name: "Premium RB", position: "RB", quality: { expertRank: 10 } };
   assert.equal(calculatePlayerTradeProfile({ ...base, weeklyScores: [0] }).tradeValue, calculatePlayerTradeProfile(base).tradeValue);
   assert.ok(calculatePlayerTradeProfile({ ...base, projectedPpg: 0, weeklyScores: [0] }).tradeValue > 50);
+});
+
+test("an Out/IR player scores 0 this week but keeps rest-of-season value (injury is modeled, not missing data)", () => {
+  const star = { name: "Injured star", position: "RB", nflTeam: "NYJ", injuryStatus: "IR", quality: { expertRank: 5 } };
+  assert.equal(weeklyEstimate(star), 0);
+  const ros = restOfSeasonEstimate(4)(star);
+  const healthy = restOfSeasonEstimate(4)({ ...star, injuryStatus: null });
+  assert.ok(ros > 0 && ros < healthy, "IR discounts ~4 of the remaining games, never to zero");
+  const give = player("WR surplus", "WR", 15);
+  const mine = [...core("M"), player("RB1", "RB", 14), player("RB2", "RB", 7), player("WR1", "WR", 18), player("WR2", "WR", 17), give];
+  const theirs = [...core("T"), star, player("TRB2", "RB", 17), player("TRB3", "RB", 16), player("TWR1", "WR", 10), player("TWR2", "WR", 7)];
+  const score = scoreTradeRecommendation({ myPlayers: mine, theirPlayers: theirs, give: [give], receive: [star], week: 4 });
+  assert.equal(score.horizon, "ROS");
+  assert.ok(!score.warnings.some(w => /projection/.test(w)), "an injury explains the missing projection");
+  assert.ok(score.notes.some(n => /IR/.test(n)));
+  assert.equal(score.confidence, "MEDIUM");
+  assert.ok(Number.isFinite(score.my_lineup_delta));
+});
+
+test("an empty starter slot counts as 0 instead of hiding every trade impact", () => {
+  const give = player("WR surplus", "WR", 15);
+  const receive = player("RB surplus", "RB", 15);
+  const noDef = core("M").filter(p => p.position !== "DEF");
+  const mine = [...noDef, player("RB1", "RB", 14), player("RB2", "RB", 7), player("WR1", "WR", 18), player("WR2", "WR", 17), give, player("WR bench", "WR", 14)];
+  const theirs = [...core("T"), player("TRB1", "RB", 18), player("TRB2", "RB", 17), receive, player("TRB bench", "RB", 14), player("TWR1", "WR", 14), player("TWR2", "WR", 7)];
+  const lineup = buildProjectedLineup(mine);
+  assert.deepEqual(lineup.emptySlots, ["DEF"]);
+  const score = scoreTradeRecommendation({ myPlayers: mine, theirPlayers: theirs, give: [give], receive: [receive] });
+  assert.equal(score.my_lineup_delta, 7);
+  assert.equal(score.winWin, true);
+});
+
+test("losing your only QB is priced as a 0-point slot", () => {
+  const qb = player("Only QB", "QB", 20);
+  const wr = player("WR", "WR", 12);
+  const mine = [...core("M").filter(p => p.position !== "QB"), qb, player("RB1", "RB", 14), player("RB2", "RB", 12), player("WR1", "WR", 18), player("WR2", "WR", 17)];
+  const theirs = [...core("T"), wr, player("TRB1", "RB", 18), player("TRB2", "RB", 17), player("TWR1", "WR", 14), player("TWR2", "WR", 13)];
+  const score = scoreTradeRecommendation({ myPlayers: mine, theirPlayers: theirs, give: [qb], receive: [wr] });
+  assert.equal(score.my_lineup_delta, -8, "QB 20 -> empty 0, WR 12 fills the empty FLEX");
+  assert.ok(score.notes.some(n => /Ta lineup perd son QB/.test(n)));
+  assert.equal(score.tradeability, "Peu réaliste");
+});
+
+test("a 2-for-1 that overflows the partner roster names their likely cut instead of blocking", () => {
+  const give = [player("Give A", "WR", 11), player("Give B", "RB", 10)];
+  const receive = [player("Stud", "WR", 19)];
+  const mine = [...core("M"), player("RB1", "RB", 14), player("RB2", "RB", 12), player("WR1", "WR", 18), player("WR2", "WR", 17), ...give];
+  const theirs = [...core("T"), ...receive, player("TRB1", "RB", 18), player("TRB2", "RB", 17), player("TWR1", "WR", 14), player("TWR2", "WR", 13),
+    ...Array.from({ length: 7 }, (_, i) => player(`Bench${i}`, "WR", 2 + i))];
+  assert.equal(theirs.length, 16);
+  const score = scoreTradeRecommendation({ myPlayers: mine, theirPlayers: theirs, give, receive });
+  assert.ok(score.notes.some(n => /Il devra libérer une place : coupe probable Bench0/.test(n)));
+  assert.ok(!score.warnings.some(w => /coupe/.test(w)));
+});
+
+test("roster overflow ignores the IR slot for healthy players", () => {
+  const give = [player("Give A", "WR", 11), player("Give B", "RB", 10)];
+  const receive = [player("Stud", "WR", 19)];
+  const mine = [...core("M"), player("RB1", "RB", 14), player("RB2", "RB", 12), player("WR1", "WR", 18), player("WR2", "WR", 17), ...give];
+  // 15 healthy players, empty IR: receiving 2-for-1 leaves 16 healthy -> a cut is required.
+  const theirs = [...core("T"), ...receive, player("TRB1", "RB", 18), player("TRB2", "RB", 17), player("TWR1", "WR", 14), player("TWR2", "WR", 13),
+    ...Array.from({ length: 6 }, (_, i) => player(`Bench${i}`, "WR", 2 + i))];
+  assert.equal(theirs.length, 15);
+  const score = scoreTradeRecommendation({ myPlayers: mine, theirPlayers: theirs, give, receive });
+  assert.ok(score.notes.some(n => /Il devra libérer une place/.test(n)));
 });

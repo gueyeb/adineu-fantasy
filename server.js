@@ -155,6 +155,16 @@ export function createAppServer({
       return;
     }
 
+    if (url.pathname === "/api/player-status") {
+      try {
+        const statuses = await getInjuryStatuses();
+        sendJson(response, 200, { statuses: Object.fromEntries(statuses) });
+      } catch (error) {
+        sendJson(response, 502, { error: error.message });
+      }
+      return;
+    }
+
     if (url.pathname === "/api/lineup-advisor") {
       try {
         const team = url.searchParams.get("team") || "t0z";

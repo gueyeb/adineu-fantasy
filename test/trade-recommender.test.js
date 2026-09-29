@@ -109,3 +109,17 @@ test("findTradeProposals rejects consolidation packages for replacement-level re
   const proposals = findTradeProposals({ targetRosterId: 1, rosters: [target, partner] });
   assert.equal(proposals.some(proposal => proposal.category === "CONSOLIDATION"), false);
 });
+
+test("exhaustive lineup search finds a bilateral swap and never lists a trade that hurts either lineup", () => {
+  const p = (name, position, projectedPpg, rank) => ({ sleeperId: name, name, position, projectedPpg, quality: { expertRank: rank } });
+  const core = x => [p(`${x}QB`, "QB", 18, 60), p(`${x}TE`, "TE", 9, 90), p(`${x}K`, "K", 8, 150), p(`${x}DEF`, "DEF", 8, 150)];
+  // Mine: 4 startable RBs, weak WR2. Theirs: 4 startable WRs, weak RB2. RB4 <-> WR4 is +7 for both.
+  const mine = [...core("M"), p("MRB1", "RB", 16, 20), p("MRB2", "RB", 15, 24), p("MRB3", "RB", 14, 30), p("MRB4", "RB", 13, 36), p("MWR1", "WR", 16, 22), p("MWR2", "WR", 6, 110)];
+  const theirs = [...core("T"), p("TWR1", "WR", 16, 21), p("TWR2", "WR", 15, 25), p("TWR3", "WR", 14, 31), p("TWR4", "WR", 13, 35), p("TRB1", "RB", 16, 23), p("TRB2", "RB", 6, 115)];
+  const proposals = findTradeProposals({ targetRosterId: 1, rosters: [{ roster_id: 1, players: mine }, { roster_id: 2, players: theirs }], currentWeek: 4 });
+  const swap = proposals.find(proposal => proposal.give.length === 1 && proposal.give[0].name === "MRB4" && proposal.receive.length === 1 && proposal.receive[0].name === "TWR4");
+  assert.ok(swap);
+  assert.equal(swap.recommendationScore.my_lineup_delta, 7);
+  assert.ok(proposals.length > 0);
+  assert.ok(proposals.every(proposal => proposal.recommendationScore.my_lineup_delta > 0 && proposal.recommendationScore.their_lineup_delta >= 0));
+});
