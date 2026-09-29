@@ -8,7 +8,7 @@
  */
 
 import { calculatePlayerTradeValue, evaluateTrade } from "./trade-value.js?v=3";
-import { buildProjectedLineup, restOfSeasonEstimate, scoreTradeRecommendation } from "./trade-score.js?v=3";
+import { buildProjectedLineup, restOfSeasonEstimate, scoreTradeRecommendation } from "./trade-score.js?v=4";
 import { playerKey, preferenceAdjustment } from "./trade-preferences.js?v=1";
 
 export const KNOWN_HANDCUFFS = [
@@ -25,14 +25,22 @@ function playerTier(player) {
   return "joueur de rotation";
 }
 
+export function usageTradeAdjustment({ give = [], receive = [] }) {
+  return receive.filter(player => player.signal === "BUY_LOW").length * 3
+    + give.filter(player => player.signal === "SELL_HIGH").length * 3
+    - receive.filter(player => player.signal === "SELL_HIGH").length * 2
+    - give.filter(player => player.signal === "BUY_LOW").length * 2;
+}
+
 function decorateProposal(proposal, myPlayers, theirPlayers, week = null) {
   const recommendationScore = scoreTradeRecommendation({ myPlayers, theirPlayers, give: proposal.give, receive: proposal.receive, week });
+  const usageAdjustment = usageTradeAdjustment(proposal);
   return {
     ...proposal,
     category: proposal.category === "WIN_WIN" && !recommendationScore.winWin ? "POSITIONAL_SWAP" : proposal.category,
-    recommendationScore,
+    recommendationScore: { ...recommendationScore, usageAdjustment },
     targetWeeklyGain: recommendationScore.my_lineup_delta,
-    score: recommendationScore.rankScore
+    score: recommendationScore.rankScore + usageAdjustment
   };
 }
 

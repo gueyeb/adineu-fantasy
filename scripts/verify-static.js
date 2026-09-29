@@ -27,6 +27,7 @@ const requiredAssets = [
   "assets/record-watch.js",
   "assets/transactions.js",
   "assets/playoff-probabilities.js",
+  "assets/rest-of-season.js",
   "assets/waiver-model.js",
   "assets/standings-luck.js",
   "assets/league-market.js",
@@ -41,7 +42,7 @@ const requiredAssets = [
 for (const route of routes) {
   const htmlPath = resolve(root, route, "index.html");
   const html = await readFile(htmlPath, "utf8");
-  if (!html.includes('src="/assets/site.js?v=33"')) throw new Error(`${htmlPath} does not load the current site.js`);
+  if (!html.includes('src="/assets/site.js?v=34"')) throw new Error(`${htmlPath} does not load the current site.js`);
   if (!html.includes('href="/assets/styles.css?v=21"')) throw new Error(`${htmlPath} does not load the current styles.css`);
   if (!html.includes('rel="icon" href="/favicon.svg"')) throw new Error(`${htmlPath} does not load the favicon`);
 }

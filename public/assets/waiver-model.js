@@ -7,7 +7,7 @@
  * Two separate answers, never merged: marketScore/faabMarket (what the player is worth to the
  * league) and fitScore/faabMaxForMe (what he is worth to one roster). Estimates, labeled as such.
  */
-import { buildProjectedLineup } from "./trade-score.js?v=3";
+import { buildProjectedLineup } from "./trade-score.js?v=4";
 import { BYE_WEEKS_2026, GENERAL_SETTINGS_2026 } from "./league-settings.js";
 
 export const LAST_REGULAR_WEEK = GENERAL_SETTINGS_2026.playoffWeekStart - 1;
@@ -161,16 +161,18 @@ export function evaluateMarket({ rows, week, budget = GENERAL_SETTINGS_2026.waiv
     const faab = Math.min(budget, surplus * pricePerPoint);
     const pct = faab / budget * 100;
     const range = [Math.round(faab * 0.75), Math.min(budget, Math.round(faab * 1.25))];
+    const usageBonus = row.usageSignal === "BUY_LOW" ? 5 : row.usageSignal === "SELL_HIGH" ? -3 : 0;
     return {
       ...row,
       replacementPpg: replacement[row.position],
       surplusPoints: round(surplus),
-      marketScore: Math.round(Math.min(100, 100 * Math.log1p(surplus) / Math.log1p(120))),
+      marketScore: Math.round(Math.max(0, Math.min(100, 100 * Math.log1p(surplus) / Math.log1p(120) + usageBonus))),
+      usageBonus,
       faabMarket: range,
       faabPct: range.map(value => round(value / budget * 100)),
       category: marketCategory(pct)
     };
-  }).sort((a, b) => b.surplusPoints - a.surplusPoints || b.effectivePpg - a.effectivePpg);
+  }).sort((a, b) => b.marketScore - a.marketScore || b.surplusPoints - a.surplusPoints || b.effectivePpg - a.effectivePpg);
 }
 
 /** Roster side: how much of the market surplus actually reaches THIS optimal lineup. */

@@ -7,7 +7,7 @@ import {
   buildSleeperWeek,
   buildSleeperSeasonMeetings
 } from "./rivalry-week.js?v=4";
-import { renderTradesPage } from "./trade-ui.js?v=16";
+import { renderTradesPage } from "./trade-ui.js?v=17";
 import { renderMatchupsHub } from "./matchups-live.js?v=7";
 import { calculatePlayoffRace } from "./playoff-race.js?v=1";
 import { calculateLuck, calculateRankHistory } from "./standings-luck.js?v=1";
@@ -21,8 +21,11 @@ import {
   projectPlayerFantasyPoints,
   resolvePlayerProjection,
   sumTeamProjection,
+  estimateTeamStrengthSd,
+  NEAR_WEEKS,
+  FAR_WEEK_SHRINK,
   DEFAULT_SIMULATIONS
-} from "./playoff-probabilities.js?v=1";
+} from "./playoff-probabilities.js?v=2";
 
 const SUPABASE_URL = "https://juosrzsffvjprqhdyado.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_7Bu9q2dKz0WEol94OGVhHw_xjSwHeHu";
@@ -1170,7 +1173,7 @@ async function buildPlayoffProbabilityContext(currentWeek, matchupRows = [], exp
   const completedWeeks = [];
   for (let week = 1; week < currentWeek; week += 1) completedWeeks.push(week);
 
-  const [rosters, users, positionById, remainingData, completedMatchups] = await Promise.all([
+  const [rosters, users, positionById, remainingData, completedData] = await Promise.all([
     loadSleeperResource(`/league/${SLEEPER_LEAGUE_ID}/rosters`),
     loadSleeperResource(`/league/${SLEEPER_LEAGUE_ID}/users`),
     loadPlayerCatalogPositions(),
@@ -1181,7 +1184,13 @@ async function buildPlayoffProbabilityContext(currentWeek, matchupRows = [], exp
       ]);
       return { week, matchups, projections };
     })),
-    Promise.all(completedWeeks.map(week => loadSleeperResource(`/league/${SLEEPER_LEAGUE_ID}/matchups/${week}`)))
+    Promise.all(completedWeeks.map(async week => {
+      const [matchups, projections] = await Promise.all([
+        loadSleeperResource(`/league/${SLEEPER_LEAGUE_ID}/matchups/${week}`),
+        loadSleeperProjections(week)
+      ]);
+      return { week, matchups, projections };
+    }))
   ]);
 
   const identities = listRosterIdentities(rosters, users);
@@ -1220,8 +1229,8 @@ async function buildPlayoffProbabilityContext(currentWeek, matchupRows = [], exp
   // Fallback source (b): each player's own season-average actual score, from Sleeper's raw
   // per-player weekly points already returned alongside every played week's matchups.
   const playerPointTotals = new Map();
-  for (const weekRosters of completedMatchups) {
-    for (const roster of weekRosters) {
+  for (const { matchups } of completedData) {
+    for (const roster of matchups) {
       for (const [playerId, points] of Object.entries(roster.players_points || {})) {
         if (!playerPointTotals.has(playerId)) playerPointTotals.set(playerId, { sum: 0, count: 0 });
         const entry = playerPointTotals.get(playerId);
@@ -1233,6 +1242,24 @@ async function buildPlayoffProbabilityContext(currentWeek, matchupRows = [], exp
   const seasonAverageByPlayerId = new Map();
   for (const [playerId, { sum, count }] of playerPointTotals) {
     seasonAverageByPlayerId.set(playerId, count > 0 ? sum / count : null);
+  }
+
+  // Projection error that persists at team level. Historical matchup payloads preserve the
+  // lineup that was actually started, so calibration never applies today's roster backwards.
+  const residualsByManager = new Map();
+  for (const { matchups, projections } of completedData) {
+    for (const roster of matchups) {
+      const manager = managerByRosterId.get(roster.roster_id);
+      if (!manager || !Number.isFinite(roster.points)) continue;
+      const starters = (roster.starters || []).filter(id => id && id !== "0");
+      const projected = starters.reduce((sum, playerId) => {
+        const stats = projections.get(String(playerId));
+        return sum + (stats ? projectPlayerFantasyPoints(stats) : 0);
+      }, 0);
+      if (!(projected > 0)) continue;
+      if (!residualsByManager.has(manager)) residualsByManager.set(manager, []);
+      residualsByManager.get(manager).push(Number(roster.points) - projected);
+    }
   }
 
   // Fallback source (c): mean Adineu-scored projection across every directly-projected player at
@@ -1274,7 +1301,12 @@ async function buildPlayoffProbabilityContext(currentWeek, matchupRows = [], exp
     }
   }
 
-  return { remainingWeeks, schedule, teamProjectionsByWeek };
+  return {
+    remainingWeeks,
+    schedule,
+    teamProjectionsByWeek,
+    teamStrengthSd: estimateTeamStrengthSd(residualsByManager)
+  };
 }
 
 /** Playoff odds shared by Power Rankings and Standings: same gate (only once Power Rankings is
@@ -1297,6 +1329,9 @@ async function computeLivePlayoffOdds(matchupRows, { ready, currentWeek, expecte
             remainingWeeks: context.remainingWeeks,
             schedule: context.schedule,
             teamProjectionsByWeek: context.teamProjectionsByWeek,
+            teamStrengthSd: context.teamStrengthSd,
+            nearWeeks: NEAR_WEEKS,
+            farWeekShrink: FAR_WEEK_SHRINK,
             simulations: DEFAULT_SIMULATIONS,
             seed: 1,
             modelDate: new Date().toISOString()
@@ -1418,7 +1453,7 @@ async function renderPowerRankings() {
             </tr>`;
           }).join("")}</tbody>
         </table></div>
-        <p class="note"><strong>${GENERAL_SETTINGS_2026.playoffTeams} places</strong> sur ${teamCount} équipes · ${playoffProbabilities.simulations.toLocaleString("fr-FR")} simulations seedées (seed ${playoffProbabilities.seed}, reproductible) · calendrier restant simulé jusqu'à S${GENERAL_SETTINGS_2026.regularSeasonWeeks} · lineups figés à la date du modèle (${new Date(playoffProbabilities.modelDate).toLocaleDateString("fr-FR")}). "Couverture directe" = part des points projetés d'une équipe qui vient d'une projection Sleeper de la semaine plutôt que d'une moyenne de repli. <strong>Estimation Adineu, jamais une donnée officielle Sleeper.</strong></p>
+        <p class="note"><strong>${GENERAL_SETTINGS_2026.playoffTeams} places</strong> sur ${teamCount} équipes · ${playoffProbabilities.simulations.toLocaleString("fr-FR")} simulations seedées (seed ${playoffProbabilities.seed}, reproductible) · calendrier restant simulé jusqu'à S${GENERAL_SETTINGS_2026.regularSeasonWeeks} · lineups figés à la date du modèle (${new Date(playoffProbabilities.modelDate).toLocaleDateString("fr-FR")}). Le modèle ajoute une incertitude persistante (écart-type ${playoffProbabilities.teamStrengthSd} pts) sur la vraie force d'une équipe et réduit de ${Math.round(playoffProbabilities.farWeekShrink * 100)} % les écarts projetés au-delà des ${playoffProbabilities.nearWeeks} prochaines semaines. "Couverture directe" = part des points projetés d'une équipe qui vient d'une projection Sleeper de la semaine plutôt que d'une moyenne de repli. <strong>Estimation Adineu, jamais une donnée officielle Sleeper.</strong></p>
       ` : `<p class="note">${escapeHtml(playoffProbabilitiesNote)}</p>`}
     </div></section>
 

@@ -19,6 +19,14 @@ import { calculatePlayerFantasyPoints } from "./league-settings.js";
 export const DEFAULT_PLAYOFF_SPOTS = 8;
 export const DEFAULT_SIMULATIONS = 3000;
 const MIN_STD_DEV = 3; // floor: a simulation is never fully deterministic, even for a low-variance team/week
+// Persistent team-strength error (projection wrong for a team for the rest of the season: injuries,
+// role changes, trades). Measured from completed weeks (estimateTeamStrengthSd); floored because a
+// few weeks can't tell it apart from weekly noise. 29/09/2026: 36 team-weeks gave ~4.5 pts.
+export const MIN_TEAM_STRENGTH_SD = 5;
+// Sleeper mostly refreshes the next one or two weeks; later weeks are stale, so beyond NEAR_WEEKS a
+// team's projected edge over the league mean is shrunk by FAR_WEEK_SHRINK.
+export const NEAR_WEEKS = 2;
+export const FAR_WEEK_SHRINK = 0.5;
 
 // --- seeded PRNG (mulberry32) — deterministic given the same seed, zero dependencies ---
 function mulberry32(seed) {
@@ -112,6 +120,22 @@ export function calibrateUncertainty(completedRows) {
 }
 
 /**
+ * Team-strength uncertainty from completed weeks: residual = actual − pregame projection.
+ * The spread of each team's MEAN residual includes weekly noise (sd²/n); what remains after
+ * removing it is a persistent team effect. Floored at MIN_TEAM_STRENGTH_SD.
+ */
+export function estimateTeamStrengthSd(residualsByManager, { floor = MIN_TEAM_STRENGTH_SD } = {}) {
+  const lists = [...residualsByManager.values()].filter(list => list.length > 0);
+  const all = lists.flat();
+  if (lists.length < 3 || all.length < 6) return floor;
+  const weeklyVariance = standardDeviation(all) ** 2;
+  const perTeamGames = all.length / lists.length;
+  const means = lists.map(list => list.reduce((sum, value) => sum + value, 0) / list.length);
+  const persistentVariance = standardDeviation(means) ** 2 - weeklyVariance / perTeamGames;
+  return Math.max(floor, Math.sqrt(Math.max(0, persistentVariance)));
+}
+
+/**
  * Resolves one player's projected points for one week through a fallback chain: (a) this week's
  * direct Sleeper projection, (b) this player's own season-average actual score, (c) a
  * position-level replacement value. `source` says which was used, so callers can surface a
@@ -141,13 +165,27 @@ function standingsOrder(a, b) {
  * locked in, remaining schedule, per-team weekly projections, calibrated uncertainty). Pure —
  * no fetching, no gate logic; that's simulatePlayoffProbabilities's job below.
  */
-export function runSimulation({ baseStandings, remainingWeeks, schedule, teamProjectionsByWeek, stdDevByManager, playoffSpots, simulations, seed }) {
+export function runSimulation({ baseStandings, remainingWeeks, schedule, teamProjectionsByWeek, stdDevByManager, playoffSpots, simulations, seed, teamStrengthSd = 0, nearWeeks = NEAR_WEEKS, farWeekShrink = 0 }) {
   const rng = mulberry32(seed);
   const managers = baseStandings.map(team => team.manager);
   const qualifiedCount = new Map(managers.map(manager => [manager, 0]));
 
+  // Expected score per team/week, computed once: far weeks shrink the edge over that week's mean.
+  const expected = new Map();
+  remainingWeeks.forEach((week, index) => {
+    const values = managers.map(manager => teamProjectionsByWeek.get(`${week}|${manager}`)?.points).filter(Number.isFinite);
+    const mean = values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+    const shrink = index >= nearWeeks ? farWeekShrink : 0;
+    for (const manager of managers) {
+      const points = teamProjectionsByWeek.get(`${week}|${manager}`)?.points || 0;
+      expected.set(`${week}|${manager}`, mean + (points - mean) * (1 - shrink));
+    }
+  });
+
   for (let run = 0; run < simulations; run += 1) {
     const standings = new Map(baseStandings.map(team => [team.manager, { ...team }]));
+    // One persistent strength offset per team per simulated season (the projection's own error).
+    const offset = new Map(managers.map(manager => [manager, teamStrengthSd > 0 ? gaussian(rng) * teamStrengthSd : 0]));
 
     for (const week of remainingWeeks) {
       const pairs = schedule.get(week) || [];
@@ -156,10 +194,8 @@ export function runSimulation({ baseStandings, remainingWeeks, schedule, teamPro
         const teamB = standings.get(managerB);
         if (!teamA || !teamB) continue;
 
-        const projA = teamProjectionsByWeek.get(`${week}|${managerA}`);
-        const projB = teamProjectionsByWeek.get(`${week}|${managerB}`);
-        const scoreA = (projA?.points || 0) + gaussian(rng) * (stdDevByManager.get(managerA) || MIN_STD_DEV);
-        const scoreB = (projB?.points || 0) + gaussian(rng) * (stdDevByManager.get(managerB) || MIN_STD_DEV);
+        const scoreA = (expected.get(`${week}|${managerA}`) || 0) + offset.get(managerA) + gaussian(rng) * (stdDevByManager.get(managerA) || MIN_STD_DEV);
+        const scoreB = (expected.get(`${week}|${managerB}`) || 0) + offset.get(managerB) + gaussian(rng) * (stdDevByManager.get(managerB) || MIN_STD_DEV);
 
         teamA.pointsFor += scoreA;
         teamB.pointsFor += scoreB;
@@ -196,6 +232,9 @@ export function simulatePlayoffProbabilities(rows, options = {}) {
     schedule = new Map(),
     teamProjectionsByWeek = new Map(),
     modelDate = null,
+    teamStrengthSd = 0,
+    nearWeeks = NEAR_WEEKS,
+    farWeekShrink = 0,
     ...powerOptions
   } = options;
 
@@ -241,7 +280,10 @@ export function simulatePlayoffProbabilities(rows, options = {}) {
     stdDevByManager,
     playoffSpots,
     simulations,
-    seed
+    seed,
+    teamStrengthSd,
+    nearWeeks,
+    farWeekShrink
   });
 
   return {
@@ -252,6 +294,9 @@ export function simulatePlayoffProbabilities(rows, options = {}) {
     seed,
     playoffSpots,
     modelDate,
+    teamStrengthSd: Number(teamStrengthSd.toFixed(1)),
+    farWeekShrink,
+    nearWeeks,
     probabilities: results.map(entry => {
       const coverageValues = coverageByManager.get(entry.manager) || [];
       const coveragePct = coverageValues.length

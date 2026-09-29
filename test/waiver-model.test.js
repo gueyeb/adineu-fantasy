@@ -15,6 +15,13 @@ test("computeRosPpg averages future weeks and counts the bye as 0", () => {
   assert.equal(computeRosPpg({ playerId: "p", nflTeam: "XXX", projectionsByWeek: failed, week: 12 }), 10);
 });
 
+test("market ranking gives a small transparent bonus to a buy-low usage signal", () => {
+  const base = { position: "WR", effectivePpg: 10, usageSignal: null };
+  const [buyLow, neutral] = evaluateMarket({ rows: [base, { ...base, usageSignal: "BUY_LOW" }], week: 4 });
+  assert.equal(buyLow.usageSignal, "BUY_LOW");
+  assert.equal(buyLow.marketScore - neutral.marketScore, 5);
+});
+
 test("a first recorded game is never a snap surge (no baseline)", () => {
   const signals = { last: { week: 1, snapShare: 0.9, opportunities: 5 }, prevSnapShare: null, prevOpportunities: null };
   assert.equal(detectEvents({ player: { id: "r", position: "WR" }, signals }).newsOverride, false);

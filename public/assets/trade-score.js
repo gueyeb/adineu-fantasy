@@ -43,9 +43,10 @@ export function restOfSeasonEstimate(week) {
   return estimate;
 
   function computeRestOfSeason(player) {
-    const healthy = isOutThisWeek(player) || projection(player) === null
+    const usageAdjusted = Number.isFinite(player.rosPpg) ? player.rosPpg : null;
+    const healthy = usageAdjusted ?? (isOutThisWeek(player) || projection(player) === null
       ? calculatePlayerTradeProfile(player).blendedPpg
-      : projection(player);
+      : projection(player));
     const bye = BYE_WEEKS_2026[player.nflTeam];
     // A Sleeper projection already prices a Questionable/Doubtful tag in; only Out/IR adds misses.
     const statusMissed = isOutThisWeek(player) ? GAMES_MISSED_BY_STATUS[injuryStatus(player)] : projection(player) === null ? GAMES_MISSED_BY_STATUS[injuryStatus(player)] || 0 : 0;

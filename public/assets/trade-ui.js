@@ -572,7 +572,7 @@ export async function renderTradesPage(container) {
               <div style="display:flex; justify-content:space-between; gap:8px; padding:6px 0; border-bottom:1px solid var(--line); font-size:0.82rem;">
                 <span><strong>${i + 1}.</strong> ${escapeHtml(p.name)} <small style="color:var(--muted);">(${escapeHtml(p.nflTeam || "FA")})</small></span>
                 <span style="color:var(--muted); font-size:0.72rem; white-space:nowrap;">
-                  ${p.waiver ? `${p.waiver.newsOverride ? "⚡ " : ""}${escapeHtml(p.waiver.category)} · ROS ${p.waiver.rosPpg ?? "n/d"}${p.waiver.rosSource === "RANK_ESTIMATE" ? " (rang)" : ""} · Marché ${p.waiver.faabPct[0]}–${p.waiver.faabPct[1]}%${p.waiver.fit ? ` · Fit ${p.waiver.fit.fitScore}` : ""}` : ""}
+                  ${p.waiver ? `${p.waiver.newsOverride ? "⚡ " : ""}${escapeHtml(p.waiver.category)} · ROS ${p.waiver.rosPpg ?? "n/d"}${p.waiver.rosSource === "RANK_ESTIMATE" ? " (rang)" : p.waiver.rosSource === "SLEEPER_USAGE_BLEND" ? " (proj.+usage)" : ""}${Number.isFinite(p.waiver.usageScore) ? ` · Usage ${p.waiver.usageScore}` : ""}${p.waiver.usageSignal === "BUY_LOW" ? " · 🟢 Buy-low" : p.waiver.usageSignal === "SELL_HIGH" ? " · 🔥 Sell-high" : ""} · Marché ${p.waiver.faabPct[0]}–${p.waiver.faabPct[1]}%${p.waiver.fit ? ` · Fit ${p.waiver.fit.fitScore}` : ""}` : ""}
                 </span>
               </div>
             `).join("")}

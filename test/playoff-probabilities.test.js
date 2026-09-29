@@ -4,6 +4,7 @@ import {
   adaptSleeperProjectionStats,
   projectPlayerFantasyPoints,
   calibrateUncertainty,
+  estimateTeamStrengthSd,
   resolvePlayerProjection,
   sumTeamProjection,
   runSimulation,
@@ -45,6 +46,20 @@ test("calibrateUncertainty never returns a std dev below the floor, even for a p
   const rows = [{ manager: "A", points: 100 }, { manager: "A", points: 100 }, { manager: "A", points: 100 }];
   const { stdDevByManager } = calibrateUncertainty(rows);
   assert.equal(stdDevByManager.get("A"), 3);
+});
+
+test("estimateTeamStrengthSd floors sparse or purely random residual histories", () => {
+  assert.equal(estimateTeamStrengthSd(new Map([["A", [1]], ["B", [-1]]])), 5);
+  assert.equal(estimateTeamStrengthSd(new Map([
+    ["A", [10, -10, 10]], ["B", [-10, 10, -10]], ["C", [10, -10, 10]]
+  ])), 5);
+});
+
+test("estimateTeamStrengthSd detects a persistent team-level projection bias", () => {
+  const result = estimateTeamStrengthSd(new Map([
+    ["A", [15, 15, 15]], ["B", [0, 0, 0]], ["C", [-15, -15, -15]]
+  ]), { floor: 0 });
+  assert.ok(result > 10);
 });
 
 test("resolvePlayerProjection falls back direct -> season-average -> replacement -> 0, never guesses beyond that", () => {

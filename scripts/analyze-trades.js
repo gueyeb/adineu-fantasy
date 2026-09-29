@@ -13,7 +13,9 @@ import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { diagnoseRoster, findTradeProposals } from "../public/assets/trade-recommender.js";
 import { resolveOperationalWeek } from "../public/assets/nfl-week.js";
-import { getInjuryStatuses } from "./league-context.js";
+import { usageAdjustedRosPpg } from "../public/assets/rest-of-season.js";
+import { GENERAL_SETTINGS_2026 } from "../public/assets/league-settings.js";
+import { getInjuryStatuses, getUsageReport } from "./league-context.js";
 
 export const DEFAULT_SLEEPER_LEAGUE_ID = process.env.SLEEPER_LEAGUE_ID || "1392715510830878721";
 const SLEEPER_API = "https://api.sleeper.app/v1";
@@ -63,9 +65,16 @@ export async function analyzeTrades({
     season = nflState?.season || "2026";
   } catch {}
 
-  let weeklyProjections = {};
+  const projectionsByWeek = {};
+  await Promise.all(Array.from({ length: Math.max(0, GENERAL_SETTINGS_2026.playoffWeekStart - currentWeek) }, (_, index) => currentWeek + index).map(async week => {
+    try { projectionsByWeek[week] = await sleeperGet(`/projections/nfl/regular/${season}/${week}`, { fetchImpl }); } catch {}
+  }));
+  const weeklyProjections = projectionsByWeek[currentWeek] || {};
+
+  let usageById = new Map();
   try {
-    weeklyProjections = await sleeperGet(`/projections/nfl/regular/${season}/${currentWeek}`, { fetchImpl });
+    const usage = await getUsageReport({ leagueId, fetchImpl });
+    usageById = new Map(usage.players.map(player => [player.playerId, player]));
   } catch {}
 
   // Statuts blessure Sleeper (Out/IR…) : sans eux, un joueur blessé n'a juste « pas de projection ».
@@ -114,6 +123,25 @@ export async function analyzeTrades({
         const proj = weeklyProjections[playerId];
         if (proj && typeof proj.pts_ppr === "number") {
           player.projectedPpg = Number(proj.pts_ppr.toFixed(1));
+        }
+
+        const usage = usageById.get(playerId);
+        const ros = usageAdjustedRosPpg({
+          playerId,
+          position: player.position,
+          nflTeam: player.nflTeam,
+          projectionsByWeek,
+          week: currentWeek,
+          xfp: usage?.xfp
+        });
+        if (ros) {
+          player.rosPpg = ros.ppg;
+          player.rosSource = ros.source;
+        }
+        if (usage) {
+          player.usageScore = usage.usageScore;
+          player.xfp = usage.xfp;
+          player.signal = usage.signal;
         }
 
         const scores = playerWeeklyScores.get(playerId) || [];

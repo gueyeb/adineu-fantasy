@@ -1,6 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { diagnoseRoster, findTradeProposals } from "../public/assets/trade-recommender.js";
+import { diagnoseRoster, findTradeProposals, usageTradeAdjustment } from "../public/assets/trade-recommender.js";
+
+test("usage signals slightly favor buying low and selling high", () => {
+  assert.equal(usageTradeAdjustment({
+    give: [{ signal: "SELL_HIGH" }],
+    receive: [{ signal: "BUY_LOW" }]
+  }), 6);
+  assert.equal(usageTradeAdjustment({
+    give: [{ signal: "BUY_LOW" }],
+    receive: [{ signal: "SELL_HIGH" }]
+  }), -4);
+});
 
 test("diagnoseRoster accurately detects WR surplus and RB deficit", () => {
   const players = [

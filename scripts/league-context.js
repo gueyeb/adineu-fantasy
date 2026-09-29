@@ -19,6 +19,7 @@ import { resolveOperationalWeek, resolveLastCompletedWeek } from "../public/asse
 import { findRosterByTeam, buildStarterSlotOrder, buildRosterSlots, listRosterIdentities } from "../public/assets/roster-view.js";
 import { buildFaabHistory, buildTrendingAdds, summarizeFaabByPosition } from "../public/assets/league-market.js";
 import { buildPlayerWeeks, calculateUsageScores } from "../public/assets/usage-score.js";
+import { usageAdjustedRosPpg } from "../public/assets/rest-of-season.js";
 import { calculateFaabRemaining } from "../public/assets/team-metrics.js";
 import { restOfSeasonEstimate } from "../public/assets/trade-score.js";
 import { estimateBaselineProjectedPpg } from "../public/assets/trade-value.js";
@@ -325,8 +326,26 @@ export async function getFreeAgents({
   const degraded = Object.keys(projectionsByWeek).length < expectedProjectionWeeks || !coverage.playersIndex ||
     statsByWeek.length < (lastCompletedWeek > 0 ? Math.min(3, lastCompletedWeek) : 0);
 
+  const seasonStart = Date.parse(nflState?.season_start_date || "2026-09-09");
+  const teamOf = (id, playedWeek) => {
+    const player = index.get(id);
+    const weekEnd = seasonStart + playedWeek * 7 * 24 * 3600 * 1000;
+    if (!player?.nflTeam || (Number.isFinite(player.teamChangedAt) && player.teamChangedAt > weekEnd && player.teamChangedAt > seasonStart)) return null;
+    return player.nflTeam;
+  };
+  const usageRows = buildPlayerWeeks(statsByWeek, { teamOf, positionOf: id => index.get(id)?.position });
+  const usageById = new Map(calculateUsageScores(usageRows).players.map(player => [player.playerId, player]));
+
   const meta = id => index.get(id) || (catalogById.has(id) ? { id, name: catalogById.get(id).name, position: catalogById.get(id).position, nflTeam: catalogById.get(id).nflTeam, active: true } : null);
-  const rosFor = (id, player) => computeRosPpg({ playerId: id, nflTeam: player?.nflTeam, projectionsByWeek, week });
+  const rosDetailFor = (id, player) => usageAdjustedRosPpg({
+    playerId: id,
+    position: player?.position,
+    nflTeam: player?.nflTeam,
+    projectionsByWeek,
+    week,
+    xfp: usageById.get(id)?.xfp
+  });
+  const rosFor = (id, player) => rosDetailFor(id, player)?.ppg ?? computeRosPpg({ playerId: id, nflTeam: player?.nflTeam, projectionsByWeek, week });
 
   // Pool : index Sleeper complet (ou catalogue en repli), postes fantasy, équipe NFL active.
   // Le catalogue pré-draft ne sert de pool que si l'index Sleeper est indisponible.
@@ -349,7 +368,8 @@ export async function getFreeAgents({
     if (SEVERITY_BY_STATUS[player.injuryStatus] === "ALERT") continue;
     const catalogEntry = catalogById.get(id) || {};
     // Repli étiqueté : sans couverture de projections futures, estimation par rang (ECR catalogue).
-    const projectedRos = rosFor(id, player);
+    const rosDetail = rosDetailFor(id, player);
+    const projectedRos = rosDetail?.ppg ?? computeRosPpg({ playerId: id, nflTeam: player?.nflTeam, projectionsByWeek, week });
     const rankFallback = projectedRos === null && Number.isFinite(catalogEntry.quality?.expertRank ?? catalogEntry.market?.sleeperAdp)
       ? estimateBaselineProjectedPpg({ ...catalogEntry, projectedPpg: undefined, projection: undefined }) : null;
     const rosPpg = projectedRos ?? rankFallback;
@@ -369,7 +389,10 @@ export async function getFreeAgents({
       nflTeam: player.nflTeam,
       injuryStatus: player.injuryStatus,
       rosPpg,
-      rosSource: projectedRos !== null ? "SLEEPER_PROJECTIONS" : rankFallback !== null ? "RANK_ESTIMATE" : "NONE",
+      rosSource: projectedRos !== null ? (rosDetail?.source || "SLEEPER_PROJECTIONS") : rankFallback !== null ? "RANK_ESTIMATE" : "NONE",
+      usageScore: usageById.get(id)?.usageScore ?? null,
+      usageSignal: usageById.get(id)?.signal ?? null,
+      xfp: usageById.get(id)?.xfp ?? null,
       weekProjection: Number.isFinite(weekProjection) ? Number(weekProjection.toFixed(1)) : null,
       effectivePpg: pace.effective,
       signals,
@@ -411,6 +434,9 @@ export async function getFreeAgents({
         duration: row.events.duration,
         snapShare: row.signals.last?.snapShare ?? null,
         opportunities: row.signals.last?.opportunities ?? null,
+        usageScore: row.usageScore,
+        usageSignal: row.usageSignal,
+        xfp: row.xfp,
         ...(fit ? { fit } : {})
       }
     };
