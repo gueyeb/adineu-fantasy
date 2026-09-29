@@ -50,7 +50,9 @@ export function restOfSeasonEstimate(week) {
     const bye = BYE_WEEKS_2026[player.nflTeam];
     // A Sleeper projection already prices a Questionable/Doubtful tag in; only Out/IR adds misses.
     const statusMissed = isOutThisWeek(player) ? GAMES_MISSED_BY_STATUS[injuryStatus(player)] : projection(player) === null ? GAMES_MISSED_BY_STATUS[injuryStatus(player)] || 0 : 0;
-    const missed = statusMissed + (bye >= week && bye <= LAST_REGULAR_WEEK ? 1 : 0);
+    // rosPpg (rest-of-season.js) already averages the bye in as a 0: never subtract it twice.
+    const byeMissed = usageAdjusted === null && bye >= week && bye <= LAST_REGULAR_WEEK ? 1 : 0;
+    const missed = statusMissed + byeMissed;
     return round(healthy * Math.max(0, remaining - missed) / remaining);
   }
 }

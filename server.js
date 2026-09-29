@@ -5,7 +5,7 @@ import { stat } from "node:fs/promises";
 import { createServer } from "node:http";
 import { extname, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { analyzeTrades, formatTradeBulletin } from "./scripts/analyze-trades.js";
+import { analyzeTrades, formatTradeBulletin, loadPlayerValues } from "./scripts/analyze-trades.js";
 import {
   getLeagueContext,
   formatContextText,
@@ -67,6 +67,7 @@ export function createAppServer({
   getInjuryStatuses = getInjuryStatusesDefault,
   getProjections = getWeeklyProjectionsDefault,
   getUsage = getUsageReportDefault,
+  getPlayerValues = loadPlayerValues,
   coachToken = process.env.COACH_API_TOKEN || "",
   coachPassword = process.env.COACH_WEB_PASSWORD || "",
   secureCookies = process.env.NODE_ENV !== "development"
@@ -155,6 +156,16 @@ export function createAppServer({
           return;
         }
         sendJson(response, 200, { ...report, message });
+      } catch (error) {
+        sendJson(response, 502, { error: error.message });
+      }
+      return;
+    }
+
+    if (url.pathname === "/api/player-values") {
+      try {
+        const { week, byId } = await getPlayerValues();
+        sendJson(response, 200, { week, players: Object.fromEntries(byId) });
       } catch (error) {
         sendJson(response, 502, { error: error.message });
       }

@@ -134,3 +134,15 @@ test("exhaustive lineup search finds a bilateral swap and never lists a trade th
   assert.ok(proposals.length > 0);
   assert.ok(proposals.every(proposal => proposal.recommendationScore.my_lineup_delta > 0 && proposal.recommendationScore.their_lineup_delta >= 0));
 });
+
+test("proposals are diversified: at most 2 per partner before any third one from the same partner", () => {
+  const p = (name, position, projectedPpg, rank) => ({ sleeperId: name, name, position, projectedPpg, quality: { expertRank: rank } });
+  const core = x => [p(`${x}QB`, "QB", 18, 60), p(`${x}TE`, "TE", 9, 90), p(`${x}K`, "K", 8, 150), p(`${x}DEF`, "DEF", 8, 150)];
+  const mine = [...core("M"), p("MRB1", "RB", 16, 20), p("MRB2", "RB", 15, 24), p("MRB3", "RB", 14, 30), p("MRB4", "RB", 13, 36), p("MRB5", "RB", 12.5, 38), p("MWR1", "WR", 16, 22), p("MWR2", "WR", 6, 110)];
+  const partner = x => [...core(x), p(`${x}WR1`, "WR", 16, 21), p(`${x}WR2`, "WR", 15, 25), p(`${x}WR3`, "WR", 14, 31), p(`${x}WR4`, "WR", 13, 35), p(`${x}WR5`, "WR", 12.5, 37), p(`${x}RB1`, "RB", 16, 23), p(`${x}RB2`, "RB", 6, 115)];
+  const rosters = [{ roster_id: 1, players: mine }, { roster_id: 2, players: partner("A") }, { roster_id: 3, players: partner("B") }];
+  const proposals = findTradeProposals({ targetRosterId: 1, rosters, currentWeek: 4 });
+  const firstFour = proposals.slice(0, 4).map(proposal => proposal.partnerRosterId);
+  assert.equal(firstFour.filter(id => id === 2).length, 2);
+  assert.equal(firstFour.filter(id => id === 3).length, 2);
+});

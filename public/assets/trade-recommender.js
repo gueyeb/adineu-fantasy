@@ -8,7 +8,7 @@
  */
 
 import { calculatePlayerTradeValue, evaluateTrade } from "./trade-value.js?v=3";
-import { buildProjectedLineup, restOfSeasonEstimate, scoreTradeRecommendation } from "./trade-score.js?v=4";
+import { buildProjectedLineup, restOfSeasonEstimate, scoreTradeRecommendation } from "./trade-score.js?v=5";
 import { playerKey, preferenceAdjustment } from "./trade-preferences.js?v=1";
 
 export const KNOWN_HANDCUFFS = [
@@ -47,6 +47,7 @@ function decorateProposal(proposal, myPlayers, theirPlayers, week = null) {
 const FAIR_VERDICTS = new Set(["FAIR", "SLIGHT_ADVANTAGE_A", "SLIGHT_ADVANTAGE_B"]);
 const TRADEABLE = new Set(["QB", "RB", "WR", "TE"]);
 const LINEUP_SEARCH_PER_PARTNER = 3;
+export const MAX_PROPOSALS_PER_PARTNER = 2;
 
 /** Exhaustive 1-for-1, 2-for-1 and 1-for-2 search between two rosters, kept only when BOTH optimal
  * lineups improve (rest of season) and the market values are close enough to be accepted. This is
@@ -366,7 +367,18 @@ export function findTradeProposals({ targetRosterId, rosters = [], playerCatalog
     }
   }
 
-  return uniqueProposals.sort((a, b) => b.score - a.score).slice(0, 15);
+  // Diversité : d'abord les 2 meilleures propositions de chaque partenaire (par score), puis le reste.
+  // Une liste variée vaut mieux que 4 variantes du même deal ; rien n'est supprimé s'il y a de la place.
+  const sorted = uniqueProposals.sort((a, b) => b.score - a.score);
+  const perPartner = new Map();
+  const head = [];
+  const tail = [];
+  for (const proposal of sorted) {
+    const count = perPartner.get(proposal.partnerRosterId) || 0;
+    perPartner.set(proposal.partnerRosterId, count + 1);
+    (count < MAX_PROPOSALS_PER_PARTNER ? head : tail).push(proposal);
+  }
+  return [...head, ...tail].slice(0, 15);
 }
 
 /** Bounded neighboring offers for the same target; never fabricate a beneficial deal. */

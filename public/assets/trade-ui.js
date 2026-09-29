@@ -5,7 +5,7 @@
  */
 
 import { calculatePlayerTradeValue, calculatePlayerTradeProfile, evaluateTrade } from "./trade-value.js?v=3";
-import { diagnoseRoster, findTradeProposals, findCounterOffers } from "./trade-recommender.js?v=6";
+import { diagnoseRoster, findTradeProposals, findCounterOffers } from "./trade-recommender.js?v=7";
 import { PLAYER_STATUSES, playerKey, playerStatus } from "./trade-preferences.js?v=1";
 import {
   GENERAL_SETTINGS_2026,
@@ -15,7 +15,7 @@ import {
 import { resolveOperationalWeek } from "./nfl-week.js?v=1";
 import { listRosterIdentities } from "./roster-view.js?v=1";
 import { calculateFaabRemaining } from "./team-metrics.js?v=2";
-import { buildProjectedLineup, restOfSeasonEstimate } from "./trade-score.js?v=3";
+import { buildProjectedLineup, restOfSeasonEstimate } from "./trade-score.js?v=5";
 
 const SLEEPER_LEAGUE_ID = "1392715510830878721";
 const SLEEPER_API = "https://api.sleeper.app/v1";
@@ -76,10 +76,11 @@ export async function renderTradesPage(container) {
   let season = "2026";
   const playerWeeklyScores = new Map();
   // Statuts blessure Sleeper (Out/IR…), servis par notre API (le dump Sleeper fait ~15 Mo).
-  const injuryStatuses = await fetch("/api/player-status")
-    .then(res => res.ok ? res.json() : { statuses: {} })
-    .then(body => body.statuses || {})
-    .catch(() => ({}));
+  // Valeur reste de saison (projections + usage) et signaux d'usage : même calcul que /api/trades et n8n.
+  const [injuryStatuses, playerValues] = await Promise.all([
+    fetch("/api/player-status").then(res => res.ok ? res.json() : { statuses: {} }).then(body => body.statuses || {}).catch(() => ({})),
+    fetch("/api/player-values").then(res => res.ok ? res.json() : { players: {} }).then(body => body.players || {}).catch(() => ({}))
+  ]);
 
   try {
     const [rRes, uRes, stateRes] = await Promise.all([
@@ -151,6 +152,7 @@ export async function renderTradesPage(container) {
         const found = playerMap.get(pid);
         const player = found ? { ...found } : { sleeperId: pid, name: `Player #${pid}`, position: "FLEX" };
         if (injuryStatuses[pid]) player.injuryStatus = injuryStatuses[pid];
+        Object.assign(player, playerValues[pid] || {});
         const proj = weeklyProjections[pid];
         if (proj && typeof proj.pts_ppr === "number") {
           player.projectedPpg = Number(proj.pts_ppr.toFixed(1));
@@ -252,94 +254,47 @@ export async function renderTradesPage(container) {
             Aucun trade bilatéral évident n'a été détecté pour cette configuration d'équipe.
           </div>
         ` : `
-          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(360px, 1fr)); gap:20px;">
+          <p class="note" style="margin:0 0 16px;">Gains = moyenne hebdo de la <strong>lineup optimale</strong> projetée, semaines ${currentWeek ?? "?"}→${GENERAL_SETTINGS_2026.playoffWeekStart - 1} (projections Sleeper + usage, blessures et byes inclus). « Marché » compare la valeur d'échange des deux côtés. Estimations Adineu, pas des garanties.</p>
+          <div class="tf-grid">
             ${proposals.map((p, index) => {
               const score = p.recommendationScore;
-              const delta = value => value === null ? "Indisponible" : `${value >= 0 ? "+" : ""}${value} pts/sem`;
-              const catBadge = p.category === "HANDCUFF_INSURANCE"
-                ? `<span style="background:rgba(255,180,67,0.15); color:var(--gold); border:1px solid var(--gold); font-size:0.7rem; padding:3px 8px; border-radius:3px; font-weight:700;">🔒 SÉCURITÉ MENOTTE</span>`
-                : p.category === "WIN_WIN"
-                ? `<span style="background:rgba(184,255,61,0.15); color:var(--grass); border:1px solid var(--grass); font-size:0.7rem; padding:3px 8px; border-radius:3px; font-weight:700;">🤝 WIN-WIN</span>`
-                : `<span style="background:rgba(159,177,168,0.15); color:var(--ink); border:1px solid var(--line); font-size:0.7rem; padding:3px 8px; border-radius:3px; font-weight:700;">${p.category === "CONSOLIDATION" ? "⚡ CONSOLIDATION" : p.category === "LINEUP_UPGRADE" ? "📈 UPGRADE LINEUP" : "ÉCHANGE À ÉTUDIER"}</span>`;
-
-              const verdictColor = p.evaluation.verdict === "FAIR" ? "var(--grass)" : "var(--gold)";
-
+              const delta = value => value === null ? "—" : `${value > 0 ? "+" : ""}${value}`;
+              const badge = { HANDCUFF_INSURANCE: ["gold", "🔒 Menotte"], WIN_WIN: ["grass", "🤝 Win-win"], CONSOLIDATION: ["", "⚡ Consolidation"], LINEUP_UPGRADE: ["", "📈 Upgrade lineup"] }[p.category] || ["", "À étudier"];
+              const gap = p.evaluation.pctDiff;
+              const market = p.evaluation.verdict === "FAIR" ? ["grass", "Marché équilibré"]
+                : p.evaluation.sideA.netTotal > p.evaluation.sideB.netTotal ? ["gold", `Marché : tu donnes +${gap} %`] : ["gold", `Marché : tu reçois +${gap} %`];
+              const usageChip = player => player.signal === "BUY_LOW" ? `<span class="chip chip-grass">🟢 Buy-low</span>` : player.signal === "SELL_HIGH" ? `<span class="chip chip-gold">🔥 Sell-high</span>` : "";
+              const playerLine = player => `
+                <div class="tf-player">
+                  <div><strong>${escapeHtml(player.name)}</strong> <small>${escapeHtml(player.position)}${player.nflTeam ? ` · ${escapeHtml(player.nflTeam)}` : ""}${player.injuryStatus ? ` · <span class="tf-injury">${escapeHtml(player.injuryStatus)}</span>` : ""}</small></div>
+                  <div class="tf-meta">${Number.isFinite(player.rosPpg) ? `ROS ${player.rosPpg}` : typeof player.projectedPpg === "number" ? `Proj. ${player.projectedPpg}` : ""}${typeof player.actualPpg === "number" ? ` · Moy. ${player.actualPpg}` : ""}${Number.isFinite(player.usageScore) ? ` · Usage ${player.usageScore}` : ""} ${usageChip(player)}</div>
+                </div>`;
               return `
-                <div class="card" style="background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:20px; display:flex; flex-direction:column; justify-content:space-between;">
-                  <div>
-                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
-                      <div>
-                        ${catBadge}
-                        <h4 style="margin:8px 0 2px; font-size:1rem; color:var(--ink);">${escapeHtml(p.partnerName)}</h4>
-                      </div>
-                      <div style="text-align:right;">
-                        <span style="font-size:0.75rem; color:${verdictColor}; font-weight:700; display:block;">${p.evaluation.label}</span>
-                        <span style="font-size:0.7rem; color:var(--muted);">Valeur marché uniquement</span>
-                      </div>
-                    </div>
-
-                    <div class="trade-impact-grid">
-                      <div><small>Ta lineup</small><strong>${delta(score.my_lineup_delta)}</strong></div>
-                      <div><small>Sa lineup</small><strong>${delta(score.their_lineup_delta)}</strong></div>
-                    </div>
-                    <p class="note">Faisabilité : ${escapeHtml(score.tradeability)} · Confiance : ${{ HIGH: "bonne", MEDIUM: "moyenne (blessure)", LOW: "faible" }[score.confidence]}. ${score.horizon === "ROS" ? `Moyenne hebdo projetée, semaines ${currentWeek}→${GENERAL_SETTINGS_2026.playoffWeekStart - 1} (blessures et byes inclus)` : "Estimation de la semaine"} : estimation Adineu, pas une garantie.</p>
-                    ${score.warnings.length ? `<p class="note">⚠ ${score.warnings.map(escapeHtml).join(" · ")}</p>` : ""}
-                    ${score.notes?.length ? `<p class="note">ℹ ${score.notes.map(escapeHtml).join(" · ")}</p>` : ""}
-                    ${index === 0 ? `<details class="trade-lineup-detail"><summary>Lineups avant → après</summary>
-                      ${[["Ton équipe", score.lineups.mine], [p.partnerName, score.lineups.theirs]].map(([name, lineups]) => `<h5>${escapeHtml(name)}</h5><div class="table-wrap"><table><thead><tr><th>Slot</th><th>Avant</th><th>Après</th></tr></thead><tbody>${lineups.before.slots.map((slot, i) => `<tr><td>${escapeHtml(slot.slot)}</td><td>${escapeHtml(slot.name)} · ${slot.projectedPpg ?? "—"}</td><td>${escapeHtml(lineups.after.slots[i].name)} · ${lineups.after.slots[i].projectedPpg ?? "—"}</td></tr>`).join("")}</tbody></table></div>`).join("")}
-                      <p class="note">Lineups optimales projetées (moyenne reste de saison), pas les titulaires actuellement choisis. Les acquisitions futures ne sont pas simulées.</p></details>` : ""}
-
-                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:14px 0; padding:12px; background:var(--paper-soft); border-radius:4px; border:1px solid var(--line);">
-                      <div>
-                        <span style="font-size:0.68rem; text-transform:uppercase; color:var(--red); font-weight:700; display:block; margin-bottom:6px;">Tu Cèdes</span>
-                        ${p.give.map(g => `
-                          <div style="font-size:0.85rem; font-weight:600; margin-bottom:2px;">
-                            ${escapeHtml(g.name)} <small style="color:var(--muted);">(${escapeHtml(g.position)})</small>
-                          </div>
-                          <div style="font-size:0.7rem; color:var(--muted); margin-bottom:6px;">
-                            ${typeof g.projectedPpg === "number" ? `Proj: <strong>${g.projectedPpg}</strong>` : ""}
-                            ${typeof g.actualPpg === "number" ? ` · Moyenne (${g.gamesPlayed || 1} match${g.gamesPlayed > 1 ? "s" : ""}): <strong>${g.actualPpg}</strong>` : ""}
-                            ${g.signal === "BUY_LOW" ? ` · <span style="color:var(--grass); font-weight:700;">🟢 Buy-Low</span>` : ""}
-                            ${g.signal === "SELL_HIGH" ? ` · <span style="color:var(--gold); font-weight:700;">🔥 Sell-High</span>` : ""}
-                          </div>
-                        `).join("")}
-                        <div style="font-size:0.7rem; color:var(--muted); margin-top:4px; border-top:1px dashed var(--line); padding-top:4px;">
-                          Valeur nette : <strong>${p.evaluation.sideA.netTotal}</strong> pts
-                        </div>
-                      </div>
-                      <div>
-                        <span style="font-size:0.68rem; text-transform:uppercase; color:var(--grass); font-weight:700; display:block; margin-bottom:6px;">Tu Reçois</span>
-                        ${p.receive.map(r => `
-                          <div style="font-size:0.85rem; font-weight:600; margin-bottom:2px;">
-                            ${escapeHtml(r.name)} <small style="color:var(--muted);">(${escapeHtml(r.position)})</small>
-                          </div>
-                          <div style="font-size:0.7rem; color:var(--muted); margin-bottom:6px;">
-                            ${typeof r.projectedPpg === "number" ? `Proj: <strong>${r.projectedPpg}</strong>` : ""}
-                            ${typeof r.actualPpg === "number" ? ` · Moyenne (${r.gamesPlayed || 1} match${r.gamesPlayed > 1 ? "s" : ""}): <strong>${r.actualPpg}</strong>` : ""}
-                            ${r.signal === "BUY_LOW" ? ` · <span style="color:var(--grass); font-weight:700;">🟢 Buy-Low</span>` : ""}
-                            ${r.signal === "SELL_HIGH" ? ` · <span style="color:var(--gold); font-weight:700;">🔥 Sell-High</span>` : ""}
-                          </div>
-                        `).join("")}
-                        <div style="font-size:0.7rem; color:var(--muted); margin-top:4px; border-top:1px dashed var(--line); padding-top:4px;">
-                          Valeur nette : <strong>${p.evaluation.sideB.netTotal}</strong> pts
-                        </div>
-                      </div>
-                    </div>
-
-                    <button type="button" class="counter-offer-btn filter-btn" data-index="${index}">Explorer les contre-offres</button>
-                    <div id="counter-offers-${index}" aria-live="polite"></div>
-                    <div style="font-size:0.8rem; color:var(--ink); margin-bottom:8px;">
-                      <strong>🎯 Impact :</strong> ${escapeHtml(p.pitchTarget)}
-                    </div>
-                    <div style="font-size:0.8rem; color:var(--muted); margin-bottom:14px;">
-                      <strong>💬 Pitch :</strong> "${escapeHtml(p.pitchPartner)}"
-                    </div>
+                <article class="tf-card">
+                  <header class="tf-head">
+                    <div><span class="chip ${badge[0] ? `chip-${badge[0]}` : ""}">${badge[1]}</span><h4>${escapeHtml(p.partnerName)}</h4></div>
+                    <span class="chip chip-${market[0]}">${escapeHtml(market[1])}</span>
+                  </header>
+                  <div class="trade-impact-grid">
+                    <div><small>Ta lineup</small><strong>${delta(score.my_lineup_delta)} <em>pts/sem</em></strong></div>
+                    <div><small>Sa lineup</small><strong>${delta(score.their_lineup_delta)} <em>pts/sem</em></strong></div>
                   </div>
-
-                  <button type="button" class="copy-pitch-btn filter-btn" data-pitch="${escapeHtml(`Salut ! Que penses-tu de cet échange : je te propose ${p.give.map(g => g.name).join(" + ")} contre ${p.receive.map(r => r.name).join(" + ")} ? ${p.pitchPartner}`)}" style="width:100%; text-align:center; padding:8px; font-size:0.75rem;">
-                    📋 Copier le message de négociation
-                  </button>
-                </div>
+                  <div class="tf-sides">
+                    <div class="tf-side tf-give"><span class="tf-label">Tu cèdes</span>${p.give.map(playerLine).join("")}<small class="tf-value">Valeur marché ${p.evaluation.sideA.netTotal}</small></div>
+                    <div class="tf-side tf-receive"><span class="tf-label">Tu reçois</span>${p.receive.map(playerLine).join("")}<small class="tf-value">Valeur marché ${p.evaluation.sideB.netTotal}</small></div>
+                  </div>
+                  <p class="tf-status">Faisabilité <strong>${escapeHtml(score.tradeability)}</strong> · Confiance <strong>${{ HIGH: "bonne", MEDIUM: "moyenne", LOW: "faible" }[score.confidence]}</strong>${score.usageAdjustment ? ` · Usage ${score.usageAdjustment > 0 ? "+" : ""}${score.usageAdjustment}` : ""}</p>
+                  ${score.warnings.length ? `<p class="note">⚠ ${score.warnings.map(escapeHtml).join(" · ")}</p>` : ""}
+                  ${score.notes?.length ? `<p class="note">ℹ ${score.notes.map(escapeHtml).join(" · ")}</p>` : ""}
+                  <details class="trade-lineup-detail"><summary>Lineups avant → après</summary>
+                    ${[["Ton équipe", score.lineups.mine], [p.partnerName, score.lineups.theirs]].map(([name, lineups]) => `<h5>${escapeHtml(name)}</h5><div class="table-wrap"><table><thead><tr><th>Slot</th><th>Avant</th><th>Après</th></tr></thead><tbody>${lineups.before.slots.map((slot, i) => `<tr><td>${escapeHtml(slot.slot)}</td><td>${escapeHtml(slot.name)} · ${slot.projectedPpg ?? "—"}</td><td>${escapeHtml(lineups.after.slots[i].name)} · ${lineups.after.slots[i].projectedPpg ?? "—"}</td></tr>`).join("")}</tbody></table></div>`).join("")}
+                  </details>
+                  <div id="counter-offers-${index}" aria-live="polite"></div>
+                  <div class="tf-actions">
+                    <button type="button" class="counter-offer-btn filter-btn" data-index="${index}">Contre-offres</button>
+                    <button type="button" class="copy-pitch-btn filter-btn" data-pitch="${escapeHtml(`Salut ! Que penses-tu de cet échange : je te propose ${p.give.map(g => g.name).join(" + ")} contre ${p.receive.map(r => r.name).join(" + ")} ? ${p.pitchPartner}`)}">📋 Copier le message</button>
+                  </div>
+                </article>
               `;
             }).join("")}
           </div>
@@ -561,23 +516,27 @@ export async function renderTradesPage(container) {
     const faabRemaining = rawRoster ? calculateFaabRemaining(GENERAL_SETTINGS_2026.waiver.budget, rawRoster.settings?.waiver_budget_used) : null;
 
     const positionOrder = ["QB", "RB", "WR", "TE", "K", "DEF"];
+    const money = range => range && range[1] > 0 ? `${range[0]}–${range[1]} $` : "—";
+    const usageCell = w => Number.isFinite(w.usageScore) ? `${w.usageScore}${w.usageSignal === "BUY_LOW" ? " 🟢" : w.usageSignal === "SELL_HIGH" ? " 🔥" : ""}` : "—";
     const positionCards = positionOrder
       .map(pos => {
         const players = report.byPosition?.[pos] || [];
         if (players.length === 0) return "";
         return `
-          <div class="card" style="background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:18px;">
-            <h4 style="margin:0 0 12px; font-size:0.95rem; color:var(--grass); text-transform:uppercase;">${pos}</h4>
-            ${players.map((p, i) => `
-              <div style="display:flex; justify-content:space-between; gap:8px; padding:6px 0; border-bottom:1px solid var(--line); font-size:0.82rem;">
-                <span><strong>${i + 1}.</strong> ${escapeHtml(p.name)} <small style="color:var(--muted);">(${escapeHtml(p.nflTeam || "FA")})</small></span>
-                <span style="color:var(--muted); font-size:0.72rem; white-space:nowrap;">
-                  ${p.waiver ? `${p.waiver.newsOverride ? "⚡ " : ""}${escapeHtml(p.waiver.category)} · ROS ${p.waiver.rosPpg ?? "n/d"}${p.waiver.rosSource === "RANK_ESTIMATE" ? " (rang)" : p.waiver.rosSource === "SLEEPER_USAGE_BLEND" ? " (proj.+usage)" : ""}${Number.isFinite(p.waiver.usageScore) ? ` · Usage ${p.waiver.usageScore}` : ""}${p.waiver.usageSignal === "BUY_LOW" ? " · 🟢 Buy-low" : p.waiver.usageSignal === "SELL_HIGH" ? " · 🔥 Sell-high" : ""} · Marché ${p.waiver.faabPct[0]}–${p.waiver.faabPct[1]}%${p.waiver.fit ? ` · Fit ${p.waiver.fit.fitScore}` : ""}` : ""}
-                </span>
-              </div>
-            `).join("")}
-          </div>
-        `;
+          <h4 class="fa-pos">${pos}</h4>
+          <div class="table-wrap fa-table"><table>
+            <colgroup><col class="fa-col-player"><col class="fa-col-cat"><col><col><col class="fa-col-money"><col><col class="fa-col-money"></colgroup>
+            <thead><tr><th>Joueur</th><th>Catégorie</th><th class="num" title="Points par semaine attendus d'ici la S14 (rôle actuel inclus)">Pts/sem</th><th class="num">Usage</th><th class="num">FAAB marché</th><th class="num">Fit</th><th class="num">Max pour toi</th></tr></thead>
+            <tbody>${players.map(p => `<tr>
+              <td><strong>${escapeHtml(p.name)}</strong> <small>${escapeHtml(p.nflTeam || "FA")}${p.injuryStatus ? ` · ${escapeHtml(p.injuryStatus)}` : ""}</small>${p.waiver?.newsOverride ? `<br><small class="fa-news">⚡ ${escapeHtml(p.waiver.reasons.join(" · "))}</small>` : ""}</td>
+              <td>${escapeHtml(p.waiver?.category || "—")}</td>
+              <td class="num" title="${escapeHtml({ SLEEPER_USAGE_BLEND: "Base : projections Sleeper + usage", RANK_ESTIMATE: "Base : estimation par rang", SLEEPER_PROJECTIONS: "Base : projections Sleeper" }[p.waiver?.rosSource] || "")}">${Number.isFinite(p.effectivePpg) ? p.effectivePpg : p.waiver?.rosPpg ?? "—"}${p.waiver?.rosSource === "RANK_ESTIMATE" ? "*" : ""}${Number.isFinite(p.effectivePpg) && Number.isFinite(p.waiver?.rosPpg) && Math.abs(p.effectivePpg - p.waiver.rosPpg) >= 0.5 ? `<br><small>ROS ${p.waiver.rosPpg}</small>` : ""}</td>
+              <td class="num">${p.waiver ? usageCell(p.waiver) : "—"}</td>
+              <td class="num">${money(p.waiver?.faabMarket)}</td>
+              <td class="num">${p.waiver?.fit ? p.waiver.fit.fitScore : "—"}</td>
+              <td class="num"><strong>${p.waiver?.fit && p.waiver.fit.faabMaxForMe > 0 ? `${p.waiver.fit.faabMaxForMe} $` : "—"}</strong></td>
+            </tr>`).join("")}</tbody>
+          </table></div>`;
       })
       .join("");
 
@@ -628,8 +587,7 @@ export async function renderTradesPage(container) {
           </div>
         `}
 
-        ${(report.trending || []).length ? `
-          <h3 style="margin:0 0 6px; font-size:1.2rem;">Tendances Sleeper · 48 h</h3>
+        ${(report.trending || []).length ? `<details class="trade-lineup-detail fold-section"><summary>Tendances Sleeper · 48 h — ${report.trending.filter(t => !t.rostered).length} joueur(s) encore libre(s)</summary>
           <p class="note" style="margin:0 0 12px;">Joueurs les plus ajoutés sur toute la plateforme Sleeper, croisés avec la ligue Adineu et le modèle waiver.</p>
           <div class="table-wrap" style="margin-bottom:28px;"><table>
             <thead><tr><th>Joueur</th><th class="num">Ajouts</th><th>Dans Adineu</th><th>Marché</th><th>Max pour toi</th></tr></thead>
@@ -640,10 +598,9 @@ export async function renderTradesPage(container) {
               <td>${t.waiver ? `${escapeHtml(t.waiver.category)} · ${t.waiver.faabMarket[0]}–${t.waiver.faabMarket[1]} $` : "—"}</td>
               <td>${t.waiver?.fit ? `${t.waiver.fit.faabMaxForMe} $` : "—"}</td>
             </tr>`).join("")}</tbody>
-          </table></div>` : ""}
+          </table></div></details>` : ""}
 
-        ${(report.faabHistory || []).length ? `
-          <h3 style="margin:0 0 6px; font-size:1.2rem;">Historique FAAB de la ligue</h3>
+        ${(report.faabHistory || []).length ? `<details class="trade-lineup-detail fold-section"><summary>Historique FAAB de la ligue — ${report.faabHistory.length} enchères, max ${report.faabHistory[0].bid} $</summary>
           <p class="note" style="margin:0 0 12px;">Enchères gagnées cette saison (Sleeper). ${Object.entries(report.faabByPosition || {}).map(([pos, stat]) => `${escapeHtml(pos)} : médiane ${stat.median} $ · max ${stat.max} $`).join(" · ")}</p>
           <div class="table-wrap" style="margin-bottom:28px;"><table>
             <thead><tr><th>Sem.</th><th>Joueur</th><th>Équipe</th><th class="num">Enchère</th></tr></thead>
@@ -653,7 +610,7 @@ export async function renderTradesPage(container) {
               <td>${escapeHtml(c.team || "?")}</td>
               <td class="num"><strong>${c.bid} $</strong></td>
             </tr>`).join("")}</tbody>
-          </table></div>` : ""}
+          </table></div></details>` : ""}
 
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; margin-bottom:24px;">
           <div>
@@ -662,7 +619,8 @@ export async function renderTradesPage(container) {
           </div>
           <button type="button" id="copy-waiver-btn" class="filter-btn" style="padding:8px 14px; font-size:0.75rem;">📋 Copier le rapport Waiver Wire</button>
         </div>
-        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:20px;">
+        <p class="note" style="margin:0 0 8px;">Pts/sem = points attendus par semaine d'ici la S14, rôle actuel inclus (sous-ligne ROS = projection de base quand un événement ⚡ la modifie ; * = estimation par rang). Usage = Usage Score 0–100 (🟢 buy-low, 🔥 sell-high). Fit = part de la valeur qui passe dans <em>ta</em> lineup.</p>
+        <div>
           ${positionCards || `<div class="card" style="padding:24px; text-align:center; color:var(--muted);">Aucun free agent trouvé.</div>`}
         </div>
       </div>
