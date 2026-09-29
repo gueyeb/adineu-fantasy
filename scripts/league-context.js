@@ -18,6 +18,7 @@ import {
 import { resolveOperationalWeek, resolveLastCompletedWeek } from "../public/assets/nfl-week.js";
 import { findRosterByTeam, buildStarterSlotOrder, buildRosterSlots, listRosterIdentities } from "../public/assets/roster-view.js";
 import { buildFaabHistory, buildTrendingAdds, summarizeFaabByPosition } from "../public/assets/league-market.js";
+import { buildPlayerWeeks, calculateUsageScores } from "../public/assets/usage-score.js";
 import { calculateFaabRemaining } from "../public/assets/team-metrics.js";
 import { restOfSeasonEstimate } from "../public/assets/trade-score.js";
 import { estimateBaselineProjectedPpg } from "../public/assets/trade-value.js";
@@ -80,6 +81,7 @@ export async function getPlayersIndex({ fetchImpl = fetch, forceRefresh = false 
       injuryStatus: player.injury_status || null,
       injuryBodyPart: player.injury_body_part || null,
       depthOrder: Number.isFinite(player.depth_chart_order) ? player.depth_chart_order : null,
+      teamChangedAt: Number.isFinite(player.team_changed_at) ? player.team_changed_at : null,
       searchRank: Number.isFinite(player.search_rank) ? player.search_rank : null,
       active: player.active !== false
     });
@@ -215,6 +217,54 @@ async function cachedWeekly(path, fetchImpl) {
   const data = await sleeperGet(path, { fetchImpl });
   cache.set(path, { at: Date.now(), data });
   return data;
+}
+
+/**
+ * Usage Score (docs/prd-usage-score.md) : parts d'usage des 3 dernières semaines terminées,
+ * points attendus (xFP) et signaux buy-low / sell-high, pour tous les RB/WR/TE ayant joué,
+ * avec l'équipe Adineu qui les détient. `team` = l'équipe analysée (ses joueurs sont marqués `mine`).
+ */
+export async function getUsageReport({ leagueId = DEFAULT_SLEEPER_LEAGUE_ID, fetchImpl = fetch, team = null, weeksBack = 3 } = {}) {
+  const [rosters, users, nflState] = await Promise.all([
+    sleeperGet(`/league/${leagueId}/rosters`, { fetchImpl }),
+    sleeperGet(`/league/${leagueId}/users`, { fetchImpl }),
+    sleeperGet("/state/nfl", { fetchImpl }).catch(() => ({}))
+  ]);
+  // Équipe inconnue : 404 avant tout le travail coûteux.
+  const mine = team ? findRosterByTeam(rosters, users, team).roster.roster_id : null;
+  const season = nflState?.season || "2026";
+  const lastCompletedWeek = resolveLastCompletedWeek(nflState);
+  const index = await getPlayersIndex({ fetchImpl });
+  const statsByWeek = [];
+  for (let w = Math.max(1, lastCompletedWeek - weeksBack + 1); w <= lastCompletedWeek && lastCompletedWeek > 0; w++) {
+    try { statsByWeek.push({ week: w, stats: await cachedWeekly(`/stats/nfl/regular/${season}/${w}`, fetchImpl) }); } catch {}
+  }
+  // Les stats hebdo Sleeper n'ont pas d'équipe : on prend l'équipe actuelle, sauf pour les semaines
+  // jouées avant un transfert (team_changed_at), exclues plutôt qu'attribuées à la mauvaise équipe.
+  const seasonStart = Date.parse(nflState?.season_start_date || "2026-09-09");
+  const weekEnd = week => seasonStart + week * 7 * 24 * 3600 * 1000;
+  const teamOf = (id, week) => {
+    const player = index.get(id);
+    if (!player?.nflTeam) return null;
+    return Number.isFinite(player.teamChangedAt) && player.teamChangedAt > weekEnd(week) && player.teamChangedAt > seasonStart ? null : player.nflTeam;
+  };
+  const rows = buildPlayerWeeks(statsByWeek, { teamOf, positionOf: id => index.get(id)?.position });
+  const { players, models } = calculateUsageScores(rows);
+
+  const identities = listRosterIdentities(rosters, users);
+  const ownerOf = new Map(identities.flatMap(({ roster, teamName }) => (roster.players || []).map(id => [id, { rosterId: roster.roster_id, teamName }])));
+  return {
+    generatedAt: new Date().toISOString(),
+    weeks: statsByWeek.map(entry => entry.week),
+    degraded: statsByWeek.length < Math.min(weeksBack, lastCompletedWeek),
+    models,
+    team: team || null,
+    players: players.map(player => {
+      const meta = index.get(player.playerId) || {};
+      const owner = ownerOf.get(player.playerId) || null;
+      return { ...player, name: meta.name || `Player #${player.playerId}`, injuryStatus: meta.injuryStatus || null, owner: owner?.teamName || null, mine: mine !== null && owner?.rosterId === mine };
+    })
+  };
 }
 
 /** Projections Sleeper d'une semaine (cache 1 h), pour le Start/Sit Advisor. */

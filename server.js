@@ -11,6 +11,7 @@ import {
   formatContextText,
   getFreeAgents as getFreeAgentsDefault,
   getWeeklyProjections as getWeeklyProjectionsDefault,
+  getUsageReport as getUsageReportDefault,
   formatWaiverReport
 } from "./scripts/league-context.js";
 import {
@@ -65,6 +66,7 @@ export function createAppServer({
   getFreeAgents = getFreeAgentsDefault,
   getInjuryStatuses = getInjuryStatusesDefault,
   getProjections = getWeeklyProjectionsDefault,
+  getUsage = getUsageReportDefault,
   coachToken = process.env.COACH_API_TOKEN || "",
   coachPassword = process.env.COACH_WEB_PASSWORD || "",
   secureCookies = process.env.NODE_ENV !== "development"
@@ -155,6 +157,16 @@ export function createAppServer({
         sendJson(response, 200, { ...report, message });
       } catch (error) {
         sendJson(response, 502, { error: error.message });
+      }
+      return;
+    }
+
+    if (url.pathname === "/api/usage") {
+      try {
+        sendJson(response, 200, await getUsage({ team: url.searchParams.get("team") || null }));
+      } catch (error) {
+        const isUnknownTeam = error.message.startsWith("Équipe Sleeper inconnue");
+        sendJson(response, isUnknownTeam ? 404 : 502, { error: error.message });
       }
       return;
     }

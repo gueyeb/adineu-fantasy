@@ -96,6 +96,10 @@ Onglets :
   réel de TA lineup optimale, « Max pour toi » plafonné par ton FAAB). Jamais d'enchère exprimée en % de réussite.
 - **Start/Sit Advisor** : alerte sur slot vide, blessure, bye ; propose un remplaçant (banc puis FA) ; **lineup optimisée** vs actuelle (gain en points, jamais un joueur Out titularisé).
 - **Waiver Wire, signaux de ligue** : tendances Sleeper 48 h (ajouts plateforme croisés avec la ligue et le modèle) et **historique FAAB** des enchères gagnées (médiane et max par poste).
+- **Usage & Buy-Low** (`docs/prd-usage-score.md`) : Usage Score 0–100 (part de l'attaque de son
+  équipe : targets, air yards, snaps, courses, red zone), points attendus (xFP) selon le volume, et
+  signaux buy-low (produit sous son volume) / sell-high (au-dessus, hors usage élite). Par équipe :
+  cibles à acheter, joueurs à vendre, roster, free agents à fort usage.
 - **Règles & Scoring 2026**.
 
 Bulletin automatique : chaque mardi, n8n appelle `/api/trades?team=t0z` et envoie le message.
@@ -182,6 +186,7 @@ mercredi 09:00 (Paris) ; lineups à fixer avant chaque match.
 - `docs/prd-adineu-projection-model.md` : modèle de projection (chantier 2)
 - `docs/prd-waiver-model-v2.md` : modèle waiver v2 (Market vs Fit, NEWS_OVERRIDE)
 - `docs/benchmark-fantasylife.md` : comparatif Fantasy Life et fonctionnalités à reproduire
+- `docs/prd-usage-score.md` : Usage Score et buy-low / sell-high
 - `docs/prd-playoff-probabilities.md` : probabilités de playoffs
 - `docs/prd-waiver-opportunity-cost.md` : coût d'opportunité waiver
 - `docs/prd-team-page.md`, `docs/prd-team-page-increment3.md` : page équipe

@@ -33,7 +33,7 @@ Xfinity) ne sont connues que par leur description.
 6. Start/Sit : bouton « lineup optimisée », avec le gain en points vs la lineup actuelle.
 
 **Lot 2 : modèle (chantier 2) — validé, prochain**
-7. Adineu Usage Score + buy-low / sell-high (Trade Finder et page équipe).
+7. ✅ Adineu Usage Score + buy-low / sell-high (livré le 29/09 : onglet Usage du Trade Hub ; intégration Trade Finder / page équipe à suivre).
 8. Boom / Bust % et lineups Boom / Safe (variance par joueur).
 
 **Lot 3**

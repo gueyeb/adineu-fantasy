@@ -88,3 +88,20 @@ test("getFreeAgents never recommends a player Sleeper has marked IR/Out/Doubtful
   assert.ok(report.byPosition.WR.every(player => player.sleeperId !== "hurt"), "an IR player must never be recommended with a fabricated projection");
   assert.ok(report.byPosition.WR.some(player => player.sleeperId === "ok"));
 });
+
+test("usage API returns the report and 404s an unknown team", async t => {
+  const server = createAppServer({
+    getUsage: async ({ team }) => {
+      if (team === "personne") throw new Error("Équipe Sleeper inconnue : personne");
+      return { weeks: [1, 2, 3], players: [{ name: "Alpha", usageScore: 90, signal: "BUY_LOW" }] };
+    }
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(() => server.close());
+  const { port } = server.address();
+  const ok = await fetch(`http://127.0.0.1:${port}/api/usage?team=t0z`);
+  assert.equal(ok.status, 200);
+  assert.equal((await ok.json()).players[0].signal, "BUY_LOW");
+  assert.equal((await fetch(`http://127.0.0.1:${port}/api/usage?team=personne`)).status, 404);
+});

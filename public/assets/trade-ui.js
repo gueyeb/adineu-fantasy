@@ -43,6 +43,7 @@ export async function renderTradesPage(container) {
           <button id="tab-calc-btn" class="filter-btn" type="button" role="tab" aria-controls="trade-content">Trade Calculator</button>
           <button id="tab-waivers-btn" class="filter-btn" type="button" role="tab" aria-controls="trade-content">Waiver Wire</button>
           <button id="tab-advisor-btn" class="filter-btn" type="button" role="tab" aria-controls="trade-content">Start/Sit Advisor</button>
+          <button id="tab-usage-btn" class="filter-btn" type="button" role="tab" aria-controls="trade-content">Usage & Buy-Low</button>
           <button id="tab-rules-btn" class="filter-btn" type="button" role="tab" aria-controls="trade-content">Règles & Scoring 2026</button>
         </div>
       </div>
@@ -169,6 +170,7 @@ export async function renderTradesPage(container) {
   let currentTab = window.location.hash === "#calculator" ? "calc" :
     window.location.hash === "#waivers" ? "waivers" :
     window.location.hash === "#advisor" ? "advisor" :
+    window.location.hash === "#usage" ? "usage" :
     window.location.hash === "#rules" ? "rules" : "finder";
   const requestedTeam = new URLSearchParams(window.location.search).get("team");
   const requestedRoster = requestedTeam
@@ -184,6 +186,7 @@ export async function renderTradesPage(container) {
     else if (currentTab === "calc") renderCalculatorView();
     else if (currentTab === "waivers") renderWaiverView();
     else if (currentTab === "advisor") renderAdvisorView();
+    else if (currentTab === "usage") renderUsageView();
     else renderRulesView();
   }
 
@@ -536,9 +539,10 @@ export async function renderTradesPage(container) {
 
     // Waiver v2 (docs/prd-waiver-model-v2.md) : le serveur croise projections ROS, usage réel,
     // événements (titulaire blessé devant, explosion de snaps) et le fit de CETTE équipe.
+    const waiverRosterId = selectedRosterId;
     let report = { byPosition: {}, message: "" };
     try {
-      const res = await fetch(`/api/free-agents?limit=8&team=${encodeURIComponent(selectedRosterId)}`);
+      const res = await fetch(`/api/free-agents?limit=8&team=${encodeURIComponent(waiverRosterId)}`);
       if (res.ok) report = await res.json();
     } catch (e) {
       console.warn("Impossible de charger les free agents", e);
@@ -550,7 +554,8 @@ export async function renderTradesPage(container) {
     const opportunityError = report.rankingModel ? null : "Calcul indisponible pour le moment.";
     const degradedNote = report.degraded ? `⚠ Données partielles (projections ${report.coverage?.projectionWeeks}, stats ${report.coverage?.statsWeeks}) : classement moins fiable, estimation par rang pour certains joueurs.` : "";
 
-    if (currentTab !== "waivers") return; // l'utilisateur a changé d'onglet pendant le chargement
+    // l'utilisateur a changé d'onglet ou d'équipe pendant le chargement
+    if (currentTab !== "waivers" || String(waiverRosterId) !== String(selectedRosterId)) return;
 
     const rawRoster = rosters.find(r => String(r.roster_id) === String(selectedRosterId));
     const faabRemaining = rawRoster ? calculateFaabRemaining(GENERAL_SETTINGS_2026.waiver.budget, rawRoster.settings?.waiver_budget_used) : null;
@@ -682,14 +687,16 @@ export async function renderTradesPage(container) {
     content.innerHTML = `<div class="shell state">Analyse du lineup en cours…</div>`;
 
     let advisory = { alerts: [], message: "" };
+    const requestedRosterId = selectedRosterId;
     try {
-      const res = await fetch(`/api/lineup-advisor?team=${encodeURIComponent(selectedRosterId)}`);
+      const res = await fetch(`/api/lineup-advisor?team=${encodeURIComponent(requestedRosterId)}`);
       if (res.ok) advisory = await res.json();
     } catch (e) {
       console.warn("Impossible de charger le Start/Sit Advisor", e);
     }
 
-    if (currentTab !== "advisor") return; // l'utilisateur a changé d'onglet pendant le chargement
+    // l'utilisateur a changé d'onglet ou d'équipe pendant le chargement
+    if (currentTab !== "advisor" || String(requestedRosterId) !== String(selectedRosterId)) return;
 
     const alertCards = advisory.alerts.map(alert => {
       const severityColor = alert.severity === "ALERT" ? "var(--red)" : "var(--gold)";
@@ -755,6 +762,78 @@ export async function renderTradesPage(container) {
         btn.textContent = "✅ Rapport copié !";
         setTimeout(() => { btn.textContent = prev; }, 2000);
       });
+    });
+  }
+
+  // Usage Score (docs/prd-usage-score.md) : parts d'usage réelles vs production, calculées côté serveur.
+  async function renderUsageView() {
+    content.innerHTML = `<div class="shell state">Analyse de l'usage des 3 dernières semaines…</div>`;
+    let report = null;
+    const requestedRosterId = selectedRosterId;
+    try {
+      const res = await fetch(`/api/usage?team=${encodeURIComponent(requestedRosterId)}`);
+      if (res.ok) report = await res.json();
+    } catch (e) {
+      console.warn("Impossible de charger l'Usage Score", e);
+    }
+    // Une réponse arrivée après un changement d'onglet ou d'équipe est ignorée.
+    if (currentTab !== "usage" || String(requestedRosterId) !== String(selectedRosterId)) return;
+    if (!report) {
+      content.innerHTML = `<div class="shell state">Usage indisponible pour le moment (stats Sleeper).</div>`;
+      return;
+    }
+
+    const signalBadge = signal => signal === "BUY_LOW" ? `<span style="color:var(--grass); font-weight:800;">🟢 Buy-low</span>`
+      : signal === "SELL_HIGH" ? `<span style="color:var(--gold); font-weight:800;">🔥 Sell-high</span>` : "";
+    const trend = value => value === null || value === undefined ? "—" : `${value > 0 ? "▲ +" : value < 0 ? "▼ " : ""}${value}`;
+    const table = (rows, { owner = false } = {}) => rows.length ? `<div class="table-wrap" style="margin-bottom:24px;"><table>
+      <thead><tr><th>Joueur</th>${owner ? "<th>Équipe</th>" : ""}<th class="num">Usage</th><th class="num">Tendance</th><th class="num">Snaps</th><th class="num">Targets</th><th class="num">Courses</th><th class="num">Red zone</th><th class="num">Pts/m</th><th class="num">xFP</th><th>Signal</th></tr></thead>
+      <tbody>${rows.map(p => `<tr>
+        <td>${escapeHtml(p.name)} <small style="color:var(--muted);">(${escapeHtml(p.position)} ${escapeHtml(p.team || "")}${p.injuryStatus ? ` · ${escapeHtml(p.injuryStatus)}` : ""})</small></td>
+        ${owner ? `<td>${escapeHtml(p.owner || "Libre")}</td>` : ""}
+        <td class="num"><strong>${p.usageScore}</strong></td>
+        <td class="num">${trend(p.trend)}</td>
+        <td class="num">${p.snapShare}%</td>
+        <td class="num">${p.targetShare}%</td>
+        <td class="num">${p.carryShare}%</td>
+        <td class="num">${p.redZoneShare}%</td>
+        <td class="num">${p.ppg}</td>
+        <td class="num">${p.xfp}</td>
+        <td>${signalBadge(p.signal)}</td>
+      </tr>`).join("")}</tbody></table></div>` : `<p class="note">Aucun joueur dans cette catégorie.</p>`;
+
+    const mine = report.players.filter(p => p.mine);
+    const buyTargets = report.players.filter(p => p.signal === "BUY_LOW" && !p.mine && p.owner).slice(0, 10);
+    const sellMine = mine.filter(p => p.signal === "SELL_HIGH");
+    const freeHighUsage = report.players.filter(p => !p.owner && p.usageScore >= 60 && !p.injuryStatus).slice(0, 10);
+    const leaders = ["RB", "WR", "TE"].map(pos => `<details class="trade-lineup-detail"><summary>Top 20 usage · ${pos}</summary>${table(report.players.filter(p => p.position === pos).slice(0, 20), { owner: true })}</details>`).join("");
+
+    content.innerHTML = `
+      <div class="shell">
+        <div style="display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:16px; margin-bottom:16px;">
+          <div>
+            <label for="usage-roster-select" style="font-size:0.78rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--muted); font-weight:700; display:block; margin-bottom:6px;">Équipe analysée :</label>
+            <select id="usage-roster-select" style="padding:10px 14px; background:var(--panel); border:1px solid var(--line); color:var(--ink); font-weight:600; border-radius:4px;">
+              ${formattedRosters.map(r => `<option value="${r.roster_id}" ${String(r.roster_id) === String(selectedRosterId) ? "selected" : ""}>${escapeHtml(r.name)} (@${escapeHtml(r.ownerName)})</option>`).join("")}
+            </select>
+          </div>
+          <p class="note" style="margin:0; max-width:640px;"><strong>Usage Score (0–100)</strong> = rang, parmi les joueurs du même poste, de la part de l'attaque de son équipe qu'il reçoit (targets, air yards, snaps, courses, red zone ; semaines ${report.weeks.join(", ")}, les plus récentes comptent plus). <strong>xFP</strong> = points attendus pour ce volume. <strong>Buy-low</strong> : il produit ≥ 3 pts/match sous son volume. <strong>Sell-high</strong> : ≥ 4 pts au-dessus (TD, big plays), hors usage élite. Routes : non disponibles gratuitement.</p>
+        </div>
+        ${report.degraded ? `<div class="card" style="padding:12px 16px; margin-bottom:16px; border-left:4px solid var(--gold);">⚠ Stats partielles : semaines chargées ${report.weeks.join(", ") || "aucune"}.</div>` : ""}
+        <h3 style="margin:0 0 8px; font-size:1.2rem;">Buy-low à cibler chez les autres</h3>
+        ${table(buyTargets, { owner: true })}
+        <h3 style="margin:0 0 8px; font-size:1.2rem;">Sell-high sur ton roster</h3>
+        ${table(sellMine)}
+        <h3 style="margin:0 0 8px; font-size:1.2rem;">Ton roster</h3>
+        ${table(mine)}
+        <h3 style="margin:0 0 8px; font-size:1.2rem;">Free agents à fort usage</h3>
+        ${table(freeHighUsage)}
+        ${leaders}
+      </div>`;
+
+    document.getElementById("usage-roster-select")?.addEventListener("change", e => {
+      selectedRosterId = e.target.value;
+      renderUsageView();
     });
   }
 
@@ -894,8 +973,9 @@ export async function renderTradesPage(container) {
   const tabWaiversBtn = document.getElementById("tab-waivers-btn");
   const tabAdvisorBtn = document.getElementById("tab-advisor-btn");
   const tabRulesBtn = document.getElementById("tab-rules-btn");
-  const tabButtons = { finder: tabFinderBtn, calc: tabCalcBtn, waivers: tabWaiversBtn, advisor: tabAdvisorBtn, rules: tabRulesBtn };
-  const tabHashes = { finder: "#recommendations", calc: "#calculator", waivers: "#waivers", advisor: "#advisor", rules: "#rules" };
+  const tabUsageBtn = document.getElementById("tab-usage-btn");
+  const tabButtons = { finder: tabFinderBtn, calc: tabCalcBtn, waivers: tabWaiversBtn, advisor: tabAdvisorBtn, usage: tabUsageBtn, rules: tabRulesBtn };
+  const tabHashes = { finder: "#recommendations", calc: "#calculator", waivers: "#waivers", advisor: "#advisor", usage: "#usage", rules: "#rules" };
 
   function selectTab(tab, { updateUrl = true } = {}) {
     currentTab = tab;
@@ -915,7 +995,7 @@ export async function renderTradesPage(container) {
 
   window.addEventListener("hashchange", () => {
     const h = window.location.hash;
-    const tab = h === "#calculator" ? "calc" : h === "#waivers" ? "waivers" : h === "#advisor" ? "advisor" : h === "#rules" ? "rules" : "finder";
+    const tab = h === "#calculator" ? "calc" : h === "#waivers" ? "waivers" : h === "#advisor" ? "advisor" : h === "#usage" ? "usage" : h === "#rules" ? "rules" : "finder";
     selectTab(tab, { updateUrl: false });
   });
 
