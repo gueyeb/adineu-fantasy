@@ -120,7 +120,9 @@ export function createAppServer({
         const result = await runModelJob();
         return sendJson(response, 200, result);
       } catch (error) {
-        return sendJson(response, 502, { error: error.message });
+        // Missing server configuration is a 503 with a clear message (Cloudflare masks origin 502s).
+        const misconfigured = /requis|Cannot find package/.test(error.message);
+        return sendJson(response, misconfigured ? 503 : 500, { error: error.message });
       }
     }
     if (request.method !== "GET" && request.method !== "HEAD") {
@@ -192,7 +194,7 @@ export function createAppServer({
         }
         sendJson(response, 200, feedback || { report: null });
       } catch (error) {
-        sendJson(response, 502, { error: error.message });
+        sendJson(response, 503, { error: error.message });
       }
       return;
     }

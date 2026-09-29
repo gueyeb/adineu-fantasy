@@ -271,11 +271,15 @@ export async function createSupabaseFromEnv(env = process.env) {
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
-/** Latest weekly feedback (public read: the publishable key is enough). */
+// Public project URL and publishable key (already shipped in the site's JS): reads never depend
+// on server secrets. Row-level security allows select only.
+const PUBLIC_SUPABASE_URL = "https://juosrzsffvjprqhdyado.supabase.co";
+const PUBLIC_SUPABASE_KEY = "sb_publishable_7Bu9q2dKz0WEol94OGVhHw_xjSwHeHu";
+
+/** Latest weekly feedback (public read). */
 export async function getLatestFeedback(env = process.env) {
-  const url = env.SUPABASE_URL;
-  const key = env.SUPABASE_SECRET_KEY || env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_PUBLISHABLE_KEY;
-  if (!url || !key) throw new Error("SUPABASE_URL et une clé Supabase sont requis pour lire le suivi du modèle.");
+  const url = env.SUPABASE_URL || PUBLIC_SUPABASE_URL;
+  const key = env.SUPABASE_PUBLISHABLE_KEY || PUBLIC_SUPABASE_KEY;
   const { createClient } = await import("@supabase/supabase-js");
   const supabase = createClient(url, key, { auth: { persistSession: false } });
   const { data, error } = await supabase.from("model_feedback").select("season, week, generated_at, report, message").order("season", { ascending: false }).order("week", { ascending: false }).limit(1);
