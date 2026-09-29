@@ -760,3 +760,10 @@ tbody tr:hover td { background: rgba(184, 255, 61, 0.045); }
 .team-transaction-detail { flex: 1 1 auto; }
 .team-transaction-date { flex: 0 0 auto; color: var(--muted); font-size: 0.76rem; }
 .team-links { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--line); }
+
+.rank-chart-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--paper-soft); padding: 8px 0; }
+.rank-chart .rank-line { cursor: pointer; transition: opacity 0.15s; outline: none; }
+.rank-chart .rank-line.dimmed { opacity: 0.12; }
+.rank-chart .rank-line:focus polyline { stroke-width: 4; }
+td.num.positive { color: var(--grass); font-weight: 800; }
+td.num.negative { color: var(--red); font-weight: 800; }

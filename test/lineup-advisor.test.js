@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { diagnoseLineup, formatLineupAdvisory } from "../scripts/lineup-advisor.js";
+import { compareWithOptimalLineup, diagnoseLineup, formatLineupAdvisory } from "../scripts/lineup-advisor.js";
 
 const bench = [
   { sleeperId: "bench-rb", name: "Backup Runner", position: "RB", nflTeam: "KC", quality: { expertRank: 60 } },
@@ -91,4 +91,33 @@ test("formatLineupAdvisory reports a clean bill of health and a real bulletin", 
   assert.match(text, /START\/SIT ADVISOR/);
   assert.match(text, /K — Slot vide/);
   assert.match(text, /Remplaçant conseillé \(free agent\) : Streaming Kicker \(K LAC\)/);
+});
+
+test("compareWithOptimalLineup: a projected bench player replaces an Out starter and reports the gain", () => {
+  const player = (sleeperId, position) => ({ sleeperId, name: sleeperId, position });
+  const myTeam = {
+    starters: [
+      { slot: "QB", player: player("qb", "QB") }, { slot: "RB", player: player("rb1", "RB") }, { slot: "RB", player: player("rbOut", "RB") },
+      { slot: "WR", player: player("wr1", "WR") }, { slot: "WR", player: player("wr2", "WR") }, { slot: "TE", player: player("te", "TE") },
+      { slot: "FLEX", player: player("wr3", "WR") }, { slot: "K", player: player("k", "K") }, { slot: "DEF", player: player("def", "DEF") }
+    ],
+    bench: [player("rbBench", "RB")]
+  };
+  const projections = Object.fromEntries([["qb", 20], ["rb1", 15], ["wr1", 14], ["wr2", 12], ["te", 9], ["wr3", 10], ["k", 8], ["def", 7], ["rbBench", 11]].map(([id, pts]) => [id, { pts_ppr: pts }]));
+  const result = compareWithOptimalLineup({ myTeam, projections, playerStatuses: new Map([["rbOut", "Out"]]) });
+  assert.equal(result.gain, 11);
+  assert.deepEqual(result.promote.map(p => p.sleeperId), ["rbBench"]);
+  assert.deepEqual(result.bench.map(p => p.sleeperId), ["rbOut"]);
+});
+
+test("compareWithOptimalLineup never promotes an Out player even if Sleeper still projects him (Puka case)", () => {
+  const player = (sleeperId, position) => ({ sleeperId, name: sleeperId, position });
+  const myTeam = {
+    starters: [{ slot: "WR", player: player("wr1", "WR") }, { slot: "WR", player: player("wr2", "WR") }],
+    bench: [player("puka", "WR")]
+  };
+  const projections = { wr1: { pts_ppr: 12 }, wr2: { pts_ppr: 10 }, puka: { pts_ppr: 19 } };
+  const result = compareWithOptimalLineup({ myTeam, projections, playerStatuses: new Map([["puka", "Out"]]) });
+  assert.equal(result.gain, 0);
+  assert.equal(result.promote.length, 0);
 });

@@ -61,9 +61,9 @@ Toute suggestion d'amélioration doit les respecter :
 | Page / outil | Ce que ça fait | Données |
 |---|---|---|
 | **Accueil** `/` | Stats d'archive + accès aux fonctionnalités saison 2026 en priorité | Archive + liens |
-| **Standings** `/standings/` | Classement 2026 | Supabase (sync Sleeper) |
+| **Standings** `/standings/` | Classement 2026 + **Luck** (victoires réelles − all-play attendues) + **% playoffs** (estimation) + **courbe du rang** semaine par semaine | Supabase + Sleeper |
 | **Power Rankings** `/power-rankings/` | Score = 45 % % de victoires, 35 % points/match, 20 % marge des 3 dernières semaines (en percentiles). **Playoff Race** (arithmétique : ordre, games back du 8e). **Playoff Probabilities** (simulation Monte Carlo seedée du reste de la saison, estimation). **All-Play** (bilan si on jouait les 11 autres chaque semaine). | Sleeper + Supabase |
-| **Game Center** `/matchups/` | Live (scores + estimation pré-match), Calendrier 2026, **Récap Hebdo** (meilleur score, match le plus serré, upset, points laissés sur le banc vs lineup optimale), Archives Yahoo (face-à-face) | Sleeper + archive |
+| **Game Center** `/matchups/` | Live (scores + estimation pré-match + **titulaires indisponibles et points perdus**), Calendrier 2026, **Récap Hebdo** (meilleur score, match le plus serré, upset, points laissés sur le banc vs lineup optimale), Archives Yahoo (face-à-face) | Sleeper + archive |
 | **Équipes** `/teams/?team=` | Dossier live d'un manager : record, rang, roster (titulaires/banc/IR), alertes lineup, force par poste, all-play, FAAB restant, série, transactions récentes, Record Watch (écart aux records historiques) | Sleeper + Supabase |
 | **Trade Hub** `/trades/` | Voir §6 | Sleeper + catalogue |
 | **Franchises** `/franchises/` | Bilans all-time par manager (saison régulière et playoffs séparés) | Archive Yahoo |
@@ -94,7 +94,8 @@ Onglets :
   (titulaire blessé devant lui : PROMOTION, avec une durée qui dépend de la blessure ; SNAP/USAGE_SURGE).
   Deux scores séparés : **Market** (valeur pour la ligue, FAAB marché en $) et **Fit** (gain
   réel de TA lineup optimale, « Max pour toi » plafonné par ton FAAB). Jamais d'enchère exprimée en % de réussite.
-- **Start/Sit Advisor** : alerte sur slot vide, blessure, bye ; propose un remplaçant (banc puis FA).
+- **Start/Sit Advisor** : alerte sur slot vide, blessure, bye ; propose un remplaçant (banc puis FA) ; **lineup optimisée** vs actuelle (gain en points, jamais un joueur Out titularisé).
+- **Waiver Wire, signaux de ligue** : tendances Sleeper 48 h (ajouts plateforme croisés avec la ligue et le modèle) et **historique FAAB** des enchères gagnées (médiane et max par poste).
 - **Règles & Scoring 2026**.
 
 Bulletin automatique : chaque mardi, n8n appelle `/api/trades?team=t0z` et envoie le message.
@@ -123,17 +124,18 @@ API Sleeper (live, lecture seule) ────┘      + serveur Node (server.js
 
 ## 8. Limites connues (bonnes pistes d'amélioration)
 
-1. **Baseline ROS = projections Sleeper** : elles sous-estiment certains rôles nouveaux (Keenan Allen, Braelon Allen en semaine 4). Les règles d'événements corrigent en partie.
-2. **Valeur marché des trades périmée** : catalogue d'avant la draft (06/09). Cause principale de trades qui
+1. **Baseline ROS = projections Sleeper** : elles sous-estiment certains rôles nouveaux (Keenan Allen, Braelon Allen en semaine 4), et les semaines lointaines sont souvent peu mises à jour (Sleeper actualise surtout les 1–2 prochains matchs). Les règles d'événements corrigent en partie. → Usage Score + modèle maison.
+2. **Probabilités de playoffs trop confiantes** : chaque projection hebdo est traitée comme exacte (seule la variance de score est simulée), d'où 99–100 % pour un 3-0 dès la semaine 4. À corriger : incertitude sur la force de l'équipe elle-même, projections lointaines ramenées vers la moyenne.
+3. **Valeur marché des trades périmée** : catalogue d'avant la draft (06/09). Cause principale de trades qui
    paraissent absurdes. → Phase 0 du modèle (§9).
-3. **Projections dépendantes de Sleeper**, sans modèle propre ni validation historique.
-4. **Taux d'absence IR approximatif** : Sleeper ne dit pas combien de matchs sont déjà passés.
-5. **Pas d'acceptation réelle** : aucune donnée sur ce que les managers acceptent ; la
+4. **Projections dépendantes de Sleeper**, sans modèle propre ni validation historique.
+5. **Taux d'absence IR approximatif** : Sleeper ne dit pas combien de matchs sont déjà passés.
+6. **Pas d'acceptation réelle** : aucune donnée sur ce que les managers acceptent ; la
    « faisabilité » est une heuristique.
-6. **Dette technique** : `?v=N` manuel (~70 occurrences), 4 modules refetchent rosters/users
+7. **Dette technique** : `?v=N` manuel (~70 occurrences), 4 modules refetchent rosters/users
    chacun, `trade-ui.js` en styles inline, `site.js` volumineux.
-7. **Mono-ligue** : ID de ligue, `t0z`, règles en dur, ce qui empêche l'ouverture au grand public.
-8. **Licences** : API Sleeper non commerciale ; FantasyPros exige une licence pour redistribuer.
+8. **Mono-ligue** : ID de ligue, `t0z`, règles en dur, ce qui empêche l'ouverture au grand public.
+9. **Licences** : API Sleeper non commerciale ; FantasyPros exige une licence pour redistribuer.
 
 ## 9. Feuille de route
 

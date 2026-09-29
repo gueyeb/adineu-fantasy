@@ -24,7 +24,7 @@ Xfinity) ne sont connues que par leur description.
 
 ## Priorités proposées
 
-**Lot 1 : quick wins (≈1–2 jours, données déjà là)**
+**Lot 1 : quick wins — ✅ livré le 29/09/2026**
 1. Standings : colonnes Luck (réel − all-play) et Playoff %.
 2. Standings Over Time (courbe du rang).
 3. Historique FAAB de la ligue par joueur/poste (Waiver Wire), qui sert aussi à calibrer le prix du point du modèle v2.
@@ -32,7 +32,7 @@ Xfinity) ne sont connues que par leur description.
 5. Game Center : points projetés perdus sur blessure, pour les deux équipes.
 6. Start/Sit : bouton « lineup optimisée », avec le gain en points vs la lineup actuelle.
 
-**Lot 2 : modèle (chantier 2)**
+**Lot 2 : modèle (chantier 2) — validé, prochain**
 7. Adineu Usage Score + buy-low / sell-high (Trade Finder et page équipe).
 8. Boom / Bust % et lineups Boom / Safe (variance par joueur).
 

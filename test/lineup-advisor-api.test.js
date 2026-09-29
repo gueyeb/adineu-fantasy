@@ -16,7 +16,8 @@ test("lineup-advisor API flags an empty slot and offers a text alias", async t =
   const server = createAppServer({
     getContext: async () => sampleContext,
     getInjuryStatuses: async () => new Map(),
-    getFreeAgents: async () => ({ byPosition: { K: [{ name: "Streaming Kicker", position: "K", nflTeam: "LAC" }] } })
+    getFreeAgents: async () => ({ byPosition: { K: [{ name: "Streaming Kicker", position: "K", nflTeam: "LAC" }] } }),
+    getProjections: async () => ({})
   });
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
@@ -28,6 +29,7 @@ test("lineup-advisor API flags an empty slot and offers a text alias", async t =
   const body = await jsonResponse.json();
   assert.equal(body.week, 3);
   assert.equal(body.alerts[0].reason, "Slot vide");
+  assert.ok(body.optimal && Number.isFinite(body.optimal.gain));
   assert.match(body.message, /START\/SIT ADVISOR/);
 
   const textResponse = await fetch(`http://127.0.0.1:${port}/api/lineup-advisor?format=text`);

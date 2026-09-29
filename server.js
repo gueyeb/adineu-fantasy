@@ -10,11 +10,13 @@ import {
   getLeagueContext,
   formatContextText,
   getFreeAgents as getFreeAgentsDefault,
+  getWeeklyProjections as getWeeklyProjectionsDefault,
   formatWaiverReport
 } from "./scripts/league-context.js";
 import {
   getInjuryStatuses as getInjuryStatusesDefault,
   diagnoseLineup,
+  compareWithOptimalLineup,
   formatLineupAdvisory
 } from "./scripts/lineup-advisor.js";
 import {
@@ -62,6 +64,7 @@ export function createAppServer({
   getContext = getLeagueContext,
   getFreeAgents = getFreeAgentsDefault,
   getInjuryStatuses = getInjuryStatusesDefault,
+  getProjections = getWeeklyProjectionsDefault,
   coachToken = process.env.COACH_API_TOKEN || "",
   coachPassword = process.env.COACH_WEB_PASSWORD || "",
   secureCookies = process.env.NODE_ENV !== "development"
@@ -181,6 +184,12 @@ export function createAppServer({
           byeWeeks: BYE_WEEKS_2026,
           currentWeek: context.week
         });
+        let optimal = null;
+        try {
+          const projections = await getProjections({ week: context.week });
+          optimal = compareWithOptimalLineup({ myTeam: context.myTeam, projections, playerStatuses });
+        } catch {}
+        diagnosis.optimal = optimal;
         const message = formatLineupAdvisory(diagnosis);
         if (url.searchParams.get("format") === "text") {
           response.writeHead(200, { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" });

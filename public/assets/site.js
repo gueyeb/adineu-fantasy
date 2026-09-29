@@ -7,9 +7,10 @@ import {
   buildSleeperWeek,
   buildSleeperSeasonMeetings
 } from "./rivalry-week.js?v=4";
-import { renderTradesPage } from "./trade-ui.js?v=13";
-import { renderMatchupsHub } from "./matchups-live.js?v=6";
+import { renderTradesPage } from "./trade-ui.js?v=14";
+import { renderMatchupsHub } from "./matchups-live.js?v=7";
 import { calculatePlayoffRace } from "./playoff-race.js?v=1";
+import { calculateLuck, calculateRankHistory } from "./standings-luck.js?v=1";
 import { resolveOperationalWeek } from "./nfl-week.js?v=1";
 import { renderTeamsHub } from "./teams.js?v=4";
 import { buildYahooRecordBook } from "./record-book.js?v=1";
@@ -270,7 +271,7 @@ async function loadSleeperMatchups() {
   }));
 }
 
-function standingsTable(rows, isLive = false) {
+function standingsTable(rows, isLive = false, extras = null) {
   if (!rows.length) {
     return `<div class="state"><strong>Pas encore de classement</strong>Les données apparaîtront dès le début de la saison.</div>`;
   }
@@ -282,7 +283,7 @@ function standingsTable(rows, isLive = false) {
       <thead><tr>
         <th>Rang</th><th>Équipe</th>${showManagers ? "<th>Manager</th>" : ""}
         <th class="num">V</th><th class="num">D</th><th class="num">N</th>
-        <th class="num">PF</th><th class="num">PA</th>
+        <th class="num">PF</th><th class="num">PA</th>${extras ? `<th class="num" title="Victoires réelles − victoires attendues (all-play)">Luck</th><th class="num" title="Estimation Adineu (simulation)">Playoffs</th>` : ""}
       </tr></thead>
       <tbody>${rows.map((row, index) => `
         <tr class="${index === 0 && !isLive ? "champion-row" : ""}">
@@ -294,9 +295,43 @@ function standingsTable(rows, isLive = false) {
           <td class="num">${escapeHtml(row.ties)}</td>
           <td class="num">${formatPoints(row.points_for ?? row.pf)}</td>
           <td class="num">${formatPoints(row.points_against ?? row.pa)}</td>
+          ${extras ? standingsExtraCells(extras, row.owner_name) : ""}
         </tr>`).join("")}</tbody>
     </table>
   </div>`;
+}
+
+function standingsExtraCells(extras, manager) {
+  const luck = extras.luck?.get(manager);
+  const odds = extras.odds?.get(manager);
+  const luckCell = Number.isFinite(luck) ? `<td class="num ${luck >= 0 ? "positive" : "negative"}">${luck > 0 ? "+" : ""}${luck.toLocaleString("fr-FR", { maximumFractionDigits: 1 })}</td>` : `<td class="num">—</td>`;
+  const oddsCell = Number.isFinite(odds) ? `<td class="num">${Math.round(odds * 100)}%</td>` : `<td class="num">—</td>`;
+  return luckCell + oddsCell;
+}
+
+const RANK_CHART_COLORS = ["#b8ff3d", "#ffb443", "#ff6b52", "#5cc8ff", "#c792ea", "#f78fb3", "#7bed9f", "#ffd166", "#70a1ff", "#ff9f43", "#1dd1a1", "#e0e0e0"];
+
+/** Inline SVG "rank over time": rank 1 on top, one line per manager, highlight on hover/focus. */
+function rankHistoryChart(history) {
+  if (history.weeks.length < 2) return `<p class="note">Courbe du classement disponible après deux semaines complètes.</p>`;
+  const managers = history.series.length;
+  const width = Math.max(520, 90 * history.weeks.length);
+  const height = 40 + managers * 26;
+  const x = index => 60 + index * ((width - 120) / (history.weeks.length - 1));
+  const y = rank => 20 + (rank - 1) * ((height - 40) / Math.max(1, managers - 1));
+  const lines = history.series.map((entry, index) => {
+    const color = RANK_CHART_COLORS[index % RANK_CHART_COLORS.length];
+    const points = entry.ranks.map((rank, i) => `${x(i).toFixed(1)},${y(rank).toFixed(1)}`).join(" ");
+    const last = entry.ranks.at(-1);
+    return `<g class="rank-line" data-manager="${escapeHtml(entry.manager)}" tabindex="0" aria-label="${escapeHtml(entry.manager)} : rang ${entry.ranks.join(" → ")}">
+      <polyline points="${points}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round" />
+      ${entry.ranks.map((rank, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(rank).toFixed(1)}" r="3.5" fill="${color}"><title>${escapeHtml(entry.manager)} · S${history.weeks[i]} : ${rank}e</title></circle>`).join("")}
+      <text x="${(x(history.weeks.length - 1) + 8).toFixed(1)}" y="${(y(last) + 4).toFixed(1)}" fill="${color}" font-size="11">${escapeHtml(entry.manager)}</text>
+    </g>`;
+  }).join("");
+  const axis = history.weeks.map((week, i) => `<text x="${x(i).toFixed(1)}" y="${height - 2}" text-anchor="middle" fill="var(--muted)" font-size="11">S${week}</text>`).join("")
+    + Array.from({ length: managers }, (_, i) => `<text x="30" y="${(y(i + 1) + 4).toFixed(1)}" text-anchor="end" fill="var(--muted)" font-size="11">${i + 1}</text>`).join("");
+  return `<div class="rank-chart-wrap"><svg class="rank-chart" viewBox="0 0 ${width + 60} ${height + 10}" width="${width + 60}" height="${height + 10}" role="img" aria-label="Évolution du classement semaine par semaine">${axis}${lines}</svg></div>`;
 }
 
 function pageHero(eyebrow, title, lede, stamp) {
@@ -377,8 +412,29 @@ async function renderStandings(data) {
       source.href = "https://sleeper.com/";
       source.textContent = "Source : Sleeper ↗";
       try {
-        const rows = await loadLiveStandings();
-        content.innerHTML = standingsTable(rows, true);
+        const [rows, league, nflState, matchupRows] = await Promise.all([
+          loadLiveStandings(),
+          loadSleeperResource(`/league/${SLEEPER_LEAGUE_ID}`),
+          loadSleeperResource("/state/nfl"),
+          loadSleeperMatchups()
+        ]);
+        const expectedManagers = [...new Set(rows.map(row => row.owner_name).filter(Boolean))];
+        const currentWeek = league.status === "in_season" && nflState.season_type === "regular" ? Number(nflState.week) : null;
+        const luck = calculateLuck(matchupRows, { currentWeek, expectedManagers });
+        const history = calculateRankHistory(matchupRows, { currentWeek, expectedManagers });
+        const power = calculatePowerRankings(matchupRows, { currentWeek, expectedManagers });
+        const extras = { luck: new Map(luck.records.map(record => [record.manager, record.luck])), odds: new Map() };
+        content.innerHTML = `${standingsTable(rows, true, extras)}
+          <p class="note"><strong>Luck</strong> = victoires réelles − victoires attendues si tu avais affronté les 11 autres chaque semaine (all-play). Positif = chanceux. ${luck.ready ? "" : "Disponible après deux semaines complètes pour les 12 équipes."} <strong>Playoffs</strong> = estimation Adineu (simulation), jamais une donnée officielle Sleeper.</p>
+          <h3 style="margin:28px 0 8px;">Évolution du classement</h3>
+          ${rankHistoryChart(history)}`;
+        bindRankChart(content);
+        // Playoff odds are the slow part (future projections + simulations): filled in afterwards.
+        const { playoffProbabilities } = await computeLivePlayoffOdds(matchupRows, { ready: power.ready, currentWeek, expectedManagers });
+        if (playoffProbabilities && select.value === String(CURRENT_SEASON)) {
+          for (const row of playoffProbabilities.probabilities) extras.odds.set(row.manager, row.probability);
+          content.querySelector(".table-wrap").outerHTML = standingsTable(rows, true, extras);
+        }
       } catch (error) {
         content.innerHTML = `<div class="state"><strong>Connexion live indisponible</strong>${escapeHtml(error.message)}</div>`;
       }
@@ -392,6 +448,19 @@ async function renderStandings(data) {
 
   select.addEventListener("change", () => showSeason(Number(select.value)));
   await showSeason(CURRENT_SEASON);
+}
+
+function bindRankChart(root) {
+  const chart = root.querySelector(".rank-chart");
+  if (!chart) return;
+  const lines = [...chart.querySelectorAll(".rank-line")];
+  const highlight = manager => lines.forEach(line => line.classList.toggle("dimmed", Boolean(manager) && line.dataset.manager !== manager));
+  for (const line of lines) {
+    line.addEventListener("mouseenter", () => highlight(line.dataset.manager));
+    line.addEventListener("focus", () => highlight(line.dataset.manager));
+    line.addEventListener("mouseleave", () => highlight(null));
+    line.addEventListener("blur", () => highlight(null));
+  }
 }
 
 function renderHistory(data) {
@@ -1092,7 +1161,7 @@ async function loadPlayerCatalogPositions() {
   return positionById;
 }
 
-async function buildPlayoffProbabilityContext(currentWeek) {
+async function buildPlayoffProbabilityContext(currentWeek, matchupRows = [], expectedManagers = []) {
   const regularSeasonWeeks = GENERAL_SETTINGS_2026.regularSeasonWeeks;
   if (!Number.isFinite(currentWeek) || currentWeek > regularSeasonWeeks) return null;
 
@@ -1116,7 +1185,17 @@ async function buildPlayoffProbabilityContext(currentWeek) {
   ]);
 
   const identities = listRosterIdentities(rosters, users);
-  const managerByRosterId = new Map(identities.map(entry => [entry.roster.roster_id, entry.ownerName]));
+  // Standings/matchup rows name managers by their canonical Supabase owner ("tOz", "MouhammadAT",
+  // "Birama"), not their Sleeper display name ("t0z", "Shiro00", "bmb22"). The public link between
+  // both is the team name, synced from Sleeper into Supabase. A mismatch here silently removed
+  // those teams from every simulated game (0 % / 100 % odds), so an unmatched team now aborts.
+  const managerByTeamName = new Map(matchupRows.filter(row => row.team && row.manager).map(row => [row.team, row.manager]));
+  const expected = new Set(expectedManagers);
+  const managerByRosterId = new Map(identities.map(entry => {
+    const manager = managerByTeamName.get(entry.teamName) ?? (expected.has(entry.ownerName) ? entry.ownerName : null);
+    if (!manager) throw new Error(`Équipe Sleeper non rattachée au classement : ${entry.teamName}`);
+    return [entry.roster.roster_id, manager];
+  }));
   const startersByRosterId = new Map(identities.map(entry =>
     [entry.roster.roster_id, (entry.roster.starters || []).filter(id => id && id !== "0")]));
 
@@ -1198,6 +1277,41 @@ async function buildPlayoffProbabilityContext(currentWeek) {
   return { remainingWeeks, schedule, teamProjectionsByWeek };
 }
 
+/** Playoff odds shared by Power Rankings and Standings: same gate (only once Power Rankings is
+ * ready), fixed seed so the same data always reproduces the same numbers, and an independent
+ * failure path that never blocks the rest of the page (docs/prd-playoff-probabilities.md). */
+async function computeLivePlayoffOdds(matchupRows, { ready, currentWeek, expectedManagers }) {
+  let playoffProbabilities = null;
+  let playoffProbabilitiesNote = "Le Power Ranking doit d'abord se déverrouiller.";
+  if (ready) {
+    if (currentWeek != null && currentWeek > GENERAL_SETTINGS_2026.regularSeasonWeeks) {
+      playoffProbabilitiesNote = "Saison régulière terminée — plus rien à simuler.";
+    } else {
+      try {
+        const context = await buildPlayoffProbabilityContext(currentWeek, matchupRows, expectedManagers);
+        if (context) {
+          playoffProbabilities = simulatePlayoffProbabilities(matchupRows, {
+            currentWeek,
+            expectedManagers,
+            playoffSpots: GENERAL_SETTINGS_2026.playoffTeams,
+            remainingWeeks: context.remainingWeeks,
+            schedule: context.schedule,
+            teamProjectionsByWeek: context.teamProjectionsByWeek,
+            simulations: DEFAULT_SIMULATIONS,
+            seed: 1,
+            modelDate: new Date().toISOString()
+          });
+        } else {
+          playoffProbabilitiesNote = "Saison régulière terminée — plus rien à simuler.";
+        }
+      } catch {
+        playoffProbabilitiesNote = "Estimation indisponible pour le moment — réessayez plus tard.";
+      }
+    }
+  }
+  return { playoffProbabilities, playoffProbabilitiesNote };
+}
+
 async function renderPowerRankings() {
   const [league, nflState, standings, matchupRows] = await Promise.all([
     loadSleeperResource(`/league/${SLEEPER_LEAGUE_ID}`),
@@ -1219,34 +1333,7 @@ async function renderPowerRankings() {
   // then degrades independently on any fetch failure — never blocks the rest of the page.
   // Fixed seed so the SAME underlying data reproduces the SAME numbers on every reload; only a
   // real change in scores/projections should move them (docs/prd-playoff-probabilities.md).
-  let playoffProbabilities = null;
-  let playoffProbabilitiesNote = "Le Power Ranking ci-dessus doit d'abord se déverrouiller.";
-  if (result.ready) {
-    if (currentWeek != null && currentWeek > GENERAL_SETTINGS_2026.regularSeasonWeeks) {
-      playoffProbabilitiesNote = "Saison régulière terminée — plus rien à simuler.";
-    } else {
-      try {
-        const context = await buildPlayoffProbabilityContext(currentWeek);
-        if (context) {
-          playoffProbabilities = simulatePlayoffProbabilities(matchupRows, {
-            currentWeek,
-            expectedManagers,
-            playoffSpots: GENERAL_SETTINGS_2026.playoffTeams,
-            remainingWeeks: context.remainingWeeks,
-            schedule: context.schedule,
-            teamProjectionsByWeek: context.teamProjectionsByWeek,
-            simulations: DEFAULT_SIMULATIONS,
-            seed: 1,
-            modelDate: new Date().toISOString()
-          });
-        } else {
-          playoffProbabilitiesNote = "Saison régulière terminée — plus rien à simuler.";
-        }
-      } catch {
-        playoffProbabilitiesNote = "Estimation indisponible pour le moment — réessayez plus tard."; // independent failure, never blocks the rest of the page
-      }
-    }
-  }
+  const { playoffProbabilities, playoffProbabilitiesNote } = await computeLivePlayoffOdds(matchupRows, { ready: result.ready, currentWeek, expectedManagers });
 
   const leagueStatus = sleeperStatusLabel(league.status);
   const draftDate = formatDraftDate(draft?.start_time);

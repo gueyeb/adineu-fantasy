@@ -16,9 +16,11 @@ const IR_ELIGIBLE = new Set(["IR", "PUP", "NFI", "Out", "Doubtful", "NA", "Sus"]
 export const injuryStatus = player => player.injuryStatus ?? player.injury_status ?? null;
 const isOutThisWeek = player => (GAMES_MISSED_BY_STATUS[injuryStatus(player)] || 0) >= 1;
 
-/** This week's points: Sleeper projection; Out/IR = 0; otherwise the expert-rank estimate. */
+/** This week's points: Out/IR = 0 (even if Sleeper still carries a stale projection for him);
+ * otherwise the Sleeper projection, else the expert-rank estimate. */
 export function weeklyEstimate(player) {
-  return projection(player) ?? (isOutThisWeek(player) ? 0 : calculatePlayerTradeProfile(player).projectedPpg);
+  if (isOutThisWeek(player)) return 0;
+  return projection(player) ?? calculatePlayerTradeProfile(player).projectedPpg;
 }
 
 /** Rest-of-regular-season weekly average: healthy rate x share of remaining games actually played

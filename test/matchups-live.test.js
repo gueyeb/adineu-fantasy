@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import {
   buildHistoricalRecords,
   buildSeasonMatchups,
-  estimatePregameWinProbability
+  estimatePregameWinProbability,
+  summarizeUnavailableStarters
 } from "../public/assets/matchups-live.js";
 
 const users = [
@@ -107,4 +108,12 @@ test("matchup probability stays hidden when a starting lineup is incomplete", ()
   const [matchup] = buildSeasonMatchups({ rows: sevenStarters, rosters, users, projections });
 
   assert.equal(matchup.chances, null);
+});
+
+test("summarizeUnavailableStarters lists Out/IR starters with the healthy points they take out", () => {
+  const catalog = new Map([["hall", { sleeperId: "hall", name: "Breece Hall", position: "RB", quality: { expertRank: 20 } }]]);
+  const result = summarizeUnavailableStarters(["hall", "ok", "0", "ghost"], { hall: "Out", ok: "Questionable", ghost: "IR" }, catalog);
+  assert.deepEqual(result.players.map(player => [player.name, player.status]), [["Breece Hall", "Out"], ["Player #ghost", "IR"]]);
+  assert.ok(result.lostPoints > 10, "an RB ranked 20th is worth well over 10 pts");
+  assert.equal(result.players[1].expectedPpg, null, "no invented estimate for a player outside the catalog");
 });

@@ -13,6 +13,7 @@
 import { pathToFileURL } from "node:url";
 import { getLeagueContext, getFreeAgents, getInjuryStatuses, SEVERITY_BY_STATUS } from "./league-context.js";
 import { calculatePlayerTradeProfile } from "../public/assets/trade-value.js";
+import { buildProjectedLineup, weeklyEstimate } from "../public/assets/trade-score.js";
 import { BYE_WEEKS_2026 } from "../public/assets/league-settings.js";
 
 const FLEX_ELIGIBLE = ["RB", "WR", "TE"];
@@ -107,6 +108,36 @@ export function diagnoseLineup({
   }
 
   return { alerts };
+}
+
+/**
+ * Lineup optimisée vs lineup actuelle (benchmark Fantasy Life, lot 1) : même moteur que le Trade
+ * Finder (buildProjectedLineup + weeklyEstimate : projection Sleeper de la semaine, 0 si Out/IR).
+ * IR exclu du pool. Retourne le gain en points projetés et les changements à faire.
+ */
+export function compareWithOptimalLineup({ myTeam, projections = {}, playerStatuses = new Map() }) {
+  const enrich = player => player && {
+    ...player,
+    projectedPpg: Number.isFinite(projections[player.sleeperId]?.pts_ppr) ? projections[player.sleeperId].pts_ppr : undefined,
+    injuryStatus: playerStatuses.get(player.sleeperId) || null
+  };
+  const current = myTeam.starters.map(starter => ({ slot: starter.slot, player: enrich(starter.player) }));
+  const currentTotal = current.reduce((sum, starter) => sum + (starter.player ? weeklyEstimate(starter.player) : 0), 0);
+  const pool = [...current.map(starter => starter.player).filter(Boolean), ...(myTeam.bench || []).map(enrich)];
+  const optimal = buildProjectedLineup(pool, { estimate: weeklyEstimate });
+  const currentIds = new Set(current.map(starter => starter.player?.sleeperId).filter(Boolean));
+  const optimalIds = new Set(optimal.slots.map(slot => slot.sleeperId).filter(Boolean));
+  const byId = new Map(pool.map(player => [String(player.sleeperId), player]));
+  const gain = Number((optimal.total - currentTotal).toFixed(1));
+  return {
+    currentTotal: Number(currentTotal.toFixed(1)),
+    optimalTotal: optimal.total,
+    gain: gain > 0 ? gain : 0,
+    // Changes only when they actually gain points, and never "start" a player projected at 0 (Out/IR).
+    promote: gain > 0 ? [...optimalIds].filter(id => !currentIds.has(id)).map(id => byId.get(id)).filter(player => weeklyEstimate(player) > 0) : [],
+    bench: gain > 0 ? [...currentIds].filter(id => !optimalIds.has(id)).map(id => byId.get(String(id))) : [],
+    slots: optimal.slots
+  };
 }
 
 function describePlayer(player) {

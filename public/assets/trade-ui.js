@@ -5,7 +5,7 @@
  */
 
 import { calculatePlayerTradeValue, calculatePlayerTradeProfile, evaluateTrade } from "./trade-value.js?v=3";
-import { diagnoseRoster, findTradeProposals, findCounterOffers } from "./trade-recommender.js?v=5";
+import { diagnoseRoster, findTradeProposals, findCounterOffers } from "./trade-recommender.js?v=6";
 import { PLAYER_STATUSES, playerKey, playerStatus } from "./trade-preferences.js?v=1";
 import {
   GENERAL_SETTINGS_2026,
@@ -15,7 +15,7 @@ import {
 import { resolveOperationalWeek } from "./nfl-week.js?v=1";
 import { listRosterIdentities } from "./roster-view.js?v=1";
 import { calculateFaabRemaining } from "./team-metrics.js?v=2";
-import { buildProjectedLineup, restOfSeasonEstimate } from "./trade-score.js?v=2";
+import { buildProjectedLineup, restOfSeasonEstimate } from "./trade-score.js?v=3";
 
 const SLEEPER_LEAGUE_ID = "1392715510830878721";
 const SLEEPER_API = "https://api.sleeper.app/v1";
@@ -623,6 +623,33 @@ export async function renderTradesPage(container) {
           </div>
         `}
 
+        ${(report.trending || []).length ? `
+          <h3 style="margin:0 0 6px; font-size:1.2rem;">Tendances Sleeper · 48 h</h3>
+          <p class="note" style="margin:0 0 12px;">Joueurs les plus ajoutés sur toute la plateforme Sleeper, croisés avec la ligue Adineu et le modèle waiver.</p>
+          <div class="table-wrap" style="margin-bottom:28px;"><table>
+            <thead><tr><th>Joueur</th><th class="num">Ajouts</th><th>Dans Adineu</th><th>Marché</th><th>Max pour toi</th></tr></thead>
+            <tbody>${report.trending.map(t => `<tr>
+              <td>${escapeHtml(t.name)} <small style="color:var(--muted);">(${escapeHtml(t.position || "?")}${t.nflTeam ? ` ${escapeHtml(t.nflTeam)}` : ""})</small>${t.waiver?.newsOverride ? `<br><small style="color:var(--gold);">⚡ ${escapeHtml(t.waiver.reasons.join(" · "))}</small>` : ""}</td>
+              <td class="num">${Number(t.adds).toLocaleString("fr-FR")}</td>
+              <td>${t.rostered ? `Rosté · ${escapeHtml(t.rosteredBy || "?")}` : t.injuryStatus ? `Libre · ${escapeHtml(t.injuryStatus)}` : "<strong>Libre</strong>"}</td>
+              <td>${t.waiver ? `${escapeHtml(t.waiver.category)} · ${t.waiver.faabMarket[0]}–${t.waiver.faabMarket[1]} $` : "—"}</td>
+              <td>${t.waiver?.fit ? `${t.waiver.fit.faabMaxForMe} $` : "—"}</td>
+            </tr>`).join("")}</tbody>
+          </table></div>` : ""}
+
+        ${(report.faabHistory || []).length ? `
+          <h3 style="margin:0 0 6px; font-size:1.2rem;">Historique FAAB de la ligue</h3>
+          <p class="note" style="margin:0 0 12px;">Enchères gagnées cette saison (Sleeper). ${Object.entries(report.faabByPosition || {}).map(([pos, stat]) => `${escapeHtml(pos)} : médiane ${stat.median} $ · max ${stat.max} $`).join(" · ")}</p>
+          <div class="table-wrap" style="margin-bottom:28px;"><table>
+            <thead><tr><th>Sem.</th><th>Joueur</th><th>Équipe</th><th class="num">Enchère</th></tr></thead>
+            <tbody>${report.faabHistory.slice(0, 15).map(c => `<tr>
+              <td>S${c.week}</td>
+              <td>${escapeHtml(c.name)} <small style="color:var(--muted);">(${escapeHtml(c.position || "?")})</small></td>
+              <td>${escapeHtml(c.team || "?")}</td>
+              <td class="num"><strong>${c.bid} $</strong></td>
+            </tr>`).join("")}</tbody>
+          </table></div>` : ""}
+
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; margin-bottom:24px;">
           <div>
             <h3 style="margin:0 0 4px; font-size:1.2rem;">Free Agents Disponibles${report.week ? ` · Semaine ${report.week}` : ""}</h3>
@@ -700,6 +727,12 @@ export async function renderTradesPage(container) {
           </div>
           <button type="button" id="copy-advisor-btn" class="filter-btn" style="padding:8px 14px; font-size:0.75rem;">📋 Copier le rapport</button>
         </div>
+        ${advisory.optimal ? `<div class="card" style="padding:16px 18px; margin-bottom:16px; border-left:4px solid ${advisory.optimal.gain > 0 ? "var(--grass)" : "var(--line)"};">
+          <strong>Lineup optimisée${advisory.week ? ` · semaine ${advisory.week}` : ""} :</strong> ${advisory.optimal.gain > 0
+            ? `+${advisory.optimal.gain} pts projetés (${advisory.optimal.currentTotal} → ${advisory.optimal.optimalTotal}). Titulariser ${advisory.optimal.promote.map(p => escapeHtml(p.name)).join(", ")} · Asseoir ${advisory.optimal.bench.map(p => escapeHtml(p.name)).join(", ")}.`
+            : `ta lineup actuelle est déjà la meilleure selon les projections Sleeper (${advisory.optimal.currentTotal} pts).`}
+          <br><small style="color:var(--muted);">Même moteur que le Trade Finder : projection Sleeper de la semaine, 0 pt pour un joueur Out/IR, IR exclu.</small>
+        </div>` : ""}
         ${alertCards || `<div class="card" style="padding:24px; text-align:center; color:var(--muted);">✅ Aucune alerte : lineup complet, personne à risque signalé par Sleeper.</div>`}
       </div>
     `;

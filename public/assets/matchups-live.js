@@ -1,6 +1,7 @@
 import { sleeperManager } from "./rivalry-week.js?v=4";
 import { buildWeeklyRecap } from "./weekly-recap.js?v=1";
 import { resolveOperationalWeek } from "./nfl-week.js?v=1";
+import { estimateBaselineProjectedPpg } from "./trade-value.js?v=3";
 
 const SLEEPER_API = "https://api.sleeper.app/v1";
 const DEFAULT_LEAGUE_ID = "1392715510830878721";
@@ -80,13 +81,32 @@ function starterProjection(starters, projections) {
   };
 }
 
+const UNAVAILABLE = new Set(["Out", "Doubtful", "IR", "PUP", "Sus", "NA"]);
+
+/** Starters Sleeper marks unavailable, with the healthy weekly estimate they take out of the
+ * lineup (expert-rank estimate: a projection for an Out player is 0, so it can't measure the loss). */
+export function summarizeUnavailableStarters(starters, playerStatuses = {}, playerCatalog = new Map()) {
+  const players = (starters || []).filter(id => id && id !== "0" && UNAVAILABLE.has(playerStatuses[id])).map(id => {
+    const entry = playerCatalog.get(id);
+    return {
+      sleeperId: id,
+      name: entry?.name || `Player #${id}`,
+      status: playerStatuses[id],
+      expectedPpg: entry ? estimateBaselineProjectedPpg({ ...entry, projectedPpg: undefined, projection: undefined }) : null
+    };
+  });
+  return { players, lostPoints: Number(players.reduce((sum, player) => sum + (player.expectedPpg || 0), 0).toFixed(1)) };
+}
+
 export function buildSeasonMatchups({
   rows,
   rosters,
   users,
   projections = {},
   historicalRecords = new Map(),
-  expectedStarterCount = 9
+  expectedStarterCount = 9,
+  playerStatuses = null,
+  playerCatalog = new Map()
 }) {
   const userById = new Map((users || []).map(user => [user.user_id, user]));
   const rosterById = new Map((rosters || []).map(roster => [Number(roster.roster_id), roster]));
@@ -114,7 +134,8 @@ export function buildSeasonMatchups({
           sleeperName: user?.display_name || manager,
           points: Number(row.points) || 0,
           starters: (row.starters || []).filter(playerId => playerId && playerId !== "0").length,
-          projection: starterProjection(row.starters, projections)
+          projection: starterProjection(row.starters, projections),
+          unavailable: playerStatuses ? summarizeUnavailableStarters(row.starters, playerStatuses, playerCatalog) : null
         };
       });
       const history = historicalRecords.get(pairKey(teams[0].manager, teams[1].manager)) || null;
@@ -152,6 +173,7 @@ function renderTeam(team, chance, side) {
     <strong>${escapeHtml(team.teamName)}</strong>
     <b>${formatPoints(team.points)}</b>
     ${projection}
+    ${team.unavailable?.players.length ? `<small class="lineup-alert" title="${escapeHtml(team.unavailable.players.map(player => `${player.name} (${player.status})`).join(", "))}">⚠ ${team.unavailable.players.length} titulaire${team.unavailable.players.length > 1 ? "s" : ""} indisponible${team.unavailable.players.length > 1 ? "s" : ""} : ${escapeHtml(team.unavailable.players.map(player => `${player.name} ${player.status}`).join(", "))}${team.unavailable.lostPoints > 0 ? ` · ≈${team.unavailable.lostPoints.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} pts perdus` : ""}</small>` : ""}
   </div>`;
 }
 
@@ -280,11 +302,16 @@ export async function renderMatchupsHub(container, {
     const target = document.getElementById(targetId);
     target.innerHTML = `<div class="state">Lecture de la semaine ${week}…</div>`;
     try {
-      const [rows, projections] = await Promise.all([
+      // Semaine en cours ou à venir : statuts blessure (serveur Adineu) pour signaler les titulaires indisponibles.
+      const upcoming = week >= currentWeek;
+      const [rows, projections, statusBody, catalog] = await Promise.all([
         fetchJson(`${SLEEPER_API}/league/${leagueId}/matchups/${week}`),
-        fetchJson(`${SLEEPER_API}/projections/nfl/regular/${season}/${week}`, { optional: true })
+        fetchJson(`${SLEEPER_API}/projections/nfl/regular/${season}/${week}`, { optional: true }),
+        upcoming ? fetchJson("/api/player-status", { optional: true }) : null,
+        upcoming ? fetchJson("/data/players-catalog.json", { optional: true }) : null
       ]);
-      const matchups = buildSeasonMatchups({ rows, rosters, users, projections: projections || {}, historicalRecords });
+      const playerCatalog = new Map((catalog?.players || []).map(player => [player.sleeperId, player]));
+      const matchups = buildSeasonMatchups({ rows, rosters, users, projections: projections || {}, historicalRecords, playerStatuses: statusBody?.statuses || null, playerCatalog });
       const hasScores = matchups.some(matchup => matchup.teams.some(team => team.points > 0));
       const status = weekStatus(week, currentWeek, hasScores);
       target.innerHTML = renderMatchupCards(matchups, status);

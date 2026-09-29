@@ -16,7 +16,8 @@ import {
   ROSTER_SETTINGS_2026
 } from "../public/assets/league-settings.js";
 import { resolveOperationalWeek, resolveLastCompletedWeek } from "../public/assets/nfl-week.js";
-import { findRosterByTeam, buildStarterSlotOrder, buildRosterSlots } from "../public/assets/roster-view.js";
+import { findRosterByTeam, buildStarterSlotOrder, buildRosterSlots, listRosterIdentities } from "../public/assets/roster-view.js";
+import { buildFaabHistory, buildTrendingAdds, summarizeFaabByPosition } from "../public/assets/league-market.js";
 import { calculateFaabRemaining } from "../public/assets/team-metrics.js";
 import { restOfSeasonEstimate } from "../public/assets/trade-score.js";
 import { estimateBaselineProjectedPpg } from "../public/assets/trade-value.js";
@@ -216,6 +217,11 @@ async function cachedWeekly(path, fetchImpl) {
   return data;
 }
 
+/** Projections Sleeper d'une semaine (cache 1 h), pour le Start/Sit Advisor. */
+export async function getWeeklyProjections({ week, season = "2026", fetchImpl = fetch } = {}) {
+  return cachedWeekly(`/projections/nfl/regular/${season}/${week}`, fetchImpl);
+}
+
 /**
  * Waiver Wire v2 (docs/prd-waiver-model-v2.md) : Event -> Opportunity -> Roster Fit -> FAAB.
  * Pool = tous les joueurs Sleeper non rostés (pas seulement le catalogue pré-draft), valorisés
@@ -322,9 +328,10 @@ export async function getFreeAgents({
   }
 
   const market = evaluateMarket({ rows, week });
+  let users = [];
+  try { users = await sleeperGet(`/league/${leagueId}/users`, { fetchImpl }); } catch {}
   let fitContext = null;
   if (team) {
-    const users = await sleeperGet(`/league/${leagueId}/users`, { fetchImpl });
     const { roster } = findRosterByTeam(rosters, users, team);
     const myPlayers = (roster.players || []).map(id => {
       const player = meta(id) || { name: `Player #${id}`, position: "FLEX" };
@@ -335,14 +342,9 @@ export async function getFreeAgents({
     fitContext = { myPlayers, paceOf, faabRemaining: calculateFaabRemaining(GENERAL_SETTINGS_2026.waiver.budget, roster.settings?.waiver_budget_used) };
   }
 
-  const normalizedPosition = position ? String(position).toUpperCase() : null;
-  const byPosition = {};
-  for (const row of market) {
-    if (normalizedPosition && row.position !== normalizedPosition) continue;
-    if (!byPosition[row.position]) byPosition[row.position] = [];
-    if (byPosition[row.position].length >= limitPerPosition) continue;
+  const withWaiver = row => {
     const fit = fitContext ? evaluateRosterFit({ marketRow: row, week, ...fitContext }) : null;
-    byPosition[row.position].push({
+    return {
       ...row,
       waiver: {
         score: row.marketScore,
@@ -361,10 +363,41 @@ export async function getFreeAgents({
         opportunities: row.signals.last?.opportunities ?? null,
         ...(fit ? { fit } : {})
       }
-    });
+    };
+  };
+
+  const normalizedPosition = position ? String(position).toUpperCase() : null;
+  const byPosition = {};
+  for (const row of market) {
+    if (normalizedPosition && row.position !== normalizedPosition) continue;
+    if (!byPosition[row.position]) byPosition[row.position] = [];
+    if (byPosition[row.position].length >= limitPerPosition) continue;
+    byPosition[row.position].push(withWaiver(row));
   }
 
-  return { generatedAt: new Date().toISOString(), week, lastCompletedWeek, rankingModel: "WAIVER_V2", degraded, coverage, pricePerPoint: PRICE_PER_POINT, team: team || null, faabRemaining: fitContext?.faabRemaining ?? null, byPosition };
+  // Signaux de marché de la ligue (benchmark Fantasy Life, lot 1) : enchères gagnées + trending Sleeper.
+  const rosterNameById = new Map(listRosterIdentities(rosters, users).map(({ roster, teamName }) => [String(roster.roster_id), teamName]));
+  const rosterOfPlayer = new Map(rosters.flatMap(roster => (roster.players || []).map(id => [id, rosterNameById.get(String(roster.roster_id)) || null])));
+  const transactionsByWeek = [];
+  for (let w = 1; w <= week; w++) {
+    try { transactionsByWeek.push({ week: w, transactions: await cachedWeekly(`/league/${leagueId}/transactions/${w}`, fetchImpl) }); } catch {}
+  }
+  const faabHistory = buildFaabHistory(transactionsByWeek, { playerMeta: meta, rosterName: rosterId => rosterNameById.get(String(rosterId)) || null });
+  let trendingRaw = [];
+  try { trendingRaw = await cachedWeekly("/players/nfl/trending/add?lookback_hours=48&limit=25", fetchImpl); } catch {}
+  const marketById = new Map(market.map(row => [row.sleeperId, row]));
+  const trending = buildTrendingAdds(trendingRaw || [], {
+    rosteredIds,
+    rosterOf: id => rosterOfPlayer.get(id) || null,
+    playerMeta: meta,
+    modelRowOf: id => marketById.has(id) ? withWaiver(marketById.get(id)) : null
+  });
+
+  return {
+    generatedAt: new Date().toISOString(), week, lastCompletedWeek, rankingModel: "WAIVER_V2", degraded, coverage,
+    pricePerPoint: PRICE_PER_POINT, team: team || null, faabRemaining: fitContext?.faabRemaining ?? null, byPosition,
+    faabHistory: faabHistory.slice(0, 30), faabByPosition: summarizeFaabByPosition(faabHistory), trending
+  };
 }
 
 /** Rend la liste de free agents en un bulletin texte, groupé par poste. */
