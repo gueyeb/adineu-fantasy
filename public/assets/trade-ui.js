@@ -19,6 +19,8 @@ import { buildProjectedLineup, restOfSeasonEstimate } from "./trade-score.js?v=5
 
 const SLEEPER_LEAGUE_ID = "1392715510830878721";
 const SLEEPER_API = "https://api.sleeper.app/v1";
+const SUPABASE_URL = "https://juosrzsffvjprqhdyado.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_7Bu9q2dKz0WEol94OGVhHw_xjSwHeHu";
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, character => ({
@@ -189,7 +191,7 @@ export async function renderTradesPage(container) {
     else if (currentTab === "waivers") renderWaiverView();
     else if (currentTab === "advisor") renderAdvisorView();
     else if (currentTab === "usage") renderUsageView();
-    else renderRulesView();
+    else { renderRulesView(); renderModelFeedback(); }
   }
 
   function renderFinderView() {
@@ -870,9 +872,37 @@ export async function renderTradesPage(container) {
     });
   }
 
+  // Bilan hebdo du modèle (scripts/model-tracking.js, table model_feedback en lecture publique).
+  async function renderModelFeedback() {
+    const target = document.getElementById("model-feedback");
+    if (!target) return;
+    let rows = [];
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/model_feedback?select=season,week,generated_at,report&order=season.desc,week.desc&limit=4`, {
+        headers: { apikey: SUPABASE_PUBLISHABLE_KEY, Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}` }
+      });
+      if (res.ok) rows = await res.json();
+    } catch { /* bloc facultatif : la page reste utilisable */ }
+    if (!document.getElementById("model-feedback")) return;
+    if (!rows.length) { target.innerHTML = `<p class="note">Premier bilan après la prochaine semaine jouée.</p>`; return; }
+    const latest = rows[0].report;
+    const pct = value => value === null || value === undefined ? "—" : `${Math.round(value * 100)} %`;
+    target.innerHTML = `
+      <div class="table-wrap"><table>
+        <thead><tr><th>Semaine</th><th class="num">Enchères gagnées</th><th class="num">Couvertes par le modèle</th><th class="num">Dans la fourchette</th><th class="num">Prix payé / pt (médiane)</th></tr></thead>
+        <tbody>${rows.map(row => `<tr><td>S${row.week}</td><td class="num">${row.report.faab.claims}</td><td class="num">${row.report.faab.covered}</td><td class="num">${pct(row.report.faab.inRangeRate)}</td><td class="num">${row.report.faab.medianImpliedPricePerPoint ?? "—"}${row.report.faab.medianImpliedPricePerPoint !== null ? " $" : ""}</td></tr>`).join("")}</tbody>
+      </table></div>
+      ${latest.projections.length ? `<p class="note">Projections Sleeper, S${latest.week} : ${latest.projections.map(entry => `${entry.horizon} sem. avant → ${entry.mae} pts d'erreur`).join(" · ")}</p>` : `<p class="note">La précision des projections selon leur ancienneté apparaîtra dès que des snapshots antérieurs seront disponibles.</p>`}
+      ${latest.algoFeedback.length ? `<div class="card" style="padding:12px 16px; border-left:4px solid var(--gold);"><strong>ALGO FEEDBACK</strong><ul style="margin:6px 0 0; padding-left:18px;">${latest.algoFeedback.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul></div>` : ""}
+      <p class="note">Modèle ${escapeHtml(latest.modelVersion)} · prix du point ${latest.faab.pricePerPoint} $ · bilan généré chaque mardi.</p>`;
+  }
+
   function renderRulesView() {
     content.innerHTML = `
       <div class="shell">
+        <h3 style="margin:0 0 6px; font-size:1.2rem;">Suivi du modèle</h3>
+        <p class="note" style="margin:0 0 10px;">Chaque mardi, le modèle est confronté à la réalité : enchères FAAB gagnées vs estimées, précision des projections, suivi des signaux buy-low / sell-high.</p>
+        <div id="model-feedback" style="margin-bottom:32px;"><p class="note">Chargement du bilan…</p></div>
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:20px; margin-bottom:32px;">
           <div class="card" style="background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:20px;">
             <p class="eyebrow" style="color:var(--grass); margin-bottom:8px;">Format & Playoffs</p>

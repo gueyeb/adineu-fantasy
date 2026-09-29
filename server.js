@@ -30,6 +30,8 @@ import {
 } from "./public/assets/league-settings.js";
 import { buildCoachPlan, formatCoachPlan } from "./scripts/coach-assistant.js";
 import { createCoachAuth } from "./scripts/coach-auth.js";
+import { createSupabaseFromEnv, getLatestFeedback, runWeeklyJob } from "./scripts/model-tracking.js";
+import { timingSafeEqual } from "node:crypto";
 
 const DEFAULT_PUBLIC_ROOT = fileURLToPath(new URL("./public", import.meta.url));
 const MIME_TYPES = {
@@ -70,6 +72,9 @@ export function createAppServer({
   getUsage = getUsageReportDefault,
   getPlayerValues = loadPlayerValues,
   getStartSit = getStartSitDefault,
+  modelJobToken = process.env.MODEL_JOB_TOKEN || "",
+  runModelJob = async () => runWeeklyJob({ supabase: await createSupabaseFromEnv() }),
+  getModelFeedback = () => getLatestFeedback(),
   coachToken = process.env.COACH_API_TOKEN || "",
   coachPassword = process.env.COACH_WEB_PASSWORD || "",
   secureCookies = process.env.NODE_ENV !== "development"
@@ -103,6 +108,19 @@ export function createAppServer({
         return sendJson(response, result.status, { ok: result.status === 200 });
       } catch {
         return sendJson(response, 400, { error: "Invalid request" });
+      }
+    }
+    // Weekly model tracking job (n8n, Tuesday): feedback on the completed week + snapshot.
+    if (url.pathname === "/api/model/weekly" && request.method === "POST") {
+      if (!modelJobToken) return sendJson(response, 503, { error: "MODEL_JOB_TOKEN non configuré." });
+      const expected = Buffer.from(`Bearer ${modelJobToken}`);
+      const received = Buffer.from(request.headers.authorization || "");
+      if (received.length !== expected.length || !timingSafeEqual(received, expected)) return sendJson(response, 401, { error: "Unauthorized" });
+      try {
+        const result = await runModelJob();
+        return sendJson(response, 200, result);
+      } catch (error) {
+        return sendJson(response, 502, { error: error.message });
       }
     }
     if (request.method !== "GET" && request.method !== "HEAD") {
@@ -158,6 +176,21 @@ export function createAppServer({
           return;
         }
         sendJson(response, 200, { ...report, message });
+      } catch (error) {
+        sendJson(response, 502, { error: error.message });
+      }
+      return;
+    }
+
+    if (url.pathname === "/api/model/feedback") {
+      try {
+        const feedback = await getModelFeedback();
+        if (url.searchParams.get("format") === "text") {
+          response.writeHead(200, { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" });
+          response.end(feedback?.message || "Aucun bilan de modèle pour l'instant.");
+          return;
+        }
+        sendJson(response, 200, feedback || { report: null });
       } catch (error) {
         sendJson(response, 502, { error: error.message });
       }

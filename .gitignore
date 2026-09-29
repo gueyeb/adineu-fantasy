@@ -10,3 +10,4 @@ output/playwright/
 .claude/
 FORBabacar.md
 .cache/
+supabase/.temp/
