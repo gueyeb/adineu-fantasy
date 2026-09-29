@@ -1,6 +1,36 @@
-# Backtest 2024–2025 — usage, projections et signaux
+# Backtest 2021–2025 — usage, projections et signaux
 
 29/09/2026 · `npm run backtest` (`scripts/backtest-usage.js`) · données en cache dans `.cache/backtest/`.
+
+## Synthèse 5 saisons (2021–2025, 5 139 décisions)
+| Prédicteur (cible far, n = 3 652) | Erreur moyenne |
+|---|---|
+| Points passés | 4,06 |
+| Usage (xFP) | 3,80 |
+| Projection Sleeper | 3,29 |
+| **80/20 projection + xFP (réglage actuel)** | **3,27** |
+| 50/50 (ancien réglage) | 3,36 |
+
+Semaine suivante (next, n = 4 046) : points passés 5,23 · xFP 5,10 · Sleeper 4,63 · 80/20 4,64 · 50/50 4,74.
+
+Poids optimal de l'usage par saison (cible far) : 2021 : 0,4 · 2022 : 0 · 2023 : 0,1 · 2024 : 0,2 ·
+2025 : 0,2. Médiane : 0,2. Par poste sur 5 saisons : RB, WR et TE ont tous 0,2. **Le réglage à 0,2
+est confirmé.**
+
+| Signal (5 saisons) | n | Évolution vs passé | Part qui progresse |
+|---|---|---|---|
+| Tous | 4 405 | −0,47 | 45 % |
+| **SELL_HIGH** | 191 | **−6,33** | **13 %** (6–18 % selon la saison) |
+| **BUY_LOW** | 290 | **+1,05** | **57 %** (52–65 % selon la saison) |
+
+Les deux signaux vont dans le bon sens **chaque saison**. Le sell-high est très fiable ; le buy-low
+est un avantage réel mais modeste (+1,5 pt de mieux que la moyenne).
+
+**Couverture** : le nombre de décisions baisse de 2021 (1 135) à 2025 (367). Un joueur n'est
+retenu que s'il a un `gsis_id` dans le dump Sleeper actuel (pour retrouver son équipe) et une
+projection cette semaine-là. Les résultats par saison vont tous dans le même sens.
+
+## Détail 2024–2025 (première passe)
 
 ## Méthode
 - Pour chaque saison 2024 et 2025 et chaque semaine de décision N = 4 → 13, on rejoue le modèle

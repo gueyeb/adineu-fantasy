@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Adineu Fantasy — Backtest of the usage model on 2024–2025 (docs/backtest-usage.md).
+ * Adineu Fantasy — Backtest of the usage model on 2021–2025 (docs/backtest-usage.md).
  *
  * Replays each decision week N (4→13) with ONLY the data known at that time, using the exact
  * live functions (buildPlayerWeeks / calculateUsageScores), and scores each predictor against
@@ -13,7 +13,7 @@
  *
  * Data: Sleeper /stats and /projections (same format as live), nflverse weekly player stats for
  * the player's team each week (Sleeper weekly stats have no team). Downloads are cached in
- * .cache/backtest (gitignored). Usage: node scripts/backtest-usage.js [--seasons=2024,2025] [--json]
+ * .cache/backtest (gitignored). Usage: node scripts/backtest-usage.js [--seasons=2021,2022,2023,2024,2025]
  */
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
@@ -146,7 +146,7 @@ function evaluateSignals(samples) {
   };
 }
 
-export async function runBacktest({ seasons = [2024, 2025] } = {}) {
+export async function runBacktest({ seasons = [2021, 2022, 2023, 2024, 2025] } = {}) {
   const samples = await buildSamples(seasons);
   const byPosition = Object.fromEntries(POSITIONS.map(position => [position, {
     far: evaluate(samples.filter(sample => sample.position === position), "far"),
@@ -157,7 +157,7 @@ export async function runBacktest({ seasons = [2024, 2025] } = {}) {
 
 async function main() {
   const seasonsArg = process.argv.find(arg => arg.startsWith("--seasons="));
-  const seasons = seasonsArg ? seasonsArg.split("=")[1].split(",").map(Number) : [2024, 2025];
+  const seasons = seasonsArg ? seasonsArg.split("=")[1].split(",").map(Number) : [2021, 2022, 2023, 2024, 2025];
   const report = await runBacktest({ seasons });
   console.log(JSON.stringify(report, null, 2));
 }

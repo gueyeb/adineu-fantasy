@@ -6,7 +6,7 @@
 import { BYE_WEEKS_2026, GENERAL_SETTINGS_2026 } from "./league-settings.js";
 
 export const DIRECT_PROJECTION_WEEKS = 2;
-// Backtest 2024–2025 (docs/backtest-usage.md): 0.2 minimizes error on both seasons; 0.5 was worse than Sleeper alone.
+// Backtest 2021–2025 (docs/backtest-usage.md): 0.2 is the median best weight across seasons and the best for RB/WR/TE; 0.5 is worse than Sleeper alone.
 export const FAR_WEEK_USAGE_WEIGHT = 0.2;
 const LAST_REGULAR_WEEK = GENERAL_SETTINGS_2026.playoffWeekStart - 1;
 const round = value => Number(value.toFixed(1));

@@ -187,7 +187,7 @@ mercredi 09:00 (Paris) ; lineups à fixer avant chaque match.
 - `docs/prd-waiver-model-v2.md` : modèle waiver v2 (Market vs Fit, NEWS_OVERRIDE)
 - `docs/benchmark-fantasylife.md` : comparatif Fantasy Life et fonctionnalités à reproduire
 - `docs/prd-usage-score.md` : Usage Score et buy-low / sell-high
-- `docs/backtest-usage.md` : backtest 2024–2025 (poids usage 20 %, sell-high validé)
+- `docs/backtest-usage.md` : backtest 2021–2025 (poids usage 20 %, sell-high et buy-low validés chaque saison)
 - `docs/prd-playoff-probabilities.md` : probabilités de playoffs
 - `docs/prd-waiver-opportunity-cost.md` : coût d'opportunité waiver
 - `docs/prd-team-page.md`, `docs/prd-team-page-increment3.md` : page équipe
