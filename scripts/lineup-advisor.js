@@ -42,6 +42,9 @@ function bestFreeAgentReplacement(slot, freeAgentsByPosition) {
   const candidates = positions.flatMap(pos => freeAgentsByPosition[pos] || []);
   if (candidates.length === 0) return null;
   return [...candidates].sort((a, b) => {
+    // Waiver v2 market score first (in-season value), expert rank only as a tie-break.
+    const scoreDiff = (b.waiver?.score ?? -1) - (a.waiver?.score ?? -1);
+    if (scoreDiff !== 0) return scoreDiff;
     const rankA = a.quality?.expertRank ?? Infinity;
     const rankB = b.quality?.expertRank ?? Infinity;
     return rankA - rankB;

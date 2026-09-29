@@ -88,8 +88,12 @@ Onglets :
   - Contre-offres voisines, message de négociation copiable.
 - **Trade Calculator** : compare deux paquets de joueurs en valeur marché (0–100, rareté par
   poste, décote des paquets 2-pour-1). Ce n'est pas un gain de lineup.
-- **Waiver Wire** : free agents classés + **coût d'opportunité** = gain de lineup optimale si on
-  ajoute le joueur. FAAB restant réel. Jamais d'enchère « conseillée » en % de réussite.
+- **Waiver Wire (modèle v2, `docs/prd-waiver-model-v2.md`)** : Event → Opportunity → Roster Fit → FAAB.
+  Pool = tous les joueurs Sleeper non rostés. Valeur reste de saison (projections Sleeper semaines
+  futures) + usage réel (snaps, carries + targets, red zone) + événements `NEWS_OVERRIDE`
+  (titulaire blessé devant lui : PROMOTION, avec une durée qui dépend de la blessure ; SNAP/USAGE_SURGE).
+  Deux scores séparés : **Market** (valeur pour la ligue, FAAB marché en $) et **Fit** (gain
+  réel de TA lineup optimale, « Max pour toi » plafonné par ton FAAB). Jamais d'enchère exprimée en % de réussite.
 - **Start/Sit Advisor** : alerte sur slot vide, blessure, bye ; propose un remplaçant (banc puis FA).
 - **Règles & Scoring 2026**.
 
@@ -119,16 +123,17 @@ API Sleeper (live, lecture seule) ────┘      + serveur Node (server.js
 
 ## 8. Limites connues (bonnes pistes d'amélioration)
 
-1. **Valeur marché périmée** : catalogue d'avant la draft (06/09). Cause principale de trades qui
+1. **Baseline ROS = projections Sleeper** : elles sous-estiment certains rôles nouveaux (Keenan Allen, Braelon Allen en semaine 4). Les règles d'événements corrigent en partie.
+2. **Valeur marché des trades périmée** : catalogue d'avant la draft (06/09). Cause principale de trades qui
    paraissent absurdes. → Phase 0 du modèle (§9).
-2. **Projections dépendantes de Sleeper**, sans modèle propre ni validation historique.
-3. **Taux d'absence IR approximatif** : Sleeper ne dit pas combien de matchs sont déjà passés.
-4. **Pas d'acceptation réelle** : aucune donnée sur ce que les managers acceptent ; la
+3. **Projections dépendantes de Sleeper**, sans modèle propre ni validation historique.
+4. **Taux d'absence IR approximatif** : Sleeper ne dit pas combien de matchs sont déjà passés.
+5. **Pas d'acceptation réelle** : aucune donnée sur ce que les managers acceptent ; la
    « faisabilité » est une heuristique.
-5. **Dette technique** : `?v=N` manuel (~70 occurrences), 4 modules refetchent rosters/users
+6. **Dette technique** : `?v=N` manuel (~70 occurrences), 4 modules refetchent rosters/users
    chacun, `trade-ui.js` en styles inline, `site.js` volumineux.
-6. **Mono-ligue** : ID de ligue, `t0z`, règles en dur, ce qui empêche l'ouverture au grand public.
-7. **Licences** : API Sleeper non commerciale ; FantasyPros exige une licence pour redistribuer.
+7. **Mono-ligue** : ID de ligue, `t0z`, règles en dur, ce qui empêche l'ouverture au grand public.
+8. **Licences** : API Sleeper non commerciale ; FantasyPros exige une licence pour redistribuer.
 
 ## 9. Feuille de route
 
@@ -140,12 +145,25 @@ API Sleeper (live, lecture seule) ────┘      + serveur Node (server.js
     exact de la ligue, blend avec le consensus.
   - Phase 2 : backtest 2024–2025 par date de décision ; mise en prod seulement si le modèle bat le consensus.
 
+**Prochain : lot 1 du benchmark Fantasy Life** (`docs/benchmark-fantasylife.md`) : Luck +
+Playoff % dans Standings, courbe du rang, historique FAAB de la ligue, trending adds, points
+perdus sur blessure, lineup optimisée.
+
 **Plus tard**
 - Sources commerciales, multi-ligues, comptes : ouverture grand public (reportée).
 - Suivi des trades réellement acceptés pour calibrer la « faisabilité ».
 - Réduction de la dette technique (cache-busting automatique, fetch roster partagé).
 
 ## 10. Comment proposer une amélioration
+
+**Format ALGO FEEDBACK** : quand une recommandation révèle une faiblesse générale, la remonter
+sous cette forme. Elle sera transformée en règle et en test de non-régression, jamais en
+correction ponctuelle d'un seul joueur :
+```
+ALGO FEEDBACK — <RÈGLE, ex. NEWS_OVERRIDE / ROSTER_FIT>
+Player: …   Current output: …   Expected: …
+Cause: …    Proposed rule: …
+```
 
 Une bonne suggestion précise :
 - le **problème utilisateur** (quel manager, quelle décision, à quel moment de la semaine) ;
@@ -160,6 +178,8 @@ mercredi 09:00 (Paris) ; lineups à fixer avant chaque match.
 ## 11. Documents détaillés
 
 - `docs/prd-adineu-projection-model.md` : modèle de projection (chantier 2)
+- `docs/prd-waiver-model-v2.md` : modèle waiver v2 (Market vs Fit, NEWS_OVERRIDE)
+- `docs/benchmark-fantasylife.md` : comparatif Fantasy Life et fonctionnalités à reproduire
 - `docs/prd-playoff-probabilities.md` : probabilités de playoffs
 - `docs/prd-waiver-opportunity-cost.md` : coût d'opportunité waiver
 - `docs/prd-team-page.md`, `docs/prd-team-page-increment3.md` : page équipe

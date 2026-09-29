@@ -40,43 +40,51 @@ test("free-agents API returns JSON grouped by position with a text alias", async
   assert.match(textResponse.headers.get("content-type"), /text\/plain/);
 });
 
-test("getFreeAgents excludes rostered players, targets the operational week and ranks in-season value", async () => {
-  const fetchImpl = async url => ({
-    ok: true,
-    json: async () => {
-      if (url.endsWith("/rosters")) return [{ roster_id: 1, players: ["7564"] }];
-      if (url.endsWith("/state/nfl")) return { display_week: 1, week: 2, season: "2026", season_has_scores: true };
-      if (url.includes("/projections/nfl/regular/2026/2")) return { "11625": { pts_ppr: 18 } };
-      if (url.includes("/matchups/1")) return [{ points: 100, players_points: { "11625": 20 } }];
-      return {};
-    }
-  });
-  const catalogUrl = new URL("../public/data/players-catalog.json", import.meta.url);
+const sleeperFixture = ({ rostered = [], players = {}, projections = {}, stats = {} }) => async url => ({
+  ok: true,
+  json: async () => {
+    if (url.endsWith("/rosters")) return [{ roster_id: 1, owner_id: "u1", players: rostered, settings: { waiver_budget_used: 100 } }];
+    if (url.endsWith("/users")) return [{ user_id: "u1", display_name: "t0z" }];
+    if (url.endsWith("/state/nfl")) return { display_week: 4, week: 4, season: "2026", season_has_scores: true };
+    if (url.endsWith("/players/nfl")) return players;
+    const projection = url.match(/projections\/nfl\/regular\/2026\/(\d+)/);
+    if (projection) return projections[projection[1]] || {};
+    const stat = url.match(/stats\/nfl\/regular\/2026\/(\d+)/);
+    if (stat) return stats[stat[1]] || {};
+    return {};
+  }
+});
+const catalogUrl = new URL("../public/data/players-catalog.json", import.meta.url);
+const futureWeeks = points => Object.fromEntries(Array.from({ length: 11 }, (_, i) => [String(4 + i), points]));
 
-  const report = await getFreeAgents({ fetchImpl, catalogUrl, position: "WR", limitPerPosition: 3 });
-
-  assert.equal(report.week, 2);
-  assert.ok(report.byPosition.WR.length > 0);
-  assert.ok(report.byPosition.WR.every(player => player.sleeperId !== "7564"));
-  assert.equal(report.byPosition.WR[0].sleeperId, "11625");
-  assert.equal(report.byPosition.WR[0].waiver.category, "PRIORITÉ");
+test("getFreeAgents v2: an injury ahead + a snap surge makes a deep backup a priority add (Gordon/Achane case)", async () => {
+  const players = {
+    star: { full_name: "Injured Starter", position: "RB", team: "MIA", injury_status: "IR", injury_body_part: "Knee - ACL", search_rank: 8, active: true },
+    backup: { full_name: "Deep Backup", position: "RB", team: "MIA", search_rank: 466, active: true },
+    filler: { full_name: "Filler Back", position: "RB", team: "KC", search_rank: 300, active: true },
+    rostered: { full_name: "Rostered Back", position: "RB", team: "BUF", search_rank: 20, active: true }
+  };
+  const projections = futureWeeks({ backup: { pts_ppr: 7 }, filler: { pts_ppr: 6 }, rostered: { pts_ppr: 15 } });
+  const stats = {
+    2: { backup: { off_snp: 10, tm_off_snp: 70, rush_att: 2, pts_ppr: 1 } },
+    3: { backup: { off_snp: 61, tm_off_snp: 73, rush_att: 17, rec_tgt: 3, pts_ppr: 14.5 } }
+  };
+  const report = await getFreeAgents({ fetchImpl: sleeperFixture({ rostered: ["rostered"], players, projections, stats }), catalogUrl, position: "RB", limitPerPosition: 5, forceRefreshInjuryStatuses: true, team: "t0z" });
+  assert.equal(report.rankingModel, "WAIVER_V2");
+  assert.ok(report.byPosition.RB.every(player => player.sleeperId !== "rostered" && player.sleeperId !== "star"));
+  const backup = report.byPosition.RB[0];
+  assert.equal(backup.sleeperId, "backup");
+  assert.equal(backup.waiver.duration, "SEASON_LONG");
+  assert.ok(backup.waiver.flags.includes("PROMOTION") && backup.waiver.flags.includes("SNAP_SURGE"));
+  assert.equal(backup.waiver.category, "PRIORITÉ");
+  assert.ok(backup.waiver.fit && Number.isFinite(backup.waiver.fit.fitScore));
+  assert.equal(report.faabRemaining, 900);
 });
 
 test("getFreeAgents never recommends a player Sleeper has marked IR/Out/Doubtful/PUP/Sus/NA", async () => {
-  const fetchImpl = async url => ({
-    ok: true,
-    json: async () => {
-      if (url.endsWith("/rosters")) return [{ roster_id: 1, players: [] }];
-      if (url.endsWith("/state/nfl")) return { display_week: 1, week: 2, season: "2026", season_has_scores: true };
-      if (url.includes("/projections/nfl/regular/2026/2")) return { "11625": { pts_ppr: 18 } };
-      if (url.includes("/matchups/1")) return [];
-      if (url.endsWith("/players/nfl")) return { "11625": { injury_status: "IR" } };
-      return {};
-    }
-  });
-  const catalogUrl = new URL("../public/data/players-catalog.json", import.meta.url);
-
-  const report = await getFreeAgents({ fetchImpl, catalogUrl, position: "WR", limitPerPosition: 40, forceRefreshInjuryStatuses: true });
-
-  assert.ok(report.byPosition.WR.every(player => player.sleeperId !== "11625"), "an IR player must never be recommended with a fabricated projection");
+  const players = { hurt: { full_name: "Hurt WR", position: "WR", team: "KC", injury_status: "IR", active: true }, ok: { full_name: "Healthy WR", position: "WR", team: "KC", active: true } };
+  const projections = futureWeeks({ hurt: { pts_ppr: 18 }, ok: { pts_ppr: 8 } });
+  const report = await getFreeAgents({ fetchImpl: sleeperFixture({ players, projections }), catalogUrl, position: "WR", limitPerPosition: 40, forceRefreshInjuryStatuses: true });
+  assert.ok(report.byPosition.WR.every(player => player.sleeperId !== "hurt"), "an IR player must never be recommended with a fabricated projection");
+  assert.ok(report.byPosition.WR.some(player => player.sleeperId === "ok"));
 });

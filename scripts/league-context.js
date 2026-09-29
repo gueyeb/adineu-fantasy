@@ -17,6 +17,20 @@ import {
 } from "../public/assets/league-settings.js";
 import { resolveOperationalWeek, resolveLastCompletedWeek } from "../public/assets/nfl-week.js";
 import { findRosterByTeam, buildStarterSlotOrder, buildRosterSlots } from "../public/assets/roster-view.js";
+import { calculateFaabRemaining } from "../public/assets/team-metrics.js";
+import { restOfSeasonEstimate } from "../public/assets/trade-score.js";
+import { estimateBaselineProjectedPpg } from "../public/assets/trade-value.js";
+import {
+  FANTASY_POSITIONS,
+  LAST_REGULAR_WEEK,
+  PRICE_PER_POINT,
+  buildOpportunitySignals,
+  computeRosPpg,
+  detectEvents,
+  effectivePpg,
+  evaluateMarket,
+  evaluateRosterFit
+} from "../public/assets/waiver-model.js";
 
 export const DEFAULT_SLEEPER_LEAGUE_ID = process.env.SLEEPER_LEAGUE_ID || "1392715510830878721";
 const SLEEPER_API = "https://api.sleeper.app/v1";
@@ -36,30 +50,51 @@ export const SEVERITY_BY_STATUS = {
   NA: "ALERT"
 };
 
-let injuryStatusCache = null;
-let injuryStatusCacheAt = 0;
+// Par fetchImpl, comme les caches hebdo : un fetch injecté ne partage jamais l'index réel.
+const playersIndexCaches = new WeakMap();
 
 /**
- * Récupère (et met en cache en mémoire) le statut blessure de chaque joueur NFL depuis Sleeper.
- * Ne conserve que les joueurs ayant un `injury_status` non nul, pour rester léger. Partagé par
- * le Start/Sit Advisor (lineup-advisor.js) et le Waiver Wire (getFreeAgents ci-dessous), pour
- * qu'un joueur en IR/Out n'y soit jamais recommandé avec une fausse projection.
+ * Index allégé (et mis en cache 6 h) du dump Sleeper /players/nfl (~15 Mo) : poste, équipe,
+ * statut et zone de blessure, depth chart. Partagé par le Start/Sit Advisor, le Trade Finder
+ * (/api/player-status) et le Waiver Wire v2 (événements : promotion, blessure du titulaire).
  */
-export async function getInjuryStatuses({ fetchImpl = fetch, forceRefresh = false } = {}) {
+export async function getPlayersIndex({ fetchImpl = fetch, forceRefresh = false } = {}) {
   const now = Date.now();
-  if (!forceRefresh && injuryStatusCache && (now - injuryStatusCacheAt) < INJURY_STATUS_CACHE_TTL_MS) return injuryStatusCache;
+  const hit = playersIndexCaches.get(fetchImpl);
+  if (!forceRefresh && hit && (now - hit.at) < INJURY_STATUS_CACHE_TTL_MS) return hit.index;
 
   const response = await fetchImpl(`${SLEEPER_API}/players/nfl`, { signal: AbortSignal.timeout(20_000) });
   if (!response.ok) throw new Error(`Sleeper API /players/nfl -> HTTP ${response.status}`);
   const raw = await response.json();
 
-  const statuses = new Map();
-  for (const [playerId, player] of Object.entries(raw)) {
-    if (player?.injury_status) statuses.set(playerId, player.injury_status);
+  const index = new Map();
+  for (const [playerId, player] of Object.entries(raw || {})) {
+    if (!player) continue;
+    const position = player.position || player.fantasy_positions?.[0] || null;
+    index.set(playerId, {
+      id: playerId,
+      name: player.full_name || [player.first_name, player.last_name].filter(Boolean).join(" ") || `Player #${playerId}`,
+      position,
+      nflTeam: player.team || null,
+      injuryStatus: player.injury_status || null,
+      injuryBodyPart: player.injury_body_part || null,
+      depthOrder: Number.isFinite(player.depth_chart_order) ? player.depth_chart_order : null,
+      searchRank: Number.isFinite(player.search_rank) ? player.search_rank : null,
+      active: player.active !== false
+    });
   }
 
-  injuryStatusCache = statuses;
-  injuryStatusCacheAt = now;
+  playersIndexCaches.set(fetchImpl, { at: now, index });
+  return index;
+}
+
+/** sleeperId -> injury_status, pour les joueurs qui en ont un. */
+export async function getInjuryStatuses({ fetchImpl = fetch, forceRefresh = false } = {}) {
+  const index = await getPlayersIndex({ fetchImpl, forceRefresh });
+  const statuses = new Map();
+  for (const [playerId, player] of index) {
+    if (player.injuryStatus) statuses.set(playerId, player.injuryStatus);
+  }
   return statuses;
 }
 
@@ -168,9 +203,25 @@ export function formatContextText(context) {
   return lines.join("\n");
 }
 
+// Par fetchImpl : un fetch injecté (tests) ne partage jamais le cache du vrai Sleeper.
+const weeklyCaches = new WeakMap();
+/** Stats/projections Sleeper d'une semaine, en cache 1 h (une semaine terminée ne bouge presque plus). */
+async function cachedWeekly(path, fetchImpl) {
+  if (!weeklyCaches.has(fetchImpl)) weeklyCaches.set(fetchImpl, new Map());
+  const cache = weeklyCaches.get(fetchImpl);
+  const hit = cache.get(path);
+  if (hit && Date.now() - hit.at < 60 * 60 * 1000) return hit.data;
+  const data = await sleeperGet(path, { fetchImpl });
+  cache.set(path, { at: Date.now(), data });
+  return data;
+}
+
 /**
- * Liste les joueurs du catalogue Adineu qui ne sont sur aucun des 12 rosters Sleeper,
- * groupés par poste et triés par rang expert (puis ADP).
+ * Waiver Wire v2 (docs/prd-waiver-model-v2.md) : Event -> Opportunity -> Roster Fit -> FAAB.
+ * Pool = tous les joueurs Sleeper non rostés (pas seulement le catalogue pré-draft), valorisés
+ * sur le reste de la saison (projections Sleeper des semaines futures), l'usage réel des 3
+ * dernières semaines (snaps, opportunités, red zone) et les événements (titulaire blessé devant
+ * eux, explosion de snaps/usage). Avec `team`, ajoute le fit roster et le max FAAB pour cette équipe.
  */
 export async function getFreeAgents({
   leagueId = DEFAULT_SLEEPER_LEAGUE_ID,
@@ -178,9 +229,11 @@ export async function getFreeAgents({
   catalogUrl = DEFAULT_CATALOG_URL,
   position = null,
   limitPerPosition = 10,
+  team = null,
   forceRefreshInjuryStatuses = false
 } = {}) {
   const { catalog } = await loadPlayerCatalog(catalogUrl);
+  const catalogById = new Map((catalog.players || []).map(player => [player.sleeperId, player]));
   const rosters = await sleeperGet(`/league/${leagueId}/rosters`, { fetchImpl });
   const rosteredIds = new Set(rosters.flatMap(roster => roster.players || []));
 
@@ -190,73 +243,128 @@ export async function getFreeAgents({
     nflState = await sleeperGet("/state/nfl", { fetchImpl });
     week = resolveOperationalWeek(nflState);
   } catch {}
-
   const season = nflState?.season || "2026";
-  let weeklyProjections = {};
+  const lastCompletedWeek = resolveLastCompletedWeek(nflState);
+
+  let index = new Map();
   try {
-    weeklyProjections = await sleeperGet(`/projections/nfl/regular/${season}/${week}`, { fetchImpl });
+    index = await getPlayersIndex({ fetchImpl, forceRefresh: forceRefreshInjuryStatuses });
   } catch {}
 
-  const recentScores = new Map();
-  const lastCompletedWeek = resolveLastCompletedWeek(nflState);
-  if (lastCompletedWeek > 0) {
-    try {
-      const matchups = await sleeperGet(`/league/${leagueId}/matchups/${lastCompletedWeek}`, { fetchImpl });
-      for (const matchup of matchups || []) {
-        for (const [playerId, points] of Object.entries(matchup.players_points || {})) {
-          if (Number.isFinite(points)) recentScores.set(playerId, points);
-        }
-      }
-    } catch {}
+  const projectionsByWeek = {};
+  await Promise.all(Array.from({ length: Math.max(0, LAST_REGULAR_WEEK - week + 1) }, (_, i) => week + i).map(async w => {
+    try { projectionsByWeek[w] = await cachedWeekly(`/projections/nfl/regular/${season}/${w}`, fetchImpl); } catch {}
+  }));
+  const statsByWeek = [];
+  for (let w = Math.max(1, lastCompletedWeek - 2); w <= lastCompletedWeek && lastCompletedWeek > 0; w++) {
+    try { statsByWeek.push({ week: w, stats: await cachedWeekly(`/stats/nfl/regular/${season}/${w}`, fetchImpl) }); } catch {}
   }
 
-  // Un free agent en IR/Out/Doubtful/PUP/Sus/NA ne peut pas jouer cette semaine (ni, pour l'IR,
-  // avant plusieurs semaines) : jamais recommandé avec une projection fabriquée. Même sévérité
-  // ALERT que le Start/Sit Advisor (SEVERITY_BY_STATUS ci-dessus).
-  let injuryStatuses = new Map();
-  try {
-    injuryStatuses = await getInjuryStatuses({ fetchImpl, forceRefresh: forceRefreshInjuryStatuses });
-  } catch {}
+  const expectedProjectionWeeks = Math.max(0, LAST_REGULAR_WEEK - week + 1);
+  const coverage = {
+    projectionWeeks: `${Object.keys(projectionsByWeek).length}/${expectedProjectionWeeks}`,
+    statsWeeks: `${statsByWeek.length}/${lastCompletedWeek > 0 ? Math.min(3, lastCompletedWeek) : 0}`,
+    playersIndex: index.size > 0
+  };
+  const degraded = Object.keys(projectionsByWeek).length < expectedProjectionWeeks || !coverage.playersIndex ||
+    statsByWeek.length < (lastCompletedWeek > 0 ? Math.min(3, lastCompletedWeek) : 0);
+
+  const meta = id => index.get(id) || (catalogById.has(id) ? { id, name: catalogById.get(id).name, position: catalogById.get(id).position, nflTeam: catalogById.get(id).nflTeam, active: true } : null);
+  const rosFor = (id, player) => computeRosPpg({ playerId: id, nflTeam: player?.nflTeam, projectionsByWeek, week });
+
+  // Pool : index Sleeper complet (ou catalogue en repli), postes fantasy, équipe NFL active.
+  // Le catalogue pré-draft ne sert de pool que si l'index Sleeper est indisponible.
+  const candidateIds = new Set(index.size ? index.keys() : catalogById.keys());
+  const byTeamPosition = new Map();
+  for (const id of candidateIds) {
+    const player = meta(id);
+    if (!player?.nflTeam || !FANTASY_POSITIONS.includes(player.position)) continue;
+    const key = `${player.nflTeam}:${player.position}`;
+    if (!byTeamPosition.has(key)) byTeamPosition.set(key, []);
+    byTeamPosition.get(key).push({ ...player, id, rosPpg: rosFor(id, player) });
+  }
+
+  const rows = [];
+  for (const id of candidateIds) {
+    if (rosteredIds.has(id)) continue;
+    const player = meta(id);
+    if (!player?.active || !player.nflTeam || !FANTASY_POSITIONS.includes(player.position)) continue;
+    // Jamais recommandé s'il ne peut pas jouer (IR/Out/Doubtful/PUP/Sus/NA), même sévérité que le Start/Sit.
+    if (SEVERITY_BY_STATUS[player.injuryStatus] === "ALERT") continue;
+    const catalogEntry = catalogById.get(id) || {};
+    // Repli étiqueté : sans couverture de projections futures, estimation par rang (ECR catalogue).
+    const projectedRos = rosFor(id, player);
+    const rankFallback = projectedRos === null && Number.isFinite(catalogEntry.quality?.expertRank ?? catalogEntry.market?.sleeperAdp)
+      ? estimateBaselineProjectedPpg({ ...catalogEntry, projectedPpg: undefined, projection: undefined }) : null;
+    const rosPpg = projectedRos ?? rankFallback;
+    const signals = buildOpportunitySignals(id, statsByWeek);
+    const weekProjection = projectionsByWeek[week]?.[id]?.pts_ppr ?? null;
+    if (rosPpg === null && !signals.gamesPlayed) continue;
+    const teammates = byTeamPosition.get(`${player.nflTeam}:${player.position}`) || [];
+    const events = detectEvents({ player: { ...player, id, rosPpg }, teammates, signals });
+    // Last game counts as role evidence only if he actually had the role (≥ 60 % of the snaps).
+    const lastRolePoints = signals.last?.snapShare >= 0.6 ? signals.last.points : null;
+    const pace = effectivePpg({ rosPpg, weekProjection, recentPpg: signals.recentPpg, lastRolePoints, duration: events.duration, share: events.share, week });
+    rows.push({
+      ...catalogEntry,
+      sleeperId: id,
+      name: player.name,
+      position: player.position,
+      nflTeam: player.nflTeam,
+      injuryStatus: player.injuryStatus,
+      rosPpg,
+      rosSource: projectedRos !== null ? "SLEEPER_PROJECTIONS" : rankFallback !== null ? "RANK_ESTIMATE" : "NONE",
+      weekProjection: Number.isFinite(weekProjection) ? Number(weekProjection.toFixed(1)) : null,
+      effectivePpg: pace.effective,
+      signals,
+      events: { ...events, rolePpg: pace.rolePpg, roleWeeks: pace.roleWeeks }
+    });
+  }
+
+  const market = evaluateMarket({ rows, week });
+  let fitContext = null;
+  if (team) {
+    const users = await sleeperGet(`/league/${leagueId}/users`, { fetchImpl });
+    const { roster } = findRosterByTeam(rosters, users, team);
+    const myPlayers = (roster.players || []).map(id => {
+      const player = meta(id) || { name: `Player #${id}`, position: "FLEX" };
+      return { ...(catalogById.get(id) || {}), ...player, sleeperId: id, projectedPpg: projectionsByWeek[week]?.[id]?.pts_ppr, injuryStatus: player.injuryStatus };
+    });
+    const fallback = restOfSeasonEstimate(week);
+    const paceOf = player => player.effectivePpg ?? rosFor(player.sleeperId, player) ?? fallback(player);
+    fitContext = { myPlayers, paceOf, faabRemaining: calculateFaabRemaining(GENERAL_SETTINGS_2026.waiver.budget, roster.settings?.waiver_budget_used) };
+  }
 
   const normalizedPosition = position ? String(position).toUpperCase() : null;
-  const available = (catalog.players || [])
-    .filter(player => !rosteredIds.has(player.sleeperId))
-    .filter(player => !normalizedPosition || player.position === normalizedPosition)
-    .filter(player => SEVERITY_BY_STATUS[injuryStatuses.get(player.sleeperId)] !== "ALERT")
-    .map(player => {
-      const projected = Number(weeklyProjections?.[player.sleeperId]?.pts_ppr);
-      const recent = recentScores.get(player.sleeperId);
-      const rank = player.quality?.expertRank ?? player.market?.sleeperAdp ?? 300;
-      const baseline = Math.max(0, 16 - (rank / 18));
-      const projectedPpg = Number.isFinite(projected) ? projected : baseline;
-      const recentPpg = Number.isFinite(recent) ? recent : null;
-      const score = Number((projectedPpg * 0.65 + (recentPpg ?? baseline) * 0.25 + baseline * 0.10).toFixed(1));
-      const category = score >= 12 ? "PRIORITÉ" : score >= 8 ? "STREAMING" : score >= 5 ? "STASH" : "PROFONDEUR";
-      const faabPct = category === "PRIORITÉ" ? [8, 15] : category === "STREAMING" ? [3, 7] : category === "STASH" ? [1, 3] : [0, 1];
-      return { ...player, waiver: { score, category, projectedPpg: Number(projectedPpg.toFixed(1)), recentPpg, faabPct } };
-    });
-
   const byPosition = {};
-  for (const player of available) {
-    const pos = player.position;
-    if (!byPosition[pos]) byPosition[pos] = [];
-    byPosition[pos].push(player);
-  }
-
-  for (const pos of Object.keys(byPosition)) {
-    byPosition[pos].sort((a, b) => {
-      if (a.waiver.score !== b.waiver.score) return b.waiver.score - a.waiver.score;
-      const rankA = a.quality?.expertRank ?? Infinity;
-      const rankB = b.quality?.expertRank ?? Infinity;
-      if (rankA !== rankB) return rankA - rankB;
-      const adpA = a.market?.sleeperAdp ?? Infinity;
-      const adpB = b.market?.sleeperAdp ?? Infinity;
-      return adpA - adpB;
+  for (const row of market) {
+    if (normalizedPosition && row.position !== normalizedPosition) continue;
+    if (!byPosition[row.position]) byPosition[row.position] = [];
+    if (byPosition[row.position].length >= limitPerPosition) continue;
+    const fit = fitContext ? evaluateRosterFit({ marketRow: row, week, ...fitContext }) : null;
+    byPosition[row.position].push({
+      ...row,
+      waiver: {
+        score: row.marketScore,
+        category: row.category,
+        projectedPpg: row.weekProjection ?? row.rosPpg,
+        rosPpg: row.rosPpg,
+        rosSource: row.rosSource,
+        recentPpg: row.signals.recentPpg,
+        faabPct: row.faabPct,
+        faabMarket: row.faabMarket,
+        newsOverride: row.events.newsOverride,
+        flags: row.events.flags,
+        reasons: row.events.reasons,
+        duration: row.events.duration,
+        snapShare: row.signals.last?.snapShare ?? null,
+        opportunities: row.signals.last?.opportunities ?? null,
+        ...(fit ? { fit } : {})
+      }
     });
-    byPosition[pos] = byPosition[pos].slice(0, limitPerPosition);
   }
 
-  return { generatedAt: new Date().toISOString(), week, lastCompletedWeek, rankingModel: "IN_SEASON_V1", byPosition };
+  return { generatedAt: new Date().toISOString(), week, lastCompletedWeek, rankingModel: "WAIVER_V2", degraded, coverage, pricePerPoint: PRICE_PER_POINT, team: team || null, faabRemaining: fitContext?.faabRemaining ?? null, byPosition };
 }
 
 /** Rend la liste de free agents en un bulletin texte, groupé par poste. */
@@ -272,7 +380,9 @@ export function formatWaiverReport({ byPosition, week }) {
       const adp = Number.isFinite(player.market?.sleeperAdp) ? ` · ADP ${player.market.sleeperAdp}` : "";
       const note = player.adineu?.thesis ? ` — ${player.adineu.thesis}` : "";
       const waiver = player.waiver
-        ? ` · ${player.waiver.category} · Proj. ${player.waiver.projectedPpg} · FAAB ${player.waiver.faabPct[0]}–${player.waiver.faabPct[1]}%`
+        ? ` · ${player.waiver.category} · ROS ${player.waiver.rosPpg ?? "n/d"} · FAAB marché ${player.waiver.faabPct[0]}–${player.waiver.faabPct[1]}%` +
+          (player.waiver.fit ? ` · Fit ${player.waiver.fit.fitScore} · Max ${player.waiver.fit.faabMaxForMe} $` : "") +
+          (player.waiver.newsOverride ? ` · ⚡ ${player.waiver.reasons.join(" ; ")}` : "")
         : "";
       lines.push(`${index + 1}. ${player.name} (${player.nflTeam || "FA"})${waiver}${rank}${adp}${note}`);
     });

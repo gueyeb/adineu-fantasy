@@ -15,7 +15,6 @@ import {
 import { resolveOperationalWeek } from "./nfl-week.js?v=1";
 import { listRosterIdentities } from "./roster-view.js?v=1";
 import { calculateFaabRemaining } from "./team-metrics.js?v=2";
-import { identifyFreeAgents, findWaiverOpportunities } from "./waiver-opportunity.js?v=3";
 import { buildProjectedLineup, restOfSeasonEstimate } from "./trade-score.js?v=2";
 
 const SLEEPER_LEAGUE_ID = "1392715510830878721";
@@ -535,55 +534,21 @@ export async function renderTradesPage(container) {
   async function renderWaiverView() {
     content.innerHTML = `<div class="shell state">Chargement des free agents…</div>`;
 
+    // Waiver v2 (docs/prd-waiver-model-v2.md) : le serveur croise projections ROS, usage réel,
+    // événements (titulaire blessé devant, explosion de snaps) et le fit de CETTE équipe.
     let report = { byPosition: {}, message: "" };
     try {
-      const res = await fetch("/api/free-agents");
+      const res = await fetch(`/api/free-agents?limit=8&team=${encodeURIComponent(selectedRosterId)}`);
       if (res.ok) report = await res.json();
     } catch (e) {
       console.warn("Impossible de charger les free agents", e);
     }
-
-    // Coût d'opportunité, par équipe (docs/prd-waiver-opportunity-cost.md). Réutilise tel quel le
-    // moteur de delta de lineup déjà livré et testé pour les trades (buildProjectedLineup dans
-    // trade-score.js) : le gain d'un free agent, c'est juste (lineup optimale avec lui) - (lineup
-    // optimale sans lui). Le pool de free agents vient des projections Sleeper EN DIRECT pour la
-    // semaine en cours (endpoint déjà vérifié et utilisé par Playoff Probabilities), pas du
-    // catalogue statique pré-saison ci-dessous qui raterait les révélations en cours de saison.
-    const currentRoster = formattedRosters.find(r => String(r.roster_id) === String(selectedRosterId));
-    let opportunities = [];
-    let opportunityError = null;
-    if (currentRoster && currentWeek) {
-      try {
-        const positions = ["QB", "RB", "WR", "TE", "K", "DEF"];
-        const query = positions.map(pos => `position[]=${pos}`).join("&");
-        const projRes = await fetch(`https://api.sleeper.app/projections/nfl/${season}/${currentWeek}?season_type=regular&${query}`);
-        if (projRes.ok) {
-          const rows = await projRes.json();
-          const candidates = rows
-            .filter(row => row.stats && Number.isFinite(row.stats.pts_ppr))
-            .map(row => ({
-              sleeperId: String(row.player_id),
-              name: row.player ? `${row.player.first_name || ""} ${row.player.last_name || ""}`.trim() || `Player #${row.player_id}` : `Player #${row.player_id}`,
-              position: row.player?.position || row.player?.fantasy_positions?.[0] || "FLEX",
-              nflTeam: row.player?.team || row.team || null,
-              projectedPpg: Number(row.stats.pts_ppr)
-            }));
-          const freeAgents = identifyFreeAgents(candidates, rosters);
-          const diag = diagnoseRoster(currentRoster.players);
-          opportunities = findWaiverOpportunities({
-            myPlayers: currentRoster.players,
-            freeAgents,
-            positionsOfInterest: diag.deficits.length ? diag.deficits : null,
-            cap: 40
-          });
-        } else {
-          opportunityError = "Projections Sleeper indisponibles pour le moment.";
-        }
-      } catch (e) {
-        console.warn("Impossible de calculer le coût d'opportunité waiver", e);
-        opportunityError = "Calcul indisponible pour le moment.";
-      }
-    }
+    const opportunities = Object.values(report.byPosition || {}).flat()
+      .filter(player => player.waiver?.fit?.gainPerWeek > 0)
+      .sort((a, b) => b.waiver.fit.faabMaxForMe - a.waiver.fit.faabMaxForMe || b.waiver.fit.gainPerWeek - a.waiver.fit.gainPerWeek)
+      .slice(0, 10);
+    const opportunityError = report.rankingModel ? null : "Calcul indisponible pour le moment.";
+    const degradedNote = report.degraded ? `⚠ Données partielles (projections ${report.coverage?.projectionWeeks}, stats ${report.coverage?.statsWeeks}) : classement moins fiable, estimation par rang pour certains joueurs.` : "";
 
     if (currentTab !== "waivers") return; // l'utilisateur a changé d'onglet pendant le chargement
 
@@ -602,7 +567,7 @@ export async function renderTradesPage(container) {
               <div style="display:flex; justify-content:space-between; gap:8px; padding:6px 0; border-bottom:1px solid var(--line); font-size:0.82rem;">
                 <span><strong>${i + 1}.</strong> ${escapeHtml(p.name)} <small style="color:var(--muted);">(${escapeHtml(p.nflTeam || "FA")})</small></span>
                 <span style="color:var(--muted); font-size:0.72rem; white-space:nowrap;">
-                  ${p.waiver ? `${escapeHtml(p.waiver.category)} · Proj. ${p.waiver.projectedPpg} · FAAB ${p.waiver.faabPct[0]}–${p.waiver.faabPct[1]}%` : ""}
+                  ${p.waiver ? `${p.waiver.newsOverride ? "⚡ " : ""}${escapeHtml(p.waiver.category)} · ROS ${p.waiver.rosPpg ?? "n/d"}${p.waiver.rosSource === "RANK_ESTIMATE" ? " (rang)" : ""} · Marché ${p.waiver.faabPct[0]}–${p.waiver.faabPct[1]}%${p.waiver.fit ? ` · Fit ${p.waiver.fit.fitScore}` : ""}` : ""}
                 </span>
               </div>
             `).join("")}
@@ -630,8 +595,9 @@ export async function renderTradesPage(container) {
           </div>
         </div>
 
-        <h3 style="margin:0 0 6px; font-size:1.2rem;">Coût d'opportunité${currentWeek ? ` · Semaine ${currentWeek}` : ""}</h3>
-        <p class="note" style="margin:0 0 16px;">Gain de lineup optimale si tu ajoutes ce joueur maintenant (même moteur avant/après que le Trade Finder). Jamais un pourcentage de chance de gagner l'enchère : personne ne voit les enchères des autres.</p>
+        ${degradedNote ? `<div class="card" style="padding:12px 16px; margin-bottom:16px; border-left:4px solid var(--gold);">${escapeHtml(degradedNote)}</div>` : ""}
+        <h3 style="margin:0 0 6px; font-size:1.2rem;">Meilleurs adds pour ton équipe${currentWeek ? ` · Semaine ${currentWeek}` : ""}</h3>
+        <p class="note" style="margin:0 0 16px;">Valeur marché (ce que le joueur vaut pour la ligue) ≠ fit (ce qu'il apporte à <em>ta</em> lineup optimale, reste de saison). « Max pour toi » = FAAB marché × fit, plafonné par ton FAAB restant. Estimations Adineu, jamais une probabilité de gagner l'enchère.</p>
         ${opportunityError ? `
           <div class="card" style="padding:20px; text-align:center; color:var(--muted); margin-bottom:28px;">${escapeHtml(opportunityError)}</div>
         ` : opportunities.length === 0 ? `
@@ -639,15 +605,17 @@ export async function renderTradesPage(container) {
         ` : `
           <div class="table-wrap" style="margin-bottom:28px;">
             <table>
-              <thead><tr><th>Joueur</th><th>Poste</th><th>Slot gagné</th><th>Gain lineup</th><th>Proj. semaine</th></tr></thead>
+              <thead><tr><th>Joueur</th><th>Slot</th><th>Gain lineup</th><th>Market</th><th>Fit</th><th>FAAB marché</th><th>Max pour toi</th></tr></thead>
               <tbody>
-                ${opportunities.map(o => `
+                ${opportunities.map(p => `
                   <tr>
-                    <td>${escapeHtml(o.player.name)} ${o.player.nflTeam ? `<small style="color:var(--muted);">(${escapeHtml(o.player.nflTeam)})</small>` : ""}</td>
-                    <td>${escapeHtml(o.player.position)}</td>
-                    <td>${escapeHtml(o.slot || "—")}</td>
-                    <td style="color:var(--grass); font-weight:700;">+${o.gain} pts/sem</td>
-                    <td>${o.player.projectedPpg}</td>
+                    <td>${escapeHtml(p.name)} <small style="color:var(--muted);">(${escapeHtml(p.position)}${p.nflTeam ? ` ${escapeHtml(p.nflTeam)}` : ""})</small>${p.waiver.newsOverride ? `<br><small style="color:var(--gold);">⚡ ${escapeHtml(p.waiver.reasons.join(" · "))}</small>` : ""}</td>
+                    <td>${escapeHtml(p.waiver.fit.slot || "—")}</td>
+                    <td style="color:var(--grass); font-weight:700;">+${p.waiver.fit.gainPerWeek} pts/sem</td>
+                    <td>${p.waiver.score}</td>
+                    <td>${p.waiver.fit.fitScore}</td>
+                    <td>${p.waiver.faabMarket[0]}–${p.waiver.faabMarket[1]} $</td>
+                    <td style="font-weight:700;">${p.waiver.fit.faabMaxForMe} $</td>
                   </tr>
                 `).join("")}
               </tbody>
@@ -658,7 +626,7 @@ export async function renderTradesPage(container) {
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; margin-bottom:24px;">
           <div>
             <h3 style="margin:0 0 4px; font-size:1.2rem;">Free Agents Disponibles${report.week ? ` · Semaine ${report.week}` : ""}</h3>
-            <p style="margin:0; color:var(--muted); font-size:0.82rem;">Classés pour la semaine ${report.week || "en cours"} par projections Sleeper, production récente et ancre ECR.</p>
+            <p style="margin:0; color:var(--muted); font-size:0.82rem;">Classés par valeur marché reste de saison : projections Sleeper sem. ${report.week || "?"}→14, usage réel (snaps, opportunités) et événements ⚡ (titulaire blessé devant, explosion d'usage).</p>
           </div>
           <button type="button" id="copy-waiver-btn" class="filter-btn" style="padding:8px 14px; font-size:0.75rem;">📋 Copier le rapport Waiver Wire</button>
         </div>

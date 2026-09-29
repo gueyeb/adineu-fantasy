@@ -140,7 +140,8 @@ export function createAppServer({
       try {
         const report = await getFreeAgents({
           position: url.searchParams.get("position"),
-          limitPerPosition: Number(url.searchParams.get("limit")) || 10
+          limitPerPosition: Number(url.searchParams.get("limit")) || 10,
+          team: url.searchParams.get("team") || null
         });
         const message = formatWaiverReport(report);
         if (url.searchParams.get("format") === "text") {
