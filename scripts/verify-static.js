@@ -40,7 +40,7 @@ const requiredAssets = [
 for (const route of routes) {
   const htmlPath = resolve(root, route, "index.html");
   const html = await readFile(htmlPath, "utf8");
-  if (!html.includes('src="/assets/site.js?v=31"')) throw new Error(`${htmlPath} does not load the current site.js`);
+  if (!html.includes('src="/assets/site.js?v=32"')) throw new Error(`${htmlPath} does not load the current site.js`);
   if (!html.includes('href="/assets/styles.css?v=21"')) throw new Error(`${htmlPath} does not load the current styles.css`);
   if (!html.includes('rel="icon" href="/favicon.svg"')) throw new Error(`${htmlPath} does not load the favicon`);
 }

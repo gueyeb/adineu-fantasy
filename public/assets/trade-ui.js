@@ -722,8 +722,14 @@ export async function renderTradesPage(container) {
       <div class="shell">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; margin-bottom:24px;">
           <div>
+            <label for="advisor-roster-select" style="font-size:0.78rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--muted); font-weight:700; display:block; margin-bottom:6px;">Équipe analysée :</label>
+            <select id="advisor-roster-select" style="padding:10px 14px; background:var(--panel); border:1px solid var(--line); color:var(--ink); font-weight:600; border-radius:4px;">
+              ${formattedRosters.map(r => `<option value="${r.roster_id}" ${String(r.roster_id) === String(selectedRosterId) ? "selected" : ""}>${escapeHtml(r.name)} (@${escapeHtml(r.ownerName)})</option>`).join("")}
+            </select>
+          </div>
+          <div>
             <h3 style="margin:0 0 4px; font-size:1.2rem;">Start/Sit Advisor${advisory.week ? ` · Semaine ${advisory.week}` : ""}</h3>
-            <p style="margin:0; color:var(--muted); font-size:0.82rem;">Croise ton lineup avec le statut blessure Sleeper. Un slot vide compte comme alerte.</p>
+            <p style="margin:0; color:var(--muted); font-size:0.82rem;">Croise la lineup avec le statut blessure Sleeper. Un slot vide compte comme alerte.</p>
           </div>
           <button type="button" id="copy-advisor-btn" class="filter-btn" style="padding:8px 14px; font-size:0.75rem;">📋 Copier le rapport</button>
         </div>
@@ -736,6 +742,11 @@ export async function renderTradesPage(container) {
         ${alertCards || `<div class="card" style="padding:24px; text-align:center; color:var(--muted);">✅ Aucune alerte : lineup complet, personne à risque signalé par Sleeper.</div>`}
       </div>
     `;
+
+    document.getElementById("advisor-roster-select")?.addEventListener("change", e => {
+      selectedRosterId = e.target.value;
+      renderAdvisorView();
+    });
 
     document.getElementById("copy-advisor-btn")?.addEventListener("click", event => {
       const btn = event.currentTarget;
