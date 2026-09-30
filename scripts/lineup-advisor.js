@@ -132,6 +132,17 @@ export function compareWithOptimalLineup({ myTeam, projections = {}, playerStatu
   const optimalIds = new Set(optimal.slots.map(slot => slot.sleeperId).filter(Boolean));
   const byId = new Map(pool.map(player => [String(player.sleeperId), player]));
   const gain = Number((optimal.total - currentTotal).toFixed(1));
+  const changes = gain > 0 ? optimal.slots.map((slot, index) => {
+    const currentPlayer = current[index]?.player || null;
+    const incoming = slot.sleeperId ? byId.get(String(slot.sleeperId)) : null;
+    if (String(currentPlayer?.sleeperId || "") === String(incoming?.sleeperId || "")) return null;
+    return {
+      slot: slot.slot,
+      in: incoming,
+      out: currentPlayer,
+      gain: Number(((incoming ? weeklyEstimate(incoming) : 0) - (currentPlayer ? weeklyEstimate(currentPlayer) : 0)).toFixed(1))
+    };
+  }).filter(Boolean) : [];
   return {
     currentTotal: Number(currentTotal.toFixed(1)),
     optimalTotal: optimal.total,
@@ -139,6 +150,7 @@ export function compareWithOptimalLineup({ myTeam, projections = {}, playerStatu
     // Changes only when they actually gain points, and never "start" a player projected at 0 (Out/IR).
     promote: gain > 0 ? [...optimalIds].filter(id => !currentIds.has(id)).map(id => byId.get(id)).filter(player => weeklyEstimate(player) > 0) : [],
     bench: gain > 0 ? [...currentIds].filter(id => !optimalIds.has(id)).map(id => byId.get(String(id))) : [],
+    changes,
     slots: optimal.slots
   };
 }

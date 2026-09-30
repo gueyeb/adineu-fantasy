@@ -21,7 +21,7 @@ function playerDecisionView(player, valuesById, projections, statuses) {
   };
 }
 
-function topWaivers(report, limit = 10) {
+function waiverRows(report) {
   return Object.values(report?.byPosition || {}).flat()
     .filter(player => player?.waiver)
     .sort((a, b) => {
@@ -31,7 +31,6 @@ function topWaivers(report, limit = 10) {
         (Number(bFit.fitScore || 0) - Number(aFit.fitScore || 0)) ||
         (Number(b.waiver.score || 0) - Number(a.waiver.score || 0));
     })
-    .slice(0, limit)
     .map(player => ({
       sleeperId: player.sleeperId,
       name: player.name,
@@ -48,7 +47,11 @@ function topWaivers(report, limit = 10) {
       category: player.waiver.category,
       faabMarket: player.waiver.faabMarket,
       fitScore: player.waiver.fit?.fitScore ?? null,
+      priorityScore: player.waiver.fit?.priorityScore ?? null,
       lineupGain: round(player.waiver.fit?.gainPerWeek),
+      dropCandidate: player.waiver.fit?.dropCandidate || null,
+      dropCost: round(player.waiver.fit?.dropCostPerWeek),
+      netGain: round(player.waiver.fit?.netGainPerWeek),
       fitSlot: player.waiver.fit?.slot || null,
       maxForTeam: player.waiver.fit?.faabMaxForMe ?? null,
       opportunityDuration: player.waiver.duration || null,
@@ -56,10 +59,17 @@ function topWaivers(report, limit = 10) {
     }));
 }
 
-export function buildDecisionContext({ context, playerValues = {}, statuses = new Map(), waivers = null, lineup = null }) {
+export function buildDecisionContext({ context, playerValues = {}, statuses = new Map(), waivers = null, lineup = null, matchup = null }) {
   const valuesById = playerValues.byId || new Map();
   const projections = playerValues.weeklyProjections || {};
   const enrich = player => playerDecisionView(player, valuesById, projections, statuses);
+  const available = waiverRows(waivers);
+  const immediateUpgrades = available.filter(player => (player.netGain || 0) > 0.3)
+    .sort((a, b) => (b.priorityScore || 0) - (a.priorityScore || 0) || (b.netGain || 0) - (a.netGain || 0)).slice(0, 6);
+  const immediateIds = new Set(immediateUpgrades.map(player => player.sleeperId));
+  const upsideStashes = available.filter(player => ["RB", "WR", "TE"].includes(player.position) && !immediateIds.has(player.sleeperId) && (
+    player.opportunityDuration || player.usageSignal === "BUY_LOW" || player.reasons.length
+  )).sort((a, b) => (b.priorityScore || 0) - (a.priorityScore || 0) || b.marketScore - a.marketScore).slice(0, 6);
   return {
     ...context,
     mode: "decision",
@@ -71,7 +81,10 @@ export function buildDecisionContext({ context, playerValues = {}, statuses = ne
       ir: context.myTeam.ir.map(enrich)
     },
     lineup: lineup || { alerts: [], optimal: null },
-    topAvailable: topWaivers(waivers),
+    nextMatchup: matchup,
+    topAvailable: [...immediateUpgrades, ...upsideStashes],
+    immediateUpgrades,
+    upsideStashes,
     modelCoverage: waivers ? {
       degraded: Boolean(waivers.degraded),
       projections: waivers.coverage?.projectionWeeks || null,
@@ -90,12 +103,12 @@ function decisionPlayerLine(prefix, player) {
   const fields = [
     `${prefix} ${player.name} ${player.nflTeam || "FA"}`,
     `status=${player.status || "Healthy"}`,
-    `proj=${metric(player.weekProjection)}`,
-    `ROS=${metric(player.rosPpg)}`,
-    `usage=${metric(player.usageScore)}`,
-    `trend=${metric(player.usageTrend)}`,
-    `xFP=${metric(player.xfp)}`,
-    `actual=${metric(player.actualPpg)}`,
+    `proj=${metric(player.weekProjection)} [Sleeper]`,
+    `ROS=${metric(player.rosPpg)} [${player.rosSource || "unknown"}]`,
+    `usage=${metric(player.usageScore)} [Adineu]`,
+    `trend=${metric(player.usageTrend)} [Adineu]`,
+    `xFP=${metric(player.xfp)} [Adineu]`,
+    `actual=${metric(player.actualPpg)} [Sleeper]`,
     `signal=${player.usageSignal || "none"}`,
     `bye=S${player.byeWeek ?? "n/d"}`
   ];
@@ -132,28 +145,50 @@ export function formatDecisionContext(context) {
   if (!context.myTeam.ir.length) lines.push("EMPTY");
   for (const player of context.myTeam.ir) lines.push(decisionPlayerLine(player.position || "FLEX", player));
 
-  lines.push("", "LINEUP ALERTS");
-  if (!context.lineup?.alerts?.length) lines.push("None");
+  lines.push("", "LINEUP");
+  lines.push(`Hard alerts: ${context.lineup?.alerts?.length || 0}`);
+  if (!context.lineup?.alerts?.length) lines.push("No injury/bye/empty-slot alerts.");
   for (const alert of context.lineup?.alerts || []) {
     const replacement = alert.replacement?.player?.name ? ` | replacement=${alert.replacement.player.name}` : "";
     lines.push(`${alert.severity} | ${alert.slot} | ${alert.player?.name || "EMPTY"} | ${alert.reason}${replacement}`);
   }
   if (context.lineup?.optimal) {
-    lines.push(`Optimal lineup gain: ${metric(context.lineup.optimal.gain, " pts")}`);
+    const optimal = context.lineup.optimal;
+    lines.push(`Current projected total: ${metric(optimal.currentTotal)} [Sleeper]`);
+    lines.push(`Optimal projected total: ${metric(optimal.optimalTotal)} [Sleeper]`);
+    lines.push(`Potential gain: +${metric(optimal.gain, " pts")}`);
+    lines.push(`Optimization opportunities: ${optimal.changes?.length ?? optimal.promote?.length ?? 0}`);
+    (optimal.changes || []).forEach(change => {
+      lines.push(`${change.slot}: ${change.in?.name || "EMPTY"} IN -> ${change.out?.name || "EMPTY"} OUT (${change.gain >= 0 ? "+" : ""}${change.gain} pts)`);
+    });
   }
 
-  lines.push("", `TOP AVAILABLE — FIT FOR ${context.myTeam.teamName.toUpperCase()}`);
-  if (!context.topAvailable.length) lines.push("Unavailable");
-  context.topAvailable.forEach((player, index) => {
-    lines.push(`${index + 1}. ${player.name} ${player.position} ${player.nflTeam || "FA"} | Market=${player.marketScore} | Fit=${metric(player.fitScore)} | Gain=${metric(player.lineupGain, " pts/w")} | FAAB=${player.faabMarket?.join("–") || "n/d"} $ | Max=${metric(player.maxForTeam, " $")} | ROS=${metric(player.rosPpg)} | Usage=${metric(player.usageScore)} | Signal=${player.usageSignal || "none"}${player.reasons.length ? ` | ${player.reasons.join("; ")}` : ""}`);
-  });
+  lines.push("", "NEXT MATCHUP");
+  if (!context.nextMatchup) {
+    lines.push("Unavailable");
+  } else {
+    const matchup = context.nextMatchup;
+    const opponentRecord = matchup.opponent.record;
+    lines.push(`Opponent: ${matchup.opponent.teamName} (@${matchup.opponent.owner}) | Record: ${opponentRecord.wins}-${opponentRecord.losses}${opponentRecord.ties ? `-${opponentRecord.ties}` : ""}`);
+    lines.push(`${context.myTeam.teamName}: ${metric(matchup.myProjection.total)} [Sleeper] (${matchup.myProjection.coverage} starters)`);
+    lines.push(`${matchup.opponent.teamName}: ${metric(matchup.opponentProjection.total)} [Sleeper] (${matchup.opponentProjection.coverage} starters)`);
+    lines.push("Win estimate: not included (projection coverage and lineup completeness must be validated separately).");
+  }
+
+  const waiverLine = (player, index) => `${index + 1}. ${player.name} ${player.position} ${player.nflTeam || "FA"} | Priority=${metric(player.priorityScore)} | Market=${player.marketScore} | SurplusCaptured=${metric(player.fitScore, "%")} | GrossGain=${metric(player.lineupGain, " pts/w")} | Drop=${player.dropCandidate?.name || "none"} | DropCost=${metric(player.dropCost, " pts/w")} | NetGain=${metric(player.netGain, " pts/w")} | FAAB=${player.faabMarket?.join("–") || "n/d"} $ | Max=${metric(player.maxForTeam, " $")} | ROS=${metric(player.rosPpg)} [${player.rosSource || "unknown"}] | Usage=${metric(player.usageScore)} [Adineu] | Signal=${player.usageSignal || "none"}${player.reasons.length ? ` | ${player.reasons.join("; ")}` : ""}`;
+  lines.push("", "WAIVER — IMMEDIATE LINEUP UPGRADES");
+  if (!context.immediateUpgrades.length) lines.push("None");
+  context.immediateUpgrades.forEach((player, index) => lines.push(waiverLine(player, index)));
+  lines.push("", "WAIVER — UPSIDE / BENCH STASHES");
+  if (!context.upsideStashes.length) lines.push("None");
+  context.upsideStashes.forEach((player, index) => lines.push(waiverLine(player, index)));
 
   const coverage = context.modelCoverage;
   lines.push(
     "",
     "MODEL NOTES",
     "Week projections and ROS: Sleeper, with Adineu usage blend on distant weeks when available.",
-    "Usage/xFP/signals and waiver Market/Fit: Adineu estimates, not official NFL or Sleeper values.",
+    "Usage/xFP/signals and waiver Market/Capture/Priority: Adineu estimates, not official NFL or Sleeper values.",
     `Coverage: projections ${coverage.projections || "n/d"}; usage ${coverage.usageStats || "n/d"}; player status ${coverage.playerIndex ? "available" : "unavailable"}; degraded=${coverage.degraded}.`,
     "Missing values are shown as n/d; no injury return date or auction-win probability is inferred."
   );

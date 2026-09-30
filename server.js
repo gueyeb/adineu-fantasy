@@ -8,6 +8,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { analyzeTrades, formatTradeBulletin, loadPlayerValues } from "./scripts/analyze-trades.js";
 import {
   getLeagueContext,
+  getMatchupContext as getMatchupContextDefault,
   formatContextText,
   getFreeAgents as getFreeAgentsDefault,
   getWeeklyProjections as getWeeklyProjectionsDefault,
@@ -73,6 +74,7 @@ export function createAppServer({
   getUsage = getUsageReportDefault,
   getPlayerValues = loadPlayerValues,
   getStartSit = getStartSitDefault,
+  getMatchupContext = getMatchupContextDefault,
   modelJobToken = process.env.MODEL_JOB_TOKEN || "",
   runModelJob = async () => runWeeklyJob({ supabase: await createSupabaseFromEnv() }),
   getModelFeedback = () => getLatestFeedback(),
@@ -165,14 +167,16 @@ export function createAppServer({
             ...compactContext.myTeam.bench.map(player => player.sleeperId),
             ...compactContext.myTeam.ir.map(player => player.sleeperId)
           ].filter(Boolean);
-          const [valuesResult, statusesResult, waiversResult] = await Promise.allSettled([
+          const [valuesResult, statusesResult, waiversResult, matchupResult] = await Promise.allSettled([
             getPlayerValues({ week: compactContext.week, playerIds }),
             getInjuryStatuses(),
-            getFreeAgents({ team, limitPerPosition: 5 })
+            getFreeAgents({ team, limitPerPosition: 5 }),
+            getMatchupContext({ team, week: compactContext.week })
           ]);
           const playerValues = valuesResult.status === "fulfilled" ? valuesResult.value : { byId: new Map(), weeklyProjections: {} };
           const statuses = statusesResult.status === "fulfilled" ? statusesResult.value : new Map();
           const waivers = waiversResult.status === "fulfilled" ? waiversResult.value : null;
+          const matchup = matchupResult.status === "fulfilled" ? matchupResult.value : null;
           const lineup = diagnoseLineup({
             myTeam: compactContext.myTeam,
             playerStatuses: statuses,
@@ -187,7 +191,7 @@ export function createAppServer({
               playerStatuses: statuses
             });
           } catch { lineup.optimal = null; }
-          context = buildDecisionContext({ context: compactContext, playerValues, statuses, waivers, lineup });
+          context = buildDecisionContext({ context: compactContext, playerValues, statuses, waivers, lineup, matchup });
           message = formatDecisionContext(context);
         }
         if (url.searchParams.get("format") === "text") {

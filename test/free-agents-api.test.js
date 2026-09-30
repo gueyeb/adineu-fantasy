@@ -29,13 +29,13 @@ test("formatWaiverReport copies the live balance and dollar-based roster fit fac
     faabRemaining: 497,
     byPosition: { WR: [{
       name: "Usage Receiver", nflTeam: "KC", weekProjection: 12.8,
-      waiver: { category: "PRIORITÉ", rosPpg: 11.9, faabMarket: [80, 120], usageScore: 78, usageSignal: "BUY_LOW", duration: "BREAKOUT", newsOverride: false, fit: { fitScore: 82, gainPerWeek: 2.4, faabMaxForMe: 105 } }
+      waiver: { category: "PRIORITÉ", rosPpg: 11.9, faabMarket: [80, 120], usageScore: 78, usageSignal: "BUY_LOW", duration: "BREAKOUT", newsOverride: false, fit: { fitScore: 82, priorityScore: 88, gainPerWeek: 2.4, netGainPerWeek: 2, dropCandidate: { name: "Bench" }, dropCostPerWeek: 0.4, faabMaxForMe: 105 } }
     }] }
   });
   assert.match(text, /FAAB restant : 497 \$ \/ 1000 \$/);
   assert.match(text, /FAAB marché 80–120 \$/);
   assert.match(text, /Usage 78 BUY_LOW/);
-  assert.match(text, /Fit 82 · Gain 2\.4 pts\/sem · Max 105 \$/);
+  assert.match(text, /Priorité 88 · Capture 82% · Gain net 2 pts\/sem · Coupe Bench \(0\.4 pts\/sem\) · Max 105 \$/);
 });
 
 test("free-agents API returns JSON grouped by position with a text alias", async t => {
@@ -93,6 +93,9 @@ test("getFreeAgents v2: an injury ahead + a snap surge makes a deep backup a pri
   assert.ok(backup.waiver.flags.includes("PROMOTION") && backup.waiver.flags.includes("SNAP_SURGE"));
   assert.equal(backup.waiver.category, "PRIORITÉ");
   assert.ok(backup.waiver.fit && Number.isFinite(backup.waiver.fit.fitScore));
+  assert.ok(Number.isFinite(backup.waiver.fit.priorityScore));
+  assert.ok(Number.isFinite(backup.waiver.fit.dropCostPerWeek));
+  assert.ok(Number.isFinite(backup.waiver.fit.netGainPerWeek));
   assert.equal(report.faabRemaining, 900);
 });
 

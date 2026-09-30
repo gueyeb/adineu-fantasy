@@ -108,6 +108,9 @@ test("compareWithOptimalLineup: a projected bench player replaces an Out starter
   assert.equal(result.gain, 11);
   assert.deepEqual(result.promote.map(p => p.sleeperId), ["rbBench"]);
   assert.deepEqual(result.bench.map(p => p.sleeperId), ["rbOut"]);
+  assert.equal(result.changes[0].in.sleeperId, "rbBench");
+  assert.equal(result.changes[0].out.sleeperId, "rbOut");
+  assert.equal(result.changes[0].gain, 11);
 });
 
 test("compareWithOptimalLineup never promotes an Out player even if Sleeper still projects him (Puka case)", () => {

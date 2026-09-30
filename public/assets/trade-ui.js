@@ -505,8 +505,8 @@ export async function renderTradesPage(container) {
       console.warn("Impossible de charger les free agents", e);
     }
     const opportunities = Object.values(report.byPosition || {}).flat()
-      .filter(player => player.waiver?.fit?.gainPerWeek > 0)
-      .sort((a, b) => b.waiver.fit.faabMaxForMe - a.waiver.fit.faabMaxForMe || b.waiver.fit.gainPerWeek - a.waiver.fit.gainPerWeek)
+      .filter(player => player.waiver?.fit?.netGainPerWeek > 0.3)
+      .sort((a, b) => b.waiver.fit.priorityScore - a.waiver.fit.priorityScore || b.waiver.fit.netGainPerWeek - a.waiver.fit.netGainPerWeek)
       .slice(0, 10);
     const opportunityError = report.rankingModel ? null : "Calcul indisponible pour le moment.";
     const degradedNote = report.degraded ? `⚠ Données partielles (projections ${report.coverage?.projectionWeeks}, stats ${report.coverage?.statsWeeks}) : classement moins fiable, estimation par rang pour certains joueurs.` : "";
@@ -528,7 +528,7 @@ export async function renderTradesPage(container) {
           <h4 class="fa-pos">${pos}</h4>
           <div class="table-wrap fa-table"><table>
             <colgroup><col class="fa-col-player"><col class="fa-col-cat"><col><col><col class="fa-col-money"><col><col class="fa-col-money"></colgroup>
-            <thead><tr><th>Joueur</th><th>Catégorie</th><th class="num" title="Points par semaine attendus d'ici la S14 (rôle actuel inclus)">Pts/sem</th><th class="num">Usage</th><th class="num">FAAB marché</th><th class="num">Fit</th><th class="num">Max pour toi</th></tr></thead>
+            <thead><tr><th>Joueur</th><th>Catégorie</th><th class="num" title="Points par semaine attendus d'ici la S14 (rôle actuel inclus)">Pts/sem</th><th class="num">Usage</th><th class="num">FAAB marché</th><th class="num" title="Part du surplus marché captée par ta lineup">Capture</th><th class="num">Max pour toi</th></tr></thead>
             <tbody>${players.map(p => `<tr>
               <td><strong>${escapeHtml(p.name)}</strong> <small>${escapeHtml(p.nflTeam || "FA")}${p.injuryStatus ? ` · ${escapeHtml(p.injuryStatus)}` : ""}</small>${p.waiver?.newsOverride ? `<br><small class="fa-news">⚡ ${escapeHtml(p.waiver.reasons.join(" · "))}</small>` : ""}</td>
               <td>${escapeHtml(p.waiver?.category || "—")}</td>
@@ -563,7 +563,7 @@ export async function renderTradesPage(container) {
 
         ${degradedNote ? `<div class="card" style="padding:12px 16px; margin-bottom:16px; border-left:4px solid var(--gold);">${escapeHtml(degradedNote)}</div>` : ""}
         <h3 style="margin:0 0 6px; font-size:1.2rem;">Meilleurs adds pour ton équipe${currentWeek ? ` · Semaine ${currentWeek}` : ""}</h3>
-        <p class="note" style="margin:0 0 16px;">Valeur marché (ce que le joueur vaut pour la ligue) ≠ fit (ce qu'il apporte à <em>ta</em> lineup optimale, reste de saison). « Max pour toi » = FAAB marché × fit, plafonné par ton FAAB restant. Estimations Adineu, jamais une probabilité de gagner l'enchère.</p>
+        <p class="note" style="margin:0 0 16px;">« Capture » = part du surplus marché qui atteint ta lineup, pas une note de fit. Le gain net retire désormais la valeur du joueur probablement coupé. « Max pour toi » tient compte de ce coût et reste plafonné par ton FAAB. Estimations Adineu, jamais une probabilité de gagner l'enchère.</p>
         ${opportunityError ? `
           <div class="card" style="padding:20px; text-align:center; color:var(--muted); margin-bottom:28px;">${escapeHtml(opportunityError)}</div>
         ` : opportunities.length === 0 ? `
@@ -571,15 +571,16 @@ export async function renderTradesPage(container) {
         ` : `
           <div class="table-wrap" style="margin-bottom:28px;">
             <table>
-              <thead><tr><th>Joueur</th><th>Slot</th><th>Gain lineup</th><th>Market</th><th>Fit</th><th>FAAB marché</th><th>Max pour toi</th></tr></thead>
+              <thead><tr><th>Joueur</th><th>Priorité</th><th>Gain brut</th><th>Coupe probable</th><th>Coût coupe</th><th>Gain net</th><th>FAAB marché</th><th>Max</th></tr></thead>
               <tbody>
                 ${opportunities.map(p => `
                   <tr>
                     <td>${escapeHtml(p.name)} <small style="color:var(--muted);">(${escapeHtml(p.position)}${p.nflTeam ? ` ${escapeHtml(p.nflTeam)}` : ""})</small>${p.waiver.newsOverride ? `<br><small style="color:var(--gold);">⚡ ${escapeHtml(p.waiver.reasons.join(" · "))}</small>` : ""}</td>
-                    <td>${escapeHtml(p.waiver.fit.slot || "—")}</td>
-                    <td style="color:var(--grass); font-weight:700;">+${p.waiver.fit.gainPerWeek} pts/sem</td>
-                    <td>${p.waiver.score}</td>
-                    <td>${p.waiver.fit.fitScore}</td>
+                    <td>${p.waiver.fit.priorityScore}</td>
+                    <td>+${p.waiver.fit.gainPerWeek} pts/sem</td>
+                    <td>${escapeHtml(p.waiver.fit.dropCandidate?.name || "—")}</td>
+                    <td>−${p.waiver.fit.dropCostPerWeek} pts/sem</td>
+                    <td style="color:var(--grass); font-weight:700;">+${p.waiver.fit.netGainPerWeek} pts/sem</td>
                     <td>${p.waiver.faabMarket[0]}–${p.waiver.faabMarket[1]} $</td>
                     <td style="font-weight:700;">${p.waiver.fit.faabMaxForMe} $</td>
                   </tr>

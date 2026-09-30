@@ -176,7 +176,7 @@ export function evaluateMarket({ rows, week, budget = GENERAL_SETTINGS_2026.waiv
 }
 
 /** Roster side: how much of the market surplus actually reaches THIS optimal lineup. */
-export function evaluateRosterFit({ marketRow, myPlayers, paceOf, week, faabRemaining }) {
+export function evaluateRosterFit({ marketRow, myPlayers, paceOf, week, faabRemaining, protectedIds = new Set(), replacementByPosition = {} }) {
   const remaining = Math.max(1, LAST_REGULAR_WEEK - week + 1);
   const estimate = player => paceOf(player);
   const before = buildProjectedLineup(myPlayers, { estimate });
@@ -185,6 +185,24 @@ export function evaluateRosterFit({ marketRow, myPlayers, paceOf, week, faabRema
   const gainPoints = Math.max(0, gainPerWeek * remaining);
   const fitScore = marketRow.surplusPoints > 0 ? Math.round(Math.min(100, 100 * gainPoints / marketRow.surplusPoints)) : (gainPoints > 0 ? 100 : 0);
   const slot = after.slots.find(entry => entry.sleeperId === String(marketRow.sleeperId))?.slot || null;
-  const maxForMe = Math.round(Math.min(faabRemaining ?? Infinity, marketRow.faabMarket[1] * fitScore / 100));
-  return { gainPerWeek, fitScore, slot, faabMaxForMe: gainPoints > 0 ? maxForMe : 0 };
+  const droppable = myPlayers.filter(player => !protectedIds.has(String(player.sleeperId)));
+  const dropCandidate = droppable.sort((a, b) => {
+    const cost = player => Math.max(0, estimate(player) - (replacementByPosition[player.position] ?? estimate(player)));
+    return cost(a) - cost(b) || estimate(a) - estimate(b);
+  })[0] || null;
+  const dropCostPerWeek = dropCandidate
+    ? round(Math.max(0, estimate(dropCandidate) - (replacementByPosition[dropCandidate.position] ?? estimate(dropCandidate))))
+    : 0;
+  const netGainPerWeek = round(gainPerWeek - dropCostPerWeek);
+  const netCapture = gainPerWeek > 0 ? Math.max(0, Math.min(1, netGainPerWeek / gainPerWeek)) : 0;
+  const maxForMe = Math.round(Math.min(faabRemaining ?? Infinity, marketRow.faabMarket[1] * fitScore / 100 * netCapture));
+  return {
+    gainPerWeek,
+    fitScore,
+    slot,
+    dropCandidate: dropCandidate ? { sleeperId: dropCandidate.sleeperId, name: dropCandidate.name, position: dropCandidate.position } : null,
+    dropCostPerWeek,
+    netGainPerWeek,
+    faabMaxForMe: netGainPerWeek > 0 ? maxForMe : 0
+  };
 }

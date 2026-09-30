@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { once } from "node:events";
 import { createAppServer } from "../server.js";
-import { getLeagueContext, formatContextText } from "../scripts/league-context.js";
+import { getLeagueContext, getMatchupContext, formatContextText } from "../scripts/league-context.js";
 
 const sampleContext = {
   generatedAt: "2026-09-07T08:00:00.000Z",
@@ -88,6 +88,7 @@ test("context API defaults to decision mode and keeps compact mode available", a
     getContext: async () => sampleContext,
     getPlayerValues: async () => ({ byId: new Map(), weeklyProjections: {} }),
     getInjuryStatuses: async () => new Map(),
+    getMatchupContext: async () => null,
     getFreeAgents: async () => ({ lastCompletedWeek: 3, degraded: false, coverage: { projectionWeeks: "11/11", statsWeeks: "3/3", playersIndex: true }, byPosition: {} })
   });
   server.listen(0, "127.0.0.1");
@@ -105,6 +106,32 @@ test("context API defaults to decision mode and keeps compact mode available", a
   const compactBody = await compact.json();
   assert.equal(compactBody.mode, undefined);
   assert.match(compactBody.message, /FAAB restant: \$497 \/ \$1000/);
+});
+
+test("getMatchupContext resolves the opponent and reports projection coverage without inventing a win probability", async () => {
+  const fetchImpl = async url => ({
+    ok: true,
+    json: async () => {
+      if (url.endsWith("/rosters")) return [
+        { roster_id: 1, owner_id: "u1", starters: ["p1", "p2"], settings: { wins: 1, losses: 2 } },
+        { roster_id: 2, owner_id: "u2", starters: ["p3", "p4"], settings: { wins: 2, losses: 1 } }
+      ];
+      if (url.endsWith("/users")) return [
+        { user_id: "u1", display_name: "t0z", metadata: { team_name: "Boukki" } },
+        { user_id: "u2", display_name: "rival", metadata: { team_name: "Binaries" } }
+      ];
+      if (url.endsWith("/matchups/4")) return [
+        { roster_id: 1, matchup_id: 3, points: 0 }, { roster_id: 2, matchup_id: 3, points: 0 }
+      ];
+      if (url.includes("/projections/nfl/regular/2026/4")) return { p1: { pts_ppr: 20 }, p2: { pts_ppr: 10 }, p3: { pts_ppr: 18 } };
+      return {};
+    }
+  });
+  const matchup = await getMatchupContext({ team: "t0z", week: 4, fetchImpl });
+  assert.equal(matchup.opponent.teamName, "Binaries");
+  assert.deepEqual(matchup.myProjection, { total: 30, coverage: "2/2" });
+  assert.deepEqual(matchup.opponentProjection, { total: 18, coverage: "1/2" });
+  assert.equal(matchup.winProbability, undefined);
 });
 
 test("getLeagueContext splits starters, bench and IR from a raw Sleeper roster", async () => {

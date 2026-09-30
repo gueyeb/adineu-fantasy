@@ -31,9 +31,10 @@ test("decision context combines live balance, player model facts and roster-fit 
       lastCompletedWeek: 3,
       degraded: false,
       coverage: { projectionWeeks: "11/11", statsWeeks: "3/3", playersIndex: true },
-      byPosition: { WR: [{ sleeperId: "fa1", name: "Free Agent", position: "WR", nflTeam: "KC", waiver: { score: 74, category: "PRIORITÉ", rosPpg: 10.2, rosSource: "SLEEPER_USAGE_BLEND", usageScore: 81, usageSignal: null, xfp: 12, faabMarket: [80, 120], reasons: ["Usage surge"], duration: "BREAKOUT", fit: { fitScore: 82, gainPerWeek: 2.4, slot: "FLEX", faabMaxForMe: 105 } } }] }
+      byPosition: { WR: [{ sleeperId: "fa1", name: "Free Agent", position: "WR", nflTeam: "KC", waiver: { score: 74, category: "PRIORITÉ", rosPpg: 10.2, rosSource: "SLEEPER_USAGE_BLEND", usageScore: 81, usageSignal: null, xfp: 12, faabMarket: [80, 120], reasons: ["Usage surge"], duration: "BREAKOUT", fit: { fitScore: 82, priorityScore: 88, gainPerWeek: 2.4, dropCandidate: { name: "Bench" }, dropCostPerWeek: 0.4, netGainPerWeek: 2, slot: "FLEX", faabMaxForMe: 105 } } }] }
     },
-    lineup: { alerts: [], optimal: { gain: 2.1 } }
+    lineup: { alerts: [], optimal: { currentTotal: 120, optimalTotal: 122.1, gain: 2.1, promote: [], bench: [], slots: [] } },
+    matchup: { opponent: { owner: "rival", teamName: "Binaries", record: { wins: 2, losses: 1, ties: 0 } }, myProjection: { total: 122.1, coverage: "9/9" }, opponentProjection: { total: 117.4, coverage: "9/9" } }
   });
 
   assert.equal(decision.myTeam.faab.remaining, 497);
@@ -42,7 +43,9 @@ test("decision context combines live balance, player model facts and roster-fit 
   const text = formatDecisionContext(decision);
   assert.match(text, /ADINEU AI CONTEXT v2 — DECISION/);
   assert.match(text, /FAAB remaining: \$497 \/ \$1000/);
-  assert.match(text, /Bench IND \| status=Questionable \| proj=12\.8 \| ROS=11\.9 \| usage=78 \| trend=11 \| xFP=14\.2 \| actual=9\.8 \| signal=BUY_LOW/);
-  assert.match(text, /Free Agent WR KC \| Market=74 \| Fit=82 \| Gain=2\.4 pts\/w \| FAAB=80–120 \$ \| Max=105 \$/);
+  assert.match(text, /Bench IND \| status=Questionable \| proj=12\.8 \[Sleeper\] \| ROS=11\.9 \[SLEEPER_USAGE_BLEND\] \| usage=78 \[Adineu\]/);
+  assert.match(text, /Free Agent WR KC \| Priority=88 \| Market=74 \| SurplusCaptured=82% \| GrossGain=2\.4 pts\/w \| Drop=Bench \| DropCost=0\.4 pts\/w \| NetGain=2 pts\/w/);
   assert.match(text, /degraded=false/);
+  assert.match(text, /NEXT MATCHUP\nOpponent: Binaries \(@rival\) \| Record: 2-1/);
+  assert.match(text, /Win estimate: not included/);
 });

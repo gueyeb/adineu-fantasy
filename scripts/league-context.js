@@ -201,6 +201,54 @@ export async function getLeagueContext({
   };
 }
 
+/** Current Sleeper head-to-head and published starter projections for one team. */
+export async function getMatchupContext({
+  team = "t0z",
+  week,
+  leagueId = DEFAULT_SLEEPER_LEAGUE_ID,
+  fetchImpl = fetch
+} = {}) {
+  const [rosters, users, matchupRows, projections] = await Promise.all([
+    sleeperGet(`/league/${leagueId}/rosters`, { fetchImpl }),
+    sleeperGet(`/league/${leagueId}/users`, { fetchImpl }),
+    sleeperGet(`/league/${leagueId}/matchups/${week}`, { fetchImpl }),
+    getWeeklyProjections({ week, fetchImpl }).catch(() => ({}))
+  ]);
+  const mine = findRosterByTeam(rosters, users, team);
+  const myRow = matchupRows.find(row => row.roster_id === mine.roster.roster_id);
+  if (!myRow || myRow.matchup_id === null || myRow.matchup_id === undefined) return null;
+  const opponentRow = matchupRows.find(row => row.matchup_id === myRow.matchup_id && row.roster_id !== myRow.roster_id);
+  if (!opponentRow) return null;
+  const opponent = listRosterIdentities(rosters, users).find(entry => entry.roster.roster_id === opponentRow.roster_id);
+  if (!opponent) return null;
+  const projected = roster => {
+    const starterIds = (roster.starters || []).filter(id => id && id !== "0");
+    const values = starterIds.map(id => projections[id]?.pts_ppr).filter(Number.isFinite);
+    return {
+      total: values.length ? Number(values.reduce((sum, value) => sum + value, 0).toFixed(1)) : null,
+      coverage: `${values.length}/${starterIds.length}`
+    };
+  };
+  return {
+    week,
+    opponent: {
+      rosterId: opponent.roster.roster_id,
+      owner: opponent.ownerName,
+      teamName: opponent.teamName,
+      record: {
+        wins: Number(opponent.roster.settings?.wins || 0),
+        losses: Number(opponent.roster.settings?.losses || 0),
+        ties: Number(opponent.roster.settings?.ties || 0)
+      }
+    },
+    myProjection: projected(mine.roster),
+    opponentProjection: projected(opponent.roster),
+    currentScore: Number(myRow.points || 0),
+    opponentCurrentScore: Number(opponentRow.points || 0),
+    source: "Sleeper"
+  };
+}
+
 function formatPlayerLine(player) {
   if (!player) return "EMPTY";
   const team = player.nflTeam ? ` ${player.nflTeam}` : "";
@@ -476,11 +524,19 @@ export async function getFreeAgents({
     });
     const fallback = restOfSeasonEstimate(week);
     const paceOf = player => player.effectivePpg ?? rosFor(player.sleeperId, player) ?? fallback(player);
-    fitContext = { myPlayers, paceOf, faabRemaining: calculateFaabRemaining(GENERAL_SETTINGS_2026.waiver.budget, roster.settings?.waiver_budget_used) };
+    const replacementByPosition = Object.fromEntries(FANTASY_POSITIONS.map(pos => [pos, market.find(row => row.position === pos)?.replacementPpg ?? 0]));
+    const protectedIds = new Set([...(roster.starters || []), ...(roster.reserve || [])].filter(id => id && id !== "0").map(String));
+    fitContext = { myPlayers, paceOf, protectedIds, replacementByPosition, faabRemaining: calculateFaabRemaining(GENERAL_SETTINGS_2026.waiver.budget, roster.settings?.waiver_budget_used) };
   }
 
   const withWaiver = row => {
     const fit = fitContext ? evaluateRosterFit({ marketRow: row, week, ...fitContext }) : null;
+    const positionWeight = ({ RB: 1.2, WR: 1.15, TE: 1, QB: 0.65, K: 0.45, DEF: 0.5 })[row.position] || 1;
+    const durationWeight = ({ SEASON_LONG: 1.2, BREAKOUT: 1.15, SHORT_2_4W: 0.9, RENTAL_1W: 0.65, UNCERTAIN: 0.75 })[row.events.duration] || 0.85;
+    const priorityScore = fit ? Math.round(Math.max(0, Math.min(100,
+      18 * Math.max(0, fit.netGainPerWeek) * positionWeight +
+      0.35 * row.marketScore * durationWeight * positionWeight
+    ))) : null;
     return {
       ...row,
       waiver: {
@@ -501,7 +557,7 @@ export async function getFreeAgents({
         usageScore: row.usageScore,
         usageSignal: row.usageSignal,
         xfp: row.xfp,
-        ...(fit ? { fit } : {})
+        ...(fit ? { fit: { ...fit, priorityScore } } : {})
       }
     };
   };
@@ -557,7 +613,7 @@ export function formatWaiverReport({ byPosition, week, faabRemaining = null, deg
       const waiver = player.waiver
         ? ` · ${player.waiver.category} · S${week} ${player.weekProjection ?? player.waiver.projectedPpg ?? "n/d"} · ROS ${player.waiver.rosPpg ?? "n/d"} · FAAB marché ${player.waiver.faabMarket?.join("–") || "n/d"} $` +
           (Number.isFinite(player.waiver.usageScore) ? ` · Usage ${player.waiver.usageScore}${player.waiver.usageSignal ? ` ${player.waiver.usageSignal}` : ""}` : "") +
-          (player.waiver.fit ? ` · Fit ${player.waiver.fit.fitScore} · Gain ${player.waiver.fit.gainPerWeek} pts/sem · Max ${player.waiver.fit.faabMaxForMe} $` : "") +
+          (player.waiver.fit ? ` · Priorité ${player.waiver.fit.priorityScore} · Capture ${player.waiver.fit.fitScore}% · Gain net ${player.waiver.fit.netGainPerWeek} pts/sem · Coupe ${player.waiver.fit.dropCandidate?.name || "n/d"} (${player.waiver.fit.dropCostPerWeek} pts/sem) · Max ${player.waiver.fit.faabMaxForMe} $` : "") +
           (player.waiver.duration ? ` · Durée ${player.waiver.duration}` : "") +
           (player.waiver.newsOverride ? ` · ⚡ ${player.waiver.reasons.join(" ; ")}` : "")
         : "";

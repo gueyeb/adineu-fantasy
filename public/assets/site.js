@@ -7,7 +7,7 @@ import {
   buildSleeperWeek,
   buildSleeperSeasonMeetings
 } from "./rivalry-week.js?v=4";
-import { renderTradesPage } from "./trade-ui.js?v=20";
+import { renderTradesPage } from "./trade-ui.js?v=21";
 import { renderMatchupsHub } from "./matchups-live.js?v=7";
 import { calculatePlayoffRace } from "./playoff-race.js?v=1";
 import { calculateLuck, calculateRankHistory } from "./standings-luck.js?v=1";
@@ -16,6 +16,7 @@ import { renderTeamsHub } from "./teams.js?v=4";
 import { buildYahooRecordBook } from "./record-book.js?v=1";
 import { listRosterIdentities } from "./roster-view.js?v=2";
 import { GENERAL_SETTINGS_2026 } from "./league-settings.js";
+import { appendManagerPreferences } from "./ai-context-client.js?v=1";
 import {
   simulatePlayoffProbabilities,
   projectPlayerFantasyPoints,
@@ -122,9 +123,14 @@ const copyContextLabel = copyContextBtn?.querySelector(".context-copy-label");
 
 copyContextBtn?.addEventListener("click", async () => {
   try {
-    const response = await fetch("/api/context?mode=decision&format=text");
+    const response = await fetch("/api/context?mode=decision");
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const text = await response.text();
+    const context = await response.json();
+    let preferences = {};
+    try {
+      preferences = JSON.parse(localStorage.getItem(`adineu:trade-preferences:2026:${SLEEPER_LEAGUE_ID}:${context.myTeam.rosterId}`) || "{}");
+    } catch {}
+    const text = appendManagerPreferences(context.message, context, preferences);
     await navigator.clipboard.writeText(text);
     copyContextBtn.dataset.state = "done";
     copyContextIcon.textContent = "✅";

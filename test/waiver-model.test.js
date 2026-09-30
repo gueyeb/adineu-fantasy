@@ -95,6 +95,33 @@ test("market vs fit: a strong market add can be worth 0 $ to a roster where he n
   assert.ok(fit.faabMaxForMe <= 50, "capped by remaining FAAB");
 });
 
+test("roster fit prices the likely bench cut and reports net gain instead of treating the roster spot as free", () => {
+  const candidate = { sleeperId: "new", name: "New WR", position: "WR", effectivePpg: 12, surplusPoints: 50, faabMarket: [30, 50] };
+  const starters = [
+    ["QB", 20], ["RB", 15], ["RB", 14], ["WR", 16], ["WR", 13], ["TE", 10], ["WR", 11], ["K", 8], ["DEF", 7]
+  ].map(([position, pace], index) => ({ sleeperId: `s${index}`, name: `s${index}`, position, pace }));
+  const bench = [
+    { sleeperId: "valuable", name: "Valuable bench RB", position: "RB", pace: 10 },
+    { sleeperId: "cut", name: "Likely cut WR", position: "WR", pace: 8 }
+  ];
+  const paceOf = player => player.pace ?? player.effectivePpg;
+  const fit = evaluateRosterFit({
+    marketRow: candidate,
+    myPlayers: [...starters, ...bench],
+    paceOf,
+    week: 4,
+    faabRemaining: 100,
+    protectedIds: new Set(starters.map(player => player.sleeperId)),
+    replacementByPosition: { QB: 15, RB: 7, WR: 7, TE: 7, K: 7, DEF: 6 }
+  });
+
+  assert.equal(fit.dropCandidate.sleeperId, "cut");
+  assert.equal(fit.dropCostPerWeek, 1);
+  assert.equal(fit.gainPerWeek, 1);
+  assert.equal(fit.netGainPerWeek, 0);
+  assert.equal(fit.faabMaxForMe, 0);
+});
+
 test("a backup with a stale deep rank but ≥ 50 % of the snaps still inherits the role (Gordon case)", () => {
   const starter = { id: "s", name: "Starter", position: "RB", injuryStatus: "IR", injuryBodyPart: "Knee - ACL", searchRank: 8 };
   const rival = { id: "r", position: "RB", searchRank: 150 };
