@@ -96,7 +96,7 @@ Sleeper met à jour *après* la blessure (Braelon Allen y est déjà RB1 devant 
 - `fitScore` (0–100), affiché **Capture**, = part du surplus marché qui passe réellement dans **ta** lineup. Ce n'est pas une note globale de fit.
   v2 : la **redondance** est couverte par construction (un TE derrière McBride n'entre jamais en
   lineup optimale, donc fit = 0).
-- **v2.1 livré** : `dropCandidate` est le joueur de banc non-IR/non-titulaire au plus faible surplus au-dessus du remplacement ; `dropCostPerWeek` mesure ce surplus et `netGainPerWeek = lineupGain − dropCost`.
+- **v2.1 livré** : `dropCandidate` est le joueur de banc non-IR/non-titulaire au plus faible coût marginal. `dropCostPerWeek` additionne son surplus au-dessus du remplacement et sa valeur d'option (Usage Score, BUY_LOW, projection court terme) ; `netGainPerWeek = lineupGain − dropCost`. Un stash sous le remplacement n'est donc plus considéré automatiquement gratuit.
 - `priorityScore` combine gain net, rareté du poste, durée de l'opportunité et Market Score. Les QB/K/DEF sont décotés dans cette ligue 1QB afin qu'un petit streaming upgrade ne masque pas un stash RB/WR asymétrique.
 - **Max pour moi** = `FAAB marché × Capture × part du gain restant après coût de coupe`, plafonné par le FAAB restant, avec un plancher à 0 $ si le gain net est nul.
 

@@ -520,7 +520,15 @@ export async function getFreeAgents({
     const { roster } = findRosterByTeam(rosters, users, team);
     const myPlayers = (roster.players || []).map(id => {
       const player = meta(id) || { name: `Player #${id}`, position: "FLEX" };
-      return { ...(catalogById.get(id) || {}), ...player, sleeperId: id, projectedPpg: projectionsByWeek[week]?.[id]?.pts_ppr, injuryStatus: player.injuryStatus };
+      const usage = usageById.get(id);
+      return {
+        ...(catalogById.get(id) || {}), ...player, sleeperId: id,
+        projectedPpg: projectionsByWeek[week]?.[id]?.pts_ppr,
+        injuryStatus: player.injuryStatus,
+        usageScore: usage?.usageScore ?? null,
+        usageSignal: usage?.signal ?? null,
+        xfp: usage?.xfp ?? null
+      };
     });
     const fallback = restOfSeasonEstimate(week);
     const paceOf = player => player.effectivePpg ?? rosFor(player.sleeperId, player) ?? fallback(player);

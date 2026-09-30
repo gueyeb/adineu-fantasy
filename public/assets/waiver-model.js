@@ -185,14 +185,20 @@ export function evaluateRosterFit({ marketRow, myPlayers, paceOf, week, faabRema
   const gainPoints = Math.max(0, gainPerWeek * remaining);
   const fitScore = marketRow.surplusPoints > 0 ? Math.round(Math.min(100, 100 * gainPoints / marketRow.surplusPoints)) : (gainPoints > 0 ? 100 : 0);
   const slot = after.slots.find(entry => entry.sleeperId === String(marketRow.sleeperId))?.slot || null;
+  const optionValue = player => {
+    if (!["RB", "WR", "TE"].includes(player.position)) return 0;
+    const usage = Number.isFinite(player.usageScore) ? Math.max(0, player.usageScore - 50) / 50 * 1.5 : 0;
+    const signal = player.usageSignal === "BUY_LOW" ? 1 : 0;
+    const nearTermUpside = Number.isFinite(player.projectedPpg) ? Math.max(0, player.projectedPpg - estimate(player)) * 0.15 : 0;
+    return round(usage + signal + nearTermUpside);
+  };
+  const dropCost = player => round(Math.max(0, estimate(player) - (replacementByPosition[player.position] ?? estimate(player))) + optionValue(player));
   const droppable = myPlayers.filter(player => !protectedIds.has(String(player.sleeperId)));
   const dropCandidate = droppable.sort((a, b) => {
-    const cost = player => Math.max(0, estimate(player) - (replacementByPosition[player.position] ?? estimate(player)));
-    return cost(a) - cost(b) || estimate(a) - estimate(b);
+    return dropCost(a) - dropCost(b) || estimate(a) - estimate(b);
   })[0] || null;
-  const dropCostPerWeek = dropCandidate
-    ? round(Math.max(0, estimate(dropCandidate) - (replacementByPosition[dropCandidate.position] ?? estimate(dropCandidate))))
-    : 0;
+  const dropCostPerWeek = dropCandidate ? dropCost(dropCandidate) : 0;
+  const dropOptionValuePerWeek = dropCandidate ? optionValue(dropCandidate) : 0;
   const netGainPerWeek = round(gainPerWeek - dropCostPerWeek);
   const netCapture = gainPerWeek > 0 ? Math.max(0, Math.min(1, netGainPerWeek / gainPerWeek)) : 0;
   const maxForMe = Math.round(Math.min(faabRemaining ?? Infinity, marketRow.faabMarket[1] * fitScore / 100 * netCapture));
@@ -202,6 +208,7 @@ export function evaluateRosterFit({ marketRow, myPlayers, paceOf, week, faabRema
     slot,
     dropCandidate: dropCandidate ? { sleeperId: dropCandidate.sleeperId, name: dropCandidate.name, position: dropCandidate.position } : null,
     dropCostPerWeek,
+    dropOptionValuePerWeek,
     netGainPerWeek,
     faabMaxForMe: netGainPerWeek > 0 ? maxForMe : 0
   };

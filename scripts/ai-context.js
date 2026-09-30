@@ -44,6 +44,7 @@ function waiverRows(report) {
       usageSignal: player.waiver.usageSignal || null,
       xfp: round(player.waiver.xfp),
       marketScore: player.waiver.score,
+      replacementPpg: round(player.replacementPpg),
       category: player.waiver.category,
       faabMarket: player.waiver.faabMarket,
       fitScore: player.waiver.fit?.fitScore ?? null,
@@ -51,6 +52,7 @@ function waiverRows(report) {
       lineupGain: round(player.waiver.fit?.gainPerWeek),
       dropCandidate: player.waiver.fit?.dropCandidate || null,
       dropCost: round(player.waiver.fit?.dropCostPerWeek),
+      dropOptionValue: round(player.waiver.fit?.dropOptionValuePerWeek),
       netGain: round(player.waiver.fit?.netGainPerWeek),
       fitSlot: player.waiver.fit?.slot || null,
       maxForTeam: player.waiver.fit?.faabMaxForMe ?? null,
@@ -59,10 +61,54 @@ function waiverRows(report) {
     }));
 }
 
+function buildTeamDiagnosis(context, available) {
+  const roster = [
+    ...context.myTeam.starters.map(entry => entry.player),
+    ...context.myTeam.bench,
+    ...context.myTeam.ir
+  ].filter(Boolean);
+  const replacement = {};
+  for (const player of available) {
+    if (Number.isFinite(player.replacementPpg) && !Number.isFinite(replacement[player.position])) replacement[player.position] = player.replacementPpg;
+  }
+  const required = context.league.rosterSettings.starters;
+  const positions = ["QB", "RB", "WR", "TE", "K", "DEF"];
+  const positionMargins = positions.map(position => {
+    const count = required[position] || 1;
+    const values = roster.filter(player => player.position === position && Number.isFinite(player.rosPpg))
+      .map(player => player.rosPpg).sort((a, b) => b - a).slice(0, count);
+    if (!values.length || !Number.isFinite(replacement[position])) return null;
+    const starterLevel = values.reduce((sum, value) => sum + value, 0) / values.length;
+    return { position, margin: round(starterLevel - replacement[position]), starterLevel: round(starterLevel), replacement: replacement[position] };
+  }).filter(Boolean);
+  const strengths = positionMargins.filter(row => row.margin >= 3).sort((a, b) => b.margin - a.margin);
+  const weaknesses = positionMargins.filter(row => row.margin <= 1).sort((a, b) => a.margin - b.margin);
+  const dropCandidates = [...new Map(available.filter(player => player.dropCandidate).map(player => [player.dropCandidate.sleeperId, {
+    ...player.dropCandidate,
+    costPerWeek: player.dropCost,
+    optionValuePerWeek: player.dropOptionValue
+  }])).values()].sort((a, b) => (a.costPerWeek || 0) - (b.costPerWeek || 0)).slice(0, 3);
+  return {
+    strengths,
+    weaknesses,
+    rosterPressure: {
+      bench: `${context.myTeam.bench.length}/${context.league.rosterSettings.benchSlots}`,
+      ir: `${context.myTeam.ir.length}/${context.league.rosterSettings.reserveSlots}`
+    },
+    dropCandidates
+  };
+}
+
 export function buildDecisionContext({ context, playerValues = {}, statuses = new Map(), waivers = null, lineup = null, matchup = null }) {
   const valuesById = playerValues.byId || new Map();
   const projections = playerValues.weeklyProjections || {};
   const enrich = player => playerDecisionView(player, valuesById, projections, statuses);
+  const enrichedTeam = {
+    ...context.myTeam,
+    starters: context.myTeam.starters.map(entry => ({ ...entry, player: enrich(entry.player) })),
+    bench: context.myTeam.bench.map(enrich),
+    ir: context.myTeam.ir.map(enrich)
+  };
   const available = waiverRows(waivers);
   const immediateUpgrades = available.filter(player => (player.netGain || 0) > 0.3)
     .sort((a, b) => (b.priorityScore || 0) - (a.priorityScore || 0) || (b.netGain || 0) - (a.netGain || 0)).slice(0, 6);
@@ -74,14 +120,10 @@ export function buildDecisionContext({ context, playerValues = {}, statuses = ne
     ...context,
     mode: "decision",
     dataThroughWeek: waivers?.lastCompletedWeek ?? null,
-    myTeam: {
-      ...context.myTeam,
-      starters: context.myTeam.starters.map(entry => ({ ...entry, player: enrich(entry.player) })),
-      bench: context.myTeam.bench.map(enrich),
-      ir: context.myTeam.ir.map(enrich)
-    },
+    myTeam: enrichedTeam,
     lineup: lineup || { alerts: [], optimal: null },
     nextMatchup: matchup,
+    teamDiagnosis: buildTeamDiagnosis({ ...context, myTeam: enrichedTeam }, available),
     topAvailable: [...immediateUpgrades, ...upsideStashes],
     immediateUpgrades,
     upsideStashes,
@@ -134,6 +176,12 @@ export function formatDecisionContext(context) {
     `TEAM — ${team.teamName.toUpperCase()} (@${team.owner})`,
     `Record: ${recordText} | Rank: ${team.standingsRank ?? "n/d"}/${league.teams} | PF: ${team.pointsFor ?? "n/d"} | PA: ${team.pointsAgainst ?? "n/d"}`,
     `FAAB remaining: $${team.faab?.remaining ?? "n/d"} / $${team.faab?.budget ?? league.faab} | spent: $${team.faab?.used ?? "n/d"} | waiver tiebreaker: ${team.waiverPriority ?? "n/d"}${team.streak ? ` | streak: ${team.streak}` : ""}`,
+    "",
+    "TEAM DIAGNOSIS",
+    `Strengths: ${context.teamDiagnosis.strengths.length ? context.teamDiagnosis.strengths.map(row => `${row.position} (+${row.margin} PPG vs replacement)`).join("; ") : "none detected"}`,
+    `Weaknesses: ${context.teamDiagnosis.weaknesses.length ? context.teamDiagnosis.weaknesses.map(row => `${row.position} (${row.margin >= 0 ? "+" : ""}${row.margin} PPG vs replacement)`).join("; ") : "none detected"}`,
+    `Roster pressure: bench ${context.teamDiagnosis.rosterPressure.bench}; IR ${context.teamDiagnosis.rosterPressure.ir}`,
+    `Lowest marginal cuts: ${context.teamDiagnosis.dropCandidates.length ? context.teamDiagnosis.dropCandidates.map(player => `${player.name} (${metric(player.costPerWeek)} pts/w, option ${metric(player.optionValuePerWeek)})`).join("; ") : "n/d"}`,
     "",
     "ROSTER — PROJECTIONS & USAGE"
   ];

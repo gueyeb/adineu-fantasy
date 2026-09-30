@@ -122,6 +122,19 @@ test("roster fit prices the likely bench cut and reports net gain instead of tre
   assert.equal(fit.faabMaxForMe, 0);
 });
 
+test("drop cost preserves a high-usage buy-low stash instead of treating every below-replacement bench player as free", () => {
+  const candidate = { sleeperId: "new", name: "New WR", position: "WR", effectivePpg: 12, surplusPoints: 50, faabMarket: [30, 50] };
+  const starters = [["QB", 20], ["RB", 15], ["RB", 14], ["WR", 16], ["WR", 13], ["TE", 10], ["WR", 11], ["K", 8], ["DEF", 7]]
+    .map(([position, pace], index) => ({ sleeperId: `s${index}`, name: `s${index}`, position, pace }));
+  const highOption = { sleeperId: "high", name: "High-option stash", position: "WR", pace: 6, projectedPpg: 8, usageScore: 85, usageSignal: "BUY_LOW" };
+  const lowOption = { sleeperId: "low", name: "Low-option stash", position: "WR", pace: 7, projectedPpg: 7, usageScore: 52 };
+  const paceOf = player => player.pace ?? player.effectivePpg;
+  const fit = evaluateRosterFit({ marketRow: candidate, myPlayers: [...starters, highOption, lowOption], paceOf, week: 4, faabRemaining: 100, protectedIds: new Set(starters.map(player => player.sleeperId)), replacementByPosition: { WR: 8 } });
+  assert.equal(fit.dropCandidate.sleeperId, "low");
+  assert.ok(fit.dropOptionValuePerWeek > 0);
+  assert.ok(fit.dropCostPerWeek > 0, "even a below-replacement stash has non-zero option value");
+});
+
 test("a backup with a stale deep rank but ≥ 50 % of the snaps still inherits the role (Gordon case)", () => {
   const starter = { id: "s", name: "Starter", position: "RB", injuryStatus: "IR", injuryBodyPart: "Knee - ACL", searchRank: 8 };
   const rival = { id: "r", position: "RB", searchRank: 150 };
