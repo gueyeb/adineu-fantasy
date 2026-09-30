@@ -194,11 +194,29 @@ export function evaluateRosterFit({ marketRow, myPlayers, paceOf, week, faabRema
   };
   const dropCost = player => round(Math.max(0, estimate(player) - (replacementByPosition[player.position] ?? estimate(player))) + optionValue(player));
   const droppable = myPlayers.filter(player => !protectedIds.has(String(player.sleeperId)));
-  const dropCandidate = droppable.sort((a, b) => {
+  const rankedDropCandidates = droppable.sort((a, b) => {
     return dropCost(a) - dropCost(b) || estimate(a) - estimate(b);
-  })[0] || null;
-  const dropCostPerWeek = dropCandidate ? dropCost(dropCandidate) : 0;
-  const dropOptionValuePerWeek = dropCandidate ? optionValue(dropCandidate) : 0;
+  }).map(player => {
+    const replacement = replacementByPosition[player.position] ?? estimate(player);
+    const immediateValuePerWeek = round(Math.max(0, estimate(player) - replacement));
+    const optionValuePerWeek = optionValue(player);
+    return {
+      sleeperId: player.sleeperId,
+      name: player.name,
+      position: player.position,
+      nflTeam: player.nflTeam || null,
+      immediateValuePerWeek,
+      optionValuePerWeek,
+      totalCostPerWeek: round(immediateValuePerWeek + optionValuePerWeek),
+      usageScore: player.usageScore ?? null,
+      usageSignal: player.usageSignal || null,
+      byeWeek: BYE_WEEKS_2026[player.nflTeam] ?? null,
+      regretRisk: optionValuePerWeek >= 1.5 ? "HIGH" : optionValuePerWeek >= 0.7 ? "MEDIUM" : "LOW"
+    };
+  });
+  const dropCandidate = rankedDropCandidates[0] || null;
+  const dropCostPerWeek = dropCandidate?.totalCostPerWeek ?? 0;
+  const dropOptionValuePerWeek = dropCandidate?.optionValuePerWeek ?? 0;
   const netGainPerWeek = round(gainPerWeek - dropCostPerWeek);
   const netCapture = gainPerWeek > 0 ? Math.max(0, Math.min(1, netGainPerWeek / gainPerWeek)) : 0;
   const maxForMe = Math.round(Math.min(faabRemaining ?? Infinity, marketRow.faabMarket[1] * fitScore / 100 * netCapture));
@@ -207,9 +225,39 @@ export function evaluateRosterFit({ marketRow, myPlayers, paceOf, week, faabRema
     fitScore,
     slot,
     dropCandidate: dropCandidate ? { sleeperId: dropCandidate.sleeperId, name: dropCandidate.name, position: dropCandidate.position } : null,
+    dropCandidates: rankedDropCandidates.slice(0, 3),
     dropCostPerWeek,
     dropOptionValuePerWeek,
     netGainPerWeek,
     faabMaxForMe: netGainPerWeek > 0 ? maxForMe : 0
   };
+}
+
+/** Turns market upside and roster-specific net gain into an explicit action, not one mixed rank. */
+export function classifyWaiverDecision({ position, marketScore = 0, flags = [], usageSignal = null, netGain = 0 }) {
+  const skillPosition = ["RB", "WR", "TE"].includes(position);
+  const immediateValue = Math.round(Math.max(0, Math.min(100, netGain * 25)));
+  const eventBonus = flags.includes("PROMOTION") ? 20
+    : flags.some(flag => ["SNAP_SURGE", "USAGE_SURGE"].includes(flag)) ? 15 : 0;
+  const strategicUpside = Math.round(Math.max(0, Math.min(100,
+    marketScore * (skillPosition ? 1 : 0.55) + eventBonus + (usageSignal === "BUY_LOW" ? 10 : 0)
+  )));
+  const decisionClass = flags.includes("PROMOTION") ? "INJURY_PROMOTION"
+    : ["QB", "K", "DEF"].includes(position) && netGain > 0 ? "STREAMER"
+    : flags.some(flag => ["SNAP_SURGE", "USAGE_SURGE"].includes(flag)) ? "BREAKOUT"
+    : netGain >= 1.5 ? "STARTER_UPGRADE"
+    : skillPosition && strategicUpside >= 40 ? "UPSIDE_STASH"
+    : "NO_ACTION";
+  const recommendedAction = netGain >= 1.5 && immediateValue >= 38 ? "ADD_NOW"
+    : netGain > 0 && (immediateValue >= 15 || decisionClass === "STREAMER") ? "CLAIM_IF_CHEAP"
+    : strategicUpside >= 40 ? "WATCH"
+    : "IGNORE";
+  const interpretation = recommendedAction === "WATCH" && netGain <= 0
+    ? "High league-market upside, but not worth cutting a current bench asset today."
+    : recommendedAction === "CLAIM_IF_CHEAP"
+      ? "Positive roster value, but not enough edge for an aggressive bid."
+      : recommendedAction === "ADD_NOW"
+        ? "Meaningful net lineup upgrade after accounting for the likely cut."
+        : "No actionable edge for this roster today.";
+  return { immediateValue, strategicUpside, decisionClass, recommendedAction, interpretation };
 }

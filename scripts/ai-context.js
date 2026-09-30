@@ -1,4 +1,5 @@
 import { BYE_WEEKS_2026 } from "../public/assets/league-settings.js";
+import { classifyWaiverDecision } from "../public/assets/waiver-model.js";
 
 const round = value => Number.isFinite(Number(value)) ? Number(Number(value).toFixed(1)) : null;
 
@@ -51,12 +52,14 @@ function waiverRows(report) {
       priorityScore: player.waiver.fit?.priorityScore ?? null,
       lineupGain: round(player.waiver.fit?.gainPerWeek),
       dropCandidate: player.waiver.fit?.dropCandidate || null,
+      dropCandidates: player.waiver.fit?.dropCandidates || [],
       dropCost: round(player.waiver.fit?.dropCostPerWeek),
       dropOptionValue: round(player.waiver.fit?.dropOptionValuePerWeek),
       netGain: round(player.waiver.fit?.netGainPerWeek),
       fitSlot: player.waiver.fit?.slot || null,
       maxForTeam: player.waiver.fit?.faabMaxForMe ?? null,
       opportunityDuration: player.waiver.duration || null,
+      flags: player.waiver.flags || [],
       reasons: player.waiver.reasons || []
     }));
 }
@@ -83,11 +86,8 @@ function buildTeamDiagnosis(context, available) {
   }).filter(Boolean);
   const strengths = positionMargins.filter(row => row.margin >= 3).sort((a, b) => b.margin - a.margin);
   const weaknesses = positionMargins.filter(row => row.margin <= 1).sort((a, b) => a.margin - b.margin);
-  const dropCandidates = [...new Map(available.filter(player => player.dropCandidate).map(player => [player.dropCandidate.sleeperId, {
-    ...player.dropCandidate,
-    costPerWeek: player.dropCost,
-    optionValuePerWeek: player.dropOptionValue
-  }])).values()].sort((a, b) => (a.costPerWeek || 0) - (b.costPerWeek || 0)).slice(0, 3);
+  const dropCandidates = [...new Map(available.flatMap(player => player.dropCandidates || []).map(player => [player.sleeperId, player])).values()]
+    .sort((a, b) => (a.totalCostPerWeek || 0) - (b.totalCostPerWeek || 0)).slice(0, 3);
   return {
     strengths,
     weaknesses,
@@ -97,6 +97,18 @@ function buildTeamDiagnosis(context, available) {
     },
     dropCandidates
   };
+}
+
+function buildStrategyState(context) {
+  const rank = context.myTeam.standingsRank;
+  const record = context.myTeam.record || { wins: 0, losses: 0 };
+  const playoffTeams = context.league.playoffTeams || 8;
+  const outside = Number.isFinite(rank) && rank > playoffTeams;
+  const playoffUrgency = outside && record.losses - record.wins >= 3 ? "HIGH" : outside ? "MODERATE" : "LOW";
+  const faabRatio = context.myTeam.faab?.budget > 0 ? context.myTeam.faab.remaining / context.myTeam.faab.budget : null;
+  const faabPosture = faabRatio === null ? "UNKNOWN" : faabRatio < 0.25 ? "CONSERVE" : faabRatio <= 0.7 ? "MODERATE" : "FLEXIBLE";
+  const benchFlexibility = context.myTeam.bench.length >= context.league.rosterSettings.benchSlots ? "LOW" : "AVAILABLE";
+  return { playoffUrgency, faabPosture, benchFlexibility, playoffProbability: null };
 }
 
 export function buildDecisionContext({ context, playerValues = {}, statuses = new Map(), waivers = null, lineup = null, matchup = null }) {
@@ -109,13 +121,23 @@ export function buildDecisionContext({ context, playerValues = {}, statuses = ne
     bench: context.myTeam.bench.map(enrich),
     ir: context.myTeam.ir.map(enrich)
   };
-  const available = waiverRows(waivers);
+  const available = waiverRows(waivers).map(player => ({ ...player, ...classifyWaiverDecision({
+    position: player.position,
+    marketScore: player.marketScore,
+    flags: player.flags,
+    usageSignal: player.usageSignal,
+    netGain: player.netGain || 0
+  }) }));
   const immediateUpgrades = available.filter(player => (player.netGain || 0) > 0.3)
     .sort((a, b) => (b.priorityScore || 0) - (a.priorityScore || 0) || (b.netGain || 0) - (a.netGain || 0)).slice(0, 6);
   const immediateIds = new Set(immediateUpgrades.map(player => player.sleeperId));
   const upsideStashes = available.filter(player => ["RB", "WR", "TE"].includes(player.position) && !immediateIds.has(player.sleeperId) && (
     player.opportunityDuration || player.usageSignal === "BUY_LOW" || player.reasons.length
   )).sort((a, b) => (b.priorityScore || 0) - (a.priorityScore || 0) || b.marketScore - a.marketScore).slice(0, 6);
+  const waiverActions = Object.fromEntries(["ADD_NOW", "CLAIM_IF_CHEAP", "WATCH", "IGNORE"].map(action => [action,
+    available.filter(player => player.recommendedAction === action)
+      .sort((a, b) => b.immediateValue - a.immediateValue || b.strategicUpside - a.strategicUpside).slice(0, action === "IGNORE" ? 4 : 6)
+  ]));
   return {
     ...context,
     mode: "decision",
@@ -124,9 +146,11 @@ export function buildDecisionContext({ context, playerValues = {}, statuses = ne
     lineup: lineup || { alerts: [], optimal: null },
     nextMatchup: matchup,
     teamDiagnosis: buildTeamDiagnosis({ ...context, myTeam: enrichedTeam }, available),
+    strategyState: buildStrategyState(context),
     topAvailable: [...immediateUpgrades, ...upsideStashes],
     immediateUpgrades,
     upsideStashes,
+    waiverActions,
     modelCoverage: waivers ? {
       degraded: Boolean(waivers.degraded),
       projections: waivers.coverage?.projectionWeeks || null,
@@ -181,7 +205,12 @@ export function formatDecisionContext(context) {
     `Strengths: ${context.teamDiagnosis.strengths.length ? context.teamDiagnosis.strengths.map(row => `${row.position} (+${row.margin} PPG vs replacement)`).join("; ") : "none detected"}`,
     `Weaknesses: ${context.teamDiagnosis.weaknesses.length ? context.teamDiagnosis.weaknesses.map(row => `${row.position} (${row.margin >= 0 ? "+" : ""}${row.margin} PPG vs replacement)`).join("; ") : "none detected"}`,
     `Roster pressure: bench ${context.teamDiagnosis.rosterPressure.bench}; IR ${context.teamDiagnosis.rosterPressure.ir}`,
-    `Lowest marginal cuts: ${context.teamDiagnosis.dropCandidates.length ? context.teamDiagnosis.dropCandidates.map(player => `${player.name} (${metric(player.costPerWeek)} pts/w, option ${metric(player.optionValuePerWeek)})`).join("; ") : "n/d"}`,
+    `Lowest marginal cuts: ${context.teamDiagnosis.dropCandidates.length ? context.teamDiagnosis.dropCandidates.map(player => `${player.name} (immediate ${metric(player.immediateValuePerWeek)}, option ${metric(player.optionValuePerWeek)}, total ${metric(player.totalCostPerWeek)} pts/w, usage ${metric(player.usageScore)}, bye S${player.byeWeek ?? "n/d"}, regret ${player.regretRisk})`).join("; ") : "n/d"}`,
+    "",
+    "STRATEGY STATE",
+    `Playoff urgency: ${context.strategyState.playoffUrgency} (rule-based; probability unavailable)`,
+    `Record: ${recordText} | Seed: ${team.standingsRank ?? "n/d"}/${league.teams} | Playoff spots: ${league.playoffTeams || 8}`,
+    `FAAB posture: ${context.strategyState.faabPosture} | Bench flexibility: ${context.strategyState.benchFlexibility}`,
     "",
     "ROSTER — PROJECTIONS & USAGE"
   ];
@@ -223,13 +252,14 @@ export function formatDecisionContext(context) {
     lines.push("Win estimate: not included (projection coverage and lineup completeness must be validated separately).");
   }
 
-  const waiverLine = (player, index) => `${index + 1}. ${player.name} ${player.position} ${player.nflTeam || "FA"} | Priority=${metric(player.priorityScore)} | Market=${player.marketScore} | SurplusCaptured=${metric(player.fitScore, "%")} | GrossGain=${metric(player.lineupGain, " pts/w")} | Drop=${player.dropCandidate?.name || "none"} | DropCost=${metric(player.dropCost, " pts/w")} | NetGain=${metric(player.netGain, " pts/w")} | FAAB=${player.faabMarket?.join("–") || "n/d"} $ | Max=${metric(player.maxForTeam, " $")} | ROS=${metric(player.rosPpg)} [${player.rosSource || "unknown"}] | Usage=${metric(player.usageScore)} [Adineu] | Signal=${player.usageSignal || "none"}${player.reasons.length ? ` | ${player.reasons.join("; ")}` : ""}`;
-  lines.push("", "WAIVER — IMMEDIATE LINEUP UPGRADES");
-  if (!context.immediateUpgrades.length) lines.push("None");
-  context.immediateUpgrades.forEach((player, index) => lines.push(waiverLine(player, index)));
-  lines.push("", "WAIVER — UPSIDE / BENCH STASHES");
-  if (!context.upsideStashes.length) lines.push("None");
-  context.upsideStashes.forEach((player, index) => lines.push(waiverLine(player, index)));
+  const waiverLine = (player, index) => `${index + 1}. ${player.name} ${player.position} ${player.nflTeam || "FA"} | Class=${player.decisionClass} | Immediate=${player.immediateValue} | Strategic=${player.strategicUpside} | Market=${player.marketScore} | GrossGain=${metric(player.lineupGain, " pts/w")} | Drop=${player.dropCandidate?.name || "none"} | DropCost=${metric(player.dropCost, " pts/w")} | NetGain=${metric(player.netGain, " pts/w")} | FAAB=${player.faabMarket?.join("–") || "n/d"} $ | Max=${metric(player.maxForTeam, " $")} | ${player.interpretation}${player.reasons.length ? ` | ${player.reasons.join("; ")}` : ""}`;
+  lines.push("", "WAIVER — RECOMMENDED ACTIONS");
+  for (const action of ["ADD_NOW", "CLAIM_IF_CHEAP", "WATCH", "IGNORE"]) {
+    lines.push("", action.replaceAll("_", " "));
+    const players = context.waiverActions[action] || [];
+    if (!players.length) lines.push("None");
+    players.forEach((player, index) => lines.push(waiverLine(player, index)));
+  }
 
   const coverage = context.modelCoverage;
   lines.push(

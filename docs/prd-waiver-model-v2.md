@@ -97,7 +97,9 @@ Sleeper met à jour *après* la blessure (Braelon Allen y est déjà RB1 devant 
   v2 : la **redondance** est couverte par construction (un TE derrière McBride n'entre jamais en
   lineup optimale, donc fit = 0).
 - **v2.1 livré** : `dropCandidate` est le joueur de banc non-IR/non-titulaire au plus faible coût marginal. `dropCostPerWeek` additionne son surplus au-dessus du remplacement et sa valeur d'option (Usage Score, BUY_LOW, projection court terme) ; `netGainPerWeek = lineupGain − dropCost`. Un stash sous le remplacement n'est donc plus considéré automatiquement gratuit.
+- Le modèle expose aussi les trois meilleures coupes possibles avec valeur immédiate, valeur d'option, Usage Score, bye et risque de regret. L'export IA ne présente donc plus une coupe unique comme une certitude.
 - `priorityScore` combine gain net, rareté du poste, durée de l'opportunité et Market Score. Les QB/K/DEF sont décotés dans cette ligue 1QB afin qu'un petit streaming upgrade ne masque pas un stash RB/WR asymétrique.
+- **v2.2 livré** : le classement brut est traduit en décision. `ImmediateValue` mesure le gain net propre au roster, `StrategicUpside` le potentiel de marché/usage, et `DecisionClass` distingue `STARTER_UPGRADE`, `STREAMER`, `UPSIDE_STASH`, `HANDCUFF`, `INJURY_PROMOTION`, `BREAKOUT` et `NO_ACTION`. `RecommendedAction` vaut `ADD_NOW`, `CLAIM_IF_CHEAP`, `WATCH` ou `IGNORE`. Un fort potentiel avec gain net négatif devient explicitement `WATCH`, jamais une recommandation d'achat implicite.
 - **Max pour moi** = `FAAB marché × Capture × part du gain restant après coût de coupe`, plafonné par le FAAB restant, avec un plancher à 0 $ si le gain net est nul.
 
 ## Boucle de feedback (ALGO FEEDBACK)

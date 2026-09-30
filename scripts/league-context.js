@@ -27,6 +27,7 @@ import {
   FANTASY_POSITIONS,
   LAST_REGULAR_WEEK,
   PRICE_PER_POINT,
+  classifyWaiverDecision,
   buildOpportunitySignals,
   computeRosPpg,
   detectEvents,
@@ -166,6 +167,7 @@ export async function getLeagueContext({
       id: leagueId,
       name: LEAGUE_METADATA_2026.name,
       teams: GENERAL_SETTINGS_2026.teams,
+      playoffTeams: GENERAL_SETTINGS_2026.playoffTeams,
       format: "redraft",
       scoring: "full_ppr",
       rosterSettings: ROSTER_SETTINGS_2026,
@@ -545,6 +547,13 @@ export async function getFreeAgents({
       18 * Math.max(0, fit.netGainPerWeek) * positionWeight +
       0.35 * row.marketScore * durationWeight * positionWeight
     ))) : null;
+    const decision = classifyWaiverDecision({
+      position: row.position,
+      marketScore: row.marketScore,
+      flags: row.events.flags,
+      usageSignal: row.usageSignal,
+      netGain: fit?.netGainPerWeek || 0
+    });
     return {
       ...row,
       waiver: {
@@ -565,6 +574,7 @@ export async function getFreeAgents({
         usageScore: row.usageScore,
         usageSignal: row.usageSignal,
         xfp: row.xfp,
+        decision,
         ...(fit ? { fit: { ...fit, priorityScore } } : {})
       }
     };
@@ -620,6 +630,7 @@ export function formatWaiverReport({ byPosition, week, faabRemaining = null, deg
       const note = player.adineu?.thesis ? ` — ${player.adineu.thesis}` : "";
       const waiver = player.waiver
         ? ` · ${player.waiver.category} · S${week} ${player.weekProjection ?? player.waiver.projectedPpg ?? "n/d"} · ROS ${player.waiver.rosPpg ?? "n/d"} · FAAB marché ${player.waiver.faabMarket?.join("–") || "n/d"} $` +
+          (player.waiver.decision ? ` · Action ${player.waiver.decision.recommendedAction} · Classe ${player.waiver.decision.decisionClass} · Immédiat ${player.waiver.decision.immediateValue} · Stratégique ${player.waiver.decision.strategicUpside}` : "") +
           (Number.isFinite(player.waiver.usageScore) ? ` · Usage ${player.waiver.usageScore}${player.waiver.usageSignal ? ` ${player.waiver.usageSignal}` : ""}` : "") +
           (player.waiver.fit ? ` · Priorité ${player.waiver.fit.priorityScore} · Capture ${player.waiver.fit.fitScore}% · Gain net ${player.waiver.fit.netGainPerWeek} pts/sem · Coupe ${player.waiver.fit.dropCandidate?.name || "n/d"} (${player.waiver.fit.dropCostPerWeek} pts/sem) · Max ${player.waiver.fit.faabMaxForMe} $` : "") +
           (player.waiver.duration ? ` · Durée ${player.waiver.duration}` : "") +

@@ -54,7 +54,7 @@ Toute suggestion d'amélioration doit les respecter :
 - **Les 12 managers** : consultent classements, matchups, leur équipe ; cherchent trades et waivers.
 - **Le commissaire / propriétaire du site (t0z, équipe « Boukki »)** : utilise en plus le
   « Coach privé » (page protégée par mot de passe), les bulletins n8n et l'export « contexte IA ».
-- **Assistants IA** : reçoivent un contexte de décision copiable (`/api/context?mode=decision`) : état live, diagnostic forces/faiblesses/pression roster, roster enrichi, optimisation de lineup explicite, prochain matchup Sleeper et waivers séparés en upgrades immédiats/stashes avec coût de coupe (valeur d'option incluse) et gain net. `mode=compact` conserve l'export règles + roster.
+- **Assistants IA** : reçoivent un contexte de décision copiable (`/api/context?mode=decision`) : état live, diagnostic forces/faiblesses/pression roster, trois coupes possibles décomposées, stratégie dérivée du classement/FAAB, roster enrichi, optimisation de lineup explicite, prochain matchup Sleeper et waivers groupés par action (`ADD NOW`, `CLAIM IF CHEAP`, `WATCH`, `IGNORE`) avec potentiel stratégique, coût de coupe et gain net. `mode=compact` conserve l'export règles + roster.
 
 ## 5. Fonctionnalités actuelles
 

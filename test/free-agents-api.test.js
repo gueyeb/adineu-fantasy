@@ -96,6 +96,7 @@ test("getFreeAgents v2: an injury ahead + a snap surge makes a deep backup a pri
   assert.ok(Number.isFinite(backup.waiver.fit.priorityScore));
   assert.ok(Number.isFinite(backup.waiver.fit.dropCostPerWeek));
   assert.ok(Number.isFinite(backup.waiver.fit.netGainPerWeek));
+  assert.ok(["ADD_NOW", "CLAIM_IF_CHEAP", "WATCH", "IGNORE"].includes(backup.waiver.decision.recommendedAction));
   assert.equal(report.faabRemaining, 900);
 });
 
