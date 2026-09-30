@@ -76,7 +76,14 @@ export async function loadPlayerValues({ leagueId = DEFAULT_SLEEPER_LEAGUE_ID, f
     const ros = usageAdjustedRosPpg({ playerId, position: info.position, nflTeam: info.nflTeam, projectionsByWeek, week, xfp: usage?.xfp });
     const values = {};
     if (ros) { values.rosPpg = ros.ppg; values.rosSource = ros.source; }
-    if (usage) { values.usageScore = usage.usageScore; values.xfp = usage.xfp; values.signal = usage.signal; }
+    if (usage) {
+      values.usageScore = usage.usageScore;
+      values.usageTrend = usage.trend;
+      values.xfp = usage.xfp;
+      values.actualPpg = usage.ppg;
+      values.usageGap = usage.gap;
+      values.signal = usage.signal;
+    }
     byId.set(playerId, values);
   }
   return { week, byId, weeklyProjections: projectionsByWeek[week] || {} };

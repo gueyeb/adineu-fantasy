@@ -29,6 +29,7 @@ import {
   BYE_WEEKS_2026
 } from "./public/assets/league-settings.js";
 import { buildCoachPlan, formatCoachPlan } from "./scripts/coach-assistant.js";
+import { buildDecisionContext, formatDecisionContext } from "./scripts/ai-context.js";
 import { createCoachAuth } from "./scripts/coach-auth.js";
 import { createSupabaseFromEnv, getLatestFeedback, runWeeklyJob } from "./scripts/model-tracking.js";
 import { timingSafeEqual } from "node:crypto";
@@ -149,8 +150,46 @@ export function createAppServer({
 
     if (url.pathname === "/api/context") {
       try {
-        const context = await getContext({ team: url.searchParams.get("team") || "t0z" });
-        const message = formatContextText(context);
+        const team = url.searchParams.get("team") || "t0z";
+        const mode = url.searchParams.get("mode") || "decision";
+        if (!["compact", "decision"].includes(mode)) {
+          sendJson(response, 400, { error: "Mode inconnu. Valeurs acceptées : compact, decision." });
+          return;
+        }
+        const compactContext = await getContext({ team });
+        let context = compactContext;
+        let message = formatContextText(compactContext);
+        if (mode === "decision") {
+          const playerIds = [
+            ...compactContext.myTeam.starters.map(entry => entry.player?.sleeperId),
+            ...compactContext.myTeam.bench.map(player => player.sleeperId),
+            ...compactContext.myTeam.ir.map(player => player.sleeperId)
+          ].filter(Boolean);
+          const [valuesResult, statusesResult, waiversResult] = await Promise.allSettled([
+            getPlayerValues({ week: compactContext.week, playerIds }),
+            getInjuryStatuses(),
+            getFreeAgents({ team, limitPerPosition: 5 })
+          ]);
+          const playerValues = valuesResult.status === "fulfilled" ? valuesResult.value : { byId: new Map(), weeklyProjections: {} };
+          const statuses = statusesResult.status === "fulfilled" ? statusesResult.value : new Map();
+          const waivers = waiversResult.status === "fulfilled" ? waiversResult.value : null;
+          const lineup = diagnoseLineup({
+            myTeam: compactContext.myTeam,
+            playerStatuses: statuses,
+            freeAgentsByPosition: waivers?.byPosition || {},
+            byeWeeks: BYE_WEEKS_2026,
+            currentWeek: compactContext.week
+          });
+          try {
+            lineup.optimal = compareWithOptimalLineup({
+              myTeam: compactContext.myTeam,
+              projections: playerValues.weeklyProjections || {},
+              playerStatuses: statuses
+            });
+          } catch { lineup.optimal = null; }
+          context = buildDecisionContext({ context: compactContext, playerValues, statuses, waivers, lineup });
+          message = formatDecisionContext(context);
+        }
         if (url.searchParams.get("format") === "text") {
           response.writeHead(200, { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" });
           response.end(message);

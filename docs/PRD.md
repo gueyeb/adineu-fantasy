@@ -54,7 +54,7 @@ Toute suggestion d'amélioration doit les respecter :
 - **Les 12 managers** : consultent classements, matchups, leur équipe ; cherchent trades et waivers.
 - **Le commissaire / propriétaire du site (t0z, équipe « Boukki »)** : utilise en plus le
   « Coach privé » (page protégée par mot de passe), les bulletins n8n et l'export « contexte IA ».
-- **Assistants IA** : reçoivent un contexte ligue + roster copiable (`/api/context`) pour conseiller.
+- **Assistants IA** : reçoivent un contexte de décision copiable (`/api/context?mode=decision`) : état live de l'équipe, FAAB restant, roster enrichi (projection/ROS/usage/statut), alertes lineup et meilleurs waivers selon le fit. `mode=compact` conserve l'export règles + roster.
 
 ## 5. Fonctionnalités actuelles
 
@@ -71,7 +71,7 @@ Toute suggestion d'amélioration doit les respecter :
 | **History** `/history/` | Saison par saison 2019–2025, podiums | Archive Yahoo |
 | **Rivalry Week** `/rivalry-week/` | Proposition communautaire de 6 rivalités (semaine 8) + Rivalry Tracker qui intègre les vrais matchs 2026 dès leur publication | Archive + Sleeper |
 | **Coach privé** `/coach/` | Plan hebdo pour t0z : lineup, waivers, trades | APIs internes |
-| **Copier contexte IA** (header) | Bloc texte : règles + roster live, à coller dans un assistant | `/api/context` |
+| **Copier contexte IA** (header) | Contexte de décision : état live, roster enrichi, alertes et waivers adaptés | `/api/context?mode=decision` |
 
 ## 6. Trade Hub (outil d'aide à la décision)
 

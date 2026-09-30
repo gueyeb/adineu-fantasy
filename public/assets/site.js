@@ -122,7 +122,7 @@ const copyContextLabel = copyContextBtn?.querySelector(".context-copy-label");
 
 copyContextBtn?.addEventListener("click", async () => {
   try {
-    const response = await fetch("/api/context?format=text");
+    const response = await fetch("/api/context?mode=decision&format=text");
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const text = await response.text();
     await navigator.clipboard.writeText(text);

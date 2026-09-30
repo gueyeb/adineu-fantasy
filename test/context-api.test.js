@@ -22,6 +22,13 @@ const sampleContext = {
     rosterId: 5,
     owner: "t0z",
     teamName: "Boukki",
+    record: { wins: 1, losses: 2, ties: 0 },
+    standingsRank: 9,
+    pointsFor: 331.16,
+    pointsAgainst: 396.7,
+    faab: { budget: 1000, used: 503, remaining: 497 },
+    waiverPriority: 7,
+    streak: "1W",
     starters: [
       { slot: "QB", player: { name: "Jaxson Dart", nflTeam: "NYG", position: "QB" } },
       { slot: "K", player: null }
@@ -35,6 +42,8 @@ test("formatContextText renders league rules, starters, bench and empty slots", 
   const text = formatContextText(sampleContext);
   assert.match(text, /ADINEU 2026/);
   assert.match(text, /12 teams · Full PPR/);
+  assert.match(text, /FAAB restant: \$497 \/ \$1000 \(503 \$ dépensés\)/);
+  assert.match(text, /Bilan: 1-2 · Rang: 9\/12 · PF: 331\.16 · PA: 396\.7/);
   assert.match(text, /MON ROSTER — BOUKKI \(@t0z\)/);
   assert.match(text, /QB Jaxson Dart NYG/);
   assert.match(text, /K EMPTY/);
@@ -49,13 +58,13 @@ test("context API exposes JSON and a copy-pasteable text format", async t => {
   t.after(() => server.close());
   const { port } = server.address();
 
-  const jsonResponse = await fetch(`http://127.0.0.1:${port}/api/context?team=t0z`);
+  const jsonResponse = await fetch(`http://127.0.0.1:${port}/api/context?team=t0z&mode=compact`);
   assert.equal(jsonResponse.status, 200);
   const body = await jsonResponse.json();
   assert.equal(body.myTeam.owner, "t0z");
   assert.match(body.message, /MON ROSTER/);
 
-  const textResponse = await fetch(`http://127.0.0.1:${port}/api/context?team=t0z&format=text`);
+  const textResponse = await fetch(`http://127.0.0.1:${port}/api/context?team=t0z&mode=compact&format=text`);
   assert.equal(textResponse.status, 200);
   assert.match(textResponse.headers.get("content-type"), /text\/plain/);
   assert.match(await textResponse.text(), /MON ROSTER/);
@@ -70,8 +79,32 @@ test("context API rejects an unknown team instead of guessing a roster", async t
   t.after(() => server.close());
   const { port } = server.address();
 
-  const response = await fetch(`http://127.0.0.1:${port}/api/context?team=personne`);
+  const response = await fetch(`http://127.0.0.1:${port}/api/context?team=personne&mode=compact`);
   assert.equal(response.status, 404);
+});
+
+test("context API defaults to decision mode and keeps compact mode available", async t => {
+  const server = createAppServer({
+    getContext: async () => sampleContext,
+    getPlayerValues: async () => ({ byId: new Map(), weeklyProjections: {} }),
+    getInjuryStatuses: async () => new Map(),
+    getFreeAgents: async () => ({ lastCompletedWeek: 3, degraded: false, coverage: { projectionWeeks: "11/11", statsWeeks: "3/3", playersIndex: true }, byPosition: {} })
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(() => server.close());
+  const { port } = server.address();
+
+  const decision = await fetch(`http://127.0.0.1:${port}/api/context?team=t0z`);
+  const decisionBody = await decision.json();
+  assert.equal(decisionBody.mode, "decision");
+  assert.match(decisionBody.message, /ADINEU AI CONTEXT v2 — DECISION/);
+  assert.match(decisionBody.message, /FAAB remaining: \$497 \/ \$1000/);
+
+  const compact = await fetch(`http://127.0.0.1:${port}/api/context?team=t0z&mode=compact`);
+  const compactBody = await compact.json();
+  assert.equal(compactBody.mode, undefined);
+  assert.match(compactBody.message, /FAAB restant: \$497 \/ \$1000/);
 });
 
 test("getLeagueContext splits starters, bench and IR from a raw Sleeper roster", async () => {
@@ -84,7 +117,9 @@ test("getLeagueContext splits starters, bench and IR from a raw Sleeper roster",
           owner_id: "owner-1",
           players: ["p-qb", "p-rb", "p-bench", "p-ir"],
           starters: ["p-qb", "0"],
-          reserve: ["p-ir"]
+          reserve: ["p-ir"],
+          settings: { wins: 2, losses: 1, ties: 0, fpts: 321, fpts_decimal: 45, fpts_against: 299, fpts_against_decimal: 7, waiver_budget_used: 503, waiver_position: 4 },
+          metadata: { streak: "2W" }
         }];
       }
       if (url.endsWith("/users")) {
@@ -102,6 +137,12 @@ test("getLeagueContext splits starters, bench and IR from a raw Sleeper roster",
   assert.equal(context.myTeam.starters[1].player, null);
   assert.deepEqual(context.myTeam.bench.map(p => p.sleeperId), ["p-rb", "p-bench"]);
   assert.deepEqual(context.myTeam.ir.map(p => p.sleeperId), ["p-ir"]);
+  assert.deepEqual(context.myTeam.faab, { budget: 1000, used: 503, remaining: 497 });
+  assert.deepEqual(context.myTeam.record, { wins: 2, losses: 1, ties: 0 });
+  assert.equal(context.myTeam.pointsFor, 321.45);
+  assert.equal(context.myTeam.pointsAgainst, 299.07);
+  assert.equal(context.myTeam.waiverPriority, 4);
+  assert.equal(context.myTeam.streak, "2W");
 });
 
 test("getLeagueContext fails explicitly when the requested Sleeper team is absent", async () => {

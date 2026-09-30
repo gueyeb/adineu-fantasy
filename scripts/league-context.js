@@ -135,6 +135,21 @@ export async function getLeagueContext({
   ]);
 
   const { roster, ownerName, teamName } = findRosterByTeam(rosters, users, team);
+  const settings = roster.settings || {};
+  const points = (whole, decimal) => {
+    const base = Number(whole ?? 0);
+    const cents = Number(decimal ?? 0);
+    return Number((base + cents / 100).toFixed(2));
+  };
+  const standings = [...rosters].sort((a, b) => {
+    const aSettings = a.settings || {};
+    const bSettings = b.settings || {};
+    return (Number(bSettings.wins || 0) - Number(aSettings.wins || 0)) ||
+      (points(bSettings.fpts, bSettings.fpts_decimal) - points(aSettings.fpts, aSettings.fpts_decimal));
+  });
+  const standingsRank = standings.findIndex(entry => entry.roster_id === roster.roster_id) + 1;
+  const faabBudget = GENERAL_SETTINGS_2026.waiver.budget;
+  const faabUsed = Number(settings.waiver_budget_used || 0);
 
   let week = 1;
   try {
@@ -154,7 +169,9 @@ export async function getLeagueContext({
       format: "redraft",
       scoring: "full_ppr",
       rosterSettings: ROSTER_SETTINGS_2026,
-      faab: GENERAL_SETTINGS_2026.waiver.budget,
+      // Kept for backwards compatibility. This is the league's initial budget, not the balance.
+      faab: faabBudget,
+      faabBudget,
       waiverClear: `${GENERAL_SETTINGS_2026.waiver.clearDay} ${GENERAL_SETTINGS_2026.waiver.clearTime}`,
       tradeDeadlineWeek: GENERAL_SETTINGS_2026.trades.deadlineWeek
     },
@@ -162,6 +179,21 @@ export async function getLeagueContext({
       rosterId: roster.roster_id,
       owner: ownerName,
       teamName,
+      record: {
+        wins: Number(settings.wins || 0),
+        losses: Number(settings.losses || 0),
+        ties: Number(settings.ties || 0)
+      },
+      standingsRank,
+      pointsFor: points(settings.fpts, settings.fpts_decimal),
+      pointsAgainst: points(settings.fpts_against, settings.fpts_against_decimal),
+      faab: {
+        budget: faabBudget,
+        used: faabUsed,
+        remaining: calculateFaabRemaining(faabBudget, faabUsed)
+      },
+      waiverPriority: Number.isFinite(Number(settings.waiver_position)) ? Number(settings.waiver_position) : null,
+      streak: roster.metadata?.streak || null,
       starters,
       bench,
       ir
@@ -181,15 +213,22 @@ export function formatContextText(context) {
   const startersLabel = Object.entries(league.rosterSettings.starters)
     .map(([pos, count]) => `${count}${pos}`)
     .join(" ");
+  const record = myTeam.record || { wins: 0, losses: 0, ties: 0 };
+  const recordText = `${record.wins}-${record.losses}${record.ties ? `-${record.ties}` : ""}`;
+  const faabBudget = myTeam.faab?.budget ?? league.faabBudget ?? league.faab;
+  const faabRemaining = myTeam.faab?.remaining ?? faabBudget;
+  const faabUsed = myTeam.faab?.used ?? Math.max(0, faabBudget - faabRemaining);
 
   const lines = [
     `${league.name.toUpperCase()}`,
     `${league.teams} teams · Full PPR · ${startersLabel} · ${league.rosterSettings.benchSlots} bench · ${league.rosterSettings.reserveSlots} IR`,
-    `FAAB: $${league.faab}`,
+    `FAAB restant: $${faabRemaining} / $${faabBudget} (${faabUsed} $ dépensés)`,
     `Waivers: ${league.waiverClear}`,
     `Semaine: ${week}`,
     "",
     `MON ROSTER — ${myTeam.teamName.toUpperCase()} (@${myTeam.owner})`,
+    `Bilan: ${recordText} · Rang: ${myTeam.standingsRank ?? "n/d"}/${league.teams} · PF: ${myTeam.pointsFor ?? "n/d"} · PA: ${myTeam.pointsAgainst ?? "n/d"}`,
+    `Priorité waiver (départage): ${myTeam.waiverPriority ?? "n/d"}${myTeam.streak ? ` · Série: ${myTeam.streak}` : ""}`,
     "",
     "TITULAIRES"
   ];
@@ -502,8 +541,10 @@ export async function getFreeAgents({
 }
 
 /** Rend la liste de free agents en un bulletin texte, groupé par poste. */
-export function formatWaiverReport({ byPosition, week }) {
+export function formatWaiverReport({ byPosition, week, faabRemaining = null, degraded = false, coverage = null }) {
   const lines = [`📋 WAIVER WIRE REPORT — ADINEU${week ? ` (Semaine ${week})` : ""}`];
+  if (Number.isFinite(faabRemaining)) lines.push(`FAAB restant : ${faabRemaining} $ / ${GENERAL_SETTINGS_2026.waiver.budget} $`);
+  if (degraded) lines.push(`Couverture dégradée : projections ${coverage?.projectionWeeks || "n/d"}, usage ${coverage?.statsWeeks || "n/d"}.`);
 
   for (const pos of POSITION_ORDER) {
     const players = byPosition[pos] || [];
@@ -514,8 +555,10 @@ export function formatWaiverReport({ byPosition, week }) {
       const adp = Number.isFinite(player.market?.sleeperAdp) ? ` · ADP ${player.market.sleeperAdp}` : "";
       const note = player.adineu?.thesis ? ` — ${player.adineu.thesis}` : "";
       const waiver = player.waiver
-        ? ` · ${player.waiver.category} · ROS ${player.waiver.rosPpg ?? "n/d"} · FAAB marché ${player.waiver.faabPct[0]}–${player.waiver.faabPct[1]}%` +
-          (player.waiver.fit ? ` · Fit ${player.waiver.fit.fitScore} · Max ${player.waiver.fit.faabMaxForMe} $` : "") +
+        ? ` · ${player.waiver.category} · S${week} ${player.weekProjection ?? player.waiver.projectedPpg ?? "n/d"} · ROS ${player.waiver.rosPpg ?? "n/d"} · FAAB marché ${player.waiver.faabMarket?.join("–") || "n/d"} $` +
+          (Number.isFinite(player.waiver.usageScore) ? ` · Usage ${player.waiver.usageScore}${player.waiver.usageSignal ? ` ${player.waiver.usageSignal}` : ""}` : "") +
+          (player.waiver.fit ? ` · Fit ${player.waiver.fit.fitScore} · Gain ${player.waiver.fit.gainPerWeek} pts/sem · Max ${player.waiver.fit.faabMaxForMe} $` : "") +
+          (player.waiver.duration ? ` · Durée ${player.waiver.duration}` : "") +
           (player.waiver.newsOverride ? ` · ⚡ ${player.waiver.reasons.join(" ; ")}` : "")
         : "";
       lines.push(`${index + 1}. ${player.name} (${player.nflTeam || "FA"})${waiver}${rank}${adp}${note}`);
