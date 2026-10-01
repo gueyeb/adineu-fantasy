@@ -1,5 +1,11 @@
 import { readFile, stat } from "node:fs/promises";
 import { resolve } from "node:path";
+import { syncAssetVersions } from "./asset-versions.js";
+
+const assetVersions = await syncAssetVersions({ write: false });
+if (assetVersions.stale.length) {
+  throw new Error(`Asset versions are stale in: ${assetVersions.stale.join(", ")}. Run: npm run assets:version`);
+}
 
 const root = resolve("public");
 const routes = ["", "standings", "power-rankings", "rivalry-week", "trades", "matchups", "history", "hall-of-fame", "franchises", "teams"];
@@ -32,6 +38,8 @@ const requiredAssets = [
   "assets/standings-luck.js",
   "assets/league-market.js",
   "assets/usage-score.js",
+  "assets/win-probability.js",
+  "assets/sleeper-client.js",
   "assets/defense-vs-position.js",
   "assets/teams.js",
   "data/yahoo-history.json",
@@ -43,8 +51,9 @@ const requiredAssets = [
 for (const route of routes) {
   const htmlPath = resolve(root, route, "index.html");
   const html = await readFile(htmlPath, "utf8");
-  if (!html.includes('src="/assets/site.js?v=40"')) throw new Error(`${htmlPath} does not load the current site.js`);
-  if (!html.includes('href="/assets/styles.css?v=26"')) throw new Error(`${htmlPath} does not load the current styles.css`);
+  // Versions are content hashes maintained by scripts/asset-versions.js (checked below).
+  if (!/src="\/assets\/site\.js\?v=[0-9a-f]{10}"/.test(html)) throw new Error(`${htmlPath} does not load a versioned site.js`);
+  if (!/href="\/assets\/styles\.css\?v=[0-9a-f]{10}"/.test(html)) throw new Error(`${htmlPath} does not load a versioned styles.css`);
   if (!html.includes('rel="icon" href="/favicon.svg"')) throw new Error(`${htmlPath} does not load the favicon`);
 }
 

@@ -33,18 +33,17 @@ import {
   buildStarterSlotOrder,
   buildRosterSlots,
   resolvePlayer
-} from "./roster-view.js?v=2";
-import { ROSTER_SETTINGS_2026, GENERAL_SETTINGS_2026 } from "./league-settings.js";
-import { calculateLeagueRosterStrength } from "./roster-strength.js?v=1";
-import { calculatePowerRankings } from "./power-rankings.js?v=1";
-import { calculateAllPlayRecords } from "./all-play.js?v=1";
-import { calculateFaabRemaining, formatStreak, streakWinCount } from "./team-metrics.js?v=2";
-import { buildYahooRecordBook } from "./record-book.js?v=1";
-import { highestCompletedScore, buildRecordWatchEntries } from "./record-watch.js?v=1";
-import { filterTeamTransactions, describeTransaction } from "./transactions.js?v=1";
+} from "./roster-view.js?v=120de9d74d";
+import { ROSTER_SETTINGS_2026, GENERAL_SETTINGS_2026 } from "./league-settings.js?v=f6d1bf5212";
+import { calculateLeagueRosterStrength } from "./roster-strength.js?v=bfed9c00a3";
+import { calculatePowerRankings } from "./power-rankings.js?v=86d062a9e8";
+import { calculateAllPlayRecords } from "./all-play.js?v=99514b7ee6";
+import { calculateFaabRemaining, formatStreak, streakWinCount } from "./team-metrics.js?v=e47db97055";
+import { buildYahooRecordBook } from "./record-book.js?v=0ebb2a4e56";
+import { highestCompletedScore, buildRecordWatchEntries } from "./record-watch.js?v=280b27d476";
+import { filterTeamTransactions, describeTransaction } from "./transactions.js?v=71aef15329";
 
-const SLEEPER_LEAGUE_ID = "1392715510830878721";
-const SLEEPER_API = "https://api.sleeper.app/v1";
+import { SLEEPER_API, SLEEPER_LEAGUE_ID, sleeperGet } from "./sleeper-client.js?v=3f75d48ec5";
 const SUPABASE_URL = "https://juosrzsffvjprqhdyado.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_7Bu9q2dKz0WEol94OGVhHw_xjSwHeHu";
 const CURRENT_SEASON = 2026;
@@ -83,8 +82,8 @@ async function loadPlayerCatalog() {
 
 async function loadSleeperLeague() {
   const [rosters, users] = await Promise.all([
-    fetchJson(`${SLEEPER_API}/league/${SLEEPER_LEAGUE_ID}/rosters`),
-    fetchJson(`${SLEEPER_API}/league/${SLEEPER_LEAGUE_ID}/users`)
+    sleeperGet(`/league/${SLEEPER_LEAGUE_ID}/rosters`),
+    sleeperGet(`/league/${SLEEPER_LEAGUE_ID}/users`)
   ]);
   return { rosters, users };
 }
@@ -125,8 +124,8 @@ async function loadLineupAdvisory(team) {
  */
 async function loadSeasonContext(expectedManagers) {
   const [league, nflState, matchupRows] = await Promise.all([
-    fetchJson(`${SLEEPER_API}/league/${SLEEPER_LEAGUE_ID}`),
-    fetchJson(`${SLEEPER_API}/state/nfl`),
+    sleeperGet(`/league/${SLEEPER_LEAGUE_ID}`),
+    sleeperGet("/state/nfl"),
     loadSleeperMatchups()
   ]);
   const currentWeek = league.status === "in_season" && nflState.season_type === "regular" ? Number(nflState.week) : null;

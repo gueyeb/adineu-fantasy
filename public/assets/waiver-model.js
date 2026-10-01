@@ -7,8 +7,8 @@
  * Two separate answers, never merged: marketScore/faabMarket (what the player is worth to the
  * league) and fitScore/faabMaxForMe (what he is worth to one roster). Estimates, labeled as such.
  */
-import { buildProjectedLineup } from "./trade-score.js?v=5";
-import { BYE_WEEKS_2026, GENERAL_SETTINGS_2026 } from "./league-settings.js";
+import { buildProjectedLineup } from "./trade-score.js?v=d8818dec51";
+import { BYE_WEEKS_2026, GENERAL_SETTINGS_2026 } from "./league-settings.js?v=f6d1bf5212";
 
 export const LAST_REGULAR_WEEK = GENERAL_SETTINGS_2026.playoffWeekStart - 1;
 export const FANTASY_POSITIONS = ["QB", "RB", "WR", "TE", "K", "DEF"];

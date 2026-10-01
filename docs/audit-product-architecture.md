@@ -113,3 +113,18 @@ Findings #2–#5 are tech debt, not bugs — nothing here blocks a feature or is
 None are proposed for this pass. If any becomes worth doing, the natural trigger for each is noted
 above (a fifth Sleeper-fetching consumer; the next visual pass on Trade Hub; the next new main-nav
 page). Re-raise any of them when you want to schedule the work; none are time-sensitive.
+
+## Suivi (01/10/2026)
+
+- **#2 cache-busting manuel — résolu.** `scripts/asset-versions.js` (`npm run assets:version`,
+  vérifié par `npm run check`) calcule `?v=<hash>` à partir du contenu et des dépendances. Le
+  passage a révélé 3 incohérences réelles (`matchups-live.js` chargé en v=3 et v=7, `roster-view.js`
+  en v=1 et v=2, `styles.css` en v=26 et v=27) et un import circulaire `matchups-live` ↔
+  `weekly-recap`, scindé dans `win-probability.js`.
+- **#3 fetch Sleeper dupliqué — résolu.** `public/assets/sleeper-client.js` partagé par `site.js`,
+  `teams.js`, `trade-ui.js` et `matchups-live.js` ; la page Power Rankings ne demande plus qu'une
+  fois ligue, état NFL, rosters et managers.
+- **#4 styles inline du Trade Hub — partiellement résolu.** Les cartes du Trade Finder, les tableaux
+  Waiver Wire et le comparateur Start/Sit utilisent des classes (`.tf-*`, `.fa-*`, `.compare-*`) ;
+  les onglets Calculator et Règles gardent leurs styles inline.
+- **#5 taille de `site.js`** — inchangé.

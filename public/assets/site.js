@@ -1,4 +1,4 @@
-import { calculatePowerRankings, MINIMUM_COMPLETED_WEEKS, POWER_WEIGHTS } from "./power-rankings.js?v=1";
+import { calculatePowerRankings, MINIMUM_COMPLETED_WEEKS, POWER_WEIGHTS } from "./power-rankings.js?v=86d062a9e8";
 import {
   ACTIVE_MANAGERS_2026,
   RIVALRY_CRITERIA,
@@ -6,17 +6,17 @@ import {
   buildRivalryRecords,
   buildSleeperWeek,
   buildSleeperSeasonMeetings
-} from "./rivalry-week.js?v=4";
-import { renderTradesPage } from "./trade-ui.js?v=21";
-import { renderMatchupsHub } from "./matchups-live.js?v=7";
-import { calculatePlayoffRace } from "./playoff-race.js?v=1";
-import { calculateLuck, calculateRankHistory } from "./standings-luck.js?v=1";
-import { resolveOperationalWeek } from "./nfl-week.js?v=1";
-import { renderTeamsHub } from "./teams.js?v=4";
-import { buildYahooRecordBook } from "./record-book.js?v=1";
-import { listRosterIdentities } from "./roster-view.js?v=2";
-import { GENERAL_SETTINGS_2026 } from "./league-settings.js";
-import { appendManagerPreferences } from "./ai-context-client.js?v=1";
+} from "./rivalry-week.js?v=714a861458";
+import { renderTradesPage } from "./trade-ui.js?v=acb78441ae";
+import { renderMatchupsHub } from "./matchups-live.js?v=5c1a0cd6d4";
+import { calculatePlayoffRace } from "./playoff-race.js?v=52283bf11a";
+import { calculateLuck, calculateRankHistory } from "./standings-luck.js?v=7363afbb9e";
+import { resolveOperationalWeek } from "./nfl-week.js?v=8f9fa3f5b2";
+import { renderTeamsHub } from "./teams.js?v=64e1747860";
+import { buildYahooRecordBook } from "./record-book.js?v=0ebb2a4e56";
+import { listRosterIdentities } from "./roster-view.js?v=120de9d74d";
+import { GENERAL_SETTINGS_2026 } from "./league-settings.js?v=f6d1bf5212";
+import { appendManagerPreferences } from "./ai-context-client.js?v=460ba54cb6";
 import {
   simulatePlayoffProbabilities,
   projectPlayerFantasyPoints,
@@ -26,13 +26,12 @@ import {
   NEAR_WEEKS,
   FAR_WEEK_SHRINK,
   DEFAULT_SIMULATIONS
-} from "./playoff-probabilities.js?v=2";
+} from "./playoff-probabilities.js?v=04b4081b79";
 
 const SUPABASE_URL = "https://juosrzsffvjprqhdyado.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_7Bu9q2dKz0WEol94OGVhHw_xjSwHeHu";
 const CURRENT_SEASON = 2026;
-const SLEEPER_API = "https://api.sleeper.app/v1";
-const SLEEPER_LEAGUE_ID = "1392715510830878721";
+import { SLEEPER_API, SLEEPER_LEAGUE_ID, sleeperGet } from "./sleeper-client.js?v=3f75d48ec5";
 
 const routes = [
   ["home", "/", "Accueil"],
@@ -248,10 +247,9 @@ async function loadLiveStandings() {
   return response.json();
 }
 
-async function loadSleeperResource(path) {
-  const response = await fetch(`${SLEEPER_API}${path}`, { cache: "no-store" });
-  if (!response.ok) throw new Error(`Sleeper HTTP ${response.status}`);
-  return response.json();
+// Shared Sleeper client: one request per path per page load (league, rosters, users, state…).
+function loadSleeperResource(path) {
+  return sleeperGet(path);
 }
 
 async function loadSleeperMatchups() {

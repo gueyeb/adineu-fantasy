@@ -6,7 +6,7 @@
  * Pure filtering/shaping only — no I/O. Reuses roster-view.js's resolvePlayer so player lookups
  * stay consistent with the rest of the page (roster grid, alerts) rather than a 2nd lookup path.
  */
-import { resolvePlayer } from "./roster-view.js?v=2";
+import { resolvePlayer } from "./roster-view.js?v=120de9d74d";
 
 /** Completed transactions involving this roster, most recent first. Failed waiver claims are not real moves. */
 export function filterTeamTransactions(rows, rosterId) {

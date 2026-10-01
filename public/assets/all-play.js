@@ -11,7 +11,7 @@
  * from a second data path risks the two disagreeing. All-play here is purely descriptive.
  */
 
-import { MINIMUM_COMPLETED_WEEKS } from "./power-rankings.js?v=1";
+import { MINIMUM_COMPLETED_WEEKS } from "./power-rankings.js?v=86d062a9e8";
 
 export function calculateAllPlayRecords(rows, options = {}) {
   const {

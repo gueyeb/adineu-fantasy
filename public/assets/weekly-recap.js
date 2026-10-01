@@ -6,8 +6,8 @@
  * (écart entre le lineup optimal réel et le lineup réellement titularisé).
  */
 
-import { estimatePregameWinProbability } from "./matchups-live.js?v=3";
-import { ROSTER_SETTINGS_2026 } from "./league-settings.js";
+import { estimatePregameWinProbability } from "./win-probability.js?v=78dcaa4abd";
+import { ROSTER_SETTINGS_2026 } from "./league-settings.js?v=f6d1bf5212";
 
 const FLEX_ELIGIBLE = ["RB", "WR", "TE"];
 

@@ -7,9 +7,9 @@
  * 3. Les propositions d'échange équitables avec argumentaires bilatéraux
  */
 
-import { calculatePlayerTradeValue, evaluateTrade } from "./trade-value.js?v=3";
-import { buildProjectedLineup, restOfSeasonEstimate, scoreTradeRecommendation } from "./trade-score.js?v=5";
-import { playerKey, preferenceAdjustment } from "./trade-preferences.js?v=1";
+import { calculatePlayerTradeValue, evaluateTrade } from "./trade-value.js?v=c385666df3";
+import { buildProjectedLineup, restOfSeasonEstimate, scoreTradeRecommendation } from "./trade-score.js?v=d8818dec51";
+import { playerKey, preferenceAdjustment } from "./trade-preferences.js?v=c5fec5ce56";
 
 export const KNOWN_HANDCUFFS = [
   { starter: "Breece Hall", handcuff: "Braelon Allen", nflTeam: "NYJ" },

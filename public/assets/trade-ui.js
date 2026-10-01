@@ -4,21 +4,20 @@
  * Gère le Calculateur de Trade interactif et le Moteur de Recommandations.
  */
 
-import { calculatePlayerTradeValue, calculatePlayerTradeProfile, evaluateTrade } from "./trade-value.js?v=3";
-import { diagnoseRoster, findTradeProposals, findCounterOffers } from "./trade-recommender.js?v=7";
-import { PLAYER_STATUSES, playerKey, playerStatus } from "./trade-preferences.js?v=1";
+import { calculatePlayerTradeValue, calculatePlayerTradeProfile, evaluateTrade } from "./trade-value.js?v=c385666df3";
+import { diagnoseRoster, findTradeProposals, findCounterOffers } from "./trade-recommender.js?v=3459cd46f5";
+import { PLAYER_STATUSES, playerKey, playerStatus } from "./trade-preferences.js?v=c5fec5ce56";
 import {
   GENERAL_SETTINGS_2026,
   ROSTER_SETTINGS_2026,
   SCORING_SETTINGS_2026
-} from "./league-settings.js";
-import { resolveOperationalWeek } from "./nfl-week.js?v=1";
-import { listRosterIdentities } from "./roster-view.js?v=1";
-import { calculateFaabRemaining } from "./team-metrics.js?v=2";
-import { buildProjectedLineup, restOfSeasonEstimate } from "./trade-score.js?v=5";
+} from "./league-settings.js?v=f6d1bf5212";
+import { resolveOperationalWeek } from "./nfl-week.js?v=8f9fa3f5b2";
+import { listRosterIdentities } from "./roster-view.js?v=120de9d74d";
+import { calculateFaabRemaining } from "./team-metrics.js?v=e47db97055";
+import { buildProjectedLineup, restOfSeasonEstimate } from "./trade-score.js?v=d8818dec51";
 
-const SLEEPER_LEAGUE_ID = "1392715510830878721";
-const SLEEPER_API = "https://api.sleeper.app/v1";
+import { SLEEPER_API, SLEEPER_LEAGUE_ID, sleeperGet } from "./sleeper-client.js?v=3f75d48ec5";
 const SUPABASE_URL = "https://juosrzsffvjprqhdyado.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_7Bu9q2dKz0WEol94OGVhHw_xjSwHeHu";
 
@@ -85,18 +84,17 @@ export async function renderTradesPage(container) {
   ]);
 
   try {
-    const [rRes, uRes, stateRes] = await Promise.all([
-      fetch(`${SLEEPER_API}/league/${SLEEPER_LEAGUE_ID}/rosters`),
-      fetch(`${SLEEPER_API}/league/${SLEEPER_LEAGUE_ID}/users`),
-      fetch(`${SLEEPER_API}/state/nfl`)
+    const [rosterData, userData, nflState] = await Promise.all([
+      sleeperGet(`/league/${SLEEPER_LEAGUE_ID}/rosters`, { optional: true }),
+      sleeperGet(`/league/${SLEEPER_LEAGUE_ID}/users`, { optional: true }),
+      sleeperGet("/state/nfl", { optional: true })
     ]);
-    if (rRes.ok && uRes.ok) {
-      rosters = await rRes.json();
-      users = await uRes.json();
+    if (rosterData && userData) {
+      rosters = rosterData;
+      users = userData;
     }
 
-    if (stateRes.ok) {
-      const nflState = await stateRes.json();
+    if (nflState) {
       currentWeek = resolveOperationalWeek(nflState);
       season = nflState.season || "2026";
 

@@ -1,5 +1,5 @@
-import { calculatePlayerTradeProfile, evaluateTrade } from "./trade-value.js?v=3";
-import { BYE_WEEKS_2026, GENERAL_SETTINGS_2026, ROSTER_SETTINGS_2026 } from "./league-settings.js";
+import { calculatePlayerTradeProfile, evaluateTrade } from "./trade-value.js?v=c385666df3";
+import { BYE_WEEKS_2026, GENERAL_SETTINGS_2026, ROSTER_SETTINGS_2026 } from "./league-settings.js?v=f6d1bf5212";
 
 const round = value => Number(value.toFixed(1));
 const identity = player => String(player.sleeperId || player.name);

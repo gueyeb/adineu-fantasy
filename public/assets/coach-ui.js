@@ -1,4 +1,4 @@
-import { LEAGUE_METADATA_2026 } from "./league-settings.js";
+import { LEAGUE_METADATA_2026 } from "./league-settings.js?v=f6d1bf5212";
 
 const login = document.getElementById("coach-login");
 const gate = document.getElementById("coach-gate");

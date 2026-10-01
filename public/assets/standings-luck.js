@@ -10,7 +10,7 @@
  * Pure functions, no DOM or network.
  */
 
-import { calculateAllPlayRecords } from "./all-play.js?v=1";
+import { calculateAllPlayRecords } from "./all-play.js?v=99514b7ee6";
 
 function completedRegularRows(rows, currentWeek) {
   return (rows || []).filter(row => {

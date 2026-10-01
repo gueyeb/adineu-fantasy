@@ -3,7 +3,7 @@
  * Sleeper remains authoritative for the next two weeks. Later weeks are deliberately less
  * trusted: RB/WR/TE projections are blended with the player's recent volume-based xFP (80/20).
  */
-import { BYE_WEEKS_2026, GENERAL_SETTINGS_2026 } from "./league-settings.js";
+import { BYE_WEEKS_2026, GENERAL_SETTINGS_2026 } from "./league-settings.js?v=f6d1bf5212";
 
 export const DIRECT_PROJECTION_WEEKS = 2;
 // Backtest 2021–2025 (docs/backtest-usage.md): 0.2 is the median best weight across seasons and the best for RB/WR/TE; 0.5 is worse than Sleeper alone.

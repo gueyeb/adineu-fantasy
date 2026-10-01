@@ -10,7 +10,7 @@
  * a second, disagreeing scale for the same players.
  */
 
-import { calculatePlayerTradeProfile } from "./trade-value.js?v=3";
+import { calculatePlayerTradeProfile } from "./trade-value.js?v=c385666df3";
 
 export const STRENGTH_POSITIONS = ["QB", "RB", "WR", "TE", "K", "DEF"];
 

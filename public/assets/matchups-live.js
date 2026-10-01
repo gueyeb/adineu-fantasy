@@ -1,10 +1,10 @@
-import { sleeperManager } from "./rivalry-week.js?v=4";
-import { buildWeeklyRecap } from "./weekly-recap.js?v=1";
-import { resolveOperationalWeek } from "./nfl-week.js?v=1";
-import { estimateBaselineProjectedPpg } from "./trade-value.js?v=3";
+import { sleeperManager } from "./rivalry-week.js?v=714a861458";
+import { buildWeeklyRecap } from "./weekly-recap.js?v=af383f093c";
+import { resolveOperationalWeek } from "./nfl-week.js?v=8f9fa3f5b2";
+import { estimateBaselineProjectedPpg } from "./trade-value.js?v=c385666df3";
+import { estimatePregameWinProbability } from "./win-probability.js?v=78dcaa4abd";
 
-const SLEEPER_API = "https://api.sleeper.app/v1";
-const DEFAULT_LEAGUE_ID = "1392715510830878721";
+import { SLEEPER_API, SLEEPER_LEAGUE_ID as DEFAULT_LEAGUE_ID, sleeperGet } from "./sleeper-client.js?v=3f75d48ec5";
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, character => ({
@@ -57,16 +57,7 @@ export function buildHistoricalRecords(archive) {
   return records;
 }
 
-export function estimatePregameWinProbability(projectionA, projectionB) {
-  if (!Number.isFinite(projectionA) || !Number.isFinite(projectionB)
-    || projectionA <= 0 || projectionB <= 0) return null;
-  const probabilityA = 100 / (1 + Math.exp((projectionB - projectionA) / 18));
-  const boundedA = Math.min(95, Math.max(5, probabilityA));
-  return {
-    teamA: Number(boundedA.toFixed(1)),
-    teamB: Number((100 - boundedA).toFixed(1))
-  };
-}
+export { estimatePregameWinProbability };
 
 function starterProjection(starters, projections) {
   const playerIds = (starters || []).filter(playerId => playerId && playerId !== "0");
@@ -269,17 +260,13 @@ export async function renderMatchupsHub(container, {
   <div id="matchups-panel-archives" class="matchups-panel" role="tabpanel" hidden><div class="shell state">Les archives seront chargées à l’ouverture.</div></div>`;
 
   const urls = {
-    league: `${SLEEPER_API}/league/${leagueId}`,
-    state: `${SLEEPER_API}/state/nfl`,
-    rosters: `${SLEEPER_API}/league/${leagueId}/rosters`,
-    users: `${SLEEPER_API}/league/${leagueId}/users`,
     history: "/data/yahoo-matchups.json?v=2"
   };
   const [league, nflState, rosters, users, archive] = await Promise.all([
-    fetchJson(urls.league),
-    fetchJson(urls.state),
-    fetchJson(urls.rosters),
-    fetchJson(urls.users),
+    sleeperGet(`/league/${leagueId}`),
+    sleeperGet("/state/nfl"),
+    sleeperGet(`/league/${leagueId}/rosters`),
+    sleeperGet(`/league/${leagueId}/users`),
     fetchJson(urls.history, { optional: true })
   ]);
   const historicalRecords = buildHistoricalRecords(archive);
