@@ -1,6 +1,6 @@
 # Adineu Fantasy — PRD global
 
-Version : 29 septembre 2026 (semaine 4 NFL). Document de référence du produit : à joindre à
+Version : 1ᵉʳ octobre 2026 (semaine 4 NFL). Document de référence du produit : à joindre à
 tout assistant (ChatGPT, Claude…) qui doit répondre à des questions sur l'outil ou proposer des
 améliorations. Les PRD détaillés par fonctionnalité sont listés en fin de document.
 
@@ -102,7 +102,12 @@ Onglets :
   cibles à acheter, joueurs à vendre, roster, free agents à fort usage.
 - **Règles & Scoring 2026**.
 
-Bulletin automatique : chaque mardi, n8n appelle `/api/trades?team=t0z` et envoie le message.
+Automatisations n8n (mardi) :
+- bulletin trades : `/api/trades?team=t0z` → message privé ;
+- **suivi du modèle** (`docs/prd-model-tracking.md`) : `POST /api/model/weekly` enregistre l'état du
+  modèle avant les waivers du mercredi (marché, projections futures, usage) et publie le bilan de la
+  semaine écoulée (enchères gagnées vs prévues, erreur des projections selon leur ancienneté, suivi
+  des signaux, ALGO FEEDBACK automatiques) → Telegram + Trade Hub › Règles › « Suivi du modèle ».
 
 ## 7. Architecture
 
@@ -114,51 +119,62 @@ API Sleeper (live, lecture seule) ────┘      + serveur Node (server.js
 
 - **Frontend** : HTML statique par route + un point d'entrée `site.js` ; modules purs par
   fonctionnalité (calcul sans DOM ni réseau), donc testables. Pas de build, pas de bundler ;
-  cache-busting manuel `?v=N`.
+  cache-busting **automatique** par hash de contenu (`npm run assets:version`, vérifié par
+  `npm run check`) ; appels Sleeper navigateur via un client partagé (`sleeper-client.js`).
 - **Serveur** : `node:http` sans dépendance. Routes : `/api/health`, `/api/settings`,
-  `/api/trades`, `/api/context`, `/api/free-agents`, `/api/lineup-advisor`, `/api/player-status`,
-  `/api/coach` (protégée).
-- **Données joueurs** : `public/data/players-catalog.json` (886 joueurs, ECR FantasyPros + ADP,
-  **figé au 6 septembre 2026, avant la draft**) ; projections hebdo Sleeper ; statuts blessure
-  Sleeper (dump de 15 Mo mis en cache 6 h côté serveur).
-- **Supabase** : `owners` = identité canonique ; `owner_platform_ids` relie Yahoo/Sleeper.
-- **Déploiement** : Coolify derrière Cloudflare, auto sur push `main`. n8n : sync hebdo + bulletin trades.
-- **Qualité** : ~150 tests `node --test` (un fichier par module pur + tests HTTP) ;
-  `npm run check` re-vérifie toute l'archive et la cohérence des versions d'assets.
+  `/api/trades`, `/api/context`, `/api/free-agents` (waiver v2), `/api/lineup-advisor`,
+  `/api/start-sit`, `/api/usage`, `/api/player-values`, `/api/player-status`,
+  `/api/model/feedback`, `POST /api/model/weekly` (jeton), `/api/coach` (protégée).
+- **Données joueurs** : Sleeper en direct (projections hebdo et futures, stats hebdo pour l'usage,
+  statuts blessure et depth chart via le dump `/players/nfl` mis en cache 6 h) ; calendrier NFL
+  nflverse (matchups) ; `public/data/players-catalog.json` (ECR/ADP **d'avant la draft**, encore
+  utilisé pour la valeur marché du Trade Calculator).
+- **Modèle** : valeur reste de saison = projections Sleeper sur 2 semaines puis 80 % projection +
+  20 % usage (poids fixé par backtest 2021–2025, `docs/backtest-usage.md`, `npm run backtest`).
+- **Supabase** : `owners` = identité canonique ; `owner_platform_ids` relie Yahoo/Sleeper. Suivi du
+  modèle : `model_snapshots`, `waiver_market_snapshots`, `player_projection_snapshots`,
+  `player_usage_snapshots`, `faab_outcomes`, `model_feedback` (lecture publique).
+- **Déploiement** : Coolify derrière Cloudflare, auto sur push `main`. n8n : sync hebdo, bulletin
+  trades, suivi du modèle.
+- **Qualité** : environ 200 tests `node --test` (un fichier par module pur + tests HTTP) ;
+  `npm run check` re-vérifie toute l'archive et les versions d'assets.
 
 ## 8. Limites connues (bonnes pistes d'amélioration)
 
-1. **Baseline ROS = projections Sleeper** : elles sous-estiment certains rôles nouveaux (Keenan Allen, Braelon Allen en semaine 4), et les semaines lointaines sont souvent peu mises à jour (Sleeper actualise surtout les 1–2 prochains matchs). Les règles d'événements corrigent en partie. → Usage Score + modèle maison.
-2. **Probabilités de playoffs trop confiantes** : chaque projection hebdo est traitée comme exacte (seule la variance de score est simulée), d'où 99–100 % pour un 3-0 dès la semaine 4. À corriger : incertitude sur la force de l'équipe elle-même, projections lointaines ramenées vers la moyenne.
-3. **Valeur marché des trades périmée** : catalogue d'avant la draft (06/09). Cause principale de trades qui
-   paraissent absurdes. → Phase 0 du modèle (§9).
-4. **Projections dépendantes de Sleeper**, sans modèle propre ni validation historique.
-5. **Taux d'absence IR approximatif** : Sleeper ne dit pas combien de matchs sont déjà passés.
-6. **Pas d'acceptation réelle** : aucune donnée sur ce que les managers acceptent ; la
-   « faisabilité » est une heuristique.
-7. **Dette technique** : `?v=N` manuel (~70 occurrences), 4 modules refetchent rosters/users
-   chacun, `trade-ui.js` en styles inline, `site.js` volumineux.
+1. **Projections Sleeper comme base** : elles sous-estiment certains rôles nouveaux et vieillissent
+   pour les semaines lointaines. Corrigé en partie par les événements (waiver v2) et le mélange avec
+   l'usage (20 %). Le suivi hebdo mesurera leur vieillissement réel.
+2. **Prix du point FAAB (3 $) non calibré** : il manque des enchères comparables. Calibrage
+   automatique à partir des snapshots du mardi (premiers résultats mi-octobre).
+3. **Valeur marché du Trade Calculator périmée** : catalogue d'avant la draft (06/09).
+4. **Taux d'absence IR approximatif** : Sleeper ne dit pas combien de matchs sont déjà passés.
+5. **Pas d'acceptation réelle** : aucune donnée sur ce que les managers acceptent ; la
+   « faisabilité » d'un trade est une heuristique.
+6. **Pas d'usage pour les QB**, pas de variance par joueur (boom/bust) : les deux prochains chantiers.
+7. **Dette technique restante** : styles inline des onglets Calculator et Règles, taille de `site.js`.
 8. **Mono-ligue** : ID de ligue, `t0z`, règles en dur, ce qui empêche l'ouverture au grand public.
 9. **Licences** : API Sleeper non commerciale ; FantasyPros exige une licence pour redistribuer.
 
 ## 9. Feuille de route
 
-**En cours / validé**
-- Trade Finder reste-de-saison + blessures + recherche exhaustive : livré le 29/09.
-- **Modèle de projection Adineu** (`docs/prd-adineu-projection-model.md`) :
-  - Phase 0 : valeur ROS depuis les projections Sleeper des semaines futures (gratuit), rafraîchie chaque mardi.
-  - Phase 1 : modèle opportunité × efficacité (targets, air yards, snaps via nflverse), scorer
-    exact de la ligue, blend avec le consensus.
-  - Phase 2 : backtest 2024–2025 par date de décision ; mise en prod seulement si le modèle bat le consensus.
+**Livré (29/09 – 01/10/2026)** : Trade Finder reste de saison (blessures, recherche exhaustive,
+cartes lisibles) · Waiver Wire v2 (événements, Market vs Fit) · lot 1 Fantasy Life (Luck, % playoffs,
+courbe du rang, historique FAAB, tendances, points perdus sur blessure, lineup optimisée) · Usage
+Score et buy-low / sell-high · probabilités de playoffs corrigées et calibrées · backtest 2021–2025 ·
+matchups (DvP) et comparateur Start/Sit · suivi hebdomadaire du modèle · dette technique (versions
+d'assets automatiques, client Sleeper partagé).
 
-**Prochain : lot 1 du benchmark Fantasy Life** (`docs/benchmark-fantasylife.md`) : Luck +
-Playoff % dans Standings, courbe du rang, historique FAAB de la ligue, trending adds, points
-perdus sur blessure, lineup optimisée.
+**Prochain (priorité)**
+1. **Boom / Bust %** et lineups **Boom / Safe** : variance par joueur, choisir plafond ou plancher
+   selon qu'on est outsider ou favori.
+2. **Usage Score pour les QB** (volume = dropbacks, courses, red zone).
 
-**Plus tard**
-- Sources commerciales, multi-ligues, comptes : ouverture grand public (reportée).
-- Suivi des trades réellement acceptés pour calibrer la « faisabilité ».
-- Réduction de la dette technique (cache-busting automatique, fetch roster partagé).
+**Ensuite** : suivi des trades réellement acceptés (calibrer la « faisabilité ») · Game Exposure ·
+seuils des signaux par poste via backtest · ajustements du prix FAAB et du poids d'usage quand le
+suivi hebdo le justifie.
+
+**Plus tard** : modèle de projection 100 % maison · sources commerciales, multi-ligues, comptes
+(ouverture grand public, reportée).
 
 ## 10. Comment proposer une amélioration
 
@@ -190,8 +206,8 @@ mercredi 09:00 (Paris) ; lineups à fixer avant chaque match.
 - `docs/prd-model-tracking.md` : suivi hebdo du modèle (snapshots du mardi, bilan, ALGO FEEDBACK automatique)
 - `docs/backtest-usage.md` : backtest 2021–2025 (poids usage 20 %, sell-high et buy-low validés chaque saison)
 - `docs/prd-playoff-probabilities.md` : probabilités de playoffs
-- `docs/prd-waiver-opportunity-cost.md` : coût d'opportunité waiver
+- `docs/prd-waiver-opportunity-cost.md` : coût d'opportunité waiver (historique, remplacé par le Fit du waiver v2)
 - `docs/prd-team-page.md`, `docs/prd-team-page-increment3.md` : page équipe
-- `docs/audit-product-architecture.md` : audit technique
+- `docs/audit-product-architecture.md` : audit technique (+ suivi du 01/10 : dette résolue)
 - `docs/product-roadmap.md` : roadmap approuvée
 - `AGENTS.md` : règles du dépôt (identités, archive Yahoo, tests, sécurité)
