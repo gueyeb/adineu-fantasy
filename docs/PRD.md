@@ -94,7 +94,9 @@ Onglets :
   (titulaire blessé devant lui : PROMOTION, avec une durée qui dépend de la blessure ; SNAP/USAGE_SURGE).
   Deux scores séparés : **Market** (valeur pour la ligue, FAAB marché en $) et **Fit** (gain
   réel de TA lineup optimale, « Max pour toi » plafonné par ton FAAB). Jamais d'enchère exprimée en % de réussite.
-- **Start/Sit Advisor** : alerte sur slot vide, blessure, bye ; propose un remplaçant (banc puis FA) ; **lineup optimisée** vs actuelle (gain en points, jamais un joueur Out titularisé) ; tableau du roster de la semaine avec **difficulté du matchup** (DvP : points concédés par l'adversaire à ce poste, ramenés vers la moyenne en début de saison) ; **comparateur jusqu'à 8 joueurs**.
+- **Start/Sit Advisor** : **Boom / Bust** par joueur (plancher, plafond, probabilités calibrées sur
+  31 000 matchs) et lineups Actuelle / Optimale / Boom / Safe avec le mode conseillé selon tes chances
+  contre l'adversaire de la semaine (< 40 % → Boom, > 60 % → Safe) ; alerte sur slot vide, blessure, bye ; propose un remplaçant (banc puis FA) ; **lineup optimisée** vs actuelle (gain en points, jamais un joueur Out titularisé) ; tableau du roster de la semaine avec **difficulté du matchup** (DvP : points concédés par l'adversaire à ce poste, ramenés vers la moyenne en début de saison) ; **comparateur jusqu'à 8 joueurs**.
 - **Waiver Wire, signaux de ligue** : tendances Sleeper 48 h (ajouts plateforme croisés avec la ligue et le modèle) et **historique FAAB** des enchères gagnées (médiane et max par poste).
 - **Usage & Buy-Low** (`docs/prd-usage-score.md`) : Usage Score 0–100 (part de l'attaque de son
   équipe : targets, air yards, snaps, courses, red zone), points attendus (xFP) selon le volume, et
@@ -150,7 +152,9 @@ API Sleeper (live, lecture seule) ────┘      + serveur Node (server.js
 4. **Taux d'absence IR approximatif** : Sleeper ne dit pas combien de matchs sont déjà passés.
 5. **Pas d'acceptation réelle** : aucune donnée sur ce que les managers acceptent ; la
    « faisabilité » d'un trade est une heuristique.
-6. **Pas d'usage pour les QB**, pas de variance par joueur (boom/bust) : les deux prochains chantiers.
+6. **Pas de volatilité propre à chaque joueur** : testée et rejetée (elle dégradait la saison test) ;
+   re-testée automatiquement à chaque recalibrage. Les lineups Boom / Safe diffèrent donc rarement
+   de l'optimale.
 7. **Dette technique restante** : styles inline des onglets Calculator et Règles, taille de `site.js`.
 8. **Mono-ligue** : ID de ligue, `t0z`, règles en dur, ce qui empêche l'ouverture au grand public.
 9. **Licences** : API Sleeper non commerciale ; FantasyPros exige une licence pour redistribuer.
@@ -164,12 +168,12 @@ Score et buy-low / sell-high · probabilités de playoffs corrigées et calibré
 matchups (DvP) et comparateur Start/Sit · suivi hebdomadaire du modèle · dette technique (versions
 d'assets automatiques, client Sleeper partagé).
 
-**Prochain (priorité)**
-1. **Boom / Bust %** et lineups **Boom / Safe** : variance par joueur, choisir plafond ou plancher
-   selon qu'on est outsider ou favori.
-2. **Usage Score pour les QB** (volume = dropbacks, courses, red zone).
+**Livré (01/10/2026)** : **Boom / Bust** (plancher, plafond, Boom %, Bust % calibrés sur 31 000
+matchs, lineups Boom / Safe et mode conseillé selon le match) · **Usage Score des QB** (et poids
+d'usage QB de 50 % dans la valeur reste de saison, validé hors échantillon). Détails :
+`docs/prd-boom-bust-qb-usage.md`.
 
-**Ensuite** : suivi des trades réellement acceptés (calibrer la « faisabilité ») · Game Exposure ·
+**Prochain** : suivi des trades réellement acceptés (calibrer la « faisabilité ») · Game Exposure ·
 seuils des signaux par poste via backtest · ajustements du prix FAAB et du poids d'usage quand le
 suivi hebdo le justifie.
 
@@ -204,6 +208,7 @@ mercredi 09:00 (Paris) ; lineups à fixer avant chaque match.
 - `docs/benchmark-fantasylife.md` : comparatif Fantasy Life et fonctionnalités à reproduire
 - `docs/prd-usage-score.md` : Usage Score et buy-low / sell-high
 - `docs/prd-model-tracking.md` : suivi hebdo du modèle (snapshots du mardi, bilan, ALGO FEEDBACK automatique)
+- `docs/prd-boom-bust-qb-usage.md` : Boom / Bust et usage des QB (résultats de validation)
 - `docs/backtest-usage.md` : backtest 2021–2025 (poids usage 20 %, sell-high et buy-low validés chaque saison)
 - `docs/prd-playoff-probabilities.md` : probabilités de playoffs
 - `docs/prd-waiver-opportunity-cost.md` : coût d'opportunité waiver (historique, remplacé par le Fit du waiver v2)
