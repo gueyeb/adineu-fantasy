@@ -91,6 +91,7 @@ export async function loadPlayerValues({ leagueId = DEFAULT_SLEEPER_LEAGUE_ID, f
 
 export async function analyzeTrades({
   team = "t0z",
+  playerPreferences = {},
   leagueId = DEFAULT_SLEEPER_LEAGUE_ID,
   fetchImpl = fetch,
   catalogUrl = DEFAULT_CATALOG_URL,
@@ -208,6 +209,7 @@ export async function analyzeTrades({
         targetRosterId: target.roster_id,
         rosters: formattedRosters,
         playerCatalog: playerMap,
+        playerPreferences,
         currentWeek
       })
     };

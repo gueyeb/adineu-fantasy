@@ -9,10 +9,15 @@ test("web coach session serves only Boukki and logout revokes access without bre
     coachPassword: "test-only", coachToken: "test-api", secureCookies: false,
     getContext: async ({ team }) => {
       requestedTeams.push(team);
-      return { week: 2, myTeam: { teamName: "Boukki", owner: "t0z", starters: [], bench: [] } };
+      return {
+        week: 2, league: { teams: 12, playoffTeams: 8, rosterSettings: { starters: {}, benchSlots: 6, reserveSlots: 1 } },
+        myTeam: { rosterId: 1, teamName: "Boukki", owner: "t0z", starters: [], bench: [], ir: [], record: { wins: 1, losses: 0 }, standingsRank: 3, faab: { remaining: 497, budget: 1000 } }
+      };
     },
     getInjuryStatuses: async () => new Map(),
+    getPlayerValues: async () => ({ byId: new Map(), weeklyProjections: {} }),
     getFreeAgents: async () => ({ lastCompletedWeek: 1, byPosition: {} }),
+    getMatchupContext: async () => null,
     analyze: async () => ({ results: [{ proposals: [] }] })
   });
   server.listen(0, "127.0.0.1");

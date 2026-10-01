@@ -29,7 +29,7 @@ import {
   SCORING_SETTINGS_2026,
   BYE_WEEKS_2026
 } from "./public/assets/league-settings.js";
-import { buildCoachPlan, formatCoachPlan } from "./scripts/coach-assistant.js";
+import { buildCoachPlan, formatCoachPlan, normalizeCoachPreferences } from "./scripts/coach-assistant.js";
 import { buildDecisionContext, formatDecisionContext } from "./scripts/ai-context.js";
 import { createCoachAuth } from "./scripts/coach-auth.js";
 import { createSupabaseFromEnv, getLatestFeedback, runWeeklyJob } from "./scripts/model-tracking.js";
@@ -327,11 +327,17 @@ export function createAppServer({
       }
       try {
         const team = apiAuthorized ? url.searchParams.get("team") || "t0z" : "t0z";
-        const [context, playerStatuses, freeAgents, trades] = await Promise.all([
-          getContext({ team }),
+        let preferences = {};
+        try {
+          preferences = normalizeCoachPreferences(JSON.parse(request.headers["x-coach-preferences"] || "{}"));
+        } catch {}
+        const context = await getContext({ team });
+        const [playerStatuses, playerValues, freeAgents, trades, matchup] = await Promise.all([
           getInjuryStatuses().catch(() => new Map()),
-          getFreeAgents({ limitPerPosition: 8 }),
-          analyze({ team })
+          getPlayerValues().catch(() => ({ byId: new Map(), weeklyProjections: {} })),
+          getFreeAgents({ limitPerPosition: 8, team }),
+          analyze({ team, playerPreferences: preferences }),
+          getMatchupContext({ team, week: context.week }).catch(() => null)
         ]);
         const lineup = diagnoseLineup({
           myTeam: context.myTeam,
@@ -340,7 +346,15 @@ export function createAppServer({
           byeWeeks: BYE_WEEKS_2026,
           currentWeek: context.week
         });
-        const plan = buildCoachPlan({ context, lineup, waivers: freeAgents, trades });
+        try {
+          lineup.optimal = compareWithOptimalLineup({
+            myTeam: context.myTeam,
+            projections: playerValues.weeklyProjections || {},
+            playerStatuses
+          });
+        } catch { lineup.optimal = null; }
+        const decisionContext = buildDecisionContext({ context, playerValues, statuses: playerStatuses, waivers: freeAgents, lineup, matchup });
+        const plan = buildCoachPlan({ decisionContext, trades, preferences });
         sendJson(response, 200, { ...plan, message: formatCoachPlan(plan) });
       } catch (error) {
         const isUnknownTeam = error.message.startsWith("Équipe Sleeper inconnue");

@@ -6,25 +6,52 @@
   <meta name="robots" content="noindex, nofollow">
   <title>Coach privé — Adineu NFL</title>
   <link rel="icon" href="/favicon.svg">
-  <link rel="stylesheet" href="/assets/styles.css?v=26">
-  <script type="module" src="/assets/coach-ui.js?v=1"></script>
+  <link rel="stylesheet" href="/assets/styles.css?v=27">
+  <script type="module" src="/assets/coach-ui.js?v=2"></script>
 </head>
-<body>
-  <main class="shell" style="max-width:780px; padding-top:64px; padding-bottom:64px;">
-    <a href="/trades/">← Trade Hub</a>
-    <p class="eyebrow">Espace personnel · Boukki</p>
-    <h1>COACH PRIVÉ</h1>
-    <p>Ton plan de semaine : lineup, waivers et pistes de négociation.</p>
-    <form id="coach-login">
-      <label for="coach-password">Mot de passe</label>
-      <input id="coach-password" type="password" autocomplete="current-password" required maxlength="128">
-      <button class="filter-btn" type="submit">Accéder au coaching</button>
-    </form>
-    <p id="coach-status" role="status" aria-live="polite"></p>
-    <section id="coach-report" hidden>
-      <button id="coach-refresh" class="filter-btn" type="button">Actualiser</button>
-      <button id="coach-logout" class="filter-btn" type="button">Se déconnecter</button>
-      <pre id="coach-message" style="white-space:pre-wrap; font:inherit; line-height:1.7; border-top:1px solid var(--line); padding-top:24px;"></pre>
+<body class="coach-page">
+  <main class="coach-shell">
+    <nav class="coach-nav">
+      <a href="/trades/">← Trade Hub</a>
+      <span>Accès privé · Boukki</span>
+    </nav>
+
+    <section id="coach-gate" class="coach-gate">
+      <div>
+        <p class="eyebrow">War room personnel</p>
+        <h1>COACH<br><em>PRIVÉ</em></h1>
+        <p class="lede">Un plan de semaine construit sur ta lineup, ton FAAB et le coût réel de chaque mouvement.</p>
+      </div>
+      <form id="coach-login" class="coach-login-card">
+        <span class="coach-card-index">AUTH / 01</span>
+        <input class="coach-visually-hidden" name="username" value="t0z" autocomplete="username" tabindex="-1" aria-hidden="true">
+        <label for="coach-password">Mot de passe</label>
+        <input id="coach-password" type="password" autocomplete="current-password" required maxlength="128">
+        <button class="coach-primary" type="submit">Entrer dans la war room</button>
+      </form>
+    </section>
+
+    <p id="coach-status" class="coach-status" role="status" aria-live="polite"></p>
+
+    <section id="coach-report" class="coach-report" hidden>
+      <header class="coach-report-head">
+        <div>
+          <p class="eyebrow">Plan de match · <span id="coach-week"></span></p>
+          <h1 id="coach-title">BOUKKI</h1>
+        </div>
+        <div class="coach-actions">
+          <button id="coach-copy" class="coach-secondary" type="button">Copier le plan</button>
+          <button id="coach-refresh" class="coach-secondary" type="button">Actualiser</button>
+          <button id="coach-logout" class="coach-quiet" type="button">Déconnexion</button>
+        </div>
+      </header>
+      <div id="coach-scoreboard" class="coach-scoreboard"></div>
+      <div id="coach-priorities" class="coach-priorities"></div>
+      <div id="coach-grid" class="coach-grid"></div>
+      <details class="coach-raw">
+        <summary>Version texte pour n8n / assistant IA</summary>
+        <pre id="coach-message"></pre>
+      </details>
     </section>
   </main>
 </body>

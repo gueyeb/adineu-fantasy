@@ -824,3 +824,97 @@ td.num.negative { color: var(--red); font-weight: 800; }
 .compare-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
 .compare-chip { cursor: pointer; }
 tr.compare-best td { background: rgba(184, 255, 61, .08); }
+
+/* Coach privé — une war room éditoriale, dense et orientée action. */
+.coach-page [hidden] { display: none !important; }
+.coach-visually-hidden { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; clip: rect(0,0,0,0); overflow: hidden; white-space: nowrap; border: 0 !important; }
+.coach-page { background: radial-gradient(circle at 78% 8%, rgba(184,255,61,.08), transparent 27%), repeating-linear-gradient(90deg, transparent 0 calc(25% - 1px), rgba(53,80,68,.18) calc(25% - 1px) 25%), var(--paper); }
+.coach-shell { width: min(1240px, calc(100% - 48px)); margin: 0 auto; padding: 28px 0 80px; }
+.coach-nav { display: flex; justify-content: space-between; padding-bottom: 18px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: .7rem; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
+.coach-nav a { color: var(--grass); text-decoration: none; }
+.coach-gate { display: grid; grid-template-columns: 1.35fr .65fr; align-items: end; gap: 70px; min-height: 74vh; padding: 70px 0; }
+.coach-gate h1, .coach-report-head h1 { margin: 0; font-size: clamp(4.2rem, 11vw, 9.5rem); letter-spacing: -.07em; }
+.coach-gate h1 em { color: var(--grass); font-style: normal; }
+.coach-login-card { position: relative; display: grid; gap: 14px; padding: 30px; border: 1px solid var(--line); border-top: 6px solid var(--grass); background: rgba(24,43,35,.94); box-shadow: 16px 16px 0 #07100c; }
+.coach-card-index { margin-bottom: 30px; color: var(--gold); font: 400 .74rem var(--display); letter-spacing: .1em; }
+.coach-login-card label { color: var(--muted); font-size: .7rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.coach-login-card input { width: 100%; padding: 14px; border: 1px solid var(--line); border-radius: 0; background: var(--paper); color: var(--ink); font: inherit; }
+.coach-primary, .coach-secondary, .coach-quiet { padding: 12px 16px; border: 1px solid var(--grass); border-radius: 0; background: var(--grass); color: #111a0e; font: 800 .72rem var(--body); letter-spacing: .08em; text-transform: uppercase; cursor: pointer; }
+.coach-secondary { background: transparent; color: var(--grass); }
+.coach-quiet { border-color: transparent; background: transparent; color: var(--muted); }
+.coach-status { min-height: 24px; color: var(--muted); font-size: .78rem; }
+.coach-report-head { display: flex; justify-content: space-between; align-items: end; gap: 30px; padding: 64px 0 36px; }
+.coach-report-head h1 { font-size: clamp(3.8rem, 9vw, 8rem); }
+.coach-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.coach-scoreboard { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--line); background: var(--line); gap: 1px; }
+.coach-scoreboard > div { min-height: 155px; padding: 22px; background: var(--paper-soft); }
+.coach-scoreboard span, .coach-panel header p { display: block; margin: 0; color: var(--muted); font-size: .66rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.coach-scoreboard strong { display: block; margin-top: 24px; color: var(--grass); font: 400 clamp(1.5rem, 3vw, 2.8rem)/.95 var(--display); text-transform: uppercase; }
+.coach-scoreboard small { display: block; margin-top: 10px; color: var(--muted); }
+.coach-priorities { display: grid; grid-template-columns: repeat(3, 1fr); margin: 38px 0; gap: 14px; }
+.coach-priority { min-height: 190px; padding: 24px; border: 1px solid var(--line); background: var(--panel); }
+.coach-priority > span { color: var(--gold); font-size: .66rem; font-weight: 800; letter-spacing: .12em; }
+.coach-priority h2 { margin: 50px 0 8px; font-size: clamp(1.35rem, 3vw, 2.25rem); }
+.coach-priority p { margin: 0; color: var(--muted); }
+.coach-urgent { border-top: 5px solid var(--red); }
+.coach-action { border-top: 5px solid var(--grass); }
+.coach-option { border-top: 5px solid var(--gold); }
+.coach-ok { border-top: 5px solid var(--line); }
+.coach-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 16px; }
+.coach-panel { grid-column: span 6; padding: 24px; border: 1px solid var(--line); background: rgba(20,35,29,.92); }
+.coach-waivers { grid-column: span 12; }
+.coach-panel header { display: grid; grid-template-columns: 44px 1fr auto; align-items: center; padding-bottom: 18px; border-bottom: 1px solid var(--line); gap: 14px; }
+.coach-panel header > span { color: var(--grass); font: 400 1.1rem var(--display); }
+.coach-panel header h2 { margin: 4px 0 0; font-size: 1.6rem; }
+.coach-panel header > strong { color: var(--gold); font-size: .78rem; text-transform: uppercase; }
+.coach-lineup ul { margin: 0; padding: 0; list-style: none; }
+.coach-lineup li { display: grid; grid-template-columns: 46px 1fr auto; padding: 16px 0; border-bottom: 1px solid var(--line); gap: 12px; }
+.coach-lineup li > b { color: var(--grass); }
+.coach-lineup li i { color: var(--muted); font-style: normal; }
+.coach-lineup li > strong { color: var(--gold); }
+.coach-waiver-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); padding-top: 18px; gap: 12px; }
+.coach-waiver { padding: 19px; border-left: 4px solid var(--gold); background: var(--paper); }
+.coach-waiver-head { display: flex; justify-content: space-between; color: var(--muted); font-size: .65rem; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
+.coach-waiver-head strong { color: var(--grass); }
+.coach-waiver h3 { margin: 24px 0 6px; font-size: 1.35rem; }
+.coach-waiver p, .coach-watch p { color: var(--muted); font-size: .82rem; }
+.coach-waiver b { color: var(--ink); }
+.coach-waiver dl { display: grid; grid-template-columns: 1fr 1fr; margin: 18px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.coach-waiver dl div { padding: 10px 0; }
+.coach-waiver dt { color: var(--muted); font-size: .63rem; text-transform: uppercase; }
+.coach-waiver dd { margin: 4px 0 0; font-weight: 800; }
+.coach-waiver small { color: var(--muted); }
+.coach-watch > div { padding: 16px 0; border-bottom: 1px solid var(--line); }
+.coach-watch span { float: right; color: var(--gold); font-size: .64rem; font-weight: 800; }
+.coach-watch p { margin: 5px 0 0; }
+.coach-cuts { margin: 0; padding: 0; list-style: none; }
+.coach-cuts li { display: grid; grid-template-columns: 1fr auto auto; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--line); gap: 12px; }
+.coach-cuts li span small, .coach-cuts li strong small { display: block; color: var(--muted); font-weight: 400; }
+.coach-cuts em { padding: 4px 7px; border: 1px solid var(--line); color: var(--muted); font-size: .62rem; font-style: normal; font-weight: 800; }
+.coach-cuts .risk-high { border-color: var(--red); color: var(--red); }
+.coach-cuts .risk-medium { border-color: var(--gold); color: var(--gold); }
+.coach-trade-body { padding-top: 22px; }
+.coach-trade-body p { margin: 0; color: var(--muted); font-size: .68rem; font-weight: 800; text-transform: uppercase; }
+.coach-trade-body h3 { margin: 7px 0 20px; font-size: 2rem; }
+.coach-trade-body > strong { display: block; margin-bottom: 22px; }
+.coach-trade-body a { color: var(--grass); font-weight: 800; text-decoration: none; }
+.coach-empty { padding: 26px 0; color: var(--muted); }
+.coach-raw { margin-top: 18px; padding: 18px 22px; border: 1px solid var(--line); color: var(--muted); }
+.coach-raw summary { cursor: pointer; font-size: .72rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.coach-raw pre { overflow-x: auto; white-space: pre-wrap; color: var(--ink); font: .84rem/1.65 var(--body); }
+@media (max-width: 860px) {
+  .coach-gate { grid-template-columns: 1fr; gap: 40px; }
+  .coach-scoreboard { grid-template-columns: 1fr 1fr; }
+  .coach-priorities { grid-template-columns: 1fr; }
+  .coach-priority { min-height: 145px; }
+  .coach-priority h2 { margin-top: 28px; }
+  .coach-panel { grid-column: span 12; }
+}
+@media (max-width: 580px) {
+  .coach-shell { width: min(100% - 28px, 1240px); }
+  .coach-nav span { display: none; }
+  .coach-report-head { align-items: flex-start; flex-direction: column; }
+  .coach-actions { justify-content: flex-start; }
+  .coach-scoreboard { grid-template-columns: 1fr; }
+  .coach-scoreboard > div { min-height: 125px; }
+}

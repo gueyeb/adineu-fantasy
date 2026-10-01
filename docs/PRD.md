@@ -70,7 +70,7 @@ Toute suggestion d'amélioration doit les respecter :
 | **Hall of Fame** `/hall-of-fame/` | Champions, records (match unique, séries), ex æquo préservés | Archive Yahoo |
 | **History** `/history/` | Saison par saison 2019–2025, podiums | Archive Yahoo |
 | **Rivalry Week** `/rivalry-week/` | Proposition communautaire de 6 rivalités (semaine 8) + Rivalry Tracker qui intègre les vrais matchs 2026 dès leur publication | Archive + Sleeper |
-| **Coach privé** `/coach/` | Plan hebdo pour t0z : lineup, waivers, trades | APIs internes |
+| **Coach privé** `/coach/` | War room de Boukki : priorités ordonnées, lineup optimale, waivers avec coût de coupe, watchlist, coupes et trade | Contexte décisionnel partagé + préférences locales |
 | **Copier contexte IA** (header) | Contexte de décision : état live, roster enrichi, alertes et waivers adaptés | `/api/context?mode=decision` |
 
 ## 6. Trade Hub (outil d'aide à la décision)
