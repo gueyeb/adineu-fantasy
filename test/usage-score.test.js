@@ -20,9 +20,9 @@ const statsByWeek = [1, 2, 3].map(week => ({
 
 test("team totals and shares come from the same week's player lines", () => {
   const totals = buildTeamTotals(statsByWeek, teamOf);
-  assert.deepEqual(totals.get("1|T"), { targets: 20, airYards: 200, carries: 18, redZone: 3, snaps: 60 });
+  assert.deepEqual(totals.get("1|T"), { targets: 20, airYards: 200, carries: 18, redZone: 3, snaps: 60, dropbacks: 0 });
   const rows = buildPlayerWeeks(statsByWeek, { teamOf, positionOf });
-  assert.ok(rows.every(row => row.playerId !== "T-QB-qb" && row.playerId !== "T-WR-bench"), "QB and non-playing players excluded");
+  assert.ok(rows.every(row => row.playerId !== "T-QB-qb" && row.playerId !== "T-WR-bench"), "a QB without a dropback or rush, and non-playing players, are excluded");
   const alpha = rows.find(row => row.playerId === "T-WR-alpha");
   assert.equal(alpha.targetShare, 0.5);
   assert.equal(alpha.snapShare, 58 / 60);
@@ -79,4 +79,23 @@ test("a week the player spent on another team is excluded (teamOf returns null f
   const weeks = [1, 2].map(week => ({ week, stats: { "X-WR-traded": { off_snp: 50, tm_off_snp: 60, rec_tgt: 8, pts_ppr: 12 } } }));
   const rows = buildPlayerWeeks(weeks, { teamOf: (id, week) => (week === 1 ? null : "X"), positionOf });
   assert.deepEqual(rows.map(row => row.week), [2]);
+});
+
+test("QB usage: dropbacks, rushes, red zone and depth, with QB-scale signals", () => {
+  const qbLine = (pass_att, rush_att, pts_ppr, extra = {}) => ({ off_snp: 60, tm_off_snp: 60, pass_att, pass_sack: 2, rush_att, pass_air_yd: pass_att * 8, pts_ppr, ...extra });
+  const weeks = [1, 2, 3].map(week => ({ week, stats: {
+    "A-QB-runner": qbLine(30, 9, 14, { rush_rz_att: 2, pass_rz_att: 4 }),   // big volume, scores little -> buy-low
+    "B-QB-pocket": qbLine(34, 1, 30),                                       // modest rushing, TD-heavy -> sell-high
+    "C-QB-a": qbLine(32, 3, 18), "D-QB-b": qbLine(31, 2, 17), "E-QB-c": qbLine(33, 4, 19)
+  } }));
+  const rows = buildPlayerWeeks(weeks, { teamOf: id => id[0], positionOf: () => "QB" });
+  const runner = rows.find(row => row.playerId === "A-QB-runner");
+  assert.equal(runner.targets, 32, "dropbacks = attempts + sacks");
+  assert.equal(runner.dropbackShare, 1);
+  assert.equal(runner.redZone, 6);
+  const { players } = calculateUsageScores(rows);
+  const byId = Object.fromEntries(players.map(player => [player.playerId, player]));
+  assert.equal(byId["A-QB-runner"].usageScore, 100, "the rusher has the highest QB composite");
+  assert.equal(byId["A-QB-runner"].signal, "BUY_LOW");
+  assert.equal(byId["B-QB-pocket"].signal, "SELL_HIGH");
 });

@@ -8,6 +8,9 @@ import { BYE_WEEKS_2026, GENERAL_SETTINGS_2026 } from "./league-settings.js?v=f6
 export const DIRECT_PROJECTION_WEEKS = 2;
 // Backtest 2021–2025 (docs/backtest-usage.md): 0.2 is the median best weight across seasons and the best for RB/WR/TE; 0.5 is worse than Sleeper alone.
 export const FAR_WEEK_USAGE_WEIGHT = 0.2;
+// QBs: leave-one-season-out backtest 2021–2025 (docs/prd-boom-bust-qb-usage.md) — 50/50 cuts the
+// far-week error from 4.89 to 4.37 pts; coefficients stable across held-out seasons.
+export const FAR_WEEK_USAGE_WEIGHT_BY_POSITION = { QB: 0.5, RB: FAR_WEEK_USAGE_WEIGHT, WR: FAR_WEEK_USAGE_WEIGHT, TE: FAR_WEEK_USAGE_WEIGHT };
 const LAST_REGULAR_WEEK = GENERAL_SETTINGS_2026.playoffWeekStart - 1;
 const round = value => Number(value.toFixed(1));
 
@@ -19,13 +22,13 @@ export function usageAdjustedRosPpg({
   week,
   xfp = null,
   directWeeks = DIRECT_PROJECTION_WEEKS,
-  usageWeight = FAR_WEEK_USAGE_WEIGHT
+  usageWeight = FAR_WEEK_USAGE_WEIGHT_BY_POSITION[position] ?? 0
 }) {
   const values = [];
   let projectedNonBye = 0;
   let loadedNonBye = 0;
   let usageWeeks = 0;
-  const canUseUsage = ["RB", "WR", "TE"].includes(position) && Number.isFinite(xfp) && xfp >= 0;
+  const canUseUsage = usageWeight > 0 && Number.isFinite(xfp) && xfp >= 0;
 
   for (let w = week; w <= LAST_REGULAR_WEEK; w += 1) {
     const projections = projectionsByWeek[w];

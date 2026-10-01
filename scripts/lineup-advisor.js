@@ -15,6 +15,37 @@ import { getLeagueContext, getFreeAgents, getInjuryStatuses, getPlayersIndex, ge
 import { loadPlayerValues } from "./analyze-trades.js";
 import { buildDefenseVsPosition, buildOpponents, matchupFor } from "../public/assets/defense-vs-position.js";
 import { resolveOperationalWeek } from "../public/assets/nfl-week.js";
+import { boomBust, recommendLineupMode } from "../public/assets/boom-bust.js";
+import { estimatePregameWinProbability } from "../public/assets/win-probability.js";
+import { readFile } from "node:fs/promises";
+
+let boomBustCalibration = null;
+async function loadBoomBustCalibration() {
+  if (!boomBustCalibration) {
+    const file = await readFile(new URL("../public/data/boom-bust-calibration.json", import.meta.url), "utf8");
+    const parsed = JSON.parse(file);
+    boomBustCalibration = { positions: parsed.positions, volatility: parsed.volatility || {} };
+  }
+  return boomBustCalibration;
+}
+
+/** Current, optimal (projection), Boom (ceilings) and Safe (floors) lineups for one roster. */
+export function buildBoomSafeLineups(players, starterIds) {
+  const pool = players.filter(player => Number.isFinite(player.projection));
+  const lineup = key => buildProjectedLineup(pool, { estimate: player => player[key] ?? 0 });
+  const totals = slots => {
+    const ids = new Set(slots.map(slot => slot.sleeperId).filter(Boolean));
+    const chosen = pool.filter(player => ids.has(String(player.sleeperId)));
+    const sum = key => Number(chosen.reduce((total, player) => total + (player[key] ?? 0), 0).toFixed(1));
+    return { projection: sum("projection"), floor: sum("floor"), ceiling: sum("ceiling") };
+  };
+  const pick = key => {
+    const built = lineup(key);
+    return { slots: built.slots.map(slot => ({ slot: slot.slot, sleeperId: slot.sleeperId, name: slot.name })), ...totals(built.slots) };
+  };
+  const currentSlots = pool.filter(player => starterIds.has(String(player.sleeperId))).map(player => ({ sleeperId: String(player.sleeperId) }));
+  return { current: totals(currentSlots), optimal: pick("projection"), boom: pick("ceiling"), safe: pick("floor") };
+}
 import { calculatePlayerTradeProfile } from "../public/assets/trade-value.js";
 import { buildProjectedLineup, weeklyEstimate } from "../public/assets/trade-score.js";
 import { BYE_WEEKS_2026 } from "../public/assets/league-settings.js";
@@ -177,10 +208,11 @@ export async function getStartSit({ team = null, ids = [], fetchImpl = fetch } =
   }
   if (!Number.isFinite(currentWeek)) throw new Error("Semaine NFL courante introuvable (Sleeper /state/nfl).");
 
-  const [projections, games, values] = await Promise.all([
+  const [projections, games, values, calibration] = await Promise.all([
     getWeeklyProjections({ week: currentWeek, fetchImpl }).catch(() => ({})),
     getSchedule({ fetchImpl }).catch(() => []),
-    loadPlayerValues({ fetchImpl, week: currentWeek, playerIds: requested }).catch(() => ({ byId: new Map() }))
+    loadPlayerValues({ fetchImpl, week: currentWeek, playerIds: requested }).catch(() => ({ byId: new Map() })),
+    loadBoomBustCalibration().catch(() => null)
   ]);
   const statsByWeek = [];
   for (let w = 1; w < currentWeek; w++) {
@@ -209,8 +241,35 @@ export async function getStartSit({ team = null, ids = [], fetchImpl = fetch } =
       signal: value.signal ?? null,
       matchup: meta.nflTeam ? matchupFor({ team: meta.nflTeam, position: meta.position, week: currentWeek, opponents, dvp }) : null
     };
-  });
-  return { week: currentWeek, team, completedWeeks: statsByWeek.map(entry => entry.week), players };
+  }).map(player => ({ ...player, ...(boomBust({ position: player.position, projection: player.projection, calibration: calibration?.positions, injuryStatus: player.injuryStatus, volatility: calibration?.volatility?.[player.sleeperId] ?? 1 }) || {}) }));
+
+  // Boom / Safe lineups and the recommendation for this week's matchup (team mode only).
+  let lineups = null;
+  if (context && calibration) {
+    lineups = buildBoomSafeLineups(players, starterIds);
+    const sameAs = (a, b) => a.slots.map(slot => slot.sleeperId).sort().join() === b.slots.map(slot => slot.sleeperId).sort().join();
+    lineups.boomDiffers = !sameAs(lineups.boom, lineups.optimal);
+    lineups.safeDiffers = !sameAs(lineups.safe, lineups.optimal);
+    try {
+      const response = await fetchImpl(`https://api.sleeper.app/v1/league/${process.env.SLEEPER_LEAGUE_ID || "1392715510830878721"}/matchups/${currentWeek}`, { signal: AbortSignal.timeout(10_000) });
+      const rows = response.ok ? await response.json() : [];
+      const mine = rows.find(row => row.roster_id === context.myTeam.rosterId);
+      // No matchup_id yet (schedule not published / bye): no opponent rather than a wrong one.
+      const opponent = mine && mine.matchup_id != null ? rows.find(row => row.matchup_id === mine.matchup_id && row.roster_id !== mine.roster_id) : null;
+      if (opponent) {
+        const opponentProjection = Number((opponent.starters || []).filter(id => id && id !== "0").reduce((total, id) => {
+          const status = index.get(id)?.injuryStatus;
+          const points = projections?.[id]?.pts_ppr;
+          return total + (["Out", "IR", "PUP", "Sus", "NA"].includes(status) || !Number.isFinite(points) ? 0 : points);
+        }, 0).toFixed(1));
+        const chances = estimatePregameWinProbability(lineups.optimal.projection, opponentProjection);
+        lineups.opponent = { rosterId: opponent.roster_id, projection: opponentProjection };
+        lineups.winPct = chances?.teamA ?? null;
+        lineups.recommended = recommendLineupMode(lineups.winPct);
+      }
+    } catch { /* no matchup published yet: recommendation simply absent */ }
+  }
+  return { week: currentWeek, team, completedWeeks: statsByWeek.map(entry => entry.week), players, lineups };
 }
 
 function describePlayer(player) {

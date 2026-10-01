@@ -13,22 +13,34 @@
  * - BUY_LOW = scores well below what his volume predicts; SELL_HIGH = well above (regression risk)
  */
 
-export const USAGE_POSITIONS = ["RB", "WR", "TE"];
+export const USAGE_POSITIONS = ["QB", "RB", "WR", "TE"];
 export const RECENCY_WEIGHTS = [0.5, 0.3, 0.2]; // most recent played game first
 export const BUY_LOW_GAP = -3;   // ppg below xFP
 export const SELL_HIGH_GAP = 4;  // ppg above xFP
+// QBs score on a bigger scale: their thresholds are wider (docs/prd-boom-bust-qb-usage.md).
+const SIGNAL_GAPS = { QB: { buy: -5, sell: 5 } };
 const MIN_GAMES_FOR_SIGNAL = 2;
 
 const COMPOSITE = {
   WR: { targetShare: 0.4, airShare: 0.2, snapShare: 0.2, redZoneShare: 0.2 },
   TE: { targetShare: 0.4, airShare: 0.2, snapShare: 0.2, redZoneShare: 0.2 },
-  RB: { snapShare: 0.3, carryShare: 0.3, targetShare: 0.2, redZoneShare: 0.2 }
+  RB: { snapShare: 0.3, carryShare: 0.3, targetShare: 0.2, redZoneShare: 0.2 },
+  // A starting QB has ~100 % of the dropbacks: the composite separates rushers, red-zone usage and depth.
+  QB: { dropbackShare: 0.4, carryShare: 0.25, redZoneShare: 0.2, depthScore: 0.15 }
 };
 // PPR value of volume, used when the fit is not trustworthy (early season, rare feature, absurd fit).
 const FALLBACK_XFP = { intercept: 0, targets: 1.55, carries: 0.6, redZone: 0.9, airYards: 0.02 };
+// For QBs the regression slots mean: targets = dropbacks, carries = rushes, redZone = red-zone
+// passes + rushes, airYards = passing air yards. A season's handful of QB games rarely passes the
+// fit guards, so this fallback is the same regression fitted on 1 685 QB games (2021–2025,
+// docs/prd-boom-bust-qb-usage.md): passing value lives in air yards, not in raw dropbacks.
+const QB_FALLBACK_XFP = { intercept: 0.31, targets: 0.041, carries: 0.754, redZone: 0.518, airYards: 0.079 };
+const fallbackFor = position => (position === "QB" ? QB_FALLBACK_XFP : FALLBACK_XFP);
 const FEATURES = ["targets", "carries", "redZone", "airYards"];
 // Plausible coefficient ranges (PPR points per unit): a fit outside them is rejected, not shown.
 const COEFFICIENT_BOUNDS = { targets: [0, 4], carries: [0, 2], redZone: [0, 5], airYards: [0, 0.4] };
+const QB_COEFFICIENT_BOUNDS = { targets: [0, 1.2], carries: [0, 2], redZone: [0, 3], airYards: [0, 0.1] };
+const boundsFor = position => (position === "QB" ? QB_COEFFICIENT_BOUNDS : COEFFICIENT_BOUNDS);
 const MIN_FEATURE_SUPPORT = 10; // non-zero rows needed before a feature is fitted instead of fixed
 const RIDGE_LAMBDA = 5;
 
@@ -43,7 +55,7 @@ export function buildTeamTotals(statsByWeek, teamOf) {
       const team = teamOf(playerId, week);
       if (!team) continue;
       const key = `${week}|${team}`;
-      const total = totals.get(key) || { targets: 0, airYards: 0, carries: 0, redZone: 0, snaps: 0 };
+      const total = totals.get(key) || { targets: 0, airYards: 0, carries: 0, redZone: 0, snaps: 0, dropbacks: 0 };
       total.targets += row.rec_tgt || 0;
       // Share of the team's *downfield* air yards: behind-the-line targets count 0 on both sides,
       // so a share is always within 0-100 % (net air yards could push a share above 100 %).
@@ -51,6 +63,7 @@ export function buildTeamTotals(statsByWeek, teamOf) {
       total.carries += row.rush_att || 0;
       total.redZone += (row.rec_rz_tgt || 0) + (row.rush_rz_att || 0);
       total.snaps = Math.max(total.snaps, row.tm_off_snp || 0);
+      total.dropbacks += (row.pass_att || 0) + (row.pass_sack || 0);
       totals.set(key, total);
     }
   }
@@ -67,6 +80,29 @@ export function buildPlayerWeeks(statsByWeek, { teamOf, positionOf }) {
       const team = teamOf(playerId, week);
       if (!USAGE_POSITIONS.includes(position) || !team || !(row.off_snp > 0)) continue;
       const total = totals.get(`${week}|${team}`);
+      if (position === "QB") {
+        // Same regression slots, QB meaning: targets = dropbacks, airYards = passing air yards.
+        const dropbacks = (row.pass_att || 0) + (row.pass_sack || 0);
+        if (dropbacks + (row.rush_att || 0) === 0) continue; // kneel-down / gadget snap only
+        const redZone = (row.pass_rz_att || 0) + (row.rush_rz_att || 0);
+        const airYards = Math.max(0, row.pass_air_yd || 0);
+        rows.push({
+          playerId, week, position, team,
+          points: row.pts_ppr ?? 0,
+          targets: dropbacks,
+          carries: row.rush_att || 0,
+          airYards,
+          redZone,
+          snapShare: share(row.off_snp, row.tm_off_snp || total.snaps),
+          dropbackShare: Math.min(1, share(dropbacks, total.dropbacks)),
+          carryShare: share(row.rush_att || 0, total.carries),
+          redZoneShare: Math.min(1, share(redZone, total.redZone)),
+          // Average depth of attempt, scaled so ~12 air yards per attempt = 1.
+          depthScore: Math.min(1, share(airYards, row.pass_att || 0) / 12),
+          targetShare: 0, airShare: 0
+        });
+        continue;
+      }
       const redZone = (row.rec_rz_tgt || 0) + (row.rush_rz_att || 0);
       rows.push({
         playerId, week, position, team,
@@ -119,17 +155,19 @@ export function fitExpectedPoints(playerWeeks) {
   const models = {};
   for (const position of USAGE_POSITIONS) {
     const rows = playerWeeks.filter(row => row.position === position);
-    const fallback = { ...FALLBACK_XFP, fitted: false, n: rows.length };
+    const base = fallbackFor(position);
+    const bounds = boundsFor(position);
+    const fallback = { ...base, fitted: false, n: rows.length };
     if (rows.length < 30) { models[position] = fallback; continue; }
     const fitted = FEATURES.filter(feature => rows.filter(row => row[feature] !== 0).length >= MIN_FEATURE_SUPPORT);
     const fixed = FEATURES.filter(feature => !fitted.includes(feature));
-    const residual = rows.map(row => row.points - fixed.reduce((sum, feature) => sum + FALLBACK_XFP[feature] * row[feature], 0));
+    const residual = rows.map(row => row.points - fixed.reduce((sum, feature) => sum + base[feature] * row[feature], 0));
     const coefficients = leastSquares(rows.map(row => [1, ...fitted.map(feature => row[feature])]), residual, RIDGE_LAMBDA);
     const model = { intercept: coefficients?.[0], fitted: true, n: rows.length };
     fitted.forEach((feature, i) => { model[feature] = coefficients?.[i + 1]; });
-    fixed.forEach(feature => { model[feature] = FALLBACK_XFP[feature]; });
+    fixed.forEach(feature => { model[feature] = base[feature]; });
     const valid = coefficients && Number.isFinite(model.intercept) && Math.abs(model.intercept) <= 5 &&
-      FEATURES.every(feature => Number.isFinite(model[feature]) && model[feature] >= COEFFICIENT_BOUNDS[feature][0] && model[feature] <= COEFFICIENT_BOUNDS[feature][1]);
+      FEATURES.every(feature => Number.isFinite(model[feature]) && model[feature] >= bounds[feature][0] && model[feature] <= bounds[feature][1]);
     models[position] = valid ? { ...model, fixedFeatures: fixed } : fallback;
   }
   return models;
@@ -200,9 +238,9 @@ export function calculateUsageScores(playerWeeks) {
     pool.forEach(player => {
       player.usageScore = percentileOf.get(player);
       player.signal = player.games < MIN_GAMES_FOR_SIGNAL ? null
-        : player.gap <= BUY_LOW_GAP && player.usageScore >= 60 ? "BUY_LOW"
+        : player.gap <= (SIGNAL_GAPS[position]?.buy ?? BUY_LOW_GAP) && player.usageScore >= 60 ? "BUY_LOW"
         // Elite usage (> 85) producing above volume is a star, not a fluke: never "sell high" on it.
-        : player.gap >= SELL_HIGH_GAP && player.usageScore <= 85 ? "SELL_HIGH"
+        : player.gap >= (SIGNAL_GAPS[position]?.sell ?? SELL_HIGH_GAP) && player.usageScore <= 85 ? "SELL_HIGH"
         : null;
       delete player.composite;
     });

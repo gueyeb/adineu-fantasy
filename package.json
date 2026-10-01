@@ -15,6 +15,7 @@
     "context": "node scripts/league-context.js",
     "waivers": "node scripts/league-context.js --free-agents",
     "backtest": "node scripts/backtest-usage.js",
+    "calibrate:boom-bust": "node scripts/calibrate-boom-bust.js",
     "assets:version": "node scripts/asset-versions.js",
     "assets:check": "node scripts/asset-versions.js --check",
     "track:weekly": "node scripts/model-tracking.js",

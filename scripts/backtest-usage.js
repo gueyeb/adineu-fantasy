@@ -148,7 +148,7 @@ function evaluateSignals(samples) {
 
 export async function runBacktest({ seasons = [2021, 2022, 2023, 2024, 2025] } = {}) {
   const samples = await buildSamples(seasons);
-  const byPosition = Object.fromEntries(POSITIONS.map(position => [position, {
+  const byPosition = Object.fromEntries([...POSITIONS, "QB"].map(position => [position, {
     far: evaluate(samples.filter(sample => sample.position === position), "far"),
     next: evaluate(samples.filter(sample => sample.position === position), "next")
   }]));

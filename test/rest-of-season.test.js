@@ -14,10 +14,11 @@ test("keeps the next two Sleeper weeks and blends later weeks 80/20 with xFP (ba
   assert.deepEqual(result, { ppg: 10.3, source: "SLEEPER_USAGE_BLEND", usageWeeks: 2, loadedWeeks: 4 });
 });
 
-test("does not apply skill-position xFP to quarterbacks", () => {
-  const result = usageAdjustedRosPpg({
-    playerId: "qb", position: "QB", nflTeam: "FA", week: 12, xfp: 40,
-    projectionsByWeek: { 12: { qb: { pts_ppr: 10 } }, 13: { qb: { pts_ppr: 12 } }, 14: { qb: { pts_ppr: 8 } } }
-  });
-  assert.deepEqual(result, { ppg: 10, source: "SLEEPER_PROJECTIONS", usageWeeks: 0, loadedWeeks: 3 });
+test("QBs blend far weeks 50/50 with their own xFP; positions without usage keep Sleeper only", () => {
+  const projectionsByWeek = { 12: { p: { pts_ppr: 10 } }, 13: { p: { pts_ppr: 12 } }, 14: { p: { pts_ppr: 8 } } };
+  const qb = usageAdjustedRosPpg({ playerId: "p", position: "QB", nflTeam: "FA", week: 12, xfp: 20, projectionsByWeek });
+  // week 14 is the only far week: 0.5 × 8 + 0.5 × 20 = 14 -> mean of 10, 12, 14 = 12
+  assert.deepEqual(qb, { ppg: 12, source: "SLEEPER_USAGE_BLEND", usageWeeks: 1, loadedWeeks: 3 });
+  const kicker = usageAdjustedRosPpg({ playerId: "p", position: "K", nflTeam: "FA", week: 12, xfp: 20, projectionsByWeek });
+  assert.deepEqual(kicker, { ppg: 10, source: "SLEEPER_PROJECTIONS", usageWeeks: 0, loadedWeeks: 3 });
 });

@@ -21,9 +21,9 @@ import { getFreeAgents, getUsageReport, getWeeklyProjections, getWeeklyStats } f
 import { resolveOperationalWeek } from "../public/assets/nfl-week.js";
 import { GENERAL_SETTINGS_2026 } from "../public/assets/league-settings.js";
 import { PRICE_PER_POINT } from "../public/assets/waiver-model.js";
-import { DIRECT_PROJECTION_WEEKS, FAR_WEEK_USAGE_WEIGHT } from "../public/assets/rest-of-season.js";
+import { DIRECT_PROJECTION_WEEKS, FAR_WEEK_USAGE_WEIGHT, FAR_WEEK_USAGE_WEIGHT_BY_POSITION } from "../public/assets/rest-of-season.js";
 
-export const MODEL_VERSION = "waiver-v2 · usage-0.2 · 2026-09-29";
+export const MODEL_VERSION = "waiver-v2 · usage RB/WR/TE 0.2, QB 0.5 · 2026-10-01";
 const LEAGUE_ID = process.env.SLEEPER_LEAGUE_ID || "1392715510830878721";
 const SLEEPER = "https://api.sleeper.app/v1";
 const LAST_REGULAR_WEEK = GENERAL_SETTINGS_2026.playoffWeekStart - 1;
@@ -189,7 +189,7 @@ export async function takeSnapshot({ supabase, fetchImpl = fetch, season, week, 
 
   const { data: snapshot, error } = await supabase.from("model_snapshots").upsert({
     season, week, kind: "weekly", taken_at: new Date().toISOString(), model_version: MODEL_VERSION,
-    settings: { PRICE_PER_POINT, FAR_WEEK_USAGE_WEIGHT, DIRECT_PROJECTION_WEEKS },
+    settings: { PRICE_PER_POINT, FAR_WEEK_USAGE_WEIGHT, FAR_WEEK_USAGE_WEIGHT_BY_POSITION, DIRECT_PROJECTION_WEEKS },
     coverage: { ...market.coverage, usageWeeks: usage.weeks, degraded: summary.degraded }
   }, { onConflict: "season,week,kind" }).select("id").single();
   if (error) throw new Error(`model_snapshots: ${error.message}`);

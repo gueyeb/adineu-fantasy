@@ -712,6 +712,7 @@ export async function renderTradesPage(container) {
         </div>` : ""}
         ${alertCards || `<div class="card" style="padding:24px; text-align:center; color:var(--muted);">✅ Aucune alerte : lineup complet, personne à risque signalé par Sleeper.</div>`}
         ${startSit ? `
+          ${startSit.lineups ? boomSafeCard(startSit.lineups) : ""}
           <h3 style="margin:28px 0 6px; font-size:1.2rem;">Ton roster cette semaine</h3>
           <p class="note" style="margin:0 0 10px;">Matchup = points concédés par l'adversaire à ce poste depuis le début de saison (semaines ${startSit.completedWeeks.join(", ") || "—"}), ramenés vers la moyenne tant que l'échantillon est petit. Rang 1 = défense la plus généreuse.</p>
           ${startSitTable(startSit.players, { markStarters: true })}
@@ -752,16 +753,42 @@ export async function renderTradesPage(container) {
       : matchup.label === "BYE" ? `<span class="chip">Bye</span>`
       : `<span class="chip ${matchup.label === "FACILE" ? "chip-grass" : matchup.label === "DIFFICILE" ? "chip-red" : ""}">${escapeHtml(matchup.opponent)} · ${matchup.label === "FACILE" ? "facile" : matchup.label === "DIFFICILE" ? "difficile" : "neutre"}${matchup.rank ? ` (${matchup.rank}e)` : ""}</span>`;
     return `<div class="table-wrap"><table>
-      <thead><tr><th>Joueur</th>${markStarters ? "<th>Rôle</th>" : ""}<th class="num">Proj. semaine</th><th>Matchup</th><th class="num">ROS</th><th class="num">Usage</th><th>Statut</th></tr></thead>
+      <thead><tr><th>Joueur</th>${markStarters ? "<th>Rôle</th>" : ""}<th class="num">Proj. semaine</th><th class="num" title="20e percentile : 4 semaines sur 5 au-dessus">Plancher</th><th class="num" title="80e percentile : 1 semaine sur 5 au-dessus">Plafond</th><th class="num" title="Probabilité d'une grosse semaine (QB ≥ 25, RB/WR ≥ 20, TE ≥ 15, K/DEF ≥ 12)">Boom</th><th class="num" title="Probabilité d'une semaine ratée (QB ≤ 12, RB/WR ≤ 6, TE ≤ 4, K ≤ 4, DEF ≤ 2)">Bust</th><th>Matchup</th><th class="num">ROS</th><th class="num">Usage</th><th>Statut</th></tr></thead>
       <tbody>${players.map(player => `<tr${!markStarters && player.projection === best && best > 0 ? ' class="compare-best"' : ""}>
         <td><strong>${escapeHtml(player.name)}</strong> <small style="color:var(--muted);">${escapeHtml(player.position || "?")}${player.nflTeam ? ` · ${escapeHtml(player.nflTeam)}` : ""}</small></td>
         ${markStarters ? `<td>${player.starter ? "Titulaire" : "Banc"}</td>` : ""}
         <td class="num"><strong>${player.projection ?? "—"}</strong></td>
+        <td class="num">${player.floor ?? "—"}</td>
+        <td class="num">${player.ceiling ?? "—"}</td>
+        <td class="num">${Number.isFinite(player.boomPct) ? `${player.boomPct} %` : "—"}</td>
+        <td class="num">${Number.isFinite(player.bustPct) ? `${player.bustPct} %` : "—"}</td>
         <td>${matchupChip(player.matchup)}</td>
         <td class="num">${player.rosPpg ?? "—"}</td>
         <td class="num">${player.usageScore ?? "—"}${player.signal === "BUY_LOW" ? " 🟢" : player.signal === "SELL_HIGH" ? " 🔥" : ""}</td>
         <td>${player.injuryStatus ? `<span class="tf-injury">${escapeHtml(player.injuryStatus)}</span>` : "OK"}</td>
       </tr>`).join("")}</tbody></table></div>`;
+  }
+
+  // Boom / Safe : quelle lineup jouer selon tes chances cette semaine (docs/prd-boom-bust-qb-usage.md).
+  function boomSafeCard(lineups) {
+    const label = { BOOM: "Boom (chercher le plafond)", SAFE: "Safe (sécuriser le plancher)", OPTIMAL: "Optimale (projection)" };
+    const changes = (lineup, reference) => {
+      const ids = new Set(lineup.slots.map(slot => slot.sleeperId));
+      const refIds = new Set(reference.slots.map(slot => slot.sleeperId));
+      const promote = lineup.slots.filter(slot => slot.sleeperId && !refIds.has(slot.sleeperId)).map(slot => slot.name);
+      const bench = reference.slots.filter(slot => slot.sleeperId && !ids.has(slot.sleeperId)).map(slot => slot.name);
+      return `Titulariser ${promote.map(escapeHtml).join(", ")} · Asseoir ${bench.map(escapeHtml).join(", ")}`;
+    };
+    const row = (name, lineup, differs) => `<tr><td>${name}</td><td class="num">${lineup.projection}</td><td class="num">${lineup.floor}</td><td class="num">${lineup.ceiling}</td><td>${differs === false ? "Identique à l'optimale" : differs ? changes(lineup, lineups.optimal) : "—"}</td></tr>`;
+    const mode = lineups.recommended || "OPTIMAL";
+    return `<div class="card" style="padding:16px 18px; margin:20px 0; border-left:4px solid var(--grass);">
+      <strong>Lineup selon ton match :</strong> ${Number.isFinite(lineups.winPct) ? `${lineups.winPct} % de chances estimées (${lineups.optimal.projection} pts projetés contre ${lineups.opponent.projection}). ` : "adversaire de la semaine pas encore publié. "}Mode conseillé : <strong>${label[mode]}</strong>.
+      <div class="table-wrap" style="margin-top:10px;"><table>
+        <thead><tr><th>Lineup</th><th class="num">Projection</th><th class="num" title="Somme des planchers individuels (prudent : tous les joueurs ne ratent pas leur semaine en même temps)">Σ planchers</th><th class="num" title="Somme des plafonds individuels">Σ plafonds</th><th>Changements vs optimale</th></tr></thead>
+        <tbody>${row("Actuelle", lineups.current)}${row("Optimale", lineups.optimal, false)}${row("Boom", lineups.boom, lineups.boomDiffers)}${row("Safe", lineups.safe, lineups.safeDiffers)}</tbody>
+      </table></div>
+      <small style="color:var(--muted);">Plancher / plafond = 20e / 80e percentile, calibrés sur 31 000 matchs réels (2021–2025). Outsider (&lt; 40 %) : vise le plafond ; favori (&gt; 60 %) : sécurise le plancher. Estimation Adineu.</small>
+    </div>`;
   }
 
   function bindComparator() {
@@ -828,7 +855,7 @@ export async function renderTradesPage(container) {
         <td class="num"><strong>${p.usageScore}</strong></td>
         <td class="num">${trend(p.trend)}</td>
         <td class="num">${p.snapShare}%</td>
-        <td class="num">${p.targetShare}%</td>
+        <td class="num">${p.position === "QB" ? "—" : `${p.targetShare}%`}</td>
         <td class="num">${p.carryShare}%</td>
         <td class="num">${p.redZoneShare}%</td>
         <td class="num">${p.ppg}</td>
@@ -840,7 +867,7 @@ export async function renderTradesPage(container) {
     const buyTargets = report.players.filter(p => p.signal === "BUY_LOW" && !p.mine && p.owner).slice(0, 10);
     const sellMine = mine.filter(p => p.signal === "SELL_HIGH");
     const freeHighUsage = report.players.filter(p => !p.owner && p.usageScore >= 60 && !p.injuryStatus).slice(0, 10);
-    const leaders = ["RB", "WR", "TE"].map(pos => `<details class="trade-lineup-detail"><summary>Top 20 usage · ${pos}</summary>${table(report.players.filter(p => p.position === pos).slice(0, 20), { owner: true })}</details>`).join("");
+    const leaders = ["QB", "RB", "WR", "TE"].map(pos => `<details class="trade-lineup-detail"><summary>Top 20 usage · ${pos}</summary>${table(report.players.filter(p => p.position === pos).slice(0, 20), { owner: true })}</details>`).join("");
 
     content.innerHTML = `
       <div class="shell">
@@ -851,7 +878,7 @@ export async function renderTradesPage(container) {
               ${formattedRosters.map(r => `<option value="${r.roster_id}" ${String(r.roster_id) === String(selectedRosterId) ? "selected" : ""}>${escapeHtml(r.name)} (@${escapeHtml(r.ownerName)})</option>`).join("")}
             </select>
           </div>
-          <p class="note" style="margin:0; max-width:640px;"><strong>Usage Score (0–100)</strong> = rang, parmi les joueurs du même poste, de la part de l'attaque de son équipe qu'il reçoit (targets, air yards, snaps, courses, red zone ; semaines ${report.weeks.join(", ")}, les plus récentes comptent plus). <strong>xFP</strong> = points attendus pour ce volume. <strong>Buy-low</strong> : il produit ≥ 3 pts/match sous son volume. <strong>Sell-high</strong> : ≥ 4 pts au-dessus (TD, big plays), hors usage élite. Routes : non disponibles gratuitement.</p>
+          <p class="note" style="margin:0; max-width:640px;"><strong>Usage Score (0–100)</strong> = rang, parmi les joueurs du même poste, de la part de l'attaque de son équipe qu'il reçoit (targets, air yards, snaps, courses, red zone ; semaines ${report.weeks.join(", ")}, les plus récentes comptent plus). <strong>xFP</strong> = points attendus pour ce volume. <strong>Buy-low</strong> : il produit ≥ 3 pts/match sous son volume. <strong>Sell-high</strong> : ≥ 4 pts au-dessus (TD, big plays), hors usage élite. QB : dropbacks, courses, red zone et profondeur des passes (seuils ± 5 pts) ; l'usage QB sert aux signaux, pas aux projections (backtest : il ne les améliore pas). Routes : non disponibles gratuitement.</p>
         </div>
         ${report.degraded ? `<div class="card" style="padding:12px 16px; margin-bottom:16px; border-left:4px solid var(--gold);">⚠ Stats partielles : semaines chargées ${report.weeks.join(", ") || "aucune"}.</div>` : ""}
         <h3 style="margin:0 0 8px; font-size:1.2rem;">Buy-low à cibler chez les autres</h3>

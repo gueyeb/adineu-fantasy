@@ -30,6 +30,11 @@ est un avantage réel mais modeste (+1,5 pt de mieux que la moyenne).
 retenu que s'il a un `gsis_id` dans le dump Sleeper actuel (pour retrouver son équipe) et une
 projection cette semaine-là. Les résultats par saison vont tous dans le même sens.
 
+## QB (ajouté le 01/10/2026)
+Validation « une saison écartée » sur 583 décisions : Sleeper seul 4,89, xFP QB seul 4,71, **mélange
+50/50 4,37**. Poids QB = 0,5 (`FAR_WEEK_USAGE_WEIGHT_BY_POSITION`). Détails :
+`docs/prd-boom-bust-qb-usage.md`.
+
 ## Détail 2024–2025 (première passe)
 
 ## Méthode
