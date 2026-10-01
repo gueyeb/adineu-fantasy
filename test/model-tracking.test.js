@@ -47,3 +47,25 @@ test("ALGO FEEDBACK flags a mispriced FAAB scale and stale far projections, and 
   assert.match(message, /SUIVI DU MODÈLE — ADINEU \(semaine 5 terminée\)/);
   assert.match(message, /ALGO FEEDBACK/);
 });
+
+test("FAAB bids are matched with the snapshot taken the Tuesday before them (leg = snapshot week - 1)", async () => {
+  const { faabLegForSnapshotWeek } = await import("../scripts/model-tracking.js");
+  // Snapshot of operational week 4 (Tuesday 29/09) precedes the Wednesday 30/09 waivers, filed by Sleeper under leg 3.
+  assert.equal(faabLegForSnapshotWeek(4), 3);
+  assert.equal(faabLegForSnapshotWeek(1), 0);
+});
+
+test("an existing weekly snapshot is never overwritten by a later re-run", async () => {
+  const { takeSnapshot } = await import("../scripts/model-tracking.js");
+  const calls = [];
+  const supabase = {
+    from: table => {
+      calls.push(table);
+      const chain = { select: () => chain, eq: () => chain, maybeSingle: async () => ({ data: { id: "snap-4", taken_at: "2026-09-29T08:00:00Z" } }) };
+      return chain;
+    }
+  };
+  const result = await takeSnapshot({ supabase, season: 2026, week: 4, fetchImpl: () => { throw new Error("must not fetch"); } });
+  assert.deepEqual(result, { season: 2026, week: 4, skipped: "exists", snapshotId: "snap-4", takenAt: "2026-09-29T08:00:00Z" });
+  assert.deepEqual(calls, ["model_snapshots"]);
+});

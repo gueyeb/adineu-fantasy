@@ -13,7 +13,10 @@ du marché waiver au moment des enchères. Sans archive, impossible :
 ## Solution
 Un job unique, **chaque mardi** (après le Monday Night, avant les waivers du mercredi 09:00) :
 1. **Bilan de la semaine terminée W-1** (`model_feedback`) :
-   - enchères gagnées (`faab_outcomes`) vs fourchette du marché estimée le mardi d'avant :
+   - enchères gagnées (`faab_outcomes`) vs fourchette du marché estimée le mardi d'avant. Décalage :
+     Sleeper range les enchères du mercredi suivant les matchs de la semaine L sous le leg L, alors
+     que le snapshot du mardi précédent porte la semaine opérationnelle L + 1. Le bilan de la
+     semaine E compare donc le snapshot E aux enchères du leg E − 1 :
      taux dans la fourchette, prix payé par point de surplus (médiane) ;
    - erreur des projections Sleeper selon leur ancienneté (0, 1, 2… semaines avant le match) ;
    - évolution des joueurs signalés buy-low / sell-high depuis le signal ;
@@ -24,7 +27,9 @@ Un job unique, **chaque mardi** (après le Monday Night, avant les waivers du me
    des semaines W → 14 (`player_projection_snapshots`), Usage Score et signaux
    (`player_usage_snapshots`), réglages du modèle (`model_snapshots.settings`).
 
-Idempotent : relancer la même semaine remplace son snapshot et son bilan.
+Relances : le bilan est remplacé, mais **le premier snapshot d'une semaine fait foi** (pris le mardi,
+avant les waivers). Une relance plus tard dans la semaine ne l'écrase pas, sinon les joueurs
+réclamés mercredi disparaîtraient du marché enregistré. Forcer : `--force-snapshot` (CLI).
 
 ## Déclenchement
 - Production : `POST /api/model/weekly` avec `Authorization: Bearer $MODEL_JOB_TOKEN`
@@ -44,6 +49,12 @@ Le bilan **propose**, il ne modifie jamais le modèle tout seul. Un changement d
 ## Données et sécurité
 Données dérivées de l'API publique Sleeper : lecture publique (RLS `select using (true)`),
 écriture uniquement avec la clé secrète (serveur / CLI). Volume : environ 5 000 lignes par semaine.
+
+## Incident du 01/10/2026
+Une exécution de test le jeudi a écrasé le snapshot S4 du mardi, donc après les waivers du
+mercredi. Le calibrage FAAB de la S4 (13 enchères) est perdu : les joueurs réclamés n'étaient plus
+free agents dans le snapshot. Corrigé le jour même (premier snapshot fait foi). Le calibrage
+démarre réellement avec le snapshot S5 du mardi 6 octobre (enchères du mercredi 7).
 
 ## État au 29/09/2026
 - Rattrapage : 32 enchères gagnées (S1–S2) et bilans S1–S3, sans snapshot antérieur (le suivi démarre en S4).

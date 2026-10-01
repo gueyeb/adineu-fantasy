@@ -106,7 +106,7 @@ export function signalOutcomes(usageRows = [], pointsByPlayerWeek = new Map(), e
 export function formatFeedbackMessage(report) {
   const lines = [`📈 SUIVI DU MODÈLE — ADINEU (semaine ${report.week} terminée)`, ""];
   const faab = report.faab;
-  lines.push(`FAAB : ${faab.claims} enchère(s) gagnée(s), ${faab.covered} couverte(s) par un snapshot.`);
+  lines.push(`FAAB (enchères du mercredi suivant le snapshot S${report.week}) : ${faab.claims} gagnée(s), ${faab.covered} couverte(s) par le snapshot.`);
   if (faab.covered) lines.push(`• Dans la fourchette prédite : ${Math.round(faab.inRangeRate * 100)} %`);
   if (faab.medianImpliedPricePerPoint !== null) lines.push(`• Prix payé par point de surplus (médiane, ${faab.pricedClaims} cas) : ${faab.medianImpliedPricePerPoint} $ (modèle : ${faab.pricePerPoint} $)`);
   if (report.projections.length) {
@@ -158,7 +158,14 @@ async function insertChunks(supabase, table, rows, size = 500) {
   }
 }
 
-export async function takeSnapshot({ supabase, fetchImpl = fetch, season, week, dryRun = false }) {
+export async function takeSnapshot({ supabase, fetchImpl = fetch, season, week, dryRun = false, force = false }) {
+  // First write wins: the snapshot must describe the market BEFORE Wednesday's waivers. A re-run
+  // later in the week (manual test, retry) would replace it with a post-waiver state where the
+  // claimed players are no longer free agents, which silently breaks the FAAB calibration.
+  if (!dryRun && !force) {
+    const { data: existing } = await supabase.from("model_snapshots").select("id, taken_at").eq("season", season).eq("week", week).eq("kind", "weekly").maybeSingle();
+    if (existing) return { season, week, skipped: "exists", snapshotId: existing.id, takenAt: existing.taken_at };
+  }
   const [market, usage] = await Promise.all([
     getFreeAgents({ limitPerPosition: 40, fetchImpl }),
     getUsageReport({ fetchImpl })
@@ -197,13 +204,21 @@ export async function takeSnapshot({ supabase, fetchImpl = fetch, season, week, 
   return { ...summary, snapshotId: snapshot.id };
 }
 
+/**
+ * Sleeper files the Wednesday waivers that follow week L's games under transactions leg L, while
+ * the snapshot taken the Tuesday just before them is labelled with the operational week L + 1.
+ * So the bids to compare with the snapshot of the evaluated week E are those of leg E - 1.
+ */
+export const faabLegForSnapshotWeek = week => week - 1;
+
 export async function buildWeeklyFeedback({ supabase, fetchImpl = fetch, season, week, dryRun = false }) {
-  // 1. FAAB outcomes of the waivers processed during `week` (transactions leg = week).
-  const transactions = await getJson(`/league/${LEAGUE_ID}/transactions/${week}`, fetchImpl).catch(() => []);
+  // 1. FAAB outcomes of the waivers that ran right after this week's snapshot (leg week - 1).
+  const leg = faabLegForSnapshotWeek(week);
+  const transactions = leg >= 1 ? await getJson(`/league/${LEAGUE_ID}/transactions/${leg}`, fetchImpl).catch(() => []) : [];
   const outcomes = (Array.isArray(transactions) ? transactions : [])
     .filter(transaction => transaction.type === "waiver" && transaction.status === "complete" && Number.isFinite(Number(transaction.settings?.waiver_bid)))
     .flatMap(transaction => Object.entries(transaction.adds || {}).map(([playerId, rosterId]) => ({
-      season, week, transaction_id: String(transaction.transaction_id), sleeper_player_id: playerId, roster_id: rosterId,
+      season, week: leg, transaction_id: String(transaction.transaction_id), sleeper_player_id: playerId, roster_id: rosterId,
       bid: Number(transaction.settings.waiver_bid), processed_at: transaction.status_updated ? new Date(transaction.status_updated).toISOString() : null
     })));
   if (!dryRun && outcomes.length) {
@@ -252,7 +267,7 @@ export async function buildWeeklyFeedback({ supabase, fetchImpl = fetch, season,
     signals = signalOutcomes((data || []).map(row => ({ ...row, snapshot_week: weekBySnapshot.get(row.snapshot_id) })), pointsByPlayerWeek, week);
   }
 
-  const report = { season, week, generatedAt: new Date().toISOString(), modelVersion: MODEL_VERSION, faab, projections, signals };
+  const report = { season, week, faabLeg: leg, generatedAt: new Date().toISOString(), modelVersion: MODEL_VERSION, faab, projections, signals };
   report.algoFeedback = buildAlgoFeedback(report);
   const message = formatFeedbackMessage(report);
   if (!dryRun) {
@@ -288,20 +303,21 @@ export async function getLatestFeedback(env = process.env) {
 }
 
 /** Tuesday job: feedback on the completed week, then snapshot of the current week. */
-export async function runWeeklyJob({ supabase, fetchImpl = fetch, dryRun = false } = {}) {
+export async function runWeeklyJob({ supabase, fetchImpl = fetch, dryRun = false, force = false } = {}) {
   const state = await getJson("/state/nfl", fetchImpl);
   const season = Number(state.season);
   const week = resolveOperationalWeek(state);
   if (state.season_type !== "regular" || week > LAST_REGULAR_WEEK) return { skipped: `hors saison régulière (${state.season_type}, semaine ${week})` };
   const feedback = week > 1 ? await buildWeeklyFeedback({ supabase, fetchImpl, season, week: week - 1, dryRun }) : null;
-  const snapshot = await takeSnapshot({ supabase, fetchImpl, season, week, dryRun });
+  const snapshot = await takeSnapshot({ supabase, fetchImpl, season, week, dryRun, force });
   return { season, week, snapshot, feedback: feedback?.report || null, message: feedback?.message || null };
 }
 
 async function main() {
   const dryRun = process.argv.includes("--dry-run");
+  const force = process.argv.includes("--force-snapshot");
   const supabase = dryRun ? null : await createSupabaseFromEnv();
-  const result = await runWeeklyJob({ supabase, dryRun });
+  const result = await runWeeklyJob({ supabase, dryRun, force });
   console.log(result.message || JSON.stringify(result, null, 2));
   console.log(JSON.stringify({ snapshot: result.snapshot, skipped: result.skipped }, null, 2));
 }

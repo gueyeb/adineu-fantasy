@@ -62,7 +62,7 @@ create table if not exists player_usage_snapshots (
 
 create table if not exists faab_outcomes (
   season int not null,
-  week int not null,
+  week int not null,                    -- leg Sleeper : enchères du mercredi après les matchs de la semaine `week`
   transaction_id text not null,
   sleeper_player_id text not null,
   roster_id int,
