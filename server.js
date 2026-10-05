@@ -29,6 +29,7 @@ import {
   SCORING_SETTINGS_2026,
   BYE_WEEKS_2026
 } from "./public/assets/league-settings.js";
+import { getPlayoffDecisionContext } from "./scripts/playoff-context.js";
 import { buildCoachPlan, formatCoachPlan, normalizeCoachPreferences } from "./scripts/coach-assistant.js";
 import { buildDecisionContext, formatDecisionContext } from "./scripts/ai-context.js";
 import { createCoachAuth } from "./scripts/coach-auth.js";
@@ -68,6 +69,7 @@ export function createAppServer({
   publicRoot = DEFAULT_PUBLIC_ROOT,
   analyze = analyzeTrades,
   getContext = getLeagueContext,
+  getPlayoffContext = getContext === getLeagueContext ? getPlayoffDecisionContext : async () => null,
   getFreeAgents = getFreeAgentsDefault,
   getInjuryStatuses = getInjuryStatusesDefault,
   getProjections = getWeeklyProjectionsDefault,
@@ -167,11 +169,12 @@ export function createAppServer({
             ...compactContext.myTeam.bench.map(player => player.sleeperId),
             ...compactContext.myTeam.ir.map(player => player.sleeperId)
           ].filter(Boolean);
-          const [valuesResult, statusesResult, waiversResult, matchupResult] = await Promise.allSettled([
+          const [valuesResult, statusesResult, waiversResult, matchupResult, playoffResult] = await Promise.allSettled([
             getPlayerValues({ week: compactContext.week, playerIds }),
             getInjuryStatuses(),
             getFreeAgents({ team, limitPerPosition: 5 }),
-            getMatchupContext({ team, week: compactContext.week })
+            getMatchupContext({ team, week: compactContext.week }),
+            getPlayoffContext({ week: compactContext.week, rosterId: compactContext.myTeam.rosterId, leagueId: compactContext.league.id })
           ]);
           const playerValues = valuesResult.status === "fulfilled" ? valuesResult.value : { byId: new Map(), weeklyProjections: {} };
           const statuses = statusesResult.status === "fulfilled" ? statusesResult.value : new Map();
@@ -191,7 +194,7 @@ export function createAppServer({
               playerStatuses: statuses
             });
           } catch { lineup.optimal = null; }
-          context = buildDecisionContext({ context: compactContext, playerValues, statuses, waivers, lineup, matchup });
+          context = buildDecisionContext({ context: compactContext, playerValues, statuses, waivers, lineup, matchup, playoffContext: playoffResult.status === "fulfilled" ? playoffResult.value : { ready: false, reason: "SOURCE_UNAVAILABLE" } });
           message = formatDecisionContext(context);
         }
         if (url.searchParams.get("format") === "text") {
@@ -332,12 +335,13 @@ export function createAppServer({
           preferences = normalizeCoachPreferences(JSON.parse(request.headers["x-coach-preferences"] || "{}"));
         } catch {}
         const context = await getContext({ team });
-        const [playerStatuses, playerValues, freeAgents, trades, matchup] = await Promise.all([
+        const [playerStatuses, playerValues, freeAgents, trades, matchup, playoffContext] = await Promise.all([
           getInjuryStatuses().catch(() => new Map()),
           getPlayerValues().catch(() => ({ byId: new Map(), weeklyProjections: {} })),
           getFreeAgents({ limitPerPosition: 8, team }),
           analyze({ team, playerPreferences: preferences }),
-          getMatchupContext({ team, week: context.week }).catch(() => null)
+          getMatchupContext({ team, week: context.week }).catch(() => null),
+          getPlayoffContext({ week: context.week, rosterId: context.myTeam.rosterId, leagueId: context.league.id }).catch(() => ({ ready: false, reason: "SOURCE_UNAVAILABLE" }))
         ]);
         const lineup = diagnoseLineup({
           myTeam: context.myTeam,
@@ -353,7 +357,7 @@ export function createAppServer({
             playerStatuses
           });
         } catch { lineup.optimal = null; }
-        const decisionContext = buildDecisionContext({ context, playerValues, statuses: playerStatuses, waivers: freeAgents, lineup, matchup });
+        const decisionContext = buildDecisionContext({ context, playerValues, statuses: playerStatuses, waivers: freeAgents, lineup, matchup, playoffContext });
         const plan = buildCoachPlan({ decisionContext, trades, preferences });
         sendJson(response, 200, { ...plan, message: formatCoachPlan(plan) });
       } catch (error) {

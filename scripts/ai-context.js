@@ -1,7 +1,7 @@
 import { BYE_WEEKS_2026 } from "../public/assets/league-settings.js";
 import { classifyWaiverDecision } from "../public/assets/waiver-model.js";
 
-const round = value => Number.isFinite(Number(value)) ? Number(Number(value).toFixed(1)) : null;
+const round = value => value !== null && value !== undefined && Number.isFinite(Number(value)) ? Number(Number(value).toFixed(1)) : null;
 
 function playerDecisionView(player, valuesById, projections, statuses) {
   if (!player) return null;
@@ -33,6 +33,24 @@ function waiverRows(report) {
         (Number(b.waiver.score || 0) - Number(a.waiver.score || 0));
     })
     .map(player => ({
+      modelMetrics: player.modelMetrics ?? null,
+      decision: player.waiver.decision ?? null,
+      horizonCovered: player.waiver.fit?.horizonCovered ?? false,
+      preferencePenaltyTotal: player.waiver.fit?.preferencePenaltyTotal ?? 0,
+      preferenceOverridden: player.waiver.fit?.preferenceOverridden ?? false,
+      appliedPreference: player.waiver.fit?.appliedPreference ?? null,
+      coverageIssues: player.waiver.fit?.coverageIssues ?? [],
+      roleEvidence: player.waiver.roleEvidence ?? [],
+      availability: player.availability ?? null,
+      roleConfirmation: player.waiver.roleConfirmation ?? "UNCONFIRMED",
+      legalTransaction: player.waiver.fit?.legalTransaction ?? false,
+      horizonWeeks: player.waiver.fit?.horizonWeeks ?? null,
+      targetWeekDelta: player.waiver.fit?.targetWeekDelta ?? null,
+      grossGainTotal: player.waiver.fit?.grossGainTotal ?? null,
+      postRoleCutCostTotal: player.waiver.fit?.postRoleCutCostTotal ?? null,
+      postRoleCutDeltas: player.waiver.fit?.postRoleCutDeltas ?? [],
+      netGainTotal: player.waiver.fit?.netGainTotal ?? null,
+      weeklyLineupDeltas: player.waiver.fit?.weeklyLineupDeltas ?? [],
       sleeperId: player.sleeperId,
       name: player.name,
       position: player.position,
@@ -44,6 +62,10 @@ function waiverRows(report) {
       usageScore: player.waiver.usageScore ?? null,
       usageSignal: player.waiver.usageSignal || null,
       xfp: round(player.waiver.xfp),
+      provenance: player.provenance ?? null,
+      usageDiagnostic: player.usageDiagnostic ?? null,
+      marketEstimate: player.waiver.marketEstimate ?? null,
+      marketMethod: player.waiver.marketMethod ?? null,
       marketScore: player.waiver.score,
       replacementPpg: round(player.replacementPpg),
       category: player.waiver.category,
@@ -55,7 +77,11 @@ function waiverRows(report) {
       dropCandidates: player.waiver.fit?.dropCandidates || [],
       dropCost: round(player.waiver.fit?.dropCostPerWeek),
       dropOptionValue: round(player.waiver.fit?.dropOptionValuePerWeek),
-      netGain: round(player.waiver.fit?.netGainPerWeek),
+      netGain: round(player.waiver.fit?.netGainAverage ?? player.waiver.fit?.netGainPerWeek),
+      netGainRosAverage: round(player.waiver.fit?.netGainPerWeek),
+      suggestedBid: player.waiver.suggestedBid ?? null,
+      bidPctInitial: player.waiver.bidPctInitial ?? null,
+      bidPctRemaining: player.waiver.bidPctRemaining ?? null,
       fitSlot: player.waiver.fit?.slot || null,
       maxForTeam: player.waiver.fit?.faabMaxForMe ?? null,
       opportunityDuration: player.waiver.duration || null,
@@ -99,7 +125,7 @@ function buildTeamDiagnosis(context, available) {
   };
 }
 
-function buildStrategyState(context) {
+function buildStrategyState(context, playoffContext) {
   const rank = context.myTeam.standingsRank;
   const record = context.myTeam.record || { wins: 0, losses: 0 };
   const playoffTeams = context.league.playoffTeams || 8;
@@ -108,10 +134,10 @@ function buildStrategyState(context) {
   const faabRatio = context.myTeam.faab?.budget > 0 ? context.myTeam.faab.remaining / context.myTeam.faab.budget : null;
   const faabPosture = faabRatio === null ? "UNKNOWN" : faabRatio < 0.25 ? "CONSERVE" : faabRatio <= 0.7 ? "MODERATE" : "FLEXIBLE";
   const benchFlexibility = context.myTeam.bench.length >= context.league.rosterSettings.benchSlots ? "LOW" : "AVAILABLE";
-  return { playoffUrgency, faabPosture, benchFlexibility, playoffProbability: null };
+  return { playoffUrgency, faabPosture, benchFlexibility, urgencyMethod: "RULE_BASED_STANDINGS", playoffProbability: playoffContext?.ready ? playoffContext.probability : null, playoffContext: playoffContext ?? { ready: false, reason: "NOT_LOADED" } };
 }
 
-export function buildDecisionContext({ context, playerValues = {}, statuses = new Map(), waivers = null, lineup = null, matchup = null }) {
+export function buildDecisionContext({ context, playerValues = {}, statuses = new Map(), waivers = null, lineup = null, matchup = null, playoffContext = null }) {
   const valuesById = playerValues.byId || new Map();
   const projections = playerValues.weeklyProjections || {};
   const enrich = player => playerDecisionView(player, valuesById, projections, statuses);
@@ -121,14 +147,19 @@ export function buildDecisionContext({ context, playerValues = {}, statuses = ne
     bench: context.myTeam.bench.map(enrich),
     ir: context.myTeam.ir.map(enrich)
   };
-  const available = waiverRows(waivers).map(player => ({ ...player, ...classifyWaiverDecision({
+  const available = waiverRows(waivers).map(player => ({ ...player, ...(player.decision || classifyWaiverDecision({
+    availability: player.availability,
+    horizonCovered: player.horizonCovered,
+    targetWeekDelta: player.targetWeekDelta,
+    roleConfirmation: player.roleConfirmation,
+    legalTransaction: player.legalTransaction,
     position: player.position,
     marketScore: player.marketScore,
     flags: player.flags,
     usageSignal: player.usageSignal,
     netGain: player.netGain || 0
-  }) }));
-  const immediateUpgrades = available.filter(player => (player.netGain || 0) > 0.3)
+  })) }));
+  const immediateUpgrades = available.filter(player => player.recommendedAction === "ADD_NOW" && player.targetWeekDelta > 0)
     .sort((a, b) => (b.priorityScore || 0) - (a.priorityScore || 0) || (b.netGain || 0) - (a.netGain || 0)).slice(0, 6);
   const immediateIds = new Set(immediateUpgrades.map(player => player.sleeperId));
   const upsideStashes = available.filter(player => ["RB", "WR", "TE"].includes(player.position) && !immediateIds.has(player.sleeperId) && (
@@ -141,12 +172,23 @@ export function buildDecisionContext({ context, playerValues = {}, statuses = ne
   return {
     ...context,
     mode: "decision",
+    decisionScope: waivers?.decisionScope ?? null,
+    acquisitionPlan: waivers?.acquisitionPlan ?? null,
+    rosterPreferences: waivers?.rosterPreferences ?? [],
+    recentTransactions: waivers?.recentTransactions ?? [],
+    transactionsTruncatedCount: waivers?.transactionsTruncatedCount ?? 0,
+    availabilityAsOf: waivers?.availabilityAsOf ?? null,
+    snapshotIssues: waivers?.snapshotIssues ?? [],
     dataThroughWeek: waivers?.lastCompletedWeek ?? null,
+    candidateProvenance: available.map(player => ({ playerId: player.sleeperId, provenance: player.provenance, usageDiagnostic: player.usageDiagnostic })),
+    rosterProvenance: waivers?.rosterProvenance ?? [],
+    playerIndexProvenance: waivers?.playerIndexProvenance ?? null,
+    candidateCoverage: { evaluated: waivers?.evaluatedCandidateCount ?? null, returned: waivers?.returnedCandidateCount ?? null },
     myTeam: enrichedTeam,
     lineup: lineup || { alerts: [], optimal: null },
     nextMatchup: matchup,
     teamDiagnosis: buildTeamDiagnosis({ ...context, myTeam: enrichedTeam }, available),
-    strategyState: buildStrategyState(context),
+    strategyState: buildStrategyState(context, playoffContext),
     topAvailable: [...immediateUpgrades, ...upsideStashes],
     immediateUpgrades,
     upsideStashes,
@@ -168,11 +210,11 @@ function decisionPlayerLine(prefix, player) {
   if (!player) return `${prefix} EMPTY`;
   const fields = [
     `${prefix} ${player.name} ${player.nflTeam || "FA"}`,
-    `status=${player.status || "Healthy"}`,
+    `status=${player.status || "No platform alert"}`,
     `proj=${metric(player.weekProjection)} [Sleeper]`,
     `ROS=${metric(player.rosPpg)} [${player.rosSource || "unknown"}]`,
     `usage=${metric(player.usageScore)} [Adineu]`,
-    `trend=${metric(player.usageTrend)} [Adineu]`,
+    `trend=${metric(player.usageTrend)} composite-change ×100 [Adineu]`,
     `xFP=${metric(player.xfp)} [Adineu]`,
     `actual=${metric(player.actualPpg)} [Sleeper]`,
     `signal=${player.usageSignal || "none"}`,
@@ -208,7 +250,8 @@ export function formatDecisionContext(context) {
     `Lowest marginal cuts: ${context.teamDiagnosis.dropCandidates.length ? context.teamDiagnosis.dropCandidates.map(player => `${player.name} (immediate ${metric(player.immediateValuePerWeek)}, option ${metric(player.optionValuePerWeek)}, total ${metric(player.totalCostPerWeek)} pts/w, usage ${metric(player.usageScore)}, bye S${player.byeWeek ?? "n/d"}, regret ${player.regretRisk})`).join("; ") : "n/d"}`,
     "",
     "STRATEGY STATE",
-    `Playoff urgency: ${context.strategyState.playoffUrgency} (rule-based; probability unavailable)`,
+    `Playoff urgency: ${context.strategyState.playoffUrgency} (rule-based standings; distinct from simulated odds)`,
+    `Playoff estimate (existing Monte Carlo; not official Sleeper): ${JSON.stringify(context.strategyState.playoffContext)}`,
     `Record: ${recordText} | Seed: ${team.standingsRank ?? "n/d"}/${league.teams} | Playoff spots: ${league.playoffTeams || 8}`,
     `FAAB posture: ${context.strategyState.faabPosture} | Bench flexibility: ${context.strategyState.benchFlexibility}`,
     "",
@@ -247,12 +290,16 @@ export function formatDecisionContext(context) {
     const matchup = context.nextMatchup;
     const opponentRecord = matchup.opponent.record;
     lines.push(`Opponent: ${matchup.opponent.teamName} (@${matchup.opponent.owner}) | Record: ${opponentRecord.wins}-${opponentRecord.losses}${opponentRecord.ties ? `-${opponentRecord.ties}` : ""}`);
-    lines.push(`${context.myTeam.teamName}: ${metric(matchup.myProjection.total)} [Sleeper] (${matchup.myProjection.coverage} starters)`);
-    lines.push(`${matchup.opponent.teamName}: ${metric(matchup.opponentProjection.total)} [Sleeper] (${matchup.opponentProjection.coverage} starters)`);
+    lines.push(`${context.myTeam.teamName}: ${metric(matchup.myProjection.total)} [Sleeper pregame projections] (${matchup.myProjection.coverage} required slots)`);
+    lines.push(`${matchup.opponent.teamName}: ${metric(matchup.opponentProjection.total)} [Sleeper pregame projections] (${matchup.opponentProjection.coverage} required slots)`);
+    lines.push(`Mixed total (actual + not-started projections): ${metric(matchup.myProjection.mixedTotal)} / ${metric(matchup.opponentProjection.mixedTotal)}; live remaining projections are unavailable.`);
     lines.push("Win estimate: not included (projection coverage and lineup completeness must be validated separately).");
   }
 
-  const waiverLine = (player, index) => `${index + 1}. ${player.name} ${player.position} ${player.nflTeam || "FA"} | Class=${player.decisionClass} | Immediate=${player.immediateValue} | Strategic=${player.strategicUpside} | Market=${player.marketScore} | GrossGain=${metric(player.lineupGain, " pts/w")} | Drop=${player.dropCandidate?.name || "none"} | DropCost=${metric(player.dropCost, " pts/w")} | NetGain=${metric(player.netGain, " pts/w")} | FAAB=${player.faabMarket?.join("–") || "n/d"} $ | Max=${metric(player.maxForTeam, " $")} | ${player.interpretation}${player.reasons.length ? ` | ${player.reasons.join("; ")}` : ""}`;
+  lines.push("TEMPORARY ROSTER PREFERENCES", JSON.stringify(context.rosterPreferences || []));
+  lines.push("CONDITIONAL ACQUISITION PLAN — REVALIDATE AFTER EACH RESULT", JSON.stringify(context.acquisitionPlan || null));
+  lines.push("RECENT TRANSACTIONS (72h)", JSON.stringify(context.recentTransactions || []), `Truncated: ${context.transactionsTruncatedCount || 0} | Availability as of: ${context.availabilityAsOf || "n/d"}`, ...(context.snapshotIssues || []));
+  const waiverLine = (player, index) => `${index + 1}. ${player.name} ${player.position} ${player.nflTeam || "FA"} | Class=${player.decisionClass} | Immediate=${player.immediateValue} | Strategic=${player.strategicUpside} | Market=${player.marketScore} | GrossGain=${metric(player.lineupGain, " pts/w")} | Drop=${player.dropCandidate?.name || "none"} | DropCost=${metric(player.dropCost, " pts/w")} | NetGain=${metric(player.netGain, " pts/w over role horizon")} | Availability=${player.availability?.availability || "UNKNOWN"} | TargetWeekDelta=${metric(player.targetWeekDelta, " pts")} | Horizon=${metric(player.horizonWeeks, " weeks")} | GrossTotal=${metric(player.grossGainTotal, " pts")} | PostRoleCutLoss=${metric(player.postRoleCutCostTotal, " pts")} | NetTotal=${metric(player.netGainTotal, " pts")} | FAAB market estimate=${player.faabMarket?.join("–") || "n/d"} $ | SuggestedBid=${metric(player.suggestedBid, " $")} | PersonalMax=${metric(player.maxForTeam, " $")} | Budget=${metric(player.bidPctInitial, "% initial")}/${metric(player.bidPctRemaining, "% remaining")} | AuctionWinProbability=n/d | Role=${player.roleConfirmation} | Coverage=${player.coverageIssues.join(",") || "complete"} | ${player.interpretation}${player.reasons.length ? ` | ${player.reasons.join("; ")}` : ""}`;
   lines.push("", "WAIVER — RECOMMENDED ACTIONS");
   for (const action of ["ADD_NOW", "CLAIM_IF_CHEAP", "WATCH", "IGNORE"]) {
     lines.push("", action.replaceAll("_", " "));
@@ -266,8 +313,11 @@ export function formatDecisionContext(context) {
     "",
     "MODEL NOTES",
     "Week projections and ROS: Sleeper, with Adineu usage blend on distant weeks when available.",
+    `Player source coverage (source load dates; game completion unverified): ${JSON.stringify({ roster: context.rosterProvenance ?? [], candidates: context.candidateProvenance ?? [] })}`,
     "Usage/xFP/signals and waiver Market/Capture/Priority: Adineu estimates, not official NFL or Sleeper values.",
     `Coverage: projections ${coverage.projections || "n/d"}; usage ${coverage.usageStats || "n/d"}; player status ${coverage.playerIndex ? "available" : "unavailable"}; degraded=${coverage.degraded}.`,
+    "SELL_HIGH/BUY_LOW describe production relative to estimated xFP; neither instructs a cut nor guarantees regression. WOPR is not xFP; no external chart is ingested without a numerical, versioned source and defined universe.",
+    "No platform alert describes the platform status, not health clearance. Candidate transactions are alternatives; claims sharing a cut cannot both execute.",
     "Missing values are shown as n/d; no injury return date or auction-win probability is inferred."
   );
   return lines.join("\n");

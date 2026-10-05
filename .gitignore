@@ -11,3 +11,10 @@ output/playwright/
 FORBabacar.md
 .cache/
 supabase/.temp/
+# Private, expiring operator observations for decision reports.
+.decision-evidence*.json
+
+# Local private decision observations; never publish roster snapshots.
+output/decision-snapshots/
+output/decision-outcomes/
+output/decision-journals/

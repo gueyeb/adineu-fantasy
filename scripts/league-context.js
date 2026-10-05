@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+import { createWaiverEvaluator } from "./waiver-evaluator.js";
+import { extractDecisionFeatures, SEVERITY_BY_STATUS } from "./decision-features.js";
+import { resolveAcquisitionAvailability, summarizeRecentTransactions, resolveRoleEvidence } from "../public/assets/acquisition-availability.js";
 /**
  * Adineu Fantasy — Contexte IA & Waiver Wire Report
  *
@@ -8,6 +11,11 @@
  *   node scripts/league-context.js --free-agents --position=RB
  */
 
+import { normalizeRosterPreferences } from "../public/assets/roster-preferences.js";
+import { buildAcquisitionPlan } from "../public/assets/waiver-plan.js";
+import { summarizeMatchupCoverage } from "../public/assets/matchup-coverage.js";
+import { loadDecisionEvidence, easternKickoffIso } from "./decision-evidence.js";
+import { BYE_WEEKS_2026 } from "../public/assets/league-settings.js";
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import {
@@ -19,21 +27,13 @@ import { resolveOperationalWeek, resolveLastCompletedWeek } from "../public/asse
 import { findRosterByTeam, buildStarterSlotOrder, buildRosterSlots, listRosterIdentities } from "../public/assets/roster-view.js";
 import { buildFaabHistory, buildTrendingAdds, summarizeFaabByPosition } from "../public/assets/league-market.js";
 import { buildPlayerWeeks, calculateUsageScores } from "../public/assets/usage-score.js";
-import { usageAdjustedRosPpg } from "../public/assets/rest-of-season.js";
 import { calculateFaabRemaining } from "../public/assets/team-metrics.js";
 import { restOfSeasonEstimate } from "../public/assets/trade-score.js";
-import { estimateBaselineProjectedPpg } from "../public/assets/trade-value.js";
 import {
   FANTASY_POSITIONS,
   LAST_REGULAR_WEEK,
   PRICE_PER_POINT,
-  classifyWaiverDecision,
-  buildOpportunitySignals,
-  computeRosPpg,
-  detectEvents,
-  effectivePpg,
-  evaluateMarket,
-  evaluateRosterFit
+  evaluateMarket
 } from "../public/assets/waiver-model.js";
 
 export const DEFAULT_SLEEPER_LEAGUE_ID = process.env.SLEEPER_LEAGUE_ID || "1392715510830878721";
@@ -44,15 +44,7 @@ const STARTER_SLOT_ORDER = buildStarterSlotOrder(ROSTER_SETTINGS_2026);
 const INJURY_STATUS_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // le dump Sleeper /players/nfl pèse ~15 Mo, on ne le refetch pas à chaque requête
 
 // Statuts Sleeper connus : Questionable, Doubtful, Out, IR, PUP, Sus, NA.
-export const SEVERITY_BY_STATUS = {
-  Questionable: "WATCH",
-  Doubtful: "ALERT",
-  Out: "ALERT",
-  IR: "ALERT",
-  PUP: "ALERT",
-  Sus: "ALERT",
-  NA: "ALERT"
-};
+export { SEVERITY_BY_STATUS };
 
 // Par fetchImpl, comme les caches hebdo : un fetch injecté ne partage jamais l'index réel.
 const playersIndexCaches = new WeakMap();
@@ -210,11 +202,13 @@ export async function getMatchupContext({
   leagueId = DEFAULT_SLEEPER_LEAGUE_ID,
   fetchImpl = fetch
 } = {}) {
-  const [rosters, users, matchupRows, projections] = await Promise.all([
+  const [rosters, users, matchupRows, projections, schedule, players] = await Promise.all([
     sleeperGet(`/league/${leagueId}/rosters`, { fetchImpl }),
     sleeperGet(`/league/${leagueId}/users`, { fetchImpl }),
     sleeperGet(`/league/${leagueId}/matchups/${week}`, { fetchImpl }),
-    getWeeklyProjections({ week, fetchImpl }).catch(() => ({}))
+    getWeeklyProjections({ week, fetchImpl }).catch(() => ({})),
+    getSchedule({ fetchImpl }).catch(() => []),
+    getPlayersIndex({ fetchImpl }).catch(() => new Map())
   ]);
   const mine = findRosterByTeam(rosters, users, team);
   const myRow = matchupRows.find(row => row.roster_id === mine.roster.roster_id);
@@ -223,14 +217,16 @@ export async function getMatchupContext({
   if (!opponentRow) return null;
   const opponent = listRosterIdentities(rosters, users).find(entry => entry.roster.roster_id === opponentRow.roster_id);
   if (!opponent) return null;
-  const projected = roster => {
-    const starterIds = (roster.starters || []).filter(id => id && id !== "0");
-    const values = starterIds.map(id => projections[id]?.pts_ppr).filter(Number.isFinite);
-    return {
-      total: values.length ? Number(values.reduce((sum, value) => sum + value, 0).toFixed(1)) : null,
-      coverage: `${values.length}/${starterIds.length}`
-    };
-  };
+  const projected = row => summarizeMatchupCoverage({
+    starters: row.starters || [], requiredSlots: STARTER_SLOT_ORDER.length, projections,
+    actualPoints: row.players_points || {},
+    gameStateOf: id => {
+      const team = players.get(id)?.nflTeam;
+      const game = schedule.find(g => g.week === week && [g.away_team, g.home_team].includes(team));
+      if (!game?.kickoffAt) return "UNKNOWN";
+      return game.completed ? "FINAL" : Date.parse(game.kickoffAt) <= Date.now() ? "LIVE" : "PREGAME";
+    }
+  });
   return {
     week,
     opponent: {
@@ -243,8 +239,8 @@ export async function getMatchupContext({
         ties: Number(opponent.roster.settings?.ties || 0)
       }
     },
-    myProjection: projected(mine.roster),
-    opponentProjection: projected(opponent.roster),
+    myProjection: projected(myRow),
+    opponentProjection: projected(opponentRow),
     currentScore: Number(myRow.points || 0),
     opponentCurrentScore: Number(opponentRow.points || 0),
     source: "Sleeper"
@@ -377,7 +373,7 @@ export async function getSchedule({ season = "2026", fetchImpl = fetch } = {}) {
   const team = code => NFLVERSE_TO_SLEEPER_TEAM[code] || code;
   const games = lines.map(line => line.split(","))
     .filter(cells => cells[at("season")] === String(season) && cells[at("game_type")] === "REG")
-    .map(cells => ({ week: Number(cells[at("week")]), away_team: team(cells[at("away_team")]), home_team: team(cells[at("home_team")]) }));
+    .map(cells => ({ week: Number(cells[at("week")]), away_team: team(cells[at("away_team")]), home_team: team(cells[at("home_team")]), kickoffAt: easternKickoffIso(cells[at("gameday")], cells[at("gametime")]), completed: cells[at("away_score")] !== "" && cells[at("home_score")] !== "" && Number.isFinite(Number(cells[at("away_score")])) && Number.isFinite(Number(cells[at("home_score")])), source: NFLVERSE_GAMES_URL }));
   scheduleCaches.set(fetchImpl, { at: Date.now(), season, games });
   return games;
 }
@@ -401,12 +397,19 @@ export async function getFreeAgents({
   position = null,
   limitPerPosition = 10,
   team = null,
-  forceRefreshInjuryStatuses = false
+  forceRefreshInjuryStatuses = false,
+  availabilityEvidenceById = null,
+  roleEvidenceById = null,
+  rosterPreferences = null,
+  evidencePath = process.env.DECISION_EVIDENCE_FILE,
+  asOf = null,
+  onDecisionInputs = null
 } = {}) {
   const { catalog } = await loadPlayerCatalog(catalogUrl);
   const catalogById = new Map((catalog.players || []).map(player => [player.sleeperId, player]));
-  const rosters = await sleeperGet(`/league/${leagueId}/rosters`, { fetchImpl });
-  const rosteredIds = new Set(rosters.flatMap(roster => roster.players || []));
+  let rosters = await sleeperGet(`/league/${leagueId}/rosters`, { fetchImpl });
+  let ownershipAsOf = new Date().toISOString();
+  let rosteredIds = new Set(rosters.flatMap(roster => roster.players || []));
 
   let week = 1;
   let nflState = {};
@@ -416,6 +419,42 @@ export async function getFreeAgents({
   } catch {}
   const season = nflState?.season || "2026";
   const lastCompletedWeek = resolveLastCompletedWeek(nflState);
+  const [storedEvidence, schedule] = await Promise.all([
+    loadDecisionEvidence({ path: evidencePath, leagueId, season, week }),
+    getSchedule({ season, fetchImpl }).catch(() => [])
+  ]);
+  availabilityEvidenceById ??= storedEvidence.availabilityById;
+  roleEvidenceById ??= storedEvidence.rolesById;
+  rosterPreferences ??= storedEvidence.rosterPreferences;
+  const transactionsByWeek = [];
+  for (let w = 1; w <= week; w++) {
+    try {
+      const transactions = await sleeperGet(`/league/${leagueId}/transactions/${w}`, { fetchImpl });
+      if (Array.isArray(transactions)) transactionsByWeek.push({ week: w, transactions });
+    } catch {}
+  }
+  const transactionsFetchedAt = new Date().toISOString();
+  let ownershipRechecked = false;
+  try {
+    rosters = await sleeperGet(`/league/${leagueId}/rosters`, { fetchImpl });
+    rosteredIds = new Set(rosters.flatMap(roster => roster.players || []).map(String));
+    ownershipAsOf = new Date().toISOString();
+    ownershipRechecked = true;
+  } catch {}
+  asOf ??= new Date().toISOString();
+  const allTransactions = transactionsByWeek.flatMap(batch => batch.transactions);
+  const latestTransactionAt = id => Math.max(0, ...allTransactions.filter(t => t.status === "complete" &&
+    (Object.hasOwn(t.adds || {}, id) || Object.hasOwn(t.drops || {}, id))).map(t => Number(t.status_updated ?? t.created) || 0));
+  const snapshotIssues = ["OWNERSHIP_AND_TRANSACTIONS_FETCHED_SEPARATELY", ...storedEvidence.issues];
+  if (!ownershipRechecked) snapshotIssues.push("OWNERSHIP_RECHECK_FAILED");
+  if (transactionsByWeek.length !== week) snapshotIssues.push("INCOMPLETE_TRANSACTIONS");
+  const kickoffFor = player => schedule.find(game => game.week === week && [game.away_team, game.home_team].includes(player.nflTeam));
+  const availabilityFor = player => {
+    const game = kickoffFor(player);
+    return resolveAcquisitionAvailability({ playerId: player.sleeperId, rosters,
+      evidence: availabilityEvidenceById[player.sleeperId], kickoffAt: game?.kickoffAt,
+      kickoffSource: game?.source, asOf, week, season, leagueId, latestTransactionAt: latestTransactionAt(player.sleeperId) });
+  };
 
   let index = new Map();
   try {
@@ -440,79 +479,8 @@ export async function getFreeAgents({
   const degraded = Object.keys(projectionsByWeek).length < expectedProjectionWeeks || !coverage.playersIndex ||
     statsByWeek.length < (lastCompletedWeek > 0 ? Math.min(3, lastCompletedWeek) : 0);
 
-  const seasonStart = Date.parse(nflState?.season_start_date || "2026-09-09");
-  const teamOf = (id, playedWeek) => {
-    const player = index.get(id);
-    const weekEnd = seasonStart + playedWeek * 7 * 24 * 3600 * 1000;
-    if (!player?.nflTeam || (Number.isFinite(player.teamChangedAt) && player.teamChangedAt > weekEnd && player.teamChangedAt > seasonStart)) return null;
-    return player.nflTeam;
-  };
-  const usageRows = buildPlayerWeeks(statsByWeek, { teamOf, positionOf: id => index.get(id)?.position });
-  const usageById = new Map(calculateUsageScores(usageRows).players.map(player => [player.playerId, player]));
-
-  const meta = id => index.get(id) || (catalogById.has(id) ? { id, name: catalogById.get(id).name, position: catalogById.get(id).position, nflTeam: catalogById.get(id).nflTeam, active: true } : null);
-  const rosDetailFor = (id, player) => usageAdjustedRosPpg({
-    playerId: id,
-    position: player?.position,
-    nflTeam: player?.nflTeam,
-    projectionsByWeek,
-    week,
-    xfp: usageById.get(id)?.xfp
-  });
-  const rosFor = (id, player) => rosDetailFor(id, player)?.ppg ?? computeRosPpg({ playerId: id, nflTeam: player?.nflTeam, projectionsByWeek, week });
-
-  // Pool : index Sleeper complet (ou catalogue en repli), postes fantasy, équipe NFL active.
-  // Le catalogue pré-draft ne sert de pool que si l'index Sleeper est indisponible.
-  const candidateIds = new Set(index.size ? index.keys() : catalogById.keys());
-  const byTeamPosition = new Map();
-  for (const id of candidateIds) {
-    const player = meta(id);
-    if (!player?.nflTeam || !FANTASY_POSITIONS.includes(player.position)) continue;
-    const key = `${player.nflTeam}:${player.position}`;
-    if (!byTeamPosition.has(key)) byTeamPosition.set(key, []);
-    byTeamPosition.get(key).push({ ...player, id, rosPpg: rosFor(id, player) });
-  }
-
-  const rows = [];
-  for (const id of candidateIds) {
-    if (rosteredIds.has(id)) continue;
-    const player = meta(id);
-    if (!player?.active || !player.nflTeam || !FANTASY_POSITIONS.includes(player.position)) continue;
-    // Jamais recommandé s'il ne peut pas jouer (IR/Out/Doubtful/PUP/Sus/NA), même sévérité que le Start/Sit.
-    if (SEVERITY_BY_STATUS[player.injuryStatus] === "ALERT") continue;
-    const catalogEntry = catalogById.get(id) || {};
-    // Repli étiqueté : sans couverture de projections futures, estimation par rang (ECR catalogue).
-    const rosDetail = rosDetailFor(id, player);
-    const projectedRos = rosDetail?.ppg ?? computeRosPpg({ playerId: id, nflTeam: player?.nflTeam, projectionsByWeek, week });
-    const rankFallback = projectedRos === null && Number.isFinite(catalogEntry.quality?.expertRank ?? catalogEntry.market?.sleeperAdp)
-      ? estimateBaselineProjectedPpg({ ...catalogEntry, projectedPpg: undefined, projection: undefined }) : null;
-    const rosPpg = projectedRos ?? rankFallback;
-    const signals = buildOpportunitySignals(id, statsByWeek);
-    const weekProjection = projectionsByWeek[week]?.[id]?.pts_ppr ?? null;
-    if (rosPpg === null && !signals.gamesPlayed) continue;
-    const teammates = byTeamPosition.get(`${player.nflTeam}:${player.position}`) || [];
-    const events = detectEvents({ player: { ...player, id, rosPpg }, teammates, signals });
-    // Last game counts as role evidence only if he actually had the role (≥ 60 % of the snaps).
-    const lastRolePoints = signals.last?.snapShare >= 0.6 ? signals.last.points : null;
-    const pace = effectivePpg({ rosPpg, weekProjection, recentPpg: signals.recentPpg, lastRolePoints, duration: events.duration, share: events.share, week });
-    rows.push({
-      ...catalogEntry,
-      sleeperId: id,
-      name: player.name,
-      position: player.position,
-      nflTeam: player.nflTeam,
-      injuryStatus: player.injuryStatus,
-      rosPpg,
-      rosSource: projectedRos !== null ? (rosDetail?.source || "SLEEPER_PROJECTIONS") : rankFallback !== null ? "RANK_ESTIMATE" : "NONE",
-      usageScore: usageById.get(id)?.usageScore ?? null,
-      usageSignal: usageById.get(id)?.signal ?? null,
-      xfp: usageById.get(id)?.xfp ?? null,
-      weekProjection: Number.isFinite(weekProjection) ? Number(weekProjection.toFixed(1)) : null,
-      effectivePpg: pace.effective,
-      signals,
-      events: { ...events, rolePpg: pace.rolePpg, roleWeeks: pace.roleWeeks }
-    });
-  }
+  const fetchedAtByPath = Object.fromEntries([...weeklyCaches.get(fetchImpl) || []].map(([path, entry]) => [path, new Date(entry.at).toISOString()]));
+  const { rows, usageById, rosFor, rosDetailFor, meta, provenanceFor } = extractDecisionFeatures({ index, catalog, rosters, nflState, projectionsByWeek, statsByWeek, fetchedAtByPath, roleEvidenceById, asOf, week, lastCompletedWeek, season, leagueId });
 
   const market = evaluateMarket({ rows, week });
   let users = [];
@@ -520,11 +488,13 @@ export async function getFreeAgents({
   let fitContext = null;
   if (team) {
     const { roster } = findRosterByTeam(rosters, users, team);
+    rosterPreferences = normalizeRosterPreferences(rosterPreferences, { asOf, rosterId: roster.roster_id }).filter(row => (roster.players || []).includes(row.playerId));
     const myPlayers = (roster.players || []).map(id => {
       const player = meta(id) || { name: `Player #${id}`, position: "FLEX" };
       const usage = usageById.get(id);
       return {
         ...(catalogById.get(id) || {}), ...player, sleeperId: id,
+        provenance: provenanceFor(id, player, rosDetailFor(id, player)?.source ?? "NONE"),
         projectedPpg: projectionsByWeek[week]?.[id]?.pts_ppr,
         injuryStatus: player.injuryStatus,
         usageScore: usage?.usageScore ?? null,
@@ -535,50 +505,28 @@ export async function getFreeAgents({
     const fallback = restOfSeasonEstimate(week);
     const paceOf = player => player.effectivePpg ?? rosFor(player.sleeperId, player) ?? fallback(player);
     const replacementByPosition = Object.fromEntries(FANTASY_POSITIONS.map(pos => [pos, market.find(row => row.position === pos)?.replacementPpg ?? 0]));
-    const protectedIds = new Set([...(roster.starters || []), ...(roster.reserve || [])].filter(id => id && id !== "0").map(String));
-    fitContext = { myPlayers, paceOf, protectedIds, replacementByPosition, faabRemaining: calculateFaabRemaining(GENERAL_SETTINGS_2026.waiver.budget, roster.settings?.waiver_budget_used) };
+    const protectedIds = new Set([...(roster.reserve || [])].filter(id => id && id !== "0").map(String));
+    const starterIds = new Set((roster.starters || []).map(String));
+    const lockedIds = new Set(myPlayers.filter(p => {
+      if (BYE_WEEKS_2026[p.nflTeam] === week) return false;
+      const kickoff = availabilityFor(p).kickoffAt;
+      return !kickoff || Date.parse(kickoff) <= Date.parse(asOf);
+    }).map(p => String(p.sleeperId)));
+    const occurrences = {};
+    const frozenSlots = Object.fromEntries((roster.starters || []).map((id, i) => {
+      const position = STARTER_SLOT_ORDER[i];
+      occurrences[position] = (occurrences[position] || 0) + 1;
+      const slot = ROSTER_SETTINGS_2026.starters[position] > 1 ? `${position}${occurrences[position]}` : position;
+      return [slot, id];
+    }).filter(([slot, id]) => slot && lockedIds.has(String(id))));
+    const weeklyPaceOf = (player, w) => BYE_WEEKS_2026[player.nflTeam] === w || SEVERITY_BY_STATUS[player.injuryStatus] === "ALERT" && w === week ? 0 : projectionsByWeek[w]?.[player.sleeperId]?.pts_ppr ?? null;
+    const projectionCovered = (player, w) => Number.isFinite(weeklyPaceOf(player, w));
+    const activeCount = myPlayers.filter(p => !protectedIds.has(String(p.sleeperId))).length;
+    const hasOpenRosterSlot = activeCount < STARTER_SLOT_ORDER.length + ROSTER_SETTINGS_2026.benchSlots;
+    fitContext = { rosterPreferences, myPlayers, paceOf, weeklyPaceOf, projectionCovered, frozenSlots, hasOpenRosterSlot, starterIds, lockedIds, protectedIds, replacementByPosition, faabRemaining: calculateFaabRemaining(GENERAL_SETTINGS_2026.waiver.budget, roster.settings?.waiver_budget_used) };
   }
 
-  const withWaiver = row => {
-    const fit = fitContext ? evaluateRosterFit({ marketRow: row, week, ...fitContext }) : null;
-    const positionWeight = ({ RB: 1.2, WR: 1.15, TE: 1, QB: 0.65, K: 0.45, DEF: 0.5 })[row.position] || 1;
-    const durationWeight = ({ SEASON_LONG: 1.2, BREAKOUT: 1.15, SHORT_2_4W: 0.9, RENTAL_1W: 0.65, UNCERTAIN: 0.75 })[row.events.duration] || 0.85;
-    const priorityScore = fit ? Math.round(Math.max(0, Math.min(100,
-      18 * Math.max(0, fit.netGainPerWeek) * positionWeight +
-      0.35 * row.marketScore * durationWeight * positionWeight
-    ))) : null;
-    const decision = classifyWaiverDecision({
-      position: row.position,
-      marketScore: row.marketScore,
-      flags: row.events.flags,
-      usageSignal: row.usageSignal,
-      netGain: fit?.netGainPerWeek || 0
-    });
-    return {
-      ...row,
-      waiver: {
-        score: row.marketScore,
-        category: row.category,
-        projectedPpg: row.weekProjection ?? row.rosPpg,
-        rosPpg: row.rosPpg,
-        rosSource: row.rosSource,
-        recentPpg: row.signals.recentPpg,
-        faabPct: row.faabPct,
-        faabMarket: row.faabMarket,
-        newsOverride: row.events.newsOverride,
-        flags: row.events.flags,
-        reasons: row.events.reasons,
-        duration: row.events.duration,
-        snapShare: row.signals.last?.snapShare ?? null,
-        opportunities: row.signals.last?.opportunities ?? null,
-        usageScore: row.usageScore,
-        usageSignal: row.usageSignal,
-        xfp: row.xfp,
-        decision,
-        ...(fit ? { fit: { ...fit, priorityScore } } : {})
-      }
-    };
-  };
+  const withWaiver = createWaiverEvaluator({ fitContext, week, availabilityFor, ownershipRechecked, transactionsComplete: transactionsByWeek.length === week });
 
   const normalizedPosition = position ? String(position).toUpperCase() : null;
   const byPosition = {};
@@ -592,10 +540,6 @@ export async function getFreeAgents({
   // Signaux de marché de la ligue (benchmark Fantasy Life, lot 1) : enchères gagnées + trending Sleeper.
   const rosterNameById = new Map(listRosterIdentities(rosters, users).map(({ roster, teamName }) => [String(roster.roster_id), teamName]));
   const rosterOfPlayer = new Map(rosters.flatMap(roster => (roster.players || []).map(id => [id, rosterNameById.get(String(roster.roster_id)) || null])));
-  const transactionsByWeek = [];
-  for (let w = 1; w <= week; w++) {
-    try { transactionsByWeek.push({ week: w, transactions: await cachedWeekly(`/league/${leagueId}/transactions/${w}`, fetchImpl) }); } catch {}
-  }
   const faabHistory = buildFaabHistory(transactionsByWeek, { playerMeta: meta, rosterName: rosterId => rosterNameById.get(String(rosterId)) || null });
   let trendingRaw = [];
   try { trendingRaw = await cachedWeekly("/players/nfl/trending/add?lookback_hours=48&limit=25", fetchImpl); } catch {}
@@ -607,7 +551,35 @@ export async function getFreeAgents({
     modelRowOf: id => marketById.has(id) ? withWaiver(marketById.get(id)) : null
   });
 
+  const acquisitionPlan = fitContext ? buildAcquisitionPlan({
+    candidates: Object.values(byPosition).flat(), myPlayers: fitContext.myPlayers,
+    faabRemaining: fitContext.faabRemaining,
+    rosterCapacity: STARTER_SLOT_ORDER.length + ROSTER_SETTINGS_2026.benchSlots + fitContext.protectedIds.size,
+    evaluateCandidate: withWaiver
+  }) : null;
+  if (onDecisionInputs) {
+    const evaluatedPlayers = [...market, ...(fitContext?.myPlayers || [])];
+    const paceById = Object.fromEntries(evaluatedPlayers.map(player => [player.sleeperId, fitContext?.paceOf(player) ?? null]));
+    const weeklyPaceById = Object.fromEntries(evaluatedPlayers.map(player => [player.sleeperId, Object.fromEntries(Array.from({ length: LAST_REGULAR_WEEK - week + 1 }, (_, i) => [week + i, fitContext?.weeklyPaceOf(player, week + i) ?? null]))]));
+    const { paceOf, weeklyPaceOf, projectionCovered, ...serialFit } = fitContext || {};
+    await onDecisionInputs(JSON.parse(JSON.stringify({ version: 2, featureExtractionVersion: 1, lastCompletedWeek, capturedAt: new Date().toISOString(), leagueId, season, week, asOf, team, position, limitPerPosition,
+      ownershipRechecked, transactionsComplete: transactionsByWeek.length === week,
+      marketRows: rows, availabilityById: Object.fromEntries(market.map(player => [player.sleeperId, availabilityFor(player)])),
+      fitContext: fitContext ? { ...serialFit, protectedIds: [...fitContext.protectedIds], lockedIds: [...fitContext.lockedIds], starterIds: [...fitContext.starterIds], paceById, weeklyPaceById } : null,
+      raw: { projectionsByWeek, statsByWeek, fetchedAtByPath, schedule, rosters, catalog, nflState, users, playersIndex: Object.fromEntries(index), availabilityEvidenceById, roleEvidenceById, allTransactions },
+      playerIndexFetchedAt: playersIndexCaches.get(fetchImpl)?.at ? new Date(playersIndexCaches.get(fetchImpl).at).toISOString() : null
+    })));
+  }
+  const transactionSummary = summarizeRecentTransactions(allTransactions, { asOf, relevantIds: new Set([...(fitContext?.myPlayers.map(row => row.sleeperId) || rosteredIds), ...market.map(row => row.sleeperId)]) });
   return {
+    rosterProvenance: (fitContext?.myPlayers || []).map(player => ({ playerId: player.sleeperId, provenance: player.provenance })),
+    playerIndexProvenance: { source: `${SLEEPER_API}/players/nfl`, fetchedAt: playersIndexCaches.get(fetchImpl)?.at ? new Date(playersIndexCaches.get(fetchImpl).at).toISOString() : null, fallback: index.size ? null : "CATALOG_FALLBACK" },
+    decisionScope: { leagueId, season, targetWeek: week, roster: team, asOf },
+    season, leagueId, provenanceVersion: 1, evaluatedCandidateCount: market.length, returnedCandidateCount: Object.values(byPosition).flat().length,
+    acquisitionPlan, rosterPreferences: fitContext?.rosterPreferences ?? [],
+    ...transactionSummary, availabilityAsOf: asOf, ownershipAsOf, transactionsFetchedAt, ownershipRechecked, snapshotSynchronized: false,
+    transactionCoverage: `${transactionsByWeek.length}/${week}`,
+    snapshotIssues,
     generatedAt: new Date().toISOString(), week, lastCompletedWeek, rankingModel: "WAIVER_V2", degraded, coverage,
     pricePerPoint: PRICE_PER_POINT, team: team || null, faabRemaining: fitContext?.faabRemaining ?? null, byPosition,
     faabHistory: faabHistory.slice(0, 30), faabByPosition: summarizeFaabByPosition(faabHistory), trending
@@ -615,10 +587,19 @@ export async function getFreeAgents({
 }
 
 /** Rend la liste de free agents en un bulletin texte, groupé par poste. */
-export function formatWaiverReport({ byPosition, week, faabRemaining = null, degraded = false, coverage = null }) {
+export function formatWaiverReport({ byPosition, week, faabRemaining = null, degraded = false, coverage = null, recentTransactions = [], transactionsTruncatedCount = 0, availabilityAsOf = null, snapshotIssues = [], acquisitionPlan = null, rosterPreferences = [] }) {
   const lines = [`📋 WAIVER WIRE REPORT — ADINEU${week ? ` (Semaine ${week})` : ""}`];
   if (Number.isFinite(faabRemaining)) lines.push(`FAAB restant : ${faabRemaining} $ / ${GENERAL_SETTINGS_2026.waiver.budget} $`);
   if (degraded) lines.push(`Couverture dégradée : projections ${coverage?.projectionWeeks || "n/d"}, usage ${coverage?.statsWeeks || "n/d"}.`);
+
+  lines.push(`Disponibilité au ${availabilityAsOf || "n/d"} · transactions 72 h : ${recentTransactions.length} (${transactionsTruncatedCount} non affichées).`, ...snapshotIssues);
+  if (recentTransactions.length) lines.push(JSON.stringify(recentTransactions));
+  lines.push("Scénarios alternatifs : une même coupe ne peut pas financer deux acquisitions.");
+  if (rosterPreferences.length) lines.push("Préférences temporaires :", JSON.stringify(rosterPreferences));
+  if (acquisitionPlan) {
+    lines.push(`Plan conditionnel : ${acquisitionPlan.steps.length} étape(s), ${acquisitionPlan.reservedFaab} $ réservés. Vérifier après chaque résultat ; suppose les succès précédents.`);
+    for (const step of acquisitionPlan.steps) lines.push(`${step.name} · coupe ${step.dropCandidate?.name || "place libre"} · ${step.suggestedBid} $ · budget après ${step.budgetAfter} $ · gain marginal ${step.netGainTotal} pts`);
+  }
 
   for (const pos of POSITION_ORDER) {
     const players = byPosition[pos] || [];
@@ -630,9 +611,10 @@ export function formatWaiverReport({ byPosition, week, faabRemaining = null, deg
       const note = player.adineu?.thesis ? ` — ${player.adineu.thesis}` : "";
       const waiver = player.waiver
         ? ` · ${player.waiver.category} · S${week} ${player.weekProjection ?? player.waiver.projectedPpg ?? "n/d"} · ROS ${player.waiver.rosPpg ?? "n/d"} · FAAB marché ${player.waiver.faabMarket?.join("–") || "n/d"} $` +
-          (player.waiver.decision ? ` · Action ${player.waiver.decision.recommendedAction} · Classe ${player.waiver.decision.decisionClass} · Immédiat ${player.waiver.decision.immediateValue} · Stratégique ${player.waiver.decision.strategicUpside}` : "") +
+          (player.waiver.decision ? ` · Disponibilité ${player.availability?.availability || "UNKNOWN"} · Action ${player.waiver.decision.recommendedAction} · Classe ${player.waiver.decision.decisionClass} · Immédiat ${player.waiver.decision.immediateValue} · Stratégique ${player.waiver.decision.strategicUpside}` : "") +
           (Number.isFinite(player.waiver.usageScore) ? ` · Usage ${player.waiver.usageScore}${player.waiver.usageSignal ? ` ${player.waiver.usageSignal}` : ""}` : "") +
-          (player.waiver.fit ? ` · Priorité ${player.waiver.fit.priorityScore} · Capture ${player.waiver.fit.fitScore}% · Gain net ${player.waiver.fit.netGainPerWeek} pts/sem · Coupe ${player.waiver.fit.dropCandidate?.name || "n/d"} (${player.waiver.fit.dropCostPerWeek} pts/sem) · Max ${player.waiver.fit.faabMaxForMe} $` : "") +
+          (player.waiver.fit ? ` · Priorité ${player.waiver.fit.priorityScore} · Capture ${player.waiver.fit.fitScore}% · Delta S${week} ${player.waiver.fit.targetWeekDelta ?? "n/d"} · Gain brut ${player.waiver.fit.grossGainTotal ?? "n/d"} sur ${player.waiver.fit.horizonWeeks} sem · Gain net total ${player.waiver.fit.netGainTotal ?? "n/d"} · Gain net moyen ROS ${player.waiver.fit.netGainPerWeek ?? "n/d"} pts/sem · Coupe ${player.waiver.fit.dropCandidate?.name || "n/d"} (${player.waiver.fit.dropCostPerWeek} pts/sem) · Max ${player.waiver.fit.faabMaxForMe} $` : "") +
+          ` · Enchère proposée ${player.waiver.suggestedBid ?? "n/d"} $ · % initial ${player.waiver.bidPctInitial ?? "n/d"} · % restant ${player.waiver.bidPctRemaining ?? "n/d"}` +
           (player.waiver.duration ? ` · Durée ${player.waiver.duration}` : "") +
           (player.waiver.newsOverride ? ` · ⚡ ${player.waiver.reasons.join(" ; ")}` : "")
         : "";
@@ -640,7 +622,7 @@ export function formatWaiverReport({ byPosition, week, faabRemaining = null, deg
     });
   }
 
-  if (lines.length === 1) lines.push("", "Aucun free agent disponible pour ce filtre.");
+  if (!Object.values(byPosition).some(players => players.length)) lines.push("", "Aucun free agent disponible pour ce filtre.");
 
   return lines.join("\n");
 }

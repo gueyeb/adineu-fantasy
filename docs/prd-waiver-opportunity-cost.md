@@ -1,5 +1,7 @@
 # PRD — Waiver Opportunity Cost (Trade Finder page)
 
+Statut : proposition historique, remplacée par le waiver v2 et le [contrat de fiabilité du backlog 04/10](decision-reliability-2026-10-04.md). Les assertions ci-dessous sur absence de caveat, pool, protection des titulaires et FAAB ne décrivent pas le code actuel. Aucune confirmation utilisateur n’est en attente.
+
 Roadmap source: `docs/product-roadmap.md` → "Trade Finder follow-up → Later: waiver opportunity
 cost, with verified FAAB settings and explicit incremental lineup gain. No synthetic acceptance
 percentage or invented usage statistics."
@@ -73,9 +75,9 @@ Single increment (this is composition of four already-shipped, already-tested pi
 modeling): a small `waiver-opportunity.js` pure module (free-agent pool builder + per-candidate
 lineup-delta scoring, unit tested) plus a "Waivers" view added to `trade-ui.js`.
 
-## Open question for you
+## Décisions actuelles
 
-None on the model itself — the free-agent-pool decision above is the only real fork, and I've
-made the call with the data to back it. The only thing I'd like confirmed: **cap of 40 candidates
-and "weakest positions only"** — reasonable default, but say if you'd rather see all positions or
-a different cap.
+Le pool provient de l'index Sleeper, avec repli catalogue étiqueté. La couverture est vérifiée,
+les titulaires du même poste peuvent être remplacés et les coupes verrouillées sont interdites.
+La limite par poste reste configurable ; le serveur fournit des estimations marché et un plafond
+personnel séparés. Voir le contrat de fiabilité lié en tête pour l'implémentation et les audits.

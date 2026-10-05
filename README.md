@@ -19,6 +19,7 @@ Trade Finder preferences (Listen, Keep, Shop, Untouchable) are saved per league,
 - `public/assets/matchups-live.js` — 2026 Game Center: current-week scores, pregame projections, schedule browser, a Récap Hebdo tab, lineup warnings, and Yahoo head-to-head context.
 - `public/assets/weekly-recap.js` — pure, tested: highest score, closest matchup, biggest upset vs. the pregame estimate, and bench points left for a completed week.
 - `public/assets/playoff-race.js` — pure, tested: current playoffs standings and games-back from the 8th seed, reusing Power Rankings' own win/loss/points-for math and activation gate.
+- `scripts/decision-evidence.js` — loads optional server-only, scoped and expiring availability/role observations (`DECISION_EVIDENCE_FILE`); see [decision reliability](docs/decision-reliability-2026-10-04.md) for temporary keep preferences and conditional multi-claim planning.
 - `scripts/league-context.js` — powers `/api/context` ("Copy AI Context" button) and `/api/free-agents` (Trade Hub's Waiver Wire tab).
 - `scripts/lineup-advisor.js` — powers `/api/lineup-advisor` (Trade Hub's Start/Sit Advisor tab): flags empty slots, injured starters, and bye weeks, suggests a bench or free-agent swap.
 - `public/data/yahoo-history.json` — season-scoped Yahoo archive: podiums, final standings, weekly highs and 2025 player leaders.
@@ -85,3 +86,25 @@ That is the intended API path, but it is **not the source of the current archive
 ## License
 
 Not decided yet — treat as "all rights reserved" until a license file is added.
+
+Pour archiver un rapport local et auditer ses recommandations hors réseau, utiliser
+`npm run decision:snapshot -- capture REPORT.json output/decision-snapshots/UNIQUE.json`,
+puis `npm run decision:snapshot -- replay SNAPSHOT.json ISO_CUTOFF`.
+Le replay est historique et non exécutable ; voir [le contrat](docs/decision-reliability-2026-10-04.md).
+
+Les snapshots de calcul V2 se collectent avec
+`npm run decision:snapshot -- collect TEAM output/decision-snapshots/UNIQUE.json`,
+puis se recalculent avec `npm run decision:snapshot -- recompute SNAPSHOT.json ISO_CUTOFF`.
+Ils conservent des inputs privés ; les nouvelles captures réextraient usage/xFP, ROS, événements et disponibilité hors réseau.
+
+Évaluation rétrospective locale :
+`npm run decision:evaluate -- SNAPSHOT.json OUTCOMES.json DECISION_CUTOFF EVALUATED_AT`.
+Les résultats sourcés restent séparés des inputs ; la commande ne modifie aucun paramètre.
+
+Journal local : `npm run decision:journal -- init SNAPSHOT.json output/decision-journals/UNIQUE ISO_CUTOFF`,
+puis `record DIR EVENT.json` ou `show DIR`. Recommandations, choix explicites et bilans restent distincts.
+Context/Coach réutilisent le moteur playoffs existant avec couverture et hypothèses.
+
+Avant ingestion WOPR : `npm run wopr:validate -- NUMERIC.json ISO_ASOF` ou
+`npm run wopr:compare -- LEFT.json RIGHT.json ISO_ASOF`. Métadonnées/univers/formule obligatoires ;
+voir [l’exemple fictif](docs/examples/wopr-evidence.fixture.json). Aucun WOPR n’est injecté automatiquement.

@@ -10,11 +10,16 @@ export function normalizeCoachPreferences(input = {}) {
 
 function compactWaiver(player) {
   return {
+    modelMetrics: player.modelMetrics ?? null,
     sleeperId: player.sleeperId, name: player.name, position: player.position, nflTeam: player.nflTeam,
     decisionClass: player.decisionClass, recommendedAction: player.recommendedAction,
     immediateValue: player.immediateValue, strategicUpside: player.strategicUpside,
+    availability: player.availability, roleConfirmation: player.roleConfirmation, horizonWeeks: player.horizonWeeks,
+    targetWeekDelta: player.targetWeekDelta, grossGainTotal: player.grossGainTotal, netGainTotal: player.netGainTotal,
+    weeklyLineupDeltas: player.weeklyLineupDeltas, coverageIssues: player.coverageIssues, suggestedBid: player.suggestedBid,
     netGain: player.netGain, lineupGain: player.lineupGain, dropCandidate: player.dropCandidate,
     dropCost: player.dropCost, faabMarket: player.faabMarket, maxForTeam: player.maxForTeam,
+    preferencePenaltyTotal: player.preferencePenaltyTotal, preferenceOverridden: player.preferenceOverridden, appliedPreference: player.appliedPreference,
     interpretation: player.interpretation, reasons: player.reasons || []
   };
 }
@@ -35,15 +40,21 @@ export function buildCoachPlan({ decisionContext, trades, preferences = {} }) {
     title: context.lineup?.alerts?.length ? "Sécuriser la lineup" : "Optimiser la lineup",
     detail: optimal?.gain > 0 ? `+${optimal.gain} pts projetés` : `${context.lineup.alerts.length} alerte(s)`
   });
-  if (waiverActions.ADD_NOW.length) priorities.push({ type: "WAIVERS", level: "URGENT", title: "Ajouter maintenant", detail: `${waiverActions.ADD_NOW.length} cible(s)` });
-  else if (waiverActions.CLAIM_IF_CHEAP.length) priorities.push({ type: "WAIVERS", level: "OPTION", title: "Enchérir seulement au bon prix", detail: `${waiverActions.CLAIM_IF_CHEAP.length} option(s)` });
+  const planSteps = context.acquisitionPlan?.steps;
+  const immediateCount = planSteps ? planSteps.filter(step => step.recommendedAction === "ADD_NOW").length : waiverActions.ADD_NOW.length;
+  const claimCount = planSteps ? planSteps.filter(step => step.recommendedAction === "CLAIM_IF_CHEAP").length : waiverActions.CLAIM_IF_CHEAP.length;
+  if (immediateCount) priorities.push({ type: "WAIVERS", level: "URGENT", title: "Ajouter maintenant", detail: `${immediateCount} étape(s) à vérifier` });
+  else if (claimCount) priorities.push({ type: "WAIVERS", level: "OPTION", title: "Enchérir seulement au bon prix", detail: `${claimCount} étape(s) conditionnelle(s)` });
   if (trade) priorities.push({ type: "TRADE", level: "OPTION", title: "Explorer un trade", detail: trade.partnerName });
   if (!priorities.length) priorities.push({ type: "HOLD", level: "OK", title: "Conserver le roster", detail: "Aucun gain net identifié" });
 
   return {
+    decisionScope: context.decisionScope ?? null,
     generatedAt: new Date().toISOString(), week: context.week, team: team.teamName, owner: team.owner, rosterId: team.rosterId,
     teamState: {
       record: team.record, rank: team.standingsRank, leagueTeams: context.league.teams, faab: team.faab,
+      playoffContext: context.strategyState?.playoffContext ?? null,
+      playoffProbability: context.strategyState?.playoffProbability ?? null,
       playoffUrgency: context.strategyState?.playoffUrgency || "UNKNOWN",
       faabPosture: context.strategyState?.faabPosture || "UNKNOWN",
       benchFlexibility: context.strategyState?.benchFlexibility || "UNKNOWN"
@@ -51,6 +62,11 @@ export function buildCoachPlan({ decisionContext, trades, preferences = {} }) {
     priorities,
     lineup: { alerts: context.lineup?.alerts || [], optimal },
     waiverActions,
+    acquisitionPlan: context.acquisitionPlan ?? null,
+    rosterPreferences: context.rosterPreferences ?? [],
+    scenariosAreAlternatives: true,
+    recentTransactions: context.recentTransactions ?? [],
+    snapshotIssues: context.snapshotIssues ?? [],
     watchlist: waiverActions.WATCH,
     cutCandidates: context.teamDiagnosis?.dropCandidates || [],
     tradeTarget: trade,
@@ -77,8 +93,14 @@ export function formatCoachPlan(plan) {
     const targets = plan.waiverActions[action];
     if (!targets.length) continue;
     lines.push("", action === "ADD_NOW" ? "🎯 WAIVERS — AJOUTER MAINTENANT" : "💸 WAIVERS — SEULEMENT AU BON PRIX");
-    targets.forEach(player => lines.push(`• ${player.name} (${player.position}) · gain net ${player.netGain} pt/sem · coupe ${player.dropCandidate?.name || "n/d"} · max ${player.maxForTeam ?? 0} $`));
+    targets.forEach(player => lines.push(`• ${player.name} (${player.position}) · gain net ${player.netGain} pt/sem sur le rôle · coupe ${player.dropCandidate?.name || "n/d"} · max ${player.maxForTeam ?? 0} $ · S${plan.week}: ${player.targetWeekDelta ?? "n/d"} pt · total net ${player.netGainTotal ?? "n/d"} pt / ${player.horizonWeeks ?? "n/d"} sem`));
   }
+  if (plan.acquisitionPlan?.steps.length) {
+    lines.push("", "PLAN CONDITIONNEL — VÉRIFIER APRÈS CHAQUE RÉSULTAT");
+    for (const step of plan.acquisitionPlan.steps) lines.push(`• ${step.name} · coupe ${step.dropCandidate?.name || "place libre"} · réserver ${step.suggestedBid} $ · budget après ${step.budgetAfter} $ · gain marginal ${step.netGainTotal} pts${step.preferenceOverridden ? ` · préférence temporaire dépassée (${step.preferencePenaltyTotal} points d’utilité)` : ""}${step.dependsOnPlayerIds.length ? ` · suppose les ajouts précédents (${step.dependsOnPlayerIds.join(", ")})` : ""}`);
+    lines.push(`Total réservé ${plan.acquisitionPlan.reservedFaab} $ ; aucune probabilité de gagner ni soumission automatique.`);
+  }
+  lines.push("Scénarios alternatifs : deux claims avec la même coupe ne peuvent pas être exécutés ensemble.");
   if (plan.watchlist.length) {
     lines.push("", "👀 WATCHLIST");
     plan.watchlist.forEach(player => lines.push(`• ${player.name} (${player.position}) · ${player.interpretation}`));

@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "isSynthetic": true,
+  "title": "Exemple fictif \u2014 WR Weeks 1\u20133 Min 15 Tgt",
+  "datasetId": "FICTION_ONLY",
+  "datasetVersion": "v1",
+  "lineageId": "FICTION_ONLY",
+  "source": "fixture://provider",
+  "numericSource": "fixture://numeric-json",
+  "sourceFormat": "JSON",
+  "fetchedAt": "2026-10-04T09:00:00Z",
+  "period": {
+    "season": 2026,
+    "weeks": [
+      1,
+      2,
+      3
+    ],
+    "dataThrough": "2026-09-29T12:00:00Z",
+    "includesLiveGames": false,
+    "seasonType": "REGULAR"
+  },
+  "definition": {
+    "id": "WOPR_1.5_TARGET_SHARE_0.7_AIR_YARDS_SHARE",
+    "aggregation": "RATIO_OF_PERIOD_TOTALS"
+  },
+  "units": {
+    "points": "PPR_PERIOD_TOTAL",
+    "shares": "RATIO",
+    "airYards": "YARDS"
+  },
+  "idNamespace": "SLEEPER",
+  "universe": {
+    "positions": [
+      "WR"
+    ],
+    "minimumTargets": 15,
+    "completenessConfirmed": true,
+    "expectedPlayerIds": [
+      "fixture-player"
+    ]
+  },
+  "reportedMeans": {
+    "pprPoints": 40,
+    "wopr": 0.44
+  },
+  "rows": [
+    {
+      "playerId": "fixture-player",
+      "position": "WR",
+      "targets": 20,
+      "teamTargets": 100,
+      "airYards": 200,
+      "teamAirYards": 1000,
+      "targetShare": 0.2,
+      "airYardsShare": 0.2,
+      "wopr": 0.44,
+      "pprPoints": 40,
+      "routes": null
+    }
+  ]
+}

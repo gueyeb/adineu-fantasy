@@ -796,6 +796,17 @@ td.num.negative { color: var(--red); font-weight: 800; }
 .tf-actions .filter-btn { flex: 1 1 120px; text-align: center; padding: 7px 10px; font-size: .75rem; min-height: 0; }
 @media (max-width: 580px) { .tf-sides { grid-template-columns: 1fr; } }
 
+/* Complete decision scenarios: keep bids visible on desktop; scroll within the table on mobile. */
+.waiver-scenarios table { table-layout: fixed; min-width: 960px; }
+.waiver-scenarios th, .waiver-scenarios td { padding: 12px 10px; white-space: normal; overflow-wrap: anywhere; vertical-align: top; }
+.waiver-scenarios td { font-size: .82rem; }
+.waiver-scenarios th:first-child { width: 24%; }
+.waiver-scenarios th:nth-child(2) { width: 7%; }
+.waiver-scenarios th:nth-child(3), .waiver-scenarios th:nth-child(4) { width: 8%; }
+.waiver-scenarios th:nth-child(5) { width: 14%; }
+.waiver-scenarios th:nth-child(6) { width: 17%; }
+.waiver-scenarios th:nth-child(7), .waiver-scenarios th:nth-child(8) { width: 11%; }
+
 /* Waiver Wire free-agent tables */
 .fa-pos { margin: 18px 0 6px; color: var(--grass); text-transform: uppercase; font-size: .9rem; }
 .fa-table table { font-size: .8rem; }

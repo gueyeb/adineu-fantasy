@@ -66,3 +66,11 @@ Fetch calendrier + projections + lineups, appel du moteur, affichage : probabili
 ## Ce qui ne change pas
 
 Playoff Race (`playoff-race.js`) reste inchangé et arithmétique — ce bloc s'ajoute à côté, jamais à la place. Aucun changement de schéma Supabase, aucune nouvelle dépendance npm, aucun nouvel endpoint serveur.
+
+## Extension locale du 05/10 — Context et Coach
+
+Le pont serveur réutilise le même moteur et une préparation de données désormais partagée avec
+le navigateur. Probabilité, couverture, date, paramètres et hypothèses sont exportés ; lineup ou
+calendrier incomplet bloque le calcul. Les projections historiques rechargées restent une limite,
+car elles ne sont pas certifiées pré-match. Playoff Race reste indépendante et arithmétique.
+Extension non déployée ; voir [le suivi](decision-reliability-2026-10-04.md).

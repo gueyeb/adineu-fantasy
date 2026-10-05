@@ -50,12 +50,12 @@ test("buildOpportunitySignals reads snaps/opportunities from Sleeper stats, not 
   assert.equal(signals.recentPpg, 9);
 });
 
-test("detectEvents: an Out starter ahead is a short promotion; a season-ending IR is season-long", () => {
+test("detectEvents: an Out starter ahead suggests a rental; ACL does not confirm season ending", () => {
   const player = { id: "b", position: "RB", searchRank: 150 };
   const out = detectEvents({ player, teammates: [{ id: "s", name: "Starter", position: "RB", injuryStatus: "Out", injuryBodyPart: "Thigh", searchRank: 27 }], signals: {} });
   assert.deepEqual([out.flags, out.duration], [["PROMOTION"], "RENTAL_1W"]);
   const acl = detectEvents({ player, teammates: [{ id: "s", name: "Starter", position: "RB", injuryStatus: "IR", injuryBodyPart: "Knee - ACL", searchRank: 8 }], signals: {} });
-  assert.equal(acl.duration, "SEASON_LONG");
+  assert.equal(acl.duration, "UNCERTAIN");
   assert.ok(acl.newsOverride);
   const behind = detectEvents({ player, teammates: [{ id: "s", position: "RB", injuryStatus: "IR", searchRank: 400 }], signals: {} });
   assert.equal(behind.newsOverride, false, "an injured player BEHIND him changes nothing");
@@ -67,13 +67,24 @@ test("detectEvents: QB carries+targets never count as a usage surge", () => {
   assert.deepEqual(detectEvents({ player: { id: "w", position: "WR" }, signals }).flags, ["USAGE_SURGE"]);
 });
 
-test("effectivePpg trusts a promotion more than an unexplained one-game spike", () => {
-  const args = { rosPpg: 6, weekProjection: 6, recentPpg: 8, lastRolePoints: 16, week: 4 };
-  assert.equal(effectivePpg({ ...args, duration: null }).effective, 6);
-  assert.equal(effectivePpg({ ...args, duration: "SEASON_LONG" }).effective, 13.5);
-  assert.equal(effectivePpg({ ...args, duration: "BREAKOUT" }).effective, 11);
-  assert.ok(effectivePpg({ ...args, duration: "RENTAL_1W" }).effective < 8);
-  assert.ok(effectivePpg({ ...args, duration: "SEASON_LONG", share: 0.5 }).effective < 13.5, "a committee shares the role");
+test("market pace does not turn a touchdown spike or inferred share into durable role value", () => {
+  const args = { rosPpg: 6, weekProjection: 6, recentPpg: 8, lastRolePoints: 40, week: 4 };
+  for (const duration of [null, "SEASON_LONG", "BREAKOUT", "RENTAL_1W", "UNCERTAIN"]) {
+    const result = effectivePpg({ ...args, duration, share: 0.5 });
+    assert.equal(result.effective, 6);
+    assert.equal(result.recentScoresUsed, false);
+    assert.equal(result.inferredShareUsed, false);
+    assert.equal(result.contingencyValue, null);
+  }
+});
+
+test("market pace values a rental projection only inside its explicit window", () => {
+  const result = effectivePpg({ rosPpg: 6, weekProjection: 17, recentPpg: 40, duration: "RENTAL_1W", week: 4 });
+  assert.equal(result.rolePpg, 17);
+  assert.equal(result.roleWeeks, 1);
+  assert.equal(effectivePpg({ rosPpg: 6, weekProjection: 17, duration: "RENTAL_1W", week: 4, confirmedRoleWeeks: 2 }).effective, 8);
+  assert.equal(result.effective, 7);
+  assert.equal(effectivePpg({ rosPpg: 6, weekProjection: 17, duration: "SEASON_LONG", week: 4 }).effective, 6);
 });
 
 test("market vs fit: a strong market add can be worth 0 $ to a roster where he never starts (Sadiq/McBride case)", () => {
@@ -116,10 +127,10 @@ test("roster fit prices the likely bench cut and reports net gain instead of tre
   });
 
   assert.equal(fit.dropCandidate.sleeperId, "cut");
-  assert.equal(fit.dropCostPerWeek, 1);
+  assert.equal(fit.dropCostPerWeek, 0, "lineup loss is accounted for by the complete transaction, not charged twice");
   assert.equal(fit.gainPerWeek, 1);
-  assert.equal(fit.netGainPerWeek, 0);
-  assert.equal(fit.faabMaxForMe, 0);
+  assert.equal(fit.netGainPerWeek, 1);
+  assert.ok(fit.faabMaxForMe > 0);
 });
 
 test("drop cost preserves a high-usage buy-low stash instead of treating every below-replacement bench player as free", () => {
@@ -135,13 +146,13 @@ test("drop cost preserves a high-usage buy-low stash instead of treating every b
   assert.ok(fit.dropCostPerWeek > 0, "even a below-replacement stash has non-zero option value");
 });
 
-test("a backup with a stale deep rank but ≥ 50 % of the snaps still inherits the role (Gordon case)", () => {
+test("a backup with a stale deep rank but ≥ 50 % of the snaps suggests an unconfirmed promotion (Gordon case)", () => {
   const starter = { id: "s", name: "Starter", position: "RB", injuryStatus: "IR", injuryBodyPart: "Knee - ACL", searchRank: 8 };
   const rival = { id: "r", position: "RB", searchRank: 150 };
   const gordon = { id: "g", position: "RB", searchRank: 466 };
   const signals = { last: { week: 3, snapShare: 0.84, opportunities: 20 }, prevSnapShare: 0.15, prevOpportunities: 2 };
   const event = detectEvents({ player: gordon, teammates: [starter, rival, gordon], signals });
   assert.ok(event.flags.includes("PROMOTION"));
-  assert.equal(event.duration, "SEASON_LONG");
+  assert.equal(event.duration, "UNCERTAIN");
   assert.equal(event.share, 1);
 });

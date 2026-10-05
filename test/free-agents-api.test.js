@@ -35,7 +35,7 @@ test("formatWaiverReport copies the live balance and dollar-based roster fit fac
   assert.match(text, /FAAB restant : 497 \$ \/ 1000 \$/);
   assert.match(text, /FAAB marché 80–120 \$/);
   assert.match(text, /Usage 78 BUY_LOW/);
-  assert.match(text, /Priorité 88 · Capture 82% · Gain net 2 pts\/sem · Coupe Bench \(0\.4 pts\/sem\) · Max 105 \$/);
+  assert.match(text, /Gain net moyen ROS 2 pts\/sem · Coupe Bench \(0\.4 pts\/sem\) · Max 105 \$/);
 });
 
 test("free-agents API returns JSON grouped by position with a text alias", async t => {
@@ -89,9 +89,10 @@ test("getFreeAgents v2: an injury ahead + a snap surge makes a deep backup a pri
   assert.ok(report.byPosition.RB.every(player => player.sleeperId !== "rostered" && player.sleeperId !== "star"));
   const backup = report.byPosition.RB[0];
   assert.equal(backup.sleeperId, "backup");
-  assert.equal(backup.waiver.duration, "SEASON_LONG");
+  assert.equal(backup.waiver.duration, "UNCERTAIN");
   assert.ok(backup.waiver.flags.includes("PROMOTION") && backup.waiver.flags.includes("SNAP_SURGE"));
-  assert.equal(backup.waiver.category, "PRIORITÉ");
+  assert.ok(["PRIORITÉ", "STREAMING", "STASH"].includes(backup.waiver.category));
+  assert.equal(backup.waiver.roleConfirmation, "UNCONFIRMED");
   assert.ok(backup.waiver.fit && Number.isFinite(backup.waiver.fit.fitScore));
   assert.ok(Number.isFinite(backup.waiver.fit.priorityScore));
   assert.ok(Number.isFinite(backup.waiver.fit.dropCostPerWeek));

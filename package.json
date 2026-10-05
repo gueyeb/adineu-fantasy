@@ -2,7 +2,7 @@
   "name": "adineu-fantasy",
   "version": "0.1.0",
   "private": false,
-  "description": "Public clubhouse and data pipeline for the Adineu NFL fantasy league (Yahoo 2019–2025 archive, Sleeper live sync).",
+  "description": "Public clubhouse and data pipeline for the Adineu NFL fantasy league (Yahoo 2019\u20132025 archive, Sleeper live sync).",
   "type": "module",
   "scripts": {
     "start": "node server.js",
@@ -20,7 +20,12 @@
     "assets:check": "node scripts/asset-versions.js --check",
     "track:weekly": "node scripts/model-tracking.js",
     "track:weekly:production": "node --env-file=.env.production scripts/model-tracking.js",
-    "advisor": "node scripts/lineup-advisor.js"
+    "advisor": "node scripts/lineup-advisor.js",
+    "decision:snapshot": "node scripts/decision-snapshot.js",
+    "decision:evaluate": "node scripts/decision-outcomes.js",
+    "decision:journal": "node scripts/decision-journal.js",
+    "wopr:validate": "node scripts/wopr-evidence.js validate",
+    "wopr:compare": "node scripts/wopr-evidence.js compare"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.0"

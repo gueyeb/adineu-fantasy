@@ -1,0 +1,22 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { createWaiverEvaluator } from '../scripts/waiver-evaluator.js';
+import { buildDecisionContext } from '../scripts/ai-context.js';
+import { buildCoachPlan } from '../scripts/coach-assistant.js';
+test('same roster, snapshot, player and horizon preserve canonical metrics across three tools',()=>{
+  const evaluate=createWaiverEvaluator({week:4,fitContext:{myPlayers:[{sleeperId:'old',name:'Old WR',position:'WR',nflTeam:'SEA',pace:7}],paceOf:p=>p.pace ?? p.effectivePpg,weeklyPaceOf:p=>p.pace ?? p.effectivePpg,projectionCovered:()=>true,replacementByPosition:{WR:5},faabRemaining:100,hasOpenRosterSlot:false},availabilityFor:()=>({availability:'FREE_AGENT',canAddNow:true,canStartTargetWeek:true}),ownershipRechecked:true,transactionsComplete:true});
+  const row=evaluate({sleeperId:'x',name:'Fixture WR',position:'WR',effectivePpg:12,surplusPoints:20,marketScore:75,faabMarket:[20,40],events:{roleWeeks:11,roleConfirmation:'NOT_APPLICABLE',flags:[],reasons:[]},signals:{recentPpg:10},usageScore:80});
+  const scope={leagueId:'fixture',season:'2026',targetWeek:4,roster:'t0z',asOf:'2026-10-04T10:00:00Z'};
+  const context={week:4,league:{teams:12,rosterSettings:{starters:{QB:1},benchSlots:6,reserveSlots:2}},myTeam:{owner:'t0z',rosterId:1,starters:[],bench:[],ir:[],record:{wins:1,losses:2}}};
+  const ai=buildDecisionContext({context,playerValues:{byId:new Map(),weeklyProjections:{}},statuses:new Map(),waivers:{decisionScope:scope,byPosition:{WR:[row]}}});
+  const coach=buildCoachPlan({decisionContext:ai,trades:{results:[]}});
+  const aiRow=Object.values(ai.waiverActions).flat().find(player=>player.sleeperId==='x');
+  const coachRow=Object.values(coach.waiverActions).flat().find(player=>player.sleeperId==='x');
+  assert.ok(row.modelMetrics.netGainTotal > 0);
+  assert.equal(row.waiver.decision.recommendedAction, 'ADD_NOW');
+  assert.ok(row.waiver.personalMaxBid > 0);
+  assert.equal(row.waiver.suggestedBid, 0, 'free-agent additions do not spend an auction budget');
+  assert.deepEqual(aiRow.modelMetrics,row.modelMetrics);
+  assert.deepEqual(coachRow.modelMetrics,row.modelMetrics);
+  assert.deepEqual(coach.decisionScope,scope);
+});

@@ -20,7 +20,7 @@ test("coach plan combines lineup, waiver and trade actions for one week", () => 
   });
   assert.equal(plan.week, 2);
   assert.deepEqual(plan.priorities.map(item => item.type), ["LINEUP", "WAIVERS", "TRADE"]);
-  assert.match(formatCoachPlan(plan), /gain net 2 pt\/sem · coupe Bench WR · max 105 \$/);
+  assert.match(formatCoachPlan(plan), /gain net 2 pt\/sem sur le rôle · coupe Bench WR · max 105 \$/);
   assert.match(formatCoachPlan(plan), /Bench RB à la place de Injured RB/);
 });
 

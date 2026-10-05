@@ -5,7 +5,7 @@
  */
 
 import { calculatePlayerTradeValue, calculatePlayerTradeProfile, evaluateTrade } from "./trade-value.js?v=c385666df3";
-import { diagnoseRoster, findTradeProposals, findCounterOffers } from "./trade-recommender.js?v=3459cd46f5";
+import { diagnoseRoster, findTradeProposals, findCounterOffers } from "./trade-recommender.js?v=d2789d533e";
 import { PLAYER_STATUSES, playerKey, playerStatus } from "./trade-preferences.js?v=c5fec5ce56";
 import {
   GENERAL_SETTINGS_2026,
@@ -15,7 +15,7 @@ import {
 import { resolveOperationalWeek } from "./nfl-week.js?v=8f9fa3f5b2";
 import { listRosterIdentities } from "./roster-view.js?v=120de9d74d";
 import { calculateFaabRemaining } from "./team-metrics.js?v=e47db97055";
-import { buildProjectedLineup, restOfSeasonEstimate } from "./trade-score.js?v=d8818dec51";
+import { buildProjectedLineup, restOfSeasonEstimate } from "./trade-score.js?v=eae8f8dc83";
 
 import { SLEEPER_API, SLEEPER_LEAGUE_ID, sleeperGet } from "./sleeper-client.js?v=3f75d48ec5";
 const SUPABASE_URL = "https://juosrzsffvjprqhdyado.supabase.co";
@@ -503,7 +503,7 @@ export async function renderTradesPage(container) {
       console.warn("Impossible de charger les free agents", e);
     }
     const opportunities = Object.values(report.byPosition || {}).flat()
-      .filter(player => player.waiver?.fit?.netGainPerWeek > 0.3)
+      .filter(player => player.waiver?.fit && (player.waiver.fit.netGainTotal > 0 || !player.waiver.fit.horizonCovered))
       .sort((a, b) => b.waiver.fit.priorityScore - a.waiver.fit.priorityScore || b.waiver.fit.netGainPerWeek - a.waiver.fit.netGainPerWeek)
       .slice(0, 10);
     const opportunityError = report.rankingModel ? null : "Calcul indisponible pour le moment.";
@@ -516,6 +516,10 @@ export async function renderTradesPage(container) {
     const faabRemaining = rawRoster ? calculateFaabRemaining(GENERAL_SETTINGS_2026.waiver.budget, rawRoster.settings?.waiver_budget_used) : null;
 
     const positionOrder = ["QB", "RB", "WR", "TE", "K", "DEF"];
+    const metric = value => Number.isFinite(value) ? String(value) : "n/d";
+    const signed = value => Number.isFinite(value) ? `${value >= 0 ? "+" : ""}${value}` : "n/d";
+    const date = value => value && Number.isFinite(typeof value === "number" ? value : Date.parse(value)) ? new Date(value).toLocaleString("fr-FR", { timeZone: "Europe/Paris", dateStyle: "short", timeStyle: "short" }) : "n/d";
+    const availabilityText = p => `${p.availability?.availability || "UNKNOWN"} · ${p.waiver?.decision?.recommendedAction || "WATCH"}`;
     const money = range => range && range[1] > 0 ? `${range[0]}–${range[1]} $` : "—";
     const usageCell = w => Number.isFinite(w.usageScore) ? `${w.usageScore}${w.usageSignal === "BUY_LOW" ? " 🟢" : w.usageSignal === "SELL_HIGH" ? " 🔥" : ""}` : "—";
     const positionCards = positionOrder
@@ -528,13 +532,13 @@ export async function renderTradesPage(container) {
             <colgroup><col class="fa-col-player"><col class="fa-col-cat"><col><col><col class="fa-col-money"><col><col class="fa-col-money"></colgroup>
             <thead><tr><th>Joueur</th><th>Catégorie</th><th class="num" title="Points par semaine attendus d'ici la S14 (rôle actuel inclus)">Pts/sem</th><th class="num">Usage</th><th class="num">FAAB marché</th><th class="num" title="Part du surplus marché captée par ta lineup">Capture</th><th class="num">Max pour toi</th></tr></thead>
             <tbody>${players.map(p => `<tr>
-              <td><strong>${escapeHtml(p.name)}</strong> <small>${escapeHtml(p.nflTeam || "FA")}${p.injuryStatus ? ` · ${escapeHtml(p.injuryStatus)}` : ""}</small>${p.waiver?.newsOverride ? `<br><small class="fa-news">⚡ ${escapeHtml(p.waiver.reasons.join(" · "))}</small>` : ""}</td>
+              <td><strong>${escapeHtml(p.name)}</strong> <small>${escapeHtml(p.nflTeam || "FA")}${p.injuryStatus ? ` · ${escapeHtml(p.injuryStatus)}` : ""}</small><br><small>${escapeHtml(availabilityText(p))}</small>${p.waiver?.newsOverride ? `<br><small class="fa-news">⚡ ${escapeHtml(p.waiver.reasons.join(" · "))}</small>` : ""}</td>
               <td>${escapeHtml(p.waiver?.category || "—")}</td>
               <td class="num" title="${escapeHtml({ SLEEPER_USAGE_BLEND: "Base : projections Sleeper + usage", RANK_ESTIMATE: "Base : estimation par rang", SLEEPER_PROJECTIONS: "Base : projections Sleeper" }[p.waiver?.rosSource] || "")}">${Number.isFinite(p.effectivePpg) ? p.effectivePpg : p.waiver?.rosPpg ?? "—"}${p.waiver?.rosSource === "RANK_ESTIMATE" ? "*" : ""}${Number.isFinite(p.effectivePpg) && Number.isFinite(p.waiver?.rosPpg) && Math.abs(p.effectivePpg - p.waiver.rosPpg) >= 0.5 ? `<br><small>ROS ${p.waiver.rosPpg}</small>` : ""}</td>
               <td class="num">${p.waiver ? usageCell(p.waiver) : "—"}</td>
               <td class="num">${money(p.waiver?.faabMarket)}</td>
               <td class="num">${p.waiver?.fit ? p.waiver.fit.fitScore : "—"}</td>
-              <td class="num"><strong>${p.waiver?.fit && p.waiver.fit.faabMaxForMe > 0 ? `${p.waiver.fit.faabMaxForMe} $` : "—"}</strong></td>
+              <td class="num"><strong>${Number.isFinite(p.waiver?.personalMaxBid) ? `${p.waiver.personalMaxBid} $` : "n/d"}</strong></td>
             </tr>`).join("")}</tbody>
           </table></div>`;
       })
@@ -560,27 +564,30 @@ export async function renderTradesPage(container) {
         </div>
 
         ${degradedNote ? `<div class="card" style="padding:12px 16px; margin-bottom:16px; border-left:4px solid var(--gold);">${escapeHtml(degradedNote)}</div>` : ""}
-        <h3 style="margin:0 0 6px; font-size:1.2rem;">Meilleurs adds pour ton équipe${currentWeek ? ` · Semaine ${currentWeek}` : ""}</h3>
-        <p class="note" style="margin:0 0 16px;">« Capture » = part du surplus marché qui atteint ta lineup, pas une note de fit. Le gain net retire désormais la valeur du joueur probablement coupé. « Max pour toi » tient compte de ce coût et reste plafonné par ton FAAB. Estimations Adineu, jamais une probabilité de gagner l'enchère.</p>
+        <details class="card" style="padding:12px 16px; margin-bottom:16px;"><summary>Transactions récentes · 72 h (${report.recentTransactions?.length || 0})</summary><p>Propriété relue après transactions : ${report.ownershipRechecked ? "oui" : "non"}. Snapshot non atomique. Disponibilité au ${escapeHtml(date(report.availabilityAsOf))}. ${report.transactionsTruncatedCount || 0} transaction(s) non affichée(s).</p>${(report.recentTransactions || []).map(t => `<p>${escapeHtml(date(Number(t.status_updated ?? t.created)))} · ${escapeHtml(t.status)} · ajouts ${escapeHtml(Object.keys(t.adds || {}).join(", ") || "—")} · coupes ${escapeHtml(Object.keys(t.drops || {}).join(", ") || "—")}${t.relevant ? " · touche le roster ou les candidats" : ""}</p>`).join("")}</details>
+        ${(report.rosterPreferences || []).length ? `<details class="card" style="padding:12px 16px; margin-bottom:16px;"><summary>Préférences temporaires (${report.rosterPreferences.length})</summary>${report.rosterPreferences.map(pref => `<p>${escapeHtml(pref.playerId)} · ${escapeHtml(pref.reason)} · jusqu’au ${escapeHtml(date(pref.expiresAt))} · pénalité de préférence ${pref.penaltyPoints} points d’utilité (pas des points fantasy)</p>`).join("")}</details>` : ""}
+        ${report.acquisitionPlan ? `<details class="card" style="padding:12px 16px; margin-bottom:16px;"><summary>Plan conditionnel d’acquisition (${report.acquisitionPlan.steps.length}) · ${report.acquisitionPlan.reservedFaab} $ réservés</summary><p>Gains recalculés après chaque ajout prévu. Suppose les succès précédents ; vérifier les résultats, le roster et les déblocages avant chaque action. Plan glouton, sans garantie d’optimalité ni de gagner une enchère.</p><ol>${report.acquisitionPlan.steps.map(step => `<li>${escapeHtml(step.name)} · coupe ${escapeHtml(step.dropCandidate?.name || "place libre")} · enchère ${step.suggestedBid} $ · budget après ${step.budgetAfter} $ · gain marginal ${step.netGainTotal} pts${step.preferenceOverridden ? ` · préférence temporaire dépassée (${step.preferencePenaltyTotal} points d’utilité)` : ""}</li>`).join("")}</ol>${report.acquisitionPlan.conflicts.length ? `<p>${report.acquisitionPlan.conflicts.length} conflit(s) de coupe entre les options individuelles ; le plan affecte des coupes distinctes.</p>` : ""}</details>` : ""}
+        <h3 style="margin:0 0 6px; font-size:1.2rem;">Scénarios ajout–coupe pour ton équipe${currentWeek ? ` · Semaine ${currentWeek}` : ""}</h3>
+        <p class="note" style="margin:0 0 16px;">« Capture » = part du surplus marché qui atteint ta lineup, pas une note de fit. Chaque scénario recalcule la lineup après ajout et coupe. Le gain net retire une estimation de la valeur d’option du banc sur le même horizon. « Max pour toi » tient compte de ce coût et reste plafonné par ton FAAB. Estimations Adineu, jamais une probabilité de gagner l'enchère. Les scénarios sont alternatifs : deux claims partageant une coupe ne peuvent pas être exécutés ensemble.</p>
         ${opportunityError ? `
           <div class="card" style="padding:20px; text-align:center; color:var(--muted); margin-bottom:28px;">${escapeHtml(opportunityError)}</div>
         ` : opportunities.length === 0 ? `
-          <div class="card" style="padding:20px; text-align:center; color:var(--muted); margin-bottom:28px;">Aucune opportunité claire cette semaine pour cette équipe.</div>
+          <div class="card" style="padding:20px; text-align:center; color:var(--muted); margin-bottom:28px;">Aucun scénario positif ou à compléter pour cette équipe.</div>
         ` : `
-          <div class="table-wrap" style="margin-bottom:28px;">
+          <div class="table-wrap waiver-scenarios" style="margin-bottom:28px;">
             <table>
-              <thead><tr><th>Joueur</th><th>Priorité</th><th>Gain brut</th><th>Coupe probable</th><th>Coût coupe</th><th>Gain net</th><th>FAAB marché</th><th>Max</th></tr></thead>
+              <thead><tr><th>Joueur</th><th>Priorité</th><th>Delta S${currentWeek || report.week}</th><th>Coupe</th><th>Horizon / coût option</th><th>Gain net total</th><th>FAAB marché estimé</th><th>Proposé / plafond</th></tr></thead>
               <tbody>
                 ${opportunities.map(p => `
                   <tr>
-                    <td>${escapeHtml(p.name)} <small style="color:var(--muted);">(${escapeHtml(p.position)}${p.nflTeam ? ` ${escapeHtml(p.nflTeam)}` : ""})</small>${p.waiver.newsOverride ? `<br><small style="color:var(--gold);">⚡ ${escapeHtml(p.waiver.reasons.join(" · "))}</small>` : ""}</td>
+                    <td>${escapeHtml(p.name)} <small style="color:var(--muted);">(${escapeHtml(p.position)}${p.nflTeam ? ` ${escapeHtml(p.nflTeam)}` : ""})</small><br><small>${escapeHtml(availabilityText(p))}</small><br><small>Kickoff ${escapeHtml(date(p.availability?.kickoffAt))} · waiver ${escapeHtml(date(p.availability?.waiverProcessesAt))}</small>${p.waiver.newsOverride ? `<br><small style="color:var(--gold);">⚡ ${escapeHtml(p.waiver.reasons.join(" · "))}</small>` : ""}</td>
                     <td>${p.waiver.fit.priorityScore}</td>
-                    <td>+${p.waiver.fit.gainPerWeek} pts/sem</td>
-                    <td>${escapeHtml(p.waiver.fit.dropCandidate?.name || "—")}</td>
-                    <td>−${p.waiver.fit.dropCostPerWeek} pts/sem</td>
-                    <td style="color:var(--grass); font-weight:700;">+${p.waiver.fit.netGainPerWeek} pts/sem</td>
+                    <td>${signed(p.waiver.fit.targetWeekDelta)} pts</td>
+                    <td>${escapeHtml(p.waiver.fit.dropCandidate?.name || "—")}${p.waiver.fit.preferenceOverridden ? `<br><small>Préférence dépassée : ${escapeHtml(p.waiver.fit.appliedPreference.reason)}</small>` : ""}</td>
+                    <td>${metric(p.waiver.fit.horizonWeeks)} sem<br><small>Option coupe : ${metric(p.waiver.fit.dropCostTotal)} pts estimés<br>Perte après rôle : ${metric(p.waiver.fit.postRoleCutCostTotal)} pts</small></td>
+                    <td style="font-weight:700;">${signed(p.waiver.fit.netGainTotal)} pts<br><small>Brut ${metric(p.waiver.fit.grossGainTotal)} · moyenne rôle ${metric(p.waiver.fit.netGainAverage)} pts/sem</small><details><summary>Détail par semaine</summary>${p.waiver.fit.weeklyLineupDeltas.map(row => `<div>S${row.week} : ${signed(row.delta)} pts · ${escapeHtml(row.slot || "banc")} ${row.covered ? "" : "· projection manquante"}</div>`).join("")}<p>${escapeHtml(p.waiver.fit.coverageIssues.join(" · "))}</p></details></td>
                     <td>${p.waiver.faabMarket[0]}–${p.waiver.faabMarket[1]} $</td>
-                    <td style="font-weight:700;">${p.waiver.fit.faabMaxForMe} $</td>
+                    <td style="font-weight:700;">${metric(p.waiver.suggestedBid)} $ / ${metric(p.waiver.personalMaxBid)} $<br><small>${metric(p.waiver.bidPctInitial)} % initial · ${metric(p.waiver.bidPctRemaining)} % restant</small></td>
                   </tr>
                 `).join("")}
               </tbody>
@@ -615,12 +622,12 @@ export async function renderTradesPage(container) {
 
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; margin-bottom:24px;">
           <div>
-            <h3 style="margin:0 0 4px; font-size:1.2rem;">Free Agents Disponibles${report.week ? ` · Semaine ${report.week}` : ""}</h3>
+            <h3 style="margin:0 0 4px; font-size:1.2rem;">Candidats hors roster${report.week ? ` · Semaine ${report.week}` : ""}</h3>
             <p style="margin:0; color:var(--muted); font-size:0.82rem;">Classés par valeur marché reste de saison : projections Sleeper sem. ${report.week || "?"}→14, usage réel (snaps, opportunités) et événements ⚡ (titulaire blessé devant, explosion d'usage).</p>
           </div>
           <button type="button" id="copy-waiver-btn" class="filter-btn" style="padding:8px 14px; font-size:0.75rem;">📋 Copier le rapport Waiver Wire</button>
         </div>
-        <p class="note" style="margin:0 0 8px;">Pts/sem = points attendus par semaine d'ici la S14, rôle actuel inclus (sous-ligne ROS = projection de base quand un événement ⚡ la modifie ; * = estimation par rang). Usage = Usage Score 0–100 (🟢 buy-low, 🔥 sell-high). Fit = part de la valeur qui passe dans <em>ta</em> lineup.</p>
+        <p class="note" style="margin:0 0 8px;">Pts/sem = points attendus par semaine d'ici la S14, rôle actuel inclus (sous-ligne ROS = projection de base quand un événement ⚡ la modifie ; * = estimation par rang). Usage = Usage Score 0–100 (🟢 buy-low, 🔥 sell-high), diagnostic de production vs xFP estimé : aucune consigne de coupe ni garantie de rebond. Disponibilité vérifiée séparément ; un joueur hors roster peut rester en waiver. Fit = part de la valeur qui passe dans <em>ta</em> lineup.</p>
         <div>
           ${positionCards || `<div class="card" style="padding:24px; text-align:center; color:var(--muted);">Aucun free agent trouvé.</div>`}
         </div>

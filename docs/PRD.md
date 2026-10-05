@@ -88,7 +88,7 @@ Onglets :
   - Contre-offres voisines, message de négociation copiable.
 - **Trade Calculator** : compare deux paquets de joueurs en valeur marché (0–100, rareté par
   poste, décote des paquets 2-pour-1). Ce n'est pas un gain de lineup.
-- **Waiver Wire (modèle v2, `docs/prd-waiver-model-v2.md`)** : Event → Opportunity → Roster Fit → FAAB.
+- **Waiver Wire (modèle v2, `docs/prd-waiver-model-v2.md`)** : Event → Opportunity → Roster Fit → FAAB. Le [contrat de fiabilité](decision-reliability-2026-10-04.md) ajoute propriété/transactions fraîches, preuves expirantes, kickoff, scénarios ajout–coupe et horizons explicites. Les actions non vérifiées sont bloquées. Les préférences de conservation datées et le plan conditionnel multi-claims sont séparés des options individuelles, avec coupes distinctes et budget réservé.
   Pool = tous les joueurs Sleeper non rostés. Valeur reste de saison (projections Sleeper semaines
   futures) + usage réel (snaps, carries + targets, red zone) + événements `NEWS_OVERRIDE`
   (titulaire blessé devant lui : PROMOTION, avec une durée qui dépend de la blessure ; SNAP/USAGE_SURGE).
@@ -216,3 +216,63 @@ mercredi 09:00 (Paris) ; lineups à fixer avant chaque match.
 - `docs/audit-product-architecture.md` : audit technique (+ suivi du 01/10 : dette résolue)
 - `docs/product-roadmap.md` : roadmap approuvée
 - `AGENTS.md` : règles du dépôt (identités, archive Yahoo, tests, sécurité)
+
+### Mise à jour du 05/10 — rythme marché (DEC-08)
+
+Le rythme marché historique fondé sur `max(ROS, projection, points récents)`, les poids
+75/50 %, le partage inféré et le bonus de contingence est remplacé par
+`PROJECTION_WINDOW_V1`. ROS reste la base ; une projection cible temporaire est limitée
+à la fenêtre de rôle. Un match exceptionnel ne devient plus un rythme durable. Méthode
+et limites sont exportées ; calibration FAAB et provenance complète restent ouvertes.
+Voir [le contrat et les validations](decision-reliability-2026-10-04.md).
+
+### 05/10 — provenance et archive locale des décisions
+
+Couverture par joueur/semaine et dates réelles de chargement exportées ; diagnostics xFP
+sur fenêtre commune et unité de trend corrigée. CLI `decision:snapshot` : archive privée
+immutable et relecture hors réseau avec cutoff, intégrité et audit opérationnel. Livré en
+local uniquement. Replay des calculs sur inputs bruts, historique réel et calibration restent
+ouverts. Voir [le contrat détaillé](decision-reliability-2026-10-04.md).
+
+### 05/10 — snapshots de calcul V2
+
+Collecte locale des inputs et empreinte du modèle, puis recalcul hors réseau du marché,
+fit, actions et plan avec le même évaluateur que le live. Test de reproduction exacte et
+parcours fichier→CLI validés. L’extraction initiale des features reste figée ; historique réel,
+backtests complets et calibration restent ouverts. Aucun déploiement.
+Voir [le contrat V2](decision-reliability-2026-10-04.md).
+
+### 05/10 — replay des features raccordé
+
+Les nouveaux inputs V2 réextraient usage/xFP, ROS, événements et disponibilité depuis les
+sources archivées, puis reconstruisent roster, contraintes et budget. Même extraction que
+le live, sans réseau, tests de reproduction et de variations source. La limite d’extraction
+figée de la première livraison V2 est levée pour ces nouvelles captures. Historique réel,
+mesure des résultats et calibration restent ouverts. Aucun déploiement.
+Voir [le contrat](decision-reliability-2026-10-04.md).
+
+### 05/10 — évaluation des résultats et début de l’historique local
+
+CLI `decision:evaluate` : résultats indépendants, erreurs de projections par horizon,
+contrôles opérationnels et fourchettes FAAB versus gagnants par poste/durée. Rejet des
+observations futures/partielles et des conflits ; aucune calibration automatique ni probabilité
+inférée des seuls gagnants. Première capture locale réelle t0z le 05/10 à 08:00:19 UTC,
+reproduction exacte hors réseau. Observation du lundi, jamais assimilée à du pré-match dimanche.
+Collecte multi-semaines et résultats sourcés restent à constituer. Aucun déploiement.
+Voir [le contrat](decision-reliability-2026-10-04.md).
+
+### 05/10 — retour complémentaire intégré localement
+
+Moteur Monte Carlo existant réutilisé dans Context/Coach avec couverture/hypothèses ; préparation
+partagée avec les pages, Playoff Race toujours arithmétique. Métriques waiver canoniques et test
+d’invariant entre outils. Journal immutable des recommandations, choix explicites et bilans 2/4
+semaines ; WATCH/IGNORE suivis également. Journal initial de 60 recommandations sans choix inventé.
+Voir [le contrat et ses limites](decision-reliability-2026-10-04.md). Aucun déploiement.
+
+### 05/10 — WOPR numérique : validation préalable
+
+CLI de validation et comparaison de sources numériques versionnées : période, univers/IDs,
+unités, volumes absolus, formule, moyennes et lineage. Contradictions bloquées, routes manquantes
+nulles, aucune probabilité de rebond. Garde prêt ; ingestion réelle attend les fichiers numériques
+des graphiques et leur univers confirmé. Exemple fictif dans docs/examples, aucun changement
+de paramètres ou déploiement. Voir [le contrat](decision-reliability-2026-10-04.md).

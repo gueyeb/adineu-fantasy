@@ -58,18 +58,20 @@ export function restOfSeasonEstimate(week) {
 }
 
 /** Optimal lineup from a pool. An empty slot is a real 0 (it scores nothing), not missing data. */
-export function buildProjectedLineup(players = [], { estimate = weeklyEstimate } = {}) {
+export function buildProjectedLineup(players = [], { estimate = weeklyEstimate, fixedSlots = {} } = {}) {
   const pool = [...new Map(players.map(player => [identity(player), player])).values()];
   const value = new Map(pool.map(player => [identity(player), estimate(player)]));
   const used = new Set();
+  const reserved = new Set(Object.values(fixedSlots).map(String));
   const slots = [];
   for (const [position, count] of Object.entries(ROSTER_SETTINGS_2026.starters)) {
-    const candidates = pool.filter(player => !used.has(identity(player)) && (position === "FLEX"
+    const candidates = pool.filter(player => !used.has(identity(player)) && !reserved.has(identity(player)) && (position === "FLEX"
       ? ["RB", "WR", "TE"].includes(player.position)
       : player.position === position)).sort((a, b) =>
       value.get(identity(b)) - value.get(identity(a)) || identity(a).localeCompare(identity(b)));
     for (let i = 0; i < count; i++) {
-      const player = candidates[i];
+      const slotName = count > 1 ? `${position}${i + 1}` : position;
+      const player = fixedSlots[slotName] ? pool.find(p => identity(p) === String(fixedSlots[slotName])) : candidates.shift();
       if (player) used.add(identity(player));
       slots.push({ slot: count > 1 ? `${position}${i + 1}` : position, name: player?.name || "Slot vide", sleeperId: player ? identity(player) : null, projectedPpg: player ? value.get(identity(player)) : 0, empty: !player });
     }

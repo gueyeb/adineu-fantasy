@@ -3,12 +3,20 @@
 Statut : validé pour implémentation, 29/09/2026. Origine : retour « ALGO FEEDBACK » (ChatGPT,
 post-semaine 3), vérifié sur les données Sleeper.
 
+## Mise à jour fiabilité — backlog du 04/10/2026
+
+Le [contrat de fiabilité](decision-reliability-2026-10-04.md) définit désormais la disponibilité,
+les preuves serveur expirantes, les transactions complètes, les horizons et les actions. Les
+exemples datés ci-dessous sont des observations de l’ancien export, pas des annonces NFL actuelles.
+Les formules historiques de marché restent à calibrer ; la durée IR/ACL et les promotions ne
+constituent plus des faits confirmés.
+
 ## Problème (constaté semaine 4)
 
 | Joueur | Sortie v1 | Référence (Footballguys) | Ce que l'algo ignorait |
 |---|---|---|---|
 | Braelon Allen (NYJ RB) | STREAMING 3–7 % | 10–20 % | Breece Hall **Out** (cuisse), Allen RB2 au depth chart |
-| Ollie Gordon (MIA RB) | PROFONDEUR 0–1 % | 10–20 % | Achane **IR, ACL** (saison finie) ; Gordon 61/73 snaps (84 %), 17 courses en S3 |
+| Ollie Gordon (MIA RB) | PROFONDEUR 0–1 % | 10–20 % | Achane **IR, ACL** (ancien export : fin de saison supposée, non confirmée ici) ; Gordon 61/73 snaps (84 %), 17 courses en S3 |
 | Keenan Allen (IND WR) | STASH 1–3 % | 20–40 % | 9 targets, 52/71 snaps en S3 (vs 5 targets en S2) |
 
 Et à l'inverse : 4 QB en tête « PRIORITÉ » alors qu'on joue en 1QB avec 6 places de banc.
@@ -58,9 +66,9 @@ depuis le rôle (§4). Les tiers périmés sont ignorés pour lui.
 | Classe | Déclencheur | Semaines valorisées |
 |---|---|---|
 | `RENTAL_1W` | titulaire Out, non IR | 1 |
-| `UNCERTAIN` | titulaire Doubtful / Questionable | 1 (demi-poids) |
-| `SHORT_2_4W` | titulaire IR / PUP | 3 |
-| `SEASON_LONG` | titulaire IR avec blessure de fin de saison (ACL, Achilles…) ou statut « season » | toutes les restantes |
+| `UNCERTAIN` | titulaire Doubtful / IR / PUP / Sus, retour non confirmé | 1, scénario conditionnel |
+| `SHORT_2_4W` | durée de rôle explicitement sourcée | fenêtre sourcée, pas déduite de IR |
+| `SEASON_LONG` | fin de saison explicitement confirmée | toutes les restantes |
 | `BREAKOUT` | SNAP/USAGE_SURGE sans blessure devant lui | restantes, confiance moyenne |
 
 Rythme dans le rôle : `rolePpg = ros + confiance × (preuve − ros)`, où `preuve = max(ros, projection
@@ -69,8 +77,7 @@ Confiance 75 % pour une promotion expliquée par une blessure, 50 % pour un BREA
 (un seul match est un signal, pas une certitude). Hors du rôle : `rosPpg`, plus 10 % du surplus
 de rôle en valeur de menotte (contingence) une fois le titulaire revenu.
 
-Qui était titulaire avant la news : **rang Sleeper (`search_rank`)**, pas le depth chart, que
-Sleeper met à jour *après* la blessure (Braelon Allen y est déjà RB1 devant Hall).
+Le rang Sleeper/depth chart servent uniquement à repérer un événement potentiel. Ils ne prouvent pas la titularisation du successeur. La confirmation est datée, sourcée et expirante ; le scénario de lineup utilise les projections de chaque semaine, et non le rythme maximal ci-dessus.
 
 ### 5. Fit de ligue (Adineu 2026)
 - Valeur = points **au-dessus du remplacement** : `replacement[pos]` = moyenne `rosPpg` des 3–5
@@ -90,17 +97,22 @@ Sleeper met à jour *après* la blessure (Braelon Allen y est déjà RB1 devant 
   (Vele 301 $, Kyler 181 $, Kamara 176 $, Pitts 122 $). À recalibrer automatiquement quand il y aura
   assez d'enchères (`/transactions/{week}`, `waiver_bid`) rapprochées du surplus prédit ce jour-là.
 
-### 7. Fit roster (par équipe)
-- `lineupGain` = gain de lineup optimale ROS si on ajoute le joueur (moteur `buildProjectedLineup`
-  + `restOfSeasonEstimate` du Trade Finder, un seul moteur pour tout le site).
-- `fitScore` (0–100), affiché **Capture**, = part du surplus marché qui passe réellement dans **ta** lineup. Ce n'est pas une note globale de fit.
-  v2 : la **redondance** est couverte par construction (un TE derrière McBride n'entre jamais en
-  lineup optimale, donc fit = 0).
-- **v2.1 livré** : `dropCandidate` est le joueur de banc non-IR/non-titulaire au plus faible coût marginal. `dropCostPerWeek` additionne son surplus au-dessus du remplacement et sa valeur d'option (Usage Score, BUY_LOW, projection court terme) ; `netGainPerWeek = lineupGain − dropCost`. Un stash sous le remplacement n'est donc plus considéré automatiquement gratuit.
-- Le modèle expose aussi les trois meilleures coupes possibles avec valeur immédiate, valeur d'option, Usage Score, bye et risque de regret. L'export IA ne présente donc plus une coupe unique comme une certitude.
-- `priorityScore` combine gain net, rareté du poste, durée de l'opportunité et Market Score. Les QB/K/DEF sont décotés dans cette ligue 1QB afin qu'un petit streaming upgrade ne masque pas un stash RB/WR asymétrique.
-- **v2.2 livré** : le classement brut est traduit en décision. `ImmediateValue` mesure le gain net propre au roster, `StrategicUpside` le potentiel de marché/usage, et `DecisionClass` distingue `STARTER_UPGRADE`, `STREAMER`, `UPSIDE_STASH`, `HANDCUFF`, `INJURY_PROMOTION`, `BREAKOUT` et `NO_ACTION`. `RecommendedAction` vaut `ADD_NOW`, `CLAIM_IF_CHEAP`, `WATCH` ou `IGNORE`. Un fort potentiel avec gain net négatif devient explicitement `WATCH`, jamais une recommandation d'achat implicite.
-- **Max pour moi** = `FAAB marché × Capture × part du gain restant après coût de coupe`, plafonné par le FAAB restant, avec un plancher à 0 $ si le gain net est nul.
+### 7. Fit roster et action (contrat actuel)
+
+- Simuler chaque transaction ajout + coupe ; inclure les titulaires remplaçables au même poste,
+  protéger IR/slots verrouillés, éviter une coupe lorsque le roster actif a une place libre.
+- Comparer les meilleures lineups sur chaque semaine du rôle. Produire delta cible, slots,
+  horizon, gains bruts/net totaux et moyennes explicites. Couverture insuffisante : total `null`.
+- La production perdue après coupe est déjà dans ce calcul ; seule la prime d'option estimée
+  est soustraite séparément, sur le même horizon. Pas de double comptage de cette production.
+- Capture = part du surplus marché dans la lineup, jamais probabilité d'enchère gagnante.
+- Détecter les événements ne confirme pas une promotion. Availability, kickoff et déblocage
+  doivent être vérifiés avant `ADD_NOW`/`CLAIM_IF_CHEAP`.
+- Les préférences datées affectent l’utilité, sans modifier le gain fantasy. Le plan multi-claims recalcule roster, coupes distinctes et budget après chaque ajout hypothétique.
+- Le plafond personnel est borné par FAAB restant, marché et utilité nette totale × 3 $ ; enchère
+  proposée distincte, zéro si scénario conditionnel. Les scénarios de claims sont alternatifs.
+
+Voir [champs, configuration et limites](decision-reliability-2026-10-04.md).
 
 ## Boucle de feedback (ALGO FEEDBACK)
 Chaque retour externe suit ce format et doit devenir une règle ou un test, jamais une
@@ -111,10 +123,10 @@ Player / Current output / Expected / Cause / Proposed rule
 ```
 Les cas Braelon, Gordon, Keenan, Sadiq deviennent des tests de non-régression.
 
-## Résultat v2 sur les données du 29/09 (semaine 4)
+## Résultat historique v2 sur les données du 29/09 (non représentatif du contrat actuel)
 | Joueur | v1 | v2 marché | Footballguys | Commentaire |
 |---|---|---|---|---|
-| Ollie Gordon | 0–1 % | 17–29 % PRIORITÉ, fit Boukki 20 (max 58 $) | 10–20 % | Achane IR (ACL) + 84 % des snaps : SEASON_LONG |
+| Ollie Gordon | 0–1 % | 17–29 % PRIORITÉ, fit Boukki 20 (max 58 $) | 10–20 % | Ancienne hypothèse SEASON_LONG sur IR/ACL ; désormais non confirmée |
 | Wan'Dale Robinson | 3–7 % | 14–24 % PRIORITÉ | — | 11 targets en S3 : BREAKOUT |
 | Kenyon Sadiq | 1–3 % | 4–7 %, **fit Boukki 0** | — | McBride titulaire, pas de bonus TE |
 | Keenan Allen | 1–3 % | 3–5 % | 20–40 % | Pierce IR, mais Sleeper le projette à 6,8 pts ROS |
@@ -133,8 +145,8 @@ C'est la prochaine cible (modèle de projection Adineu, Phase 1), à alimenter p
 ## Cas limites
 - Le titulaire revient (statut effacé) : l'événement disparaît automatiquement au calcul suivant.
 - Comité (deux remplaçants de rang proche, ≤ 1,5× le rang du premier) : promotion partagée à 50 %.
-  Exception : un joueur qui a pris ≥ 50 % des snaps au dernier match hérite du rôle en entier,
-  quel que soit son rang (le rang Sleeper des remplaçants est souvent périmé : Gordon est 466e).
+  Ancienne heuristique de marché : un joueur qui a pris ≥ 50 % des snaps est valorisé au rôle entier,
+  quel que soit son rang. Cette hypothèse reste à auditer et ne confirme pas une succession.
 - Projections futures partielles : `rosPpg` n'est calculé que si le joueur est projeté sur au moins
   la moitié des semaines chargées ; sinon repli sur le rang (`rosSource: RANK_ESTIMATE`, affiché
   « (rang) »). Si des semaines, des stats ou l'index ne chargent pas, la réponse porte
@@ -142,9 +154,22 @@ C'est la prochaine cible (modèle de projection Adineu, Phase 1), à alimenter p
 - Fourchette FAAB toujours plafonnée au budget (1 000 $ / 100 %).
 - Le depth chart Sleeper peut être en retard sur la réalité : le SNAP_SURGE sert de second signal.
 - Semaine 1 : pas d'historique de stats, donc pas de surge (seulement les promotions).
-- Joueur coupé après avoir été réclamé : aucun traitement spécial, on repart des données actuelles.
+- Joueur coupé : propriété et transactions relues ; disponibilité UNKNOWN tant que le déblocage n’est pas confirmé.
 
 ## Hors scope v2
 - Actualités textuelles (commentaires des coachs) : pas de source gratuite structurée. Ce
   signal reste manuel, via la boucle de feedback.
 - Routes / first reads : voir `prd-adineu-projection-model.md`.
+
+### Mise à jour du 05/10 — rythme marché (DEC-08)
+
+Le rythme marché historique fondé sur `max(ROS, projection, points récents)`, les poids
+75/50 %, le partage inféré et le bonus de contingence est remplacé par
+`PROJECTION_WINDOW_V1`. ROS reste la base ; une projection cible temporaire est limitée
+à la fenêtre de rôle. Un match exceptionnel ne devient plus un rythme durable. Méthode
+et limites sont exportées ; calibration FAAB et provenance complète restent ouvertes.
+Voir [le contrat et les validations](decision-reliability-2026-10-04.md).
+
+### Coût opérationnel des actions — 5 octobre 2026
+
+`ADD_NOW` sur un agent libre vérifié a une enchère proposée de zéro : il ne consomme pas le FAAB. Le plafond personnel reste une estimation distincte de volonté de payer. Seul `CLAIM_IF_CHEAP` propose une enchère réservée dans le plan conditionnel. Un plan refuse un `ADD_NOW` portant un coût d’enchère non nul.

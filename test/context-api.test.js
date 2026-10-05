@@ -121,7 +121,7 @@ test("getMatchupContext resolves the opponent and reports projection coverage wi
         { user_id: "u2", display_name: "rival", metadata: { team_name: "Binaries" } }
       ];
       if (url.endsWith("/matchups/4")) return [
-        { roster_id: 1, matchup_id: 3, points: 0 }, { roster_id: 2, matchup_id: 3, points: 0 }
+        { roster_id: 1, matchup_id: 3, points: 0, starters: ["p1", "p2"] }, { roster_id: 2, matchup_id: 3, points: 0, starters: ["p3", "p4"] }
       ];
       if (url.includes("/projections/nfl/regular/2026/4")) return { p1: { pts_ppr: 20 }, p2: { pts_ppr: 10 }, p3: { pts_ppr: 18 } };
       return {};
@@ -129,8 +129,11 @@ test("getMatchupContext resolves the opponent and reports projection coverage wi
   });
   const matchup = await getMatchupContext({ team: "t0z", week: 4, fetchImpl });
   assert.equal(matchup.opponent.teamName, "Binaries");
-  assert.deepEqual(matchup.myProjection, { total: 30, coverage: "2/2" });
-  assert.deepEqual(matchup.opponentProjection, { total: 18, coverage: "1/2" });
+  assert.equal(matchup.myProjection.total, 30);
+  assert.equal(matchup.myProjection.coverage, "2/9");
+  assert.equal(matchup.myProjection.emptySlots, 7);
+  assert.equal(matchup.opponentProjection.coverage, "1/9");
+  assert.equal(matchup.opponentProjection.missingProjections, 1);
   assert.equal(matchup.winProbability, undefined);
 });
 
@@ -185,4 +188,21 @@ test("getLeagueContext fails explicitly when the requested Sleeper team is absen
     getLeagueContext({ team: "personne", fetchImpl, catalogUrl }),
     /Équipe Sleeper inconnue : personne/
   );
+});
+
+
+test("context and Coach preserve existing playoff output and degrade independently on source failure", async t => {
+  let fail=false;
+  const odds={ready:true,model:'ADINEU_EXISTING_MONTE_CARLO',probability:0.42,coveragePct:88,seed:1,modelDate:'2026-10-04T10:00:00Z',assumptions:['CURRENT_LINEUPS_FROZEN']};
+  const server=createAppServer({getContext:async()=>sampleContext,getPlayoffContext:async()=>{if(fail)throw Error('fixture source failure');return odds;},getPlayerValues:async()=>({byId:new Map(),weeklyProjections:{}}),getInjuryStatuses:async()=>new Map(),getFreeAgents:async()=>({byPosition:{}}),getMatchupContext:async()=>null,analyze:async()=>({results:[]}),coachToken:'fixture-token'});
+  server.listen(0,'127.0.0.1');await once(server,'listening');t.after(()=>server.close());
+  const base=`http://127.0.0.1:${server.address().port}`;
+  const context=await (await fetch(`${base}/api/context?team=t0z&mode=decision`)).json();
+  const coach=await (await fetch(`${base}/api/coach?team=t0z`,{headers:{authorization:'Bearer fixture-token'}})).json();
+  assert.equal(context.strategyState.playoffProbability,0.42);
+  assert.deepEqual(coach.teamState.playoffContext,odds);
+  fail=true;
+  const degraded=await (await fetch(`${base}/api/context?team=t0z&mode=decision`)).json();
+  assert.equal(degraded.strategyState.playoffProbability,null);
+  assert.equal(degraded.strategyState.playoffContext.reason,'SOURCE_UNAVAILABLE');
 });
