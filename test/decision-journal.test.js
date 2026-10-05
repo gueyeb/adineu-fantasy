@@ -26,3 +26,18 @@ test('journal persistence never overwrites recommendations and accepts explicit 
   const dir=await mkdtemp(join(tmpdir(),'adineu-journal-'));
   try {await initializeJournal(dir,journal);await assert.rejects(initializeJournal(dir,journal),{code:'EEXIST'});await appendJournalEvent(dir,{decisionId:journal.recommendations[1].decisionId,kind:'CHOICE',decision:'IGNORE',reason:'Fixture explicit choice'});assert.equal((await readJournal(dir)).recommendations[1].userDecision,'IGNORE');} finally {await rm(dir,{recursive:true,force:true});}
 });
+test('journal rejects ambiguous simultaneous choices instead of choosing a random UUID winner', () => {
+  const event = { decisionId: journal.recommendations[0].decisionId, kind: 'CHOICE', decision: 'SKIP', reason: 'First' };
+  const first = validateJournalEvent(journal, event, { recordedAt: '2026-10-04T12:00:00Z' });
+  const second = validateJournalEvent(journal, { ...event, decision: 'ADD', reason: 'Second' }, { recordedAt: '2026-10-04T14:00:00+02:00' });
+  assert.throws(() => materializeDecisionJournal(journal, [second, first]), /Ambiguous simultaneous/);
+});
+test('journal orders events by actual time and validates persisted identity', () => {
+  const event = { decisionId: journal.recommendations[0].decisionId, kind: 'CHOICE', decision: 'SKIP', reason: 'First' };
+  const first = validateJournalEvent(journal, event, { recordedAt: '2026-10-04T13:00:00+02:00' });
+  const second = validateJournalEvent(journal, { ...event, decision: 'KEEP' }, { recordedAt: '2026-10-04T12:00:00Z' });
+  assert.equal(materializeDecisionJournal(journal, [second, first]).recommendations[0].userDecision, 'KEEP');
+  assert.throws(() => materializeDecisionJournal(journal, [first, first]), /Duplicate event/);
+  assert.throws(() => materializeDecisionJournal(journal, [{ ...first, eventId: undefined }]), /Invalid persisted event/);
+  assert.throws(() => materializeDecisionJournal(journal, [{ ...first, recordedAt: undefined }]), /Invalid persisted event/);
+});

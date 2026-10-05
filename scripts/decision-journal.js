@@ -36,8 +36,18 @@ export function validateJournalEvent(journal,event,{recordedAt=new Date().toISOS
 export function materializeDecisionJournal(journal,events=[]) {
   const rows=structuredClone(journal.recommendations);
   const byId=new Map(rows.map(row=>[row.decisionId,row]));
-  for (const event of [...events].sort((a,b)=>a.recordedAt.localeCompare(b.recordedAt) || a.eventId.localeCompare(b.eventId))) {
+  const ids = new Set();
+  const instants = new Set();
+  for (const event of events) {
+    if (event?.version !== 1 || typeof event.recordedAt !== 'string' || !Number.isFinite(Date.parse(event.recordedAt)) || typeof event.eventId !== 'string' || !/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(event.eventId)) throw Error('Invalid persisted event identity or timestamp');
+    if (ids.has(event.eventId.toLowerCase())) throw Error('Duplicate event identity');
+    ids.add(event.eventId.toLowerCase());
     validateJournalEvent(journal,event,{recordedAt:event.recordedAt});
+    const instant = JSON.stringify([event.decisionId, event.kind, event.kind === 'OUTCOME' ? event.outcome.windowWeeks : null, Date.parse(event.recordedAt)]);
+    if (instants.has(instant)) throw Error('Ambiguous simultaneous journal events');
+    instants.add(instant);
+  }
+  for (const event of [...events].sort((a,b)=>Date.parse(a.recordedAt)-Date.parse(b.recordedAt) || a.eventId.localeCompare(b.eventId))) {
     const row=byId.get(event.decisionId);
     if (!row) throw Error('Event does not belong to journal');
     if (event.kind==='CHOICE') {row.userDecision=event.decision;row.reason=event.reason;}
