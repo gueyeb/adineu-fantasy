@@ -535,3 +535,9 @@ Validation : reproduction du défaut avant correction, propagation de la fenêtr
 Une durée de rôle provenant d’une preuve actuelle et confirmée prend désormais priorité sur les étiquettes heuristiques `BREAKOUT`, `SEASON_LONG` et sur l’absence d’événement détecté. L’estimation marché utilise cette fenêtre explicite, plafonnée aux semaines de saison régulière restantes ; le scénario ajout–coupe reçoit exactement la même durée normalisée. `marketEstimate.roleWindowSource` distingue la preuve confirmée du repli heuristique/ROS. Sans preuve valide, les règles ROS et locations existantes restent applicables. Cette durée ne constitue pas une garantie de production ; le mélange de projections reste une estimation non calibrée.
 
 Validation : défaut reproduit avant correction, quatre étiquettes testées et plafonnement en S14, rejeu hors ligne et conflits QB préservés ; **266 tests passent**, contrôles statiques et assets réussis. Aucun déploiement.
+
+### FAAB inconnu — 5 octobre 2026
+
+Un solde FAAB absent ou invalide reste `null` dans les plans conditionnels (`budgetKnown=false`, `UNKNOWN_FAAB_BALANCE`). Pour un scénario légal et couvert, le plafond personnel reste inconnu ; une enchère passe en `WATCH` avec ce motif. Un scénario inexécutable garde son plafond de zéro. Les ajouts libres vérifiés à coût zéro restent possibles et ne transforment pas le solde inconnu en zéro. Les champs budgetBefore/budgetAfter restent null ; reservedFaab=0 décrit uniquement les fonds réservés par ce plan. La convention Sleeper existante « waiver_budget_used absent = zéro dépensé » reste distincte de ce contrôle sur un solde explicitement inconnu.
+
+Validation : reproduction du plafond inventé, ajout gratuit avec solde inconnu, blocage de claim et régressions scénarios inexécutables ; **268 tests passent**, contrôles statiques et assets réussis. Aucun déploiement.

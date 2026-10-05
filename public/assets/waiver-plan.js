@@ -3,7 +3,8 @@ const actionable = new Set(["ADD_NOW", "CLAIM_IF_CHEAP"]);
 /** Greedy, conditional review plan. Recalculate each marginal gain on the assumed new roster.
  * It submits nothing and never estimates auction success. Every reserved bid may be spent. */
 export function buildAcquisitionPlan({ candidates, myPlayers, faabRemaining, evaluateCandidate, rosterCapacity = myPlayers.length, maxAcquisitions = 3 }) {
-  const initialBudget = Number.isFinite(faabRemaining) ? Math.max(0, Math.floor(faabRemaining)) : 0;
+  const budgetKnown = Number.isFinite(faabRemaining) && faabRemaining >= 0;
+  const initialBudget = budgetKnown ? Math.floor(faabRemaining) : null;
   let remainingBudget = initialBudget;
   let players = [...myPlayers];
   const committedIds = new Set();
@@ -25,7 +26,8 @@ export function buildAcquisitionPlan({ candidates, myPlayers, faabRemaining, eva
       .filter(row => actionable.has(row.waiver?.decision?.recommendedAction) && row.waiver.fit?.legalTransaction &&
         row.waiver.fit.horizonCovered && (row.waiver.fit.selectionScore ?? row.waiver.fit.netGainTotal) > 0 && row.availability?.canStartTargetWeek === true &&
         (row.waiver.decision.recommendedAction === "ADD_NOW" ? row.availability.canAddNow === true : row.availability.availability === "WAIVER_LOCKED" && Number.isFinite(Date.parse(row.availability.waiverProcessesAt))) &&
-        Number.isInteger(row.waiver.suggestedBid) && row.waiver.suggestedBid >= 0 && row.waiver.suggestedBid <= remainingBudget &&
+        Number.isInteger(row.waiver.suggestedBid) && row.waiver.suggestedBid >= 0 &&
+        (budgetKnown ? row.waiver.suggestedBid <= remainingBudget : row.waiver.decision.recommendedAction === "ADD_NOW" && row.waiver.suggestedBid === 0) &&
         (row.waiver.decision.recommendedAction !== "ADD_NOW" || row.waiver.suggestedBid === 0) &&
         (!row.waiver.fit.dropCandidate || !usedCuts.has(String(row.waiver.fit.dropCandidate.sleeperId))))
       .sort((a, b) => {
@@ -42,7 +44,7 @@ export function buildAcquisitionPlan({ candidates, myPlayers, faabRemaining, eva
     steps.push({ playerId: String(chosen.sleeperId), name: chosen.name, position: chosen.position,
       roleConfirmation: chosen.waiver.roleConfirmation ?? "NOT_APPLICABLE",
       recommendedAction: chosen.waiver.decision.recommendedAction, dropCandidate: fit.dropCandidate,
-      suggestedBid: bid, personalMaxBid: chosen.waiver.personalMaxBid, budgetBefore: remainingBudget, budgetAfter: remainingBudget - bid,
+      suggestedBid: bid, personalMaxBid: chosen.waiver.personalMaxBid, budgetBefore: remainingBudget, budgetAfter: budgetKnown ? remainingBudget - bid : null,
       targetWeekDelta: fit.targetWeekDelta, netGainTotal: fit.netGainTotal, horizonWeeks: fit.horizonWeeks,
       preferencePenaltyTotal: fit.preferencePenaltyTotal ?? 0, preferenceOverridden: fit.preferenceOverridden ?? false, appliedPreference: fit.appliedPreference ?? null, dependsOnPlayerIds, assumesPriorWins: true,
       weeklyLineupDeltas: fit.weeklyLineupDeltas, availability: chosen.availability });
@@ -52,9 +54,10 @@ export function buildAcquisitionPlan({ candidates, myPlayers, faabRemaining, eva
       ? { startWeek, endWeekExclusive: startWeek + fit.horizonWeeks } : null;
     players = [...players.filter(p => !cutId || String(p.sleeperId) !== String(cutId)), { ...chosen, plannedRoleWindow }];
     committedIds.add(String(chosen.sleeperId));
-    remainingBudget -= bid;
+    if (budgetKnown) remainingBudget -= bid;
   }
-  return { steps, conflicts, initialFaab: initialBudget, reservedFaab: initialBudget - remainingBudget,
+  return { steps, conflicts, initialFaab: initialBudget, reservedFaab: budgetKnown ? initialBudget - remainingBudget : 0,
+    budgetKnown, budgetIssues: budgetKnown ? [] : ["UNKNOWN_FAAB_BALANCE"],
     remainingFaab: remainingBudget, algorithm: "GREEDY_MARGINAL_GAIN", optimalityGuaranteed: false,
     conditional: true, executionMode: "REVALIDATE_AFTER_EACH_RESULT", auctionWinProbability: null };
 }

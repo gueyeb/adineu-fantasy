@@ -3,6 +3,19 @@ import assert from 'node:assert/strict';
 import { createWaiverEvaluator } from '../scripts/waiver-evaluator.js';
 import { buildDecisionContext } from '../scripts/ai-context.js';
 import { buildCoachPlan } from '../scripts/coach-assistant.js';
+test('unknown FAAB blocks a waiver claim without inventing a personal ceiling', () => {
+  const evaluate = createWaiverEvaluator({ week: 4, fitContext: {
+    myPlayers: [{ sleeperId: 'old', name: 'Old WR', position: 'WR', pace: 7 }],
+    paceOf: p => p.pace ?? p.effectivePpg, faabRemaining: null, protectedIds: new Set()
+  }, availabilityFor: () => ({ availability: 'WAIVER_LOCKED', canAddNow: false, canStartTargetWeek: true }),
+  ownershipRechecked: true, transactionsComplete: true });
+  const row = evaluate({ sleeperId: 'x', name: 'Fixture', position: 'WR', effectivePpg: 12,
+    surplusPoints: 20, marketScore: 75, faabMarket: [20, 40],
+    events: { roleWeeks: 11, flags: [], reasons: [] }, signals: {} });
+  assert.equal(row.waiver.personalMaxBid, null);
+  assert.equal(row.waiver.decision.recommendedAction, 'WATCH');
+  assert.ok(row.waiver.decision.actionBlockers.includes('UNKNOWN_FAAB_BALANCE'));
+});
 test('same roster, snapshot, player and horizon preserve canonical metrics across three tools',()=>{
   const evaluate=createWaiverEvaluator({week:4,fitContext:{myPlayers:[{sleeperId:'old',name:'Old WR',position:'WR',nflTeam:'SEA',pace:7}],paceOf:p=>p.pace ?? p.effectivePpg,weeklyPaceOf:p=>p.pace ?? p.effectivePpg,projectionCovered:()=>true,replacementByPosition:{WR:5},faabRemaining:100,hasOpenRosterSlot:false},availabilityFor:()=>({availability:'FREE_AGENT',canAddNow:true,canStartTargetWeek:true}),ownershipRechecked:true,transactionsComplete:true});
   const row=evaluate({sleeperId:'x',name:'Fixture WR',position:'WR',effectivePpg:12,surplusPoints:20,marketScore:75,faabMarket:[20,40],events:{roleWeeks:11,roleConfirmation:'NOT_APPLICABLE',flags:[],reasons:[]},signals:{recentPpg:10},usageScore:80});

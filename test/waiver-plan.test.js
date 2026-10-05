@@ -17,6 +17,19 @@ const starters = [["QB",20],["RB",15],["RB",14],["WR",8],["WR",7],["TE",10],["WR
 const myPlayers = [...starters,{sleeperId:"raymond",name:"Raymond",position:"WR",pace:1},{sleeperId:"bench",name:"Other bench",position:"RB",pace:2}];
 const row = (id, pace) => ({sleeperId:id,name:id,position:"WR",effectivePpg:pace,faabMarket:[20,40],surplusPoints:100,events:{roleWeeks:1}});
 const fitArgs = { myPlayers, week:4, paceOf:p=>p.pace??p.effectivePpg, starterIds:new Set(starters.map(p=>p.sleeperId)), faabRemaining:50 };
+test("unknown FAAB stays unknown and permits only verified free additions", () => {
+  const fit = evaluateRosterFit({ ...fitArgs, marketRow: row("A", 14), faabRemaining: null });
+  assert.equal(fit.faabMaxForMe, null);
+  const plan = buildAcquisitionPlan({ candidates: [row("A", 14)], myPlayers, faabRemaining: null,
+    evaluateCandidate: candidate => ({ ...candidate,
+      availability: { availability: "FREE_AGENT", canAddNow: true, canStartTargetWeek: true },
+      waiver: { fit, suggestedBid: 0, personalMaxBid: null, decision: { recommendedAction: "ADD_NOW" } } }) });
+  assert.equal(plan.steps.length, 1);
+  assert.equal(plan.initialFaab, null);
+  assert.equal(plan.remainingFaab, null);
+  assert.equal(plan.reservedFaab, 0);
+  assert.deepEqual(plan.budgetIssues, ["UNKNOWN_FAAB_BALANCE"]);
+});
 test("a prior rental cannot certify a later acquisition's longer horizon", () => {
   const rental = { ...row("rental", 14), plannedRoleWindow: { startWeek: 4, endWeekExclusive: 5 } };
   const fit = evaluateRosterFit({ ...fitArgs, myPlayers: [...myPlayers, rental],

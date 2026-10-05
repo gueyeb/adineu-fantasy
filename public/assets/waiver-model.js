@@ -269,8 +269,8 @@ export function evaluateRosterFit({ marketRow, myPlayers, paceOf, week, faabRema
   const netGainAverage = horizonCovered ? round(chosen.netGainTotal / horizonWeeks) : null;
   const netGainPerWeek = horizonCovered ? round(chosen.netGainTotal / remaining) : null;
   const fitScore = horizonCovered && marketRow.surplusPoints > 0 ? Math.round(Math.min(100, 100 * Math.max(0, chosen.grossGainTotal) / marketRow.surplusPoints)) : 0;
-  const maxForMe = horizonCovered && legalTransaction ? Math.max(0, Math.floor(Math.min(faabRemaining ?? Infinity,
-    marketRow.faabMarket?.[1] ?? 0, chosen.selectionScore * PRICE_PER_POINT))) : 0;
+  const maxForMe = !horizonCovered || !legalTransaction ? 0 : !Number.isFinite(faabRemaining) || faabRemaining < 0 ? null : Math.max(0, Math.floor(Math.min(faabRemaining,
+    marketRow.faabMarket?.[1] ?? 0, chosen.selectionScore * PRICE_PER_POINT)));
   return {
     preferencePenaltyTotal: chosen?.preferencePenaltyTotal ?? 0,
     selectionScore: chosen?.selectionScore ?? null,

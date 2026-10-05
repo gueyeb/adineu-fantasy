@@ -27,6 +27,11 @@ export function createWaiverEvaluator({ fitContext, week, availabilityFor, owner
       netGain: fit?.selectionScore !== null && fit?.selectionScore !== undefined ? fit.selectionScore / fit.horizonWeeks : 0
     });
     const personalMaxBid = fit?.faabMaxForMe ?? null;
+    if (decision.recommendedAction === "CLAIM_IF_CHEAP" && personalMaxBid === null) {
+      decision.recommendedAction = "WATCH";
+      decision.actionBlockers.push("UNKNOWN_FAAB_BALANCE");
+      decision.interpretation = "Positive roster value; verify the FAAB balance before bidding.";
+    }
     // A personal willingness-to-pay ceiling is not the cost of a free-agent add.
     const suggestedBid = decision.recommendedAction === "CLAIM_IF_CHEAP" ? personalMaxBid : 0;
     return {
