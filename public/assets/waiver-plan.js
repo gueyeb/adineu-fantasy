@@ -47,7 +47,10 @@ export function buildAcquisitionPlan({ candidates, myPlayers, faabRemaining, eva
       preferencePenaltyTotal: fit.preferencePenaltyTotal ?? 0, preferenceOverridden: fit.preferenceOverridden ?? false, appliedPreference: fit.appliedPreference ?? null, dependsOnPlayerIds, assumesPriorWins: true,
       weeklyLineupDeltas: fit.weeklyLineupDeltas, availability: chosen.availability });
     if (cutId) usedCuts.add(String(cutId));
-    players = [...players.filter(p => !cutId || String(p.sleeperId) !== String(cutId)), chosen];
+    const startWeek = fit.weeklyLineupDeltas[0]?.week;
+    const plannedRoleWindow = Number.isInteger(startWeek) && Number.isFinite(fit.horizonWeeks)
+      ? { startWeek, endWeekExclusive: startWeek + fit.horizonWeeks } : null;
+    players = [...players.filter(p => !cutId || String(p.sleeperId) !== String(cutId)), { ...chosen, plannedRoleWindow }];
     committedIds.add(String(chosen.sleeperId));
     remainingBudget -= bid;
   }

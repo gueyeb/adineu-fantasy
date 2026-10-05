@@ -17,6 +17,14 @@ const starters = [["QB",20],["RB",15],["RB",14],["WR",8],["WR",7],["TE",10],["WR
 const myPlayers = [...starters,{sleeperId:"raymond",name:"Raymond",position:"WR",pace:1},{sleeperId:"bench",name:"Other bench",position:"RB",pace:2}];
 const row = (id, pace) => ({sleeperId:id,name:id,position:"WR",effectivePpg:pace,faabMarket:[20,40],surplusPoints:100,events:{roleWeeks:1}});
 const fitArgs = { myPlayers, week:4, paceOf:p=>p.pace??p.effectivePpg, starterIds:new Set(starters.map(p=>p.sleeperId)), faabRemaining:50 };
+test("a prior rental cannot certify a later acquisition's longer horizon", () => {
+  const rental = { ...row("rental", 14), plannedRoleWindow: { startWeek: 4, endWeekExclusive: 5 } };
+  const fit = evaluateRosterFit({ ...fitArgs, myPlayers: [...myPlayers, rental],
+    marketRow: { ...row("long", 13), events: { roleWeeks: 2 } }, hasOpenRosterSlot: true });
+  assert.equal(fit.horizonCovered, false);
+  assert.equal(fit.netGainTotal, null);
+  assert.ok(fit.coverageIssues.includes("UNCONFIRMED_PRIOR_ACQUISITION_ROLE_WEEK_5"));
+});
 test("soft keep changes cut selection without changing fantasy gain or forbidding an overriding benefit", () => {
   const candidate = row("add",14);
   const fit = evaluateRosterFit({ ...fitArgs, marketRow:candidate, rosterPreferences:[preference] });
@@ -29,7 +37,7 @@ test("soft keep changes cut selection without changing fantasy gain or forbiddin
   assert.equal(forced.preferenceOverridden,true);
 });
 test("plan recomputes after each acquisition, uses distinct cuts and reserves the available budget", () => {
-  const candidates=[row("A",14),row("B",13)];
+  const candidates=[row("A",14),row("B",13)].map(candidate => ({ ...candidate, events: { roleWeeks: 11 } }));
   const evaluateCandidate=(candidate,state)=>{
     const fit=evaluateRosterFit({...fitArgs,...state,marketRow:candidate});
     const availability={availability:"WAIVER_LOCKED",canAddNow:false,canStartTargetWeek:true,waiverProcessesAt:"2026-10-06T08:00:00Z"};
@@ -49,12 +57,24 @@ test("plan suppresses unknown availability and never invents a second roster slo
   assert.equal(plan.steps.length,0);
 });
 
+test("plan carries the first acquisition's role window into subsequent evaluations", () => {
+  const evaluateCandidate = (candidate, state) => {
+    const fit = evaluateRosterFit({ ...fitArgs, ...state, marketRow: candidate });
+    return { ...candidate, availability: { availability: "FREE_AGENT", canAddNow: true, canStartTargetWeek: true },
+      waiver: { fit, suggestedBid: 0, personalMaxBid: fit.faabMaxForMe, decision: { recommendedAction: "ADD_NOW" } } };
+  };
+  const plan = buildAcquisitionPlan({ candidates: [row("rental", 100), { ...row("long", 13), events: { roleWeeks: 11 } }],
+    myPlayers, faabRemaining: 50, evaluateCandidate });
+  assert.deepEqual(plan.steps.map(step => step.playerId), ["rental"]);
+});
+
 test("a free roster spot is consumed once; the next acquisition requires a cut", () => {
   const evaluateCandidate = (candidate, state) => {
     const fit = evaluateRosterFit({ ...fitArgs, ...state, marketRow: candidate });
     return { ...candidate, availability: { availability: "FREE_AGENT", canAddNow: true, canStartTargetWeek: true }, waiver: { fit, suggestedBid: 0, personalMaxBid: fit.faabMaxForMe, decision: { recommendedAction: "ADD_NOW" } } };
   };
-  const plan = buildAcquisitionPlan({ candidates: [row("A", 14), row("B", 13)], myPlayers, rosterCapacity: myPlayers.length + 1, faabRemaining: 50, evaluateCandidate });
+  const candidates = [row("A", 14), row("B", 13)].map(candidate => ({ ...candidate, events: { roleWeeks: 11 } }));
+  const plan = buildAcquisitionPlan({ candidates, myPlayers, rosterCapacity: myPlayers.length + 1, faabRemaining: 50, evaluateCandidate });
   assert.equal(plan.steps[0].dropCandidate, null);
   assert.ok(plan.steps[1].dropCandidate);
   assert.notEqual(plan.steps[1].dropCandidate.sleeperId, "A", "a committed acquisition is protected from the next cut");

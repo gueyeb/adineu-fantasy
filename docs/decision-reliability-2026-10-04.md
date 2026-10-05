@@ -523,3 +523,9 @@ dédoublonnage logique et CLI. Contrôles statiques et versions d’assets réus
 Défaut reproduit : un agent libre `ADD_NOW` portait une enchère proposée de 40, confondant plafond personnel et coût opérationnel. Correction dans l’évaluateur commun : enchère proposée = 0 pour `ADD_NOW`, plafond personnel conservé ; `CLAIM_IF_CHEAP` conserve son enchère. Le plan ne réserve aucun FAAB pour un ajout libre et refuse une action libre incohérente portant une enchère positive. Coach, Waiver et AI Context conservent les mêmes métriques canoniques. Tests : reproduction avant correction, invariant inter-outils et absence de consommation du budget dans un plan de deux ajouts libres. Aucun déploiement.
 
 Validation finale avant commit : **263 tests passent**, contrôles statiques et versions des 39 assets à jour, `git diff --check` sans erreur. Les snapshots, journaux privés et fichiers d’environnement restent ignorés par Git. Aucun déploiement.
+
+### Horizons des acquisitions successives — 5 octobre 2026
+
+Le plan conditionnel conserve maintenant la fenêtre de rôle évaluée pour chaque acquisition supposée réussie. Si un calcul ultérieur utilise ce joueur après cette fenêtre, son gain reste inconnu et le scénario est bloqué (`UNCONFIRMED_PRIOR_ACQUISITION_ROLE_WEEK_N`). Cela couvre aussi le coût permanent des coupes après le rôle du deuxième ajout. Aucune projection zéro ni prolongation du rôle n’est inventée ; cette règle conservatrice peut raccourcir un plan même si le joueur resterait utile après son rôle temporaire. Une nouvelle évaluation sur un snapshot actualisé reste nécessaire. Les plans couvrant des rôles sur toute la période restent disponibles.
+
+Validation : reproduction du défaut avant correction, propagation de la fenêtre entre étapes, régressions budget/coupes distinctes/place libre ; **265 tests passent**, contrôles statiques et assets réussis. Aucun déploiement.

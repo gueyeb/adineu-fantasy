@@ -197,6 +197,12 @@ export function evaluateRosterFit({ marketRow, myPlayers, paceOf, week, faabRema
   const simulate = cut => {
     const pool = [...myPlayers.filter(p => !cut || String(p.sleeperId) !== String(cut.sleeperId)), marketRow];
     const coverageIssues = new Set();
+    const priorRolesCovered = w => {
+      const covered = myPlayers.every(p => !p.plannedRoleWindow ||
+        (w >= p.plannedRoleWindow.startWeek && w < p.plannedRoleWindow.endWeekExclusive));
+      if (!covered) coverageIssues.add(`UNCONFIRMED_PRIOR_ACQUISITION_ROLE_WEEK_${w}`);
+      return covered;
+    };
     const weeklyLineupDeltas = Array.from({ length: Math.ceil(horizonWeeks) }, (_, i) => {
       const w = week + i;
       const estimate = p => weeklyPaceOf ? weeklyPaceOf(p, w) : paceOf(p);
@@ -205,8 +211,9 @@ export function evaluateRosterFit({ marketRow, myPlayers, paceOf, week, faabRema
       const safeEstimate = p => Number.isFinite(estimate(p)) ? estimate(p) : 0;
       const before = buildProjectedLineup(myPlayers, { estimate: safeEstimate, fixedSlots });
       const after = buildProjectedLineup(pool, { estimate: safeEstimate, fixedSlots });
-      const covered = !projectionCovered || [...myPlayers, marketRow].every(p => projectionCovered(p, w));
-      if (!covered) coverageIssues.add(`MISSING_PROJECTIONS_WEEK_${w}`);
+      const projectionsCovered = !projectionCovered || [...myPlayers, marketRow].every(p => projectionCovered(p, w));
+      const covered = priorRolesCovered(w) && projectionsCovered;
+      if (!projectionsCovered) coverageIssues.add(`MISSING_PROJECTIONS_WEEK_${w}`);
       const newEmptySlots = after.emptySlots.filter(slot => !before.emptySlots.includes(slot));
       if (newEmptySlots.length) coverageIssues.add("ROSTER_COMPOSITION_VIOLATION");
       return { week: w, delta: covered && !newEmptySlots.length ? round(after.total - before.total) : null,
@@ -221,8 +228,9 @@ export function evaluateRosterFit({ marketRow, myPlayers, paceOf, week, faabRema
       const retained = myPlayers.filter(p => String(p.sleeperId) !== String(cut.sleeperId));
       for (let w = week + Math.ceil(horizonWeeks); w <= LAST_REGULAR_WEEK; w++) {
         const estimate = p => weeklyPaceOf ? weeklyPaceOf(p, w) : paceOf(p);
-        const covered = !projectionCovered || myPlayers.every(p => projectionCovered(p, w));
-        if (!covered) coverageIssues.add(`MISSING_POST_ROLE_PROJECTIONS_WEEK_${w}`);
+        const projectionsCovered = !projectionCovered || myPlayers.every(p => projectionCovered(p, w));
+        const covered = priorRolesCovered(w) && projectionsCovered;
+        if (!projectionsCovered) coverageIssues.add(`MISSING_POST_ROLE_PROJECTIONS_WEEK_${w}`);
         const safeEstimate = p => Number.isFinite(estimate(p)) ? estimate(p) : 0;
         const before = buildProjectedLineup(myPlayers, { estimate: safeEstimate });
         const after = buildProjectedLineup(retained, { estimate: safeEstimate });

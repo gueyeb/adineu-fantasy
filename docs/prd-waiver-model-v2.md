@@ -173,3 +173,9 @@ Voir [le contrat et les validations](decision-reliability-2026-10-04.md).
 ### Coût opérationnel des actions — 5 octobre 2026
 
 `ADD_NOW` sur un agent libre vérifié a une enchère proposée de zéro : il ne consomme pas le FAAB. Le plafond personnel reste une estimation distincte de volonté de payer. Seul `CLAIM_IF_CHEAP` propose une enchère réservée dans le plan conditionnel. Un plan refuse un `ADD_NOW` portant un coût d’enchère non nul.
+
+### Horizons des acquisitions successives — 5 octobre 2026
+
+Le plan conditionnel conserve maintenant la fenêtre de rôle évaluée pour chaque acquisition supposée réussie. Si un calcul ultérieur utilise ce joueur après cette fenêtre, son gain reste inconnu et le scénario est bloqué (`UNCONFIRMED_PRIOR_ACQUISITION_ROLE_WEEK_N`). Cela couvre aussi le coût permanent des coupes après le rôle du deuxième ajout. Aucune projection zéro ni prolongation du rôle n’est inventée ; cette règle conservatrice peut raccourcir un plan même si le joueur resterait utile après son rôle temporaire. Une nouvelle évaluation sur un snapshot actualisé reste nécessaire. Les plans couvrant des rôles sur toute la période restent disponibles.
+
+Validation : reproduction du défaut avant correction, propagation de la fenêtre entre étapes, régressions budget/coupes distinctes/place libre ; **265 tests passent**, contrôles statiques et assets réussis. Aucun déploiement.
