@@ -103,8 +103,8 @@ export function extractDecisionFeatures({ index, catalog, rosters, nflState, pro
       signals,
       usageDiagnostic: usageById.has(id) ? { sampleGames: usageById.get(id).games, actualWeightedPpg: usageById.get(id).ppg, xfpWeightedPpg: usageById.get(id).xfp, actualMinusXfp: usageById.get(id).gap, trend: usageById.get(id).trend, trendUnit: "COMPOSITE_DIFFERENCE_TIMES_100", recencyWeights: [0.5, 0.3, 0.2], model: usageResult.models[player.position], method: "VOLUME_LINEAR_REGRESSION", opportunityQualityMeasured: false } : null,
       provenance: provenanceFor(id, player, projectedRos !== null ? (rosDetail?.source || "SLEEPER_PROJECTIONS") : rankFallback !== null ? "RANK_ESTIMATE" : "NONE"),
-      marketEstimate: { method: pace.method, recentScoresUsed: pace.recentScoresUsed, inferredShareUsed: pace.inferredShareUsed, contingencyValue: pace.contingencyValue, calibrated: pace.calibrated },
-      events: { ...events, rolePpg: pace.rolePpg, roleWeeks: roleEvidence.roleWeeks ?? pace.roleWeeks }
+      marketEstimate: { method: pace.method, roleWindowSource: pace.roleWindowSource, recentScoresUsed: pace.recentScoresUsed, inferredShareUsed: pace.inferredShareUsed, contingencyValue: pace.contingencyValue, calibrated: pace.calibrated },
+      events: { ...events, rolePpg: pace.rolePpg, roleWeeks: pace.roleWeeks }
     });
   }
 

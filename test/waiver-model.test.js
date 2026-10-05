@@ -87,6 +87,18 @@ test("market pace values a rental projection only inside its explicit window", (
   assert.equal(effectivePpg({ rosPpg: 6, weekProjection: 17, duration: "SEASON_LONG", week: 4 }).effective, 6);
 });
 
+test("confirmed role duration overrides heuristic labels and is capped at the regular season", () => {
+  for (const duration of [null, "BREAKOUT", "SEASON_LONG", "RENTAL_1W"]) {
+    const result = effectivePpg({ rosPpg: 6, weekProjection: 17, duration, week: 4, confirmedRoleWeeks: 2 });
+    assert.equal(result.roleWeeks, 2);
+    assert.equal(result.effective, 8);
+    assert.equal(result.roleWindowSource, "CONFIRMED_ROLE_EVIDENCE");
+  }
+  const end = effectivePpg({ rosPpg: 6, weekProjection: 17, duration: null, week: 14, confirmedRoleWeeks: 4 });
+  assert.equal(end.roleWeeks, 1);
+  assert.equal(end.effective, 17);
+});
+
 test("market vs fit: a strong market add can be worth 0 $ to a roster where he never starts (Sadiq/McBride case)", () => {
   const fa = (id, position, effectivePpg) => ({ sleeperId: id, name: id, position, effectivePpg });
   const rows = [fa("TE breakout", "TE", 13), ...["a", "b", "c", "d", "e", "f"].map((id, i) => fa(id, "TE", 7 - i * 0.2))];

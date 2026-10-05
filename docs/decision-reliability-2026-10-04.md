@@ -529,3 +529,9 @@ Validation finale avant commit : **263 tests passent**, contrôles statiques et 
 Le plan conditionnel conserve maintenant la fenêtre de rôle évaluée pour chaque acquisition supposée réussie. Si un calcul ultérieur utilise ce joueur après cette fenêtre, son gain reste inconnu et le scénario est bloqué (`UNCONFIRMED_PRIOR_ACQUISITION_ROLE_WEEK_N`). Cela couvre aussi le coût permanent des coupes après le rôle du deuxième ajout. Aucune projection zéro ni prolongation du rôle n’est inventée ; cette règle conservatrice peut raccourcir un plan même si le joueur resterait utile après son rôle temporaire. Une nouvelle évaluation sur un snapshot actualisé reste nécessaire. Les plans couvrant des rôles sur toute la période restent disponibles.
 
 Validation : reproduction du défaut avant correction, propagation de la fenêtre entre étapes, régressions budget/coupes distinctes/place libre ; **265 tests passent**, contrôles statiques et assets réussis. Aucun déploiement.
+
+### Durée confirmée commune au marché et au roster — 5 octobre 2026
+
+Une durée de rôle provenant d’une preuve actuelle et confirmée prend désormais priorité sur les étiquettes heuristiques `BREAKOUT`, `SEASON_LONG` et sur l’absence d’événement détecté. L’estimation marché utilise cette fenêtre explicite, plafonnée aux semaines de saison régulière restantes ; le scénario ajout–coupe reçoit exactement la même durée normalisée. `marketEstimate.roleWindowSource` distingue la preuve confirmée du repli heuristique/ROS. Sans preuve valide, les règles ROS et locations existantes restent applicables. Cette durée ne constitue pas une garantie de production ; le mélange de projections reste une estimation non calibrée.
+
+Validation : défaut reproduit avant correction, quatre étiquettes testées et plafonnement en S14, rejeu hors ligne et conflits QB préservés ; **266 tests passent**, contrôles statiques et assets réussis. Aucun déploiement.

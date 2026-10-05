@@ -123,17 +123,19 @@ export function detectEvents({ player, teammates = [], signals }) {
 
 /** Market estimate from projections only. Realized scores never confirm a future role.
  * A current-week projection is valued for one week unless an explicit short window exists.
- * Season-long and breakout estimates use ROS; no inferred target share or contingency bonus. */
+ * Confirmed duration takes precedence; otherwise season-long and breakout estimates use ROS. */
 export function effectivePpg({ rosPpg, weekProjection, duration, week, confirmedRoleWeeks = null }) {
   const remaining = Math.max(1, LAST_REGULAR_WEEK - week + 1);
   const base = Number.isFinite(rosPpg) ? rosPpg : Number.isFinite(weekProjection) ? weekProjection : 0;
+  const confirmedWindow = Number.isInteger(confirmedRoleWeeks) && confirmedRoleWeeks > 0;
   const metadata = { method: "PROJECTION_WINDOW_V1", recentScoresUsed: false,
-    inferredShareUsed: false, contingencyValue: null, calibrated: false };
-  if (!duration) return { effective: round(base), rolePpg: null, roleWeeks: 0, ...metadata };
-  if (duration === "BREAKOUT" || duration === "SEASON_LONG") {
+    inferredShareUsed: false, contingencyValue: null, calibrated: false,
+    roleWindowSource: confirmedWindow ? "CONFIRMED_ROLE_EVIDENCE" : "HEURISTIC_OR_ROS" };
+  if (!duration && !confirmedWindow) return { effective: round(base), rolePpg: null, roleWeeks: 0, ...metadata };
+  if (!confirmedWindow && (duration === "BREAKOUT" || duration === "SEASON_LONG")) {
     return { effective: round(base), rolePpg: round(base), roleWeeks: remaining, ...metadata };
   }
-  const roleWeeks = Math.min(remaining, Number.isInteger(confirmedRoleWeeks) && confirmedRoleWeeks > 0 ? confirmedRoleWeeks : DURATION_WEEKS[duration] ?? 1);
+  const roleWeeks = Math.min(remaining, confirmedWindow ? confirmedRoleWeeks : DURATION_WEEKS[duration] ?? 1);
   const rolePpg = Number.isFinite(weekProjection) ? weekProjection : base;
   return { effective: round((roleWeeks * rolePpg + (remaining - roleWeeks) * base) / remaining),
     rolePpg: round(rolePpg), roleWeeks, ...metadata };
