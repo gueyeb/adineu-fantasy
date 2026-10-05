@@ -551,3 +551,9 @@ Validation : deux défauts reproduits avant correction (fuseaux différents et s
 ### 05/10 — Retour complémentaire : propagation du contexte live
 
 Nouveau backlog priorisé : [transactions nominatives, couverture du pool, ripple, optionalité des coupes et GAME_LOCKED](decision-engine-live-state-backlog-2026-10-05.md). État existant distingué des travaux ouverts, exemples Week 4 à reconstruire depuis des snapshots sourcés. Les cases ouvertes ne sont pas des fonctionnalités livrées.
+
+### Transactions nominatives — 5 octobre 2026
+
+Les transactions 72 h exposent désormais des movements ADD/DROP avec playerId/playerName, rosterId/teamName/manager, statut d’exécution et currentOwnerRosterId. Les noms viennent de l’index et des users/rosters du snapshot, sans rapprochement externe ; non résolus = null en JSON, UNKNOWN explicite en texte. AI Context conserve les mêmes mouvements ; bulletin et export IA utilisent le même format nominatif. Les données transactionnelles originales et IDs restent présents. La propriété courante l’emporte sur un DROP historique ; absence de propriétaire n’est pas une preuve de déblocage (UNKNOWN). Aucune transaction pending n’est présentée comme complete.
+
+La résolution nominative ne modifie pas à elle seule le pool ni les filtres des joueurs sans projections : ces cases P0 restent ouvertes. Validation : noms/managers résolus, identité inconnue, DROP suivi d’une propriété différente, texte commun ; **271 tests passent**, contrôles statiques et assets réussis. Aucun déploiement.

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { createWaiverEvaluator } from "./waiver-evaluator.js";
 import { extractDecisionFeatures, SEVERITY_BY_STATUS } from "./decision-features.js";
-import { resolveAcquisitionAvailability, summarizeRecentTransactions, resolveRoleEvidence } from "../public/assets/acquisition-availability.js";
+import { resolveAcquisitionAvailability, summarizeRecentTransactions, resolveRoleEvidence, formatRecentTransactions } from "../public/assets/acquisition-availability.js";
 /**
  * Adineu Fantasy — Contexte IA & Waiver Wire Report
  *
@@ -570,7 +570,12 @@ export async function getFreeAgents({
       playerIndexFetchedAt: playersIndexCaches.get(fetchImpl)?.at ? new Date(playersIndexCaches.get(fetchImpl).at).toISOString() : null
     })));
   }
-  const transactionSummary = summarizeRecentTransactions(allTransactions, { asOf, relevantIds: new Set([...(fitContext?.myPlayers.map(row => row.sleeperId) || rosteredIds), ...market.map(row => row.sleeperId)]) });
+  const transactionSummary = summarizeRecentTransactions(allTransactions, { asOf, playerMeta: meta, rosters,
+    rosterMeta: rosterId => {
+      const roster = rosters.find(row => String(row.roster_id) === String(rosterId));
+      const user = users.find(row => row.user_id === roster?.owner_id);
+      return { teamName: user?.metadata?.team_name ?? user?.display_name ?? null, manager: user?.display_name ?? null };
+    }, relevantIds: new Set([...(fitContext?.myPlayers.map(row => row.sleeperId) || rosteredIds), ...market.map(row => row.sleeperId)]) });
   return {
     rosterProvenance: (fitContext?.myPlayers || []).map(player => ({ playerId: player.sleeperId, provenance: player.provenance })),
     playerIndexProvenance: { source: `${SLEEPER_API}/players/nfl`, fetchedAt: playersIndexCaches.get(fetchImpl)?.at ? new Date(playersIndexCaches.get(fetchImpl).at).toISOString() : null, fallback: index.size ? null : "CATALOG_FALLBACK" },
@@ -593,7 +598,7 @@ export function formatWaiverReport({ byPosition, week, faabRemaining = null, deg
   if (degraded) lines.push(`Couverture dégradée : projections ${coverage?.projectionWeeks || "n/d"}, usage ${coverage?.statsWeeks || "n/d"}.`);
 
   lines.push(`Disponibilité au ${availabilityAsOf || "n/d"} · transactions 72 h : ${recentTransactions.length} (${transactionsTruncatedCount} non affichées).`, ...snapshotIssues);
-  if (recentTransactions.length) lines.push(JSON.stringify(recentTransactions));
+  if (recentTransactions.length) lines.push(...formatRecentTransactions(recentTransactions));
   lines.push("Scénarios alternatifs : une même coupe ne peut pas financer deux acquisitions.");
   if (rosterPreferences.length) lines.push("Préférences temporaires :", JSON.stringify(rosterPreferences));
   if (acquisitionPlan) {

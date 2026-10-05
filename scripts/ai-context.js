@@ -1,4 +1,5 @@
 import { BYE_WEEKS_2026 } from "../public/assets/league-settings.js";
+import { formatRecentTransactions } from "../public/assets/acquisition-availability.js";
 import { classifyWaiverDecision } from "../public/assets/waiver-model.js";
 
 const round = value => value !== null && value !== undefined && Number.isFinite(Number(value)) ? Number(Number(value).toFixed(1)) : null;
@@ -298,7 +299,7 @@ export function formatDecisionContext(context) {
 
   lines.push("TEMPORARY ROSTER PREFERENCES", JSON.stringify(context.rosterPreferences || []));
   lines.push("CONDITIONAL ACQUISITION PLAN — REVALIDATE AFTER EACH RESULT", JSON.stringify(context.acquisitionPlan || null));
-  lines.push("RECENT TRANSACTIONS (72h)", JSON.stringify(context.recentTransactions || []), `Truncated: ${context.transactionsTruncatedCount || 0} | Availability as of: ${context.availabilityAsOf || "n/d"}`, ...(context.snapshotIssues || []));
+  lines.push("RECENT TRANSACTIONS (72h)", ...formatRecentTransactions(context.recentTransactions || []), `Truncated: ${context.transactionsTruncatedCount || 0} | Availability as of: ${context.availabilityAsOf || "n/d"}`, ...(context.snapshotIssues || []));
   const waiverLine = (player, index) => `${index + 1}. ${player.name} ${player.position} ${player.nflTeam || "FA"} | Class=${player.decisionClass} | Immediate=${player.immediateValue} | Strategic=${player.strategicUpside} | Market=${player.marketScore} | GrossGain=${metric(player.lineupGain, " pts/w")} | Drop=${player.dropCandidate?.name || "none"} | DropCost=${metric(player.dropCost, " pts/w")} | NetGain=${metric(player.netGain, " pts/w over role horizon")} | Availability=${player.availability?.availability || "UNKNOWN"} | TargetWeekDelta=${metric(player.targetWeekDelta, " pts")} | Horizon=${metric(player.horizonWeeks, " weeks")} | GrossTotal=${metric(player.grossGainTotal, " pts")} | PostRoleCutLoss=${metric(player.postRoleCutCostTotal, " pts")} | NetTotal=${metric(player.netGainTotal, " pts")} | FAAB market estimate=${player.faabMarket?.join("–") || "n/d"} $ | SuggestedBid=${metric(player.suggestedBid, " $")} | PersonalMax=${metric(player.maxForTeam, " $")} | Budget=${metric(player.bidPctInitial, "% initial")}/${metric(player.bidPctRemaining, "% remaining")} | AuctionWinProbability=n/d | Role=${player.roleConfirmation} | Coverage=${player.coverageIssues.join(",") || "complete"} | ${player.interpretation}${player.reasons.length ? ` | ${player.reasons.join("; ")}` : ""}`;
   lines.push("", "WAIVER — RECOMMENDED ACTIONS");
   for (const action of ["ADD_NOW", "CLAIM_IF_CHEAP", "WATCH", "IGNORE"]) {

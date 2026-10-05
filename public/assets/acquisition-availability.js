@@ -41,10 +41,25 @@ export function resolveRoleEvidence(evidence, context) {
     roleWeeks: Number.isInteger(evidence.roleWeeks) && evidence.roleWeeks > 0 ? evidence.roleWeeks : null };
 }
 
-export function summarizeRecentTransactions(transactions, { asOf, relevantIds = new Set(), limit = 30 } = {}) {
+export function summarizeRecentTransactions(transactions, { asOf, relevantIds = new Set(), limit = 30, playerMeta = () => null, rosterMeta = () => null, rosters = [] } = {}) {
   const cutoff = Date.parse(asOf) - 72 * 3600 * 1000;
   const recent = [...new Map(transactions.map(t => [t.transaction_id, t])).values()]
     .filter(t => Number(t.status_updated ?? t.created) >= cutoff && Number(t.status_updated ?? t.created) <= Date.parse(asOf))
     .sort((a, b) => Number(b.status_updated ?? b.created) - Number(a.status_updated ?? a.created));
-  return { recentTransactions: recent.slice(0, limit).map(t => ({ ...t, relevant: [...Object.keys(t.adds || {}), ...Object.keys(t.drops || {})].some(id => relevantIds.has(id)) })), transactionsTruncated: recent.length > limit, transactionsTruncatedCount: Math.max(0, recent.length - limit) };
+  return { recentTransactions: recent.slice(0, limit).map(t => ({ ...t,
+    movements: ['ADD', 'DROP'].flatMap(action => Object.entries(action === 'ADD' ? t.adds || {} : t.drops || {}).map(([playerId, rosterId]) => {
+      const player = playerMeta(playerId);
+      const identity = rosterMeta(rosterId);
+      const owner = rosters.find(roster => (roster.players || []).some(id => String(id) === playerId));
+      return { action, playerId, playerName: player?.name ?? null, rosterId,
+        teamName: identity?.teamName ?? null, manager: identity?.manager ?? null,
+        status: t.status ?? 'UNKNOWN', currentOwnerRosterId: owner?.roster_id ?? null,
+        availability: owner ? 'ROSTERED' : 'UNKNOWN' };
+    })),
+    relevant: [...Object.keys(t.adds || {}), ...Object.keys(t.drops || {})].some(id => relevantIds.has(id)) })), transactionsTruncated: recent.length > limit, transactionsTruncatedCount: Math.max(0, recent.length - limit) };
+}
+
+export function formatRecentTransactions(transactions) {
+  return transactions.flatMap(t => (t.movements || []).map(m =>
+    `${m.playerName || `UNKNOWN player #${m.playerId}`} → ${m.action} par ${m.teamName || `UNKNOWN roster #${m.rosterId}`} (${m.manager || 'UNKNOWN manager'}) [${m.status}] · disponibilité actuelle : ${m.availability}`));
 }

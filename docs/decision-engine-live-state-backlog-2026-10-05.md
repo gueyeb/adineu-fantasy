@@ -4,7 +4,7 @@ Retour ajouté le 5 octobre 2026 depuis le document « Corrections ADINEU — Wa
 
 ## État constaté dans le code
 
-- Transactions : collecte récente, invalidation des preuves d’accès périmées et relecture de propriété existent. Les résumés nécessitent encore une résolution nominative des joueurs et managers. Un DROP ne prouve pas FREE_AGENT : propriétaire courant et éventuel waiver lock restent déterminants.
+- Transactions : collecte récente, invalidation des preuves d’accès périmées et relecture de propriété existent. Résolution nominative livrée le 5 octobre : joueurs, équipe fantasy, manager, statut et propriété courante ; IDs conservés. Un DROP ne prouve pas FREE_AGENT : propriétaire courant et éventuel waiver lock restent déterminants.
 - Pool : `decision-features.js` parcourt déjà l’index Sleeper complet, avec catalogue en repli. Mais les filtres excluent les joueurs en statut ALERT et ceux sans projection/rang ni match statistique. L’évaluation de tous les joueurs disponibles et leur présence dans un board limité sont deux garanties différentes.
 - News : le groupe équipe/poste et les blessures peuvent produire des événements heuristiques. Cela ne constitue ni un depth chart sourcé ni une propagation complète des événements, retours et changements de rôle. Une promotion doit toujours être confirmée.
 - Coupe : les scénarios ajout–coupe, perte de lineup permanente, option d’usage et BUY_LOW existent. La progression du rôle, rareté et optionalité contingente ne sont pas encore décomposées comme demandé. La récurrence de Kamara comme coupe doit être reproduite avec les données réellement utilisées.
@@ -15,7 +15,7 @@ Retour ajouté le 5 octobre 2026 depuis le document « Corrections ADINEU — Wa
 
 ## P0 — prochaine implémentation
 
-- [ ] Résoudre ADD/DROP en noms joueur, équipe fantasy et manager, avec IDs conservés pour la traçabilité. Afficher UNKNOWN si non résolu ; exposer le même résumé dans le bulletin et AI Context.
+- [x] Résoudre ADD/DROP en noms joueur, équipe fantasy et manager, avec IDs conservés pour la traçabilité. Afficher UNKNOWN si non résolu ; exposer le même résumé dans le bulletin et AI Context.
 - [ ] Réintégrer les joueurs récemment coupés dans l’analyse suivant la propriété courante ; les classer WAIVER_LOCKED/UNKNOWN tant que le déblocage n’est pas vérifié.
 - [ ] Conserver les candidats sans projection/statistiques lorsqu’un événement sourcé les rend pertinents. Ajouter motifs d’entrée, exclusions et couverture du pool ; absence de projection reste null et bloque le gain chiffré.
 - [ ] Définir un ripple équipe/poste depuis le snapshot Sleeper et les événements datés. Réévaluer les joueurs affectés, sans attribuer une part de cibles ou une succession inventée. Une acquisition fantasy n’est pas une modification du depth chart NFL.

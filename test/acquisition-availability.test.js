@@ -1,8 +1,25 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveAcquisitionAvailability, summarizeRecentTransactions } from '../public/assets/acquisition-availability.js';
+import { resolveAcquisitionAvailability, summarizeRecentTransactions, formatRecentTransactions } from '../public/assets/acquisition-availability.js';
 import { classifyWaiverDecision, evaluateRosterFit } from '../public/assets/waiver-model.js';
 const asOf = '2026-10-04T10:00:00Z';
+test('transaction summaries resolve names and preserve current ownership after a drop', () => {
+  const summary = summarizeRecentTransactions([{ transaction_id: 't', status: 'complete', status_updated: Date.parse(asOf), adds: { p: 2 }, drops: { q: 1, unknown: 1 } }], {
+    asOf, playerMeta: id => ({ p: { name: 'Named Player' }, q: { name: 'Dropped Player' } })[id],
+    rosterMeta: id => ({ teamName: `Team ${id}`, manager: `Manager ${id}` }),
+    rosters: [{ roster_id: 3, players: ['q'] }]
+  });
+  const movements = summary.recentTransactions[0].movements;
+  assert.equal(movements[0].playerName, 'Named Player');
+  assert.equal(movements[0].manager, 'Manager 2');
+  assert.equal(movements[1].currentOwnerRosterId, 3);
+  assert.equal(movements[1].availability, 'ROSTERED');
+  assert.equal(movements[2].playerName, null);
+  assert.equal(movements[2].availability, 'UNKNOWN');
+  const text = formatRecentTransactions(summary.recentTransactions).join('\n');
+  assert.match(text, /Named Player → ADD par Team 2 \(Manager 2\)/);
+  assert.match(text, /UNKNOWN player #unknown/);
+});
 const evidence = { observedAt: "2026-10-04T09:00:00Z", source: 'fixture Sleeper screenshot', expiresAt: '2026-10-04T19:00:00Z', kickoffAt: '2026-10-04T17:00:00Z', availability: 'WAIVER_LOCKED', waiverProcessesAt: '2026-10-05T07:00:00Z' };
 test('Bills/Rams unlock after kickoff; missing evidence and current ownership block acquisition', () => {
   for (const playerId of ['BUF', 'LA']) {
