@@ -81,3 +81,7 @@ unités, volumes absolus, formule, moyennes et lineage. Contradictions bloquées
 nulles, aucune probabilité de rebond. Garde prêt ; ingestion réelle attend les fichiers numériques
 des graphiques et leur univers confirmé. Exemple fictif dans docs/examples, aucun changement
 de paramètres ou déploiement. Voir [le contrat](decision-reliability-2026-10-04.md).
+
+### 05/10 — Retour complémentaire : propagation du contexte live
+
+Nouveau backlog priorisé : [transactions nominatives, couverture du pool, ripple, optionalité des coupes et GAME_LOCKED](decision-engine-live-state-backlog-2026-10-05.md). État existant distingué des travaux ouverts, exemples Week 4 à reconstruire depuis des snapshots sourcés. Les cases ouvertes ne sont pas des fonctionnalités livrées.
