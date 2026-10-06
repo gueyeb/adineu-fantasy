@@ -76,3 +76,15 @@ test("coach API serves the private n8n workflow with the correct token", async t
   assert.equal(body.week, 2);
   assert.equal(body.teamState.faab.remaining, 497);
 });
+
+test('coach separates an empty slot from a small projected lineup edge', () => {
+  const plan = buildCoachPlan({ decisionContext: { week: 5, league: { teams: 12 }, myTeam: { teamName: 'Boukki' },
+    lineup: { optimal: { gain: 11.3, changes: [
+      { slot: 'WR2', in: { name: 'Downs' }, out: null, gain: 10.7 },
+      { slot: 'FLEX', in: { name: 'Moore' }, out: { name: 'Kamara' }, gain: 0.6 }
+    ] } } }, trades: { results: [] } });
+  const text = formatCoachPlan(plan);
+  assert.match(text, /Compléter WR2/);
+  assert.match(text, /Choix proche — FLEX/);
+  assert.match(text, /santé\/rôle à confirmer/);
+});

@@ -69,3 +69,14 @@ test("an existing weekly snapshot is never overwritten by a later re-run", async
   assert.deepEqual(result, { season: 2026, week: 4, skipped: "exists", snapshotId: "snap-4", takenAt: "2026-09-29T08:00:00Z" });
   assert.deepEqual(calls, ["model_snapshots"]);
 });
+
+test('missing FAAB ranges are uncovered and feedback cannot claim calibration', () => {
+  const faab = summarizeFaabCalibration([{ sleeper_player_id: 'x', bid: 20 }], new Map([['x', { faab_low: null, faab_high: null, surplus_points: 10 }]]));
+  assert.equal(faab.covered, 0);
+  assert.equal(faab.inRangeRate, null);
+  assert.equal(faab.pricedClaims, 0);
+  const text = formatFeedbackMessage({ week: 4, faab, projections: [{ horizon: 0, mae: 4.55, n: 359 }], signals: {}, algoFeedback: [] });
+  assert.match(text, /0\/1 — calibration indisponible/);
+  assert.match(text, /MAE/);
+  assert.match(text, /ne certifie pas une capture avant kickoff/);
+});

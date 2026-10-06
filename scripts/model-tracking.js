@@ -46,14 +46,15 @@ const round = (value, digits = 2) => value === null || value === undefined ? nul
 export function summarizeFaabCalibration(outcomes = [], marketById = new Map(), { pricePerPoint = PRICE_PER_POINT } = {}) {
   const claims = outcomes.map(outcome => {
     const market = marketById.get(outcome.sleeper_player_id) || null;
-    const surplus = market ? Number(market.surplus_points) : null;
+    const comparable = market && Number.isFinite(market.faab_low) && Number.isFinite(market.faab_high) && market.faab_low >= 0 && market.faab_high >= market.faab_low;
+    const surplus = comparable ? Number(market.surplus_points) : null;
     return {
       playerId: outcome.sleeper_player_id,
       name: market?.name || outcome.name || outcome.sleeper_player_id,
       bid: outcome.bid,
-      predicted: market ? [market.faab_low, market.faab_high] : null,
+      predicted: comparable ? [market.faab_low, market.faab_high] : null,
       surplus,
-      inRange: market ? outcome.bid >= market.faab_low && outcome.bid <= market.faab_high : null,
+      inRange: comparable ? outcome.bid >= market.faab_low && outcome.bid <= market.faab_high : null,
       impliedPricePerPoint: surplus > MIN_SURPLUS_FOR_PRICE ? outcome.bid / surplus : null
     };
   });
@@ -107,17 +108,21 @@ export function formatFeedbackMessage(report) {
   const lines = [`📈 SUIVI DU MODÈLE — ADINEU (semaine ${report.week} terminée)`, ""];
   const faab = report.faab;
   lines.push(`FAAB (enchères du mercredi suivant le snapshot S${report.week}) : ${faab.claims} gagnée(s), ${faab.covered} couverte(s) par le snapshot.`);
+  lines.push(`Couverture FAAB : ${faab.covered}/${faab.claims}${faab.covered ? " — comparaison descriptive des seules enchères couvertes" : " — calibration indisponible"}.`);
+  if (!faab.covered && faab.claims) lines.push("À vérifier : IDs joueurs, date et pool du snapshot, fenêtre des transactions. Aucune conclusion sur les montants prédits.");
   if (faab.covered) lines.push(`• Dans la fourchette prédite : ${Math.round(faab.inRangeRate * 100)} %`);
   if (faab.medianImpliedPricePerPoint !== null) lines.push(`• Prix payé par point de surplus (médiane, ${faab.pricedClaims} cas) : ${faab.medianImpliedPricePerPoint} $ (modèle : ${faab.pricePerPoint} $)`);
   if (report.projections.length) {
-    lines.push("", "Projections Sleeper (erreur moyenne selon l'ancienneté) :");
+    lines.push("", "Projections Sleeper — MAE (erreur absolue moyenne, pts) selon l'ancienneté :");
     for (const entry of report.projections) lines.push(`• ${entry.horizon} semaine(s) avant : ${entry.mae} pts (n=${entry.n})`);
+    lines.push("Horizon 0 ne certifie pas une capture avant kickoff ; ventilation par poste et comparaison sur cohorte identique restent nécessaires.");
   } else {
     lines.push("", "Projections : pas encore de snapshot antérieur à cette semaine.");
   }
   for (const [signal, stats] of Object.entries(report.signals)) {
     if (stats.n) lines.push(`${signal === "BUY_LOW" ? "🟢 Buy-low" : "🔥 Sell-high"} : ${stats.n} suivi(s), ${stats.changeVsFlagged > 0 ? "+" : ""}${stats.changeVsFlagged} pt/match depuis, ${Math.round(stats.improvedRate * 100)} % en hausse`);
   }
+  if (Object.values(report.signals).some(stats => stats.n)) lines.push("Signaux : suivi descriptif, horizon variable ; pas de preuve d’avantage ni de rentabilité d’un trade. SELL_HIGH n’est pas une consigne de coupe.");
   if (report.algoFeedback.length) {
     lines.push("", "ALGO FEEDBACK :");
     for (const item of report.algoFeedback) lines.push(`• ${item}`);

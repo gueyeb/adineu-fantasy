@@ -24,3 +24,13 @@ Les recommandations de lineup restent des projections et les alertes Questionabl
 ## Validation
 
 291 tests passent dans l’état local actuel ; contrôles statiques et versions des 40 assets réussis. Le contrôle whitespace global signale une ligne vide finale préexistante dans decision-reliability-2026-10-04.md, hors changements de cette étape. Les modifications locales préexistantes des autres chantiers sont conservées, non incluses dans ce commit. Aucun push ni déploiement.
+
+## Deuxième correction : couverture et décisions proches
+
+Le suivi affiche maintenant couverture FAAB couverte/observée, « calibration indisponible » sans cas comparable, et les axes de diagnostic (IDs, date, pool, fenêtre). Des bornes de prix nulles, invalides ou inversées ne comptent pas comme couverture et ne contribuent pas au prix implicite par point. Les fourchettes zéro/zéro valides restent comparables.
+
+Les projections sont étiquetées MAE ; le message rappelle que l’horizon zéro ne garantit pas une capture pré-match. Les signaux indiquent leur nature descriptive et l’horizon variable actuel, sans conclusion d’avantage. La ventilation par poste, les captures pré-match certifiées et les cohortes de référence à horizon fixe restent ouvertes.
+
+Coach distingue compléter un slot vide, optimiser, et un choix proche quand le gain projeté est inférieur à 1 point. Ce seuil de rendu est une règle de prudence non calibrée, pas un intervalle statistique. Santé/rôle et disponibilité/verrouillage doivent être vérifiés ; le titulaire ne sert de repli que s’il reste disponible. Aucun statut de santé ou déblocage n’est inventé.
+
+Validation : 293 tests passent, contrôles statiques et assets réussis. Les garde-fous de rendu ne remplacent pas les contrôles d’exécution. Restent à implémenter : certification des snapshots FAAB pré-waiver, évaluation buy-low/sell-high à horizon fixe et référence comparable, présentation ROS bilatérale/coût de coupe des trades, justification TE2 derrière McBride et validation des choix lineup par disponibilité réelle. Aucun déploiement.
