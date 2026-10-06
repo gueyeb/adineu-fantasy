@@ -28,6 +28,20 @@ test("coach preferences accept only known statuses and bounded player keys", () 
   assert.deepEqual(normalizeCoachPreferences({ p1: "KEEP", p2: "DELETE", ["x".repeat(81)]: "SHOP" }), { p1: "KEEP" });
 });
 
+test("coach explains blocked watch targets and excludes incoming players already owned", () => {
+  const plan = buildCoachPlan({ decisionContext: {
+    week: 5, league: { teams: 12 }, myTeam: { teamName: 'Boukki', record: { wins: 1, losses: 3 },
+      bench: [{ sleeperId: 'dj', name: 'DJ Moore' }] },
+    waiverActions: { WATCH: [{ name: 'Harris', position: 'WR', actionBlockers: ['INCOMPLETE_HORIZON', 'ROLE_UNCONFIRMED'] }] }
+  }, trades: { results: [{ proposals: [{ partnerName: 'Other', title: 'Receive DJ', receive: [{ sleeperId: 'dj' }] }] }] } });
+  assert.equal(plan.tradeTarget, null);
+  assert.ok(plan.snapshotIssues.includes('TRADE_RECEIVE_ALREADY_OWNED'));
+  const text = formatCoachPlan(plan);
+  assert.match(text, /projections incomplètes sur la durée du rôle/);
+  assert.match(text, /promotion non confirmée/);
+  assert.doesNotMatch(text, /INCOMPLETE_HORIZON|Scénarios alternatifs|TRADE À EXPLORER/);
+});
+
 test("coach API is hidden without its private bearer token", async t => {
   const server = createAppServer({ coachToken: "private-test-token" });
   server.listen(0, "127.0.0.1");

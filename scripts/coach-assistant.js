@@ -1,5 +1,12 @@
 const ACTION_ORDER = ["ADD_NOW", "CLAIM_IF_CHEAP", "WATCH"];
 const validPreferences = new Set(["LISTEN", "KEEP", "SHOP", "UNTOUCHABLE"]);
+const blockerLabels = {
+  INCOMPLETE_HORIZON: "projections incomplètes sur la durée du rôle",
+  TARGET_WEEK_ELIGIBILITY_UNVERIFIED: "disponibilité cette semaine non vérifiée",
+  ROLE_UNCONFIRMED: "promotion non confirmée",
+  UNKNOWN_FAAB_BALANCE: "solde FAAB à vérifier",
+  NO_LEGAL_TRANSACTION: "aucune transaction réalisable identifiée"
+};
 
 export function normalizeCoachPreferences(input = {}) {
   if (!input || typeof input !== "object" || Array.isArray(input)) return {};
@@ -20,7 +27,8 @@ function compactWaiver(player) {
     netGain: player.netGain, lineupGain: player.lineupGain, dropCandidate: player.dropCandidate,
     dropCost: player.dropCost, faabMarket: player.faabMarket, maxForTeam: player.maxForTeam,
     preferencePenaltyTotal: player.preferencePenaltyTotal, preferenceOverridden: player.preferenceOverridden, appliedPreference: player.appliedPreference,
-    interpretation: player.interpretation, reasons: player.reasons || []
+    interpretation: player.interpretation, reasons: player.reasons || [],
+    actionBlockers: player.decision?.actionBlockers ?? player.actionBlockers ?? []
   };
 }
 
@@ -31,7 +39,12 @@ export function buildCoachPlan({ decisionContext, trades, preferences = {} }) {
   const waiverActions = Object.fromEntries(ACTION_ORDER.map(action => [action,
     (context.waiverActions?.[action] || []).slice(0, action === "WATCH" ? 4 : 3).map(compactWaiver)
   ]));
-  const trade = trades.results?.[0]?.proposals?.[0] || null;
+  const ownedIds = new Set(['starters', 'bench', 'ir'].flatMap(group => (team[group] || [])
+    .map(entry => String((entry?.player || entry)?.sleeperId || '')).filter(Boolean)));
+  const tradeConflict = (trades.results?.[0]?.proposals || []).some(proposal =>
+    (proposal.receive || []).some(player => ownedIds.has(String(player.sleeperId || ''))));
+  const trade = (trades.results?.[0]?.proposals || []).find(proposal =>
+    !(proposal.receive || []).some(player => ownedIds.has(String(player.sleeperId || '')))) || null;
   const optimal = context.lineup?.optimal || null;
   const priorities = [];
 
@@ -66,7 +79,7 @@ export function buildCoachPlan({ decisionContext, trades, preferences = {} }) {
     rosterPreferences: context.rosterPreferences ?? [],
     scenariosAreAlternatives: true,
     recentTransactions: context.recentTransactions ?? [],
-    snapshotIssues: context.snapshotIssues ?? [],
+    snapshotIssues: [...(context.snapshotIssues ?? []), ...(tradeConflict ? ['TRADE_RECEIVE_ALREADY_OWNED'] : [])],
     watchlist: waiverActions.WATCH,
     cutCandidates: context.teamDiagnosis?.dropCandidates || [],
     tradeTarget: trade,
@@ -84,6 +97,7 @@ export function formatCoachPlan(plan) {
     `${record.wins}-${record.losses}${record.ties ? `-${record.ties}` : ""} · #${plan.teamState.rank}/${plan.teamState.leagueTeams} · FAAB ${plan.teamState.faab?.remaining ?? "n/d"} $ · urgence playoffs ${plan.teamState.playoffUrgency}`
   ];
   const optimal = plan.lineup.optimal;
+  if (plan.snapshotIssues.includes('TRADE_RECEIVE_ALREADY_OWNED')) lines.push("⚠ Trade incohérent écarté : un joueur à recevoir appartient déjà au roster.");
   if (plan.lineup.alerts.length || optimal?.gain > 0) {
     lines.push("", "🏈 LINEUP — À FAIRE");
     for (const change of optimal?.changes || []) lines.push(`• ${change.slot}: ${change.in?.name || "slot vide"} à la place de ${change.out?.name || "slot vide"} (${change.gain >= 0 ? "+" : ""}${change.gain} pts)`);
@@ -93,17 +107,19 @@ export function formatCoachPlan(plan) {
     const targets = plan.waiverActions[action];
     if (!targets.length) continue;
     lines.push("", action === "ADD_NOW" ? "🎯 WAIVERS — AJOUTER MAINTENANT" : "💸 WAIVERS — SEULEMENT AU BON PRIX");
-    targets.forEach(player => lines.push(`• ${player.name} (${player.position}) · gain net ${player.netGain} pt/sem sur le rôle · coupe ${player.dropCandidate?.name || "n/d"} · max ${player.maxForTeam ?? 0} $ · S${plan.week}: ${player.targetWeekDelta ?? "n/d"} pt · total net ${player.netGainTotal ?? "n/d"} pt / ${player.horizonWeeks ?? "n/d"} sem`));
+    targets.forEach(player => lines.push(`• ${player.name} (${player.position}) · gain net ${player.netGain} pt/sem sur le rôle · coupe ${player.dropCandidate?.name || "n/d"} · max ${player.maxForTeam ?? "n/d"} $ · S${plan.week}: ${player.targetWeekDelta ?? "n/d"} pt · total net ${player.netGainTotal ?? "n/d"} pt / ${player.horizonWeeks ?? "n/d"} sem`));
   }
   if (plan.acquisitionPlan?.steps.length) {
     lines.push("", "PLAN CONDITIONNEL — VÉRIFIER APRÈS CHAQUE RÉSULTAT");
     for (const step of plan.acquisitionPlan.steps) lines.push(`• ${step.name} · coupe ${step.dropCandidate?.name || "place libre"} · réserver ${step.suggestedBid} $ · budget après ${step.budgetAfter} $ · gain marginal ${step.netGainTotal} pts${step.preferenceOverridden ? ` · préférence temporaire dépassée (${step.preferencePenaltyTotal} points d’utilité)` : ""}${step.dependsOnPlayerIds.length ? ` · suppose les ajouts précédents (${step.dependsOnPlayerIds.join(", ")})` : ""}`);
     lines.push(`Total réservé ${plan.acquisitionPlan.reservedFaab} $ ; aucune probabilité de gagner ni soumission automatique.`);
   }
-  lines.push("Scénarios alternatifs : deux claims avec la même coupe ne peuvent pas être exécutés ensemble.");
+  if (plan.waiverActions.ADD_NOW.length + plan.waiverActions.CLAIM_IF_CHEAP.length > 1) lines.push("Scénarios alternatifs : deux claims avec la même coupe ne peuvent pas être exécutés ensemble.");
   if (plan.watchlist.length) {
     lines.push("", "👀 WATCHLIST");
-    plan.watchlist.forEach(player => lines.push(`• ${player.name} (${player.position}) · ${player.interpretation}`));
+    plan.watchlist.forEach(player => lines.push(`• ${player.name} (${player.position}) · ${player.actionBlockers?.length
+      ? `à surveiller, action bloquée : ${player.actionBlockers.map(code => blockerLabels[code] || code.replaceAll('_', ' ')).join(' ; ')}`
+      : player.interpretation}`));
   }
   if (plan.tradeTarget) lines.push("", "🤝 TRADE À EXPLORER", `${plan.tradeTarget.partnerName} · ${plan.tradeTarget.title}`);
   if (plan.priorities[0]?.type === "HOLD") lines.push("", "✅ Aucun mouvement prioritaire : conserve ton roster.");
