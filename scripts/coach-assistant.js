@@ -63,6 +63,8 @@ export function buildCoachPlan({ decisionContext, trades, preferences = {} }) {
 
   return {
     decisionScope: context.decisionScope ?? null,
+    coherence: context.coherence ?? null,
+    publishable: context.coherence?.publishable ?? null,
     generatedAt: new Date().toISOString(), week: context.week, team: team.teamName, owner: team.owner, rosterId: team.rosterId,
     teamState: {
       record: team.record, rank: team.standingsRank, leagueTeams: context.league.teams, faab: team.faab,
@@ -97,6 +99,10 @@ export function formatCoachPlan(plan) {
     `${record.wins}-${record.losses}${record.ties ? `-${record.ties}` : ""} · #${plan.teamState.rank}/${plan.teamState.leagueTeams} · FAAB ${plan.teamState.faab?.remaining ?? "n/d"} $ · urgence playoffs ${plan.teamState.playoffUrgency}`
   ];
   const optimal = plan.lineup.optimal;
+  if (plan.publishable === false) {
+    lines.push("⛔ Contrôle de cohérence : NON publiable — envoi automatique refusé. À corriger avant toute action :",
+      ...plan.coherence.warnings.filter(row => row.category === "CALCULATION_INCONSISTENCY").map(row => `• ${row.code} — ${row.message}`));
+  }
   if (plan.snapshotIssues.includes('TRADE_RECEIVE_ALREADY_OWNED')) lines.push("⚠ Trade incohérent écarté : un joueur à recevoir appartient déjà au roster.");
   if (plan.lineup.alerts.length || optimal?.gain > 0) {
     lines.push("", "🏈 LINEUP — À FAIRE");

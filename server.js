@@ -46,6 +46,18 @@ const MIME_TYPES = {
   ".webp": "image/webp"
 };
 
+/** Automated senders (n8n) must never forward a report that failed its coherence checks.
+ * 409 with no `message`: there is nothing to forward. `notice` says why, for an error branch.
+ * An absent verdict (no roster context) is not a refusal. Returns true when the response was sent. */
+function refuseUnpublishable(response, coherence) {
+  if (coherence?.publishable !== false) return false;
+  const blocking = (coherence.warnings || []).filter(row => row.category === "CALCULATION_INCONSISTENCY");
+  sendJson(response, 409, { error: "REPORT_NOT_PUBLISHABLE", publishable: false, message: null,
+    notice: `Bulletin Adineu retenu : ${blocking.length} incohérence(s) de calcul (${blocking.map(row => row.code).join(", ") || "n/d"}). Aucun envoi.`,
+    coherence });
+  return true;
+}
+
 function sendJson(response, statusCode, body) {
   const payload = JSON.stringify(body);
   response.writeHead(statusCode, {
@@ -197,6 +209,7 @@ export function createAppServer({
           context = buildDecisionContext({ context: compactContext, playerValues, statuses, waivers, lineup, matchup, playoffContext: playoffResult.status === "fulfilled" ? playoffResult.value : { ready: false, reason: "SOURCE_UNAVAILABLE" } });
           message = formatDecisionContext(context);
         }
+        if (url.searchParams.get("requirePublishable") === "1" && refuseUnpublishable(response, context.coherence)) return;
         if (url.searchParams.get("format") === "text") {
           response.writeHead(200, { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" });
           response.end(message);
@@ -218,6 +231,7 @@ export function createAppServer({
           team: url.searchParams.get("team") || null
         });
         const message = formatWaiverReport(report);
+        if (url.searchParams.get("requirePublishable") === "1" && refuseUnpublishable(response, report.coherence)) return;
         if (url.searchParams.get("format") === "text") {
           response.writeHead(200, { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" });
           response.end(message);
@@ -359,6 +373,8 @@ export function createAppServer({
         } catch { lineup.optimal = null; }
         const decisionContext = buildDecisionContext({ context, playerValues, statuses: playerStatuses, waivers: freeAgents, lineup, matchup, playoffContext });
         const plan = buildCoachPlan({ decisionContext, trades, preferences });
+        // Bearer = automation: refuse. The signed-in page still shows the plan with its warning.
+        if (apiAuthorized && refuseUnpublishable(response, plan.coherence)) return;
         sendJson(response, 200, { ...plan, message: formatCoachPlan(plan) });
       } catch (error) {
         const isUnknownTeam = error.message.startsWith("Équipe Sleeper inconnue");
