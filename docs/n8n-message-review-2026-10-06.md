@@ -39,3 +39,8 @@ Validation : 293 tests passent, contrôles statiques et assets réussis. Les gar
 ## Comparaison externe locale — 7 octobre
 
 Context et Coach exposent désormais `projectionComparison`, et le `message` Coach peut afficher les valeurs natives Draft Sharks/CBS pour les joueurs cités. Cache choisi via `PROJECTION_COMPARISON_FILE`, collecté explicitement hors requêtes HTTP ; pas de modification du suivi/calibration, du workflow ou de la production. Les données non validées sont retenues sans inventer une moyenne ou une recommandation. [Procédure, contrat et limites](projection-comparison-n8n.md).
+
+
+## Claims alternatifs locaux — 7 octobre
+
+Le `message` Coach expose maintenant le plan principal et les groupes de repli : un seul succès dans un groupe, budget maximal des branches détaillées, autres étapes recalculées après succès/échec. Les listes individuelles restent dans le JSON mais ne sont plus dupliquées comme consignes cumulées quand le plan existe. Couverture partielle = maximum global inconnu ; annulation automatique Sleeper non vérifiée. Contrat HTTP privé testé avec des fixtures, aucun message réel ni changement de workflow. [Contrat et evals](conditional-claim-portfolio-2026-10-07.md).

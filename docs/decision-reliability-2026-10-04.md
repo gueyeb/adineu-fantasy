@@ -583,3 +583,8 @@ Changements de contrat : `fit.dropCandidate` et `dropCostPerWeek` valent `null` 
 
 Nouveaux champs par candidat : `roleProfile`, `emergingRole`, `waiver.fit.progressionGuard`, `waiver.fit.progressionSacrificeTotal` ; par rapport : `coherence` (`warnings`, `publishable`, `counts`, `playerNames`). `selectionScore` soustrait désormais le sacrifice de progression quand il s’applique ; `netGainTotal` est inchangé. Seuils et pondérations de ces trois mécanismes sont des déclencheurs de revue non calibrés. L’évaluation rétrospective expose `roleProfileEvaluation`, descriptive, sans pondération tant que l’échantillon est insuffisant.
 
+
+
+## Suite DEC-02/06 — claims alternatifs, 7 octobre 2026
+
+Le plan principal et ses budgets restent ceux de son chemin gagnant. Les groupes de repli partagent une coupe/place et une date de traitement ; un repli est évalué sur la branche où les choix précédents ont échoué ou ont été écartés. La suite recalcule les coupes, le budget et les fenêtres de rôle. Le portefeuille borne le détail à deux replis par groupe et seize scénarios ; pas de maximum global inventé si l’exploration est partielle. Les autres claims supposent toujours leur succès, et aucune annulation automatique de plateforme n’est certifiée. JSON commun et messages Coach/n8n explicites. [Contrat et validation](conditional-claim-portfolio-2026-10-07.md). Livré localement, sans soumission ni déploiement.

@@ -1,3 +1,4 @@
+import { formatClaimPortfolio } from '../public/assets/waiver-plan.js';
 import { formatProjectionComparison } from './projection-comparison.js';
 import { BYE_WEEKS_2026 } from "../public/assets/league-settings.js";
 import { formatRecentTransactions } from "../public/assets/acquisition-availability.js";
@@ -326,7 +327,15 @@ export function formatDecisionContext(context) {
   }
 
   lines.push("TEMPORARY ROSTER PREFERENCES", JSON.stringify(context.rosterPreferences || []));
-  lines.push("CONDITIONAL ACQUISITION PLAN — REVALIDATE AFTER EACH RESULT", JSON.stringify(context.acquisitionPlan || null));
+  const plan = context.acquisitionPlan;
+  const planSummary = plan ? { steps: plan.steps.map(step => ({ playerId: step.playerId, name: step.name,
+    dropCandidate: step.dropCandidate, suggestedBid: step.suggestedBid, budgetAfter: step.budgetAfter,
+    netGainTotal: step.netGainTotal, horizonWeeks: step.horizonWeeks, dependsOnPlayerIds: step.dependsOnPlayerIds })),
+    reservedFaab: plan.reservedFaab, remainingFaab: plan.remainingFaab, executionMode: plan.executionMode,
+    claimPortfolio: plan.claimPortfolio ? { coverage: plan.claimPortfolio.coverage, scenarioCount: plan.claimPortfolio.scenarios.length,
+      maximumReviewedFaabExposure: plan.claimPortfolio.maximumReviewedFaabExposure, issues: plan.claimPortfolio.issues } : null } : null;
+  lines.push("CONDITIONAL ACQUISITION PLAN — REVALIDATE AFTER EACH RESULT (detailed branches in JSON)", JSON.stringify(planSummary));
+  lines.push(...formatClaimPortfolio(context.acquisitionPlan));
   const vacancyRows = Object.values(context.waiverActions || {}).flat().filter(player => player.starterVacancyScenario);
   if (vacancyRows.length) lines.push("TARGET WEEK — FILL STARTER SLOTS (ROS separate)", ...vacancyRows.map(player =>
     `${player.name}: ${player.starterVacancyScenario.slot} S${context.week} | target gain=${metric(player.targetWeekDelta)} | net after permanent cut cost=${metric(player.netGainTotal)} | ${player.recommendedAction} | availability=${player.availability?.availability || "UNKNOWN"}`));

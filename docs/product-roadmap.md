@@ -85,3 +85,8 @@ de paramètres ou déploiement. Voir [le contrat](decision-reliability-2026-10-0
 ### 05/10 — Retour complémentaire : propagation du contexte live
 
 Nouveau backlog priorisé : [transactions nominatives, couverture du pool, ripple, optionalité des coupes et GAME_LOCKED](decision-engine-live-state-backlog-2026-10-05.md). État existant distingué des travaux ouverts, exemples Week 4 à reconstruire depuis des snapshots sourcés. Les cases ouvertes ne sont pas des fonctionnalités livrées.
+
+
+### 07/10 — portefeuille de claims alternatifs
+
+Livré localement : groupes de repli sur la même coupe/place et la même date, branches de succès/échec, budget et roster recalculés ; les acquisitions justifiant des coupes distinctes restent cumulables. Maximum des scénarios détaillés seulement avec couverture complète, limites explicites ; aucune annulation Sleeper supposée. Rendu Coach/n8n et export IA compact du plan. [Contrat et evals](conditional-claim-portfolio-2026-10-07.md). Prochains sujets du feedback DvP : utilité TE2, mouvements WR/FLEX couplés, diagnostics de projections manquantes ; prix spéculatif toujours à définir/calibrer.

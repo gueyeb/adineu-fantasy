@@ -191,3 +191,8 @@ Validation : défaut reproduit avant correction, quatre étiquettes testées et 
 Un solde FAAB absent ou invalide reste `null` dans les plans conditionnels (`budgetKnown=false`, `UNKNOWN_FAAB_BALANCE`). Pour un scénario légal et couvert, le plafond personnel reste inconnu ; une enchère passe en `WATCH` avec ce motif. Un scénario inexécutable garde son plafond de zéro. Les ajouts libres vérifiés à coût zéro restent possibles et ne transforment pas le solde inconnu en zéro. Les champs budgetBefore/budgetAfter restent null ; reservedFaab=0 décrit uniquement les fonds réservés par ce plan. La convention Sleeper existante « waiver_budget_used absent = zéro dépensé » reste distincte de ce contrôle sur un solde explicitement inconnu.
 
 Validation : reproduction du plafond inventé, ajout gratuit avec solde inconnu, blocage de claim et régressions scénarios inexécutables ; **268 tests passent**, contrôles statiques et assets réussis. Aucun déploiement.
+
+
+### Claims alternatifs — 7 octobre 2026
+
+Le plan gagnant glouton reste disponible ; `alternativeClaimGroups` et `claimPortfolio` ajoutent les replis sur une coupe/place libre partagée au même instant de traitement. Chaque issue recalcule roster, rôle et FAAB. Le maximum des scénarios détaillés distingue les alternatives de dépenses cumulées ; exploration limitée à seize scénarios, maximum global inconnu si tronquée. Les claims cumulables avec deux coupes justifiées restent disponibles. Aucun automatisme de soumission ou d’annulation Sleeper. [Contrat, limites et evals](conditional-claim-portfolio-2026-10-07.md). Rendu local partagé Waiver/AI Context/Coach, utilisable dans le message n8n ; aucun déploiement.

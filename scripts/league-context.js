@@ -14,7 +14,7 @@ import { resolveAcquisitionAvailability, summarizeRecentTransactions, resolveRol
  */
 
 import { normalizeRosterPreferences } from "../public/assets/roster-preferences.js";
-import { buildAcquisitionPlan } from "../public/assets/waiver-plan.js";
+import { buildAcquisitionPlan, formatClaimPortfolio } from "../public/assets/waiver-plan.js";
 import { summarizeMatchupCoverage } from "../public/assets/matchup-coverage.js";
 import { loadDecisionEvidence, easternKickoffIso } from "./decision-evidence.js";
 import { BYE_WEEKS_2026 } from "../public/assets/league-settings.js";
@@ -636,6 +636,7 @@ export function formatWaiverReport({ byPosition, week, faabRemaining = null, deg
   if (rosterPreferences.length) lines.push("Préférences temporaires :", JSON.stringify(rosterPreferences));
   if (acquisitionPlan) {
     lines.push(`Plan conditionnel : ${acquisitionPlan.steps.length} étape(s), ${acquisitionPlan.reservedFaab} $ réservés. Vérifier après chaque résultat ; suppose les succès précédents.`);
+    lines.push(...formatClaimPortfolio(acquisitionPlan));
     for (const step of acquisitionPlan.steps) lines.push(`${step.name} · coupe ${step.dropCandidate?.name || "place libre"} · ${step.suggestedBid} $ · budget après ${step.budgetAfter} $ · gain marginal ${step.netGainTotal} pts`);
   }
 

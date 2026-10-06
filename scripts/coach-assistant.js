@@ -1,3 +1,4 @@
+import { formatClaimPortfolio } from '../public/assets/waiver-plan.js';
 import { formatProjectionComparison } from './projection-comparison.js';
 const ACTION_ORDER = ["ADD_NOW", "CLAIM_IF_CHEAP", "WATCH"];
 const validPreferences = new Set(["LISTEN", "KEEP", "SHOP", "UNTOUCHABLE"]);
@@ -133,7 +134,7 @@ export function formatCoachPlan(plan) {
     for (const alert of plan.lineup.alerts) lines.push(`• ${alert.slot}: ${alert.reason}`);
   }
   for (const action of ["ADD_NOW", "CLAIM_IF_CHEAP"]) {
-    const targets = plan.waiverActions[action];
+    const targets = plan.acquisitionPlan ? [] : plan.waiverActions[action];
     if (!targets.length) continue;
     lines.push("", action === "ADD_NOW" ? "🎯 WAIVERS — AJOUTER MAINTENANT" : "💸 WAIVERS — SEULEMENT AU BON PRIX");
     targets.forEach(player => lines.push(`• ${player.name} (${player.position})${player.starterVacancyScenario ? ` · compléter ${player.starterVacancyScenario.slot} en S${plan.week}` : ""} · gain net ${player.netGain} pt/sem ${player.starterVacancyScenario ? `sur S${plan.week}` : "sur le rôle"} · coupe ${player.dropCandidate?.name || "n/d"} · max ${player.maxForTeam ?? "n/d"} $ · S${plan.week}: ${player.targetWeekDelta ?? "n/d"} pt · total net ${player.netGainTotal ?? "n/d"} pt / ${player.horizonWeeks ?? "n/d"} sem`));
@@ -143,7 +144,9 @@ export function formatCoachPlan(plan) {
     for (const step of plan.acquisitionPlan.steps) lines.push(`• ${step.name} · coupe ${step.dropCandidate?.name || "place libre"} · réserver ${step.suggestedBid} $ · budget après ${step.budgetAfter} $ · gain marginal ${step.netGainTotal} pts${step.preferenceOverridden ? ` · préférence temporaire dépassée (${step.preferencePenaltyTotal} points d’utilité)` : ""}${step.dependsOnPlayerIds.length ? ` · suppose les ajouts précédents (${step.dependsOnPlayerIds.join(", ")})` : ""}`);
     lines.push(`Total réservé ${plan.acquisitionPlan.reservedFaab} $ ; aucune probabilité de gagner ni soumission automatique.`);
   }
-  if (plan.waiverActions.ADD_NOW.length + plan.waiverActions.CLAIM_IF_CHEAP.length > 1) lines.push("Scénarios alternatifs : deux claims avec la même coupe ne peuvent pas être exécutés ensemble.");
+  const claimLines = formatClaimPortfolio(plan.acquisitionPlan);
+  if (claimLines.length) lines.push('', ...claimLines);
+  if (!plan.acquisitionPlan && plan.waiverActions.ADD_NOW.length + plan.waiverActions.CLAIM_IF_CHEAP.length > 1) lines.push("Scénarios alternatifs : deux claims avec la même coupe ne peuvent pas être exécutés ensemble.");
   if (plan.watchlist.length) {
     lines.push("", "👀 WATCHLIST");
     plan.watchlist.forEach(player => lines.push(`• ${player.name} (${player.position})${player.starterVacancyScenario ? ` · compléter ${player.starterVacancyScenario.slot} en S${plan.week} (${player.targetWeekDelta ?? "n/d"} pts projetés) · ROS évalué séparément` : ""} · ${player.actionBlockers?.length

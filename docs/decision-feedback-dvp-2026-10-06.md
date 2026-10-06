@@ -13,7 +13,7 @@ Une DEF/K/QB avec delta cible positif mais horizon incomplet est désormais clas
 ## Prochains changements
 
 - [x] Scénario d’urgence pour compléter un slot QB/K/DEF structurellement vide : horizon cible d’une semaine, indépendant de la comparaison ROS ; coupe permanente évaluée séparément et aucun verrou ignoré. Faire apparaître l’urgence DEF dans Coach même quand les acquisitions restent bloquées.
-- [ ] Portefeuille de claims alternatifs : Coleman puis Harris avec la même coupe constituent un groupe de fallback, pas deux ajouts supposés gagnés. Conserver ordre, budget maximal exposé, dépendances et raisons d’échec. Ne pas promettre une annulation automatique sans règles plateforme vérifiées. Ajouter ensuite la DEF avec la place libre, sans consommer deux fois cette place.
+- [x] Portefeuille de claims alternatifs : un choix puis son repli sur la même coupe/date, branches gagnant/repli/tous échoués, suite et budget recalculés. La DEF utilise la place libre une seule fois par branche, avant ou après les claims selon sa disponibilité. Maximum de dépense explicite sur les scénarios détaillés ; `null` si exploration partielle. Aucune annulation automatique supposée. [Contrat et limites](conditional-claim-portfolio-2026-10-07.md).
 - [ ] Option spéculative : séparer strategicUpside, perte de la coupe, speculativeCeiling et plafond basé sur un gain de lineup couvert. Un rôle unconfirmed ne devient pas confirmé parce que Market est élevé. Pas de prix non nul uniquement fondé sur une performance récente ; seuils et calibration à définir.
 - [ ] TE2 : expliquer semaine de bye du titulaire, possibilité FLEX, rôle de secours et valeur nette de la place de banc. Un marché élevé pour Hockenson ne suffit pas à justifier une acquisition derrière McBride.
 - [ ] Rotation WR/FLEX : les mouvements Puka vers WR1 et Moore vers FLEX sont couplés. Afficher le remplacement global Wicks → Moore (+1,7), puis les affectations de slots, sans présenter +12,7 et −11 comme décisions indépendantes.
@@ -40,6 +40,13 @@ Avec une place libre, les projections futures ne sont pas requises pour chiffrer
 
 Le plan privilégie un slot vide à heure d’exécution égale, puis recalcule roster et budget. Il reste glouton et conditionnel. Coach priorise une option par slot vide, puis laisse de la place aux autres postes dans la watchlist. Les exports IA affichent les scénarios hebdomadaires à part ; métriques canoniques identiques dans les trois outils. Une disponibilité inconnue reste WATCH, même si le gain S5 est connu.
 
-Portée : slots structurellement vides QB/K/DEF ; un titulaire OUT encore présent, les slots RB/WR/FLEX et les groupes de claims alternatifs restent des cas distincts. Ce changement ne résout pas toutes les acquisitions à horizon incomplet.
+Portée : slots structurellement vides QB/K/DEF ; un titulaire OUT encore présent, les slots RB/WR/FLEX restent des cas distincts. Les groupes de claims alternatifs sont livrés dans la suite du 7 octobre, indépendamment de ce scénario hebdomadaire. Ce changement ne résout pas toutes les acquisitions à horizon incomplet.
 
 Validation : **330 tests passent**, dont absence de projection S7 avec gain S5 conservé, coupe permanente bloquée faute de couverture future, disponibilité/projection cible inconnue, position déjà pourvue, parité des métriques, priorité opérationnelle et watchlist multi-postes. Contrôles statiques, 42 assets et whitespace réussis. Aucun push ni déploiement.
+
+
+## Livraison du 7 octobre : claims alternatifs
+
+Le plan conserve les acquisitions successives légales avec des coupes distinctes. Les vrais replis sur la même ressource/date ont des scénarios exclusifs : premier choix acquis, repli acquis après échec/renoncement, ou aucun acquis. Roster, fenêtres de rôle et budget sont recalculés par branche ; un repli plus cher peut empêcher l’étape suivante. Coach/n8n expliquent le groupe et son maximum sans doubler les recommandations individuelles. Exploration bornée, limites exportées, pas de garantie d’annulation plateforme. [Détails, exemples de test et evals](conditional-claim-portfolio-2026-10-07.md).
+
+Validation de cette suite : **354 tests passent**, syntaxe, contrôles statiques, 42 assets et whitespace réussis. Aucun push ni déploiement.
