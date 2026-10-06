@@ -817,6 +817,8 @@ td.num.negative { color: var(--red); font-weight: 800; }
 .fa-table col.fa-col-cat { width: 13%; }
 .fa-table col.fa-col-money { width: 12%; }
 .fa-table td { overflow-wrap: anywhere; vertical-align: top; }
+/* Engine notes (profile, trend, re-evaluation) are sentences: let them wrap inside the player column. */
+.fa-table td:first-child { white-space: normal; }
 .fold-section { border: 1px solid var(--line); border-radius: 6px; padding: 12px 16px; background: var(--paper-soft); }
 .fold-section summary { font-size: 1rem; }
 .fold-section[open] summary { margin-bottom: 10px; }

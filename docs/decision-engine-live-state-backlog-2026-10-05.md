@@ -52,7 +52,7 @@ Retour ajouté le 5 octobre 2026 depuis le document « Corrections ADINEU — Wa
 
 - [ ] Évaluer les profils de rôle contre snapshots pré-match et résultats 2/4 semaines, incluant WATCH/IGNORE. Définir ensuite les pondérations et seuils à partir de cette évaluation.
   - Livré le 6 octobre : le profil est archivé dans chaque snapshot, et `evaluateDecisionOutcomes` renvoie `roleProfileEvaluation` (par profil × fenêtre 2/4 semaines : fenêtres complètes, points réels et projetés moyens par semaine, répartition des actions, WATCH/IGNORE inclus).
-  - Reste ouvert : il n’existe aucun snapshot profilé antérieur au 6 octobre, donc aucun échantillon. Tant qu’un profil n’atteint pas `minimumCalibrationSample` (20) fenêtres complètes, `sampleStatus=INSUFFICIENT_SAMPLE`, `weightsDefined=false` et les seuils restent ceux, non calibrés, du P1. Il faut collecter un snapshot par semaine (`node scripts/decision-snapshot.js collect <team> <fichier>`) puis saisir les résultats.
+  - Reste ouvert : il n’existe aucun snapshot profilé antérieur au 6 octobre, donc aucun échantillon. Tant qu’un profil n’atteint pas `minimumCalibrationSample` (20) fenêtres complètes, `sampleStatus=INSUFFICIENT_SAMPLE`, `weightsDefined=false` et les seuils restent ceux, non calibrés, du P1. Il faut collecter un snapshot par semaine (`npm run decision:snapshot -- collect <team> <fichier>`) puis saisir les résultats. Premier snapshot profilé collecté le 6 octobre (S5, roster t0z) : `output/decision-snapshots/2026-10-06-s5-t0z-profiled.json`, local et ignoré par Git.
 
 ## Régressions et critères de validation
 
@@ -64,4 +64,4 @@ Retour ajouté le 5 octobre 2026 depuis le document « Corrections ADINEU — Wa
 6. GAME_LOCKED : action bloquée, marché conservé ; scénario futur daté et couvert seulement si le prochain horizon est connu.
 7. Invariant : même joueur, roster, snapshot et horizon donnent les mêmes métriques pour Coach, Waiver et AI Context ; les explications doivent rendre les objectifs différents lisibles.
 
-Validation au 6 octobre : 315 tests Node, `npm run check`, parité live / recalcul hors-ligne (métriques et cohérence identiques) sur le roster t0z en S4 puis S5. Non vérifié : rendu navigateur de l’onglet Waiver. Aucun déploiement. Régressions encore sans fixture sourcée : 1 (Harris → Jennings) et 3 (Coleman/Moore).
+Validation au 6 octobre : 315 tests Node, `npm run check`, parité live / recalcul hors-ligne (métriques et cohérence identiques) sur le roster t0z en S4 puis S5. Onglet Waiver vérifié dans un navigateur en live S5 (desktop 1710 px et mobile 390 px, aucune erreur console, aucune valeur `undefined`) : les notes du moteur débordaient de la colonne joueur, corrigé par un retour à la ligne dans `styles.css`. Non vérifié à l’écran : la note de scénario `GAME_LOCKED`, aucune ligne n’étant verrouillée au moment du contrôle. Aucun déploiement. Régressions encore sans fixture sourcée : 1 (Harris → Jennings) et 3 (Coleman/Moore).
