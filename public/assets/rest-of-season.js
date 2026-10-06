@@ -54,7 +54,9 @@ export function usageAdjustedRosPpg({
   if (!values.length || (!enoughProjection && !usageWeeks)) return null;
   return {
     ppg: round(values.reduce((sum, value) => sum + value, 0) / values.length),
-    source: usageWeeks ? "SLEEPER_USAGE_BLEND" : "SLEEPER_PROJECTIONS",
+    // No published projection at all: the value is recent volume only, and says so.
+    source: !projectedNonBye ? "USAGE_XFP_ONLY" : usageWeeks ? "SLEEPER_USAGE_BLEND" : "SLEEPER_PROJECTIONS",
+    projectedWeeks: projectedNonBye,
     usageWeeks,
     loadedWeeks: values.length
   };

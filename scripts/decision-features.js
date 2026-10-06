@@ -40,14 +40,17 @@ export function extractDecisionFeatures({ index, catalog, rosters, nflState, pro
   }
 
   const meta = id => index.get(id) || (catalogById.has(id) ? { id, name: catalogById.get(id).name, position: catalogById.get(id).position, nflTeam: catalogById.get(id).nflTeam, active: true } : null);
-  const rosDetailFor = (id, player) => usageAdjustedRosPpg({
+  // The decision engine never prices a player Sleeper does not project: a value built from
+  // recent volume alone is not a projection, so it is dropped here (rank fallback or null).
+  const projectedOnly = detail => detail && detail.projectedWeeks > 0 ? detail : null;
+  const rosDetailFor = (id, player) => projectedOnly(usageAdjustedRosPpg({
     playerId: id,
     position: player?.position,
     nflTeam: player?.nflTeam,
     projectionsByWeek,
     week,
     xfp: usageById.get(id)?.xfp
-  });
+  }));
   const rosFor = (id, player) => rosDetailFor(id, player)?.ppg ?? computeRosPpg({ playerId: id, nflTeam: player?.nflTeam, projectionsByWeek, week });
 
   // Pool : index Sleeper complet (ou catalogue en repli), postes fantasy, équipe NFL active.

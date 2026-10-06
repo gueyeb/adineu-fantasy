@@ -196,3 +196,23 @@ test("GAME_LOCKED: the current action stays blocked; the next-week scenario is s
   assert.equal(longer.horizonWeeks, 2);
   assert.equal(evaluateNextUnlockScenario({ row: marketRow, availability: { availability: "FREE_AGENT" }, rosterContext: fitContext, week: 4, horizonFor }), null);
 });
+
+test("the decision engine does not price a player on recent volume alone: no projection, no value", () => {
+  // Assez de lignes WR pour que le modèle xFP existe ; aucun joueur n'a de projection publiée.
+  const ids = Array.from({ length: 12 }, (_, i) => `wr${i}`);
+  const index = new Map(ids.map(id => player(id, "WR", "AAA")));
+  const statsByWeek = [1, 2, 3].map(week => ({ week, stats: Object.fromEntries(ids.map((id, i) => [id, { off_snp: 30 + i, tm_off_snp: 60, gp: 1, rec_tgt: 4 + i % 5, pts_ppr: 6 + i }])) }));
+  const empty = Object.fromEntries(weeks.map(w => [w, {}]));
+  const unprojected = features({ index, statsByWeek, projectionsByWeek: empty });
+  const first = unprojected.rows.find(row => row.sleeperId === "wr0");
+  assert.ok(Number.isFinite(first.xfp));
+  assert.deepEqual(first.poolEntry.reasons, ["RECENT_STATS"]);
+  assert.equal(first.rosPpg, null);
+  assert.equal(first.rosSource, "NONE");
+  assert.equal(first.valuationCovered, false);
+  assert.equal(unprojected.rosterPlayerFor("wr1").rosPpg, null);
+  // Avec une projection publiée, la valeur revient, mélange usage compris.
+  const projected = features({ index, statsByWeek, projectionsByWeek: projections({ wr0: 8 }) }).rows.find(row => row.sleeperId === "wr0");
+  assert.ok(projected.poolEntry.reasons.includes("PROJECTION"));
+  assert.ok(Number.isFinite(projected.rosPpg));
+});
