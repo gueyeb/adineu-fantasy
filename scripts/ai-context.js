@@ -1,6 +1,7 @@
 import { BYE_WEEKS_2026 } from "../public/assets/league-settings.js";
 import { formatRecentTransactions } from "../public/assets/acquisition-availability.js";
 import { formatPoolCoverage } from "./league-context.js";
+import { formatCoherenceWarnings } from "../public/assets/decision-coherence.js";
 import { classifyWaiverDecision } from "../public/assets/waiver-model.js";
 
 const round = value => value !== null && value !== undefined && Number.isFinite(Number(value)) ? Number(Number(value).toFixed(1)) : null;
@@ -37,6 +38,10 @@ function waiverRows(report) {
     .map(player => ({
       modelMetrics: player.modelMetrics ?? null,
       poolEntry: player.poolEntry ?? null,
+      roleProfile: player.roleProfile ?? null,
+      emergingRole: player.emergingRole ?? null,
+      progressionGuard: player.waiver.fit?.progressionGuard ?? null,
+      progressionSacrificeTotal: player.waiver.fit?.progressionSacrificeTotal ?? null,
       ripple: player.ripple ?? [],
       nextUnlockScenario: player.nextUnlockScenario ?? null,
       cutSelection: player.waiver.fit?.cutSelection ?? null,
@@ -198,6 +203,7 @@ export function buildDecisionContext({ context, playerValues = {}, statuses = ne
     playerIndexProvenance: waivers?.playerIndexProvenance ?? null,
     candidateCoverage: { evaluated: waivers?.evaluatedCandidateCount ?? null, returned: waivers?.returnedCandidateCount ?? null },
     poolCoverage: waivers?.poolCoverage ?? null,
+    coherence: waivers?.coherence ?? null,
     myTeam: enrichedTeam,
     lineup: lineup || { alerts: [], optimal: null },
     nextMatchup: matchup,
@@ -238,6 +244,7 @@ function decisionPlayerLine(prefix, player) {
 }
 
 const dropCostText = components => components ? ` [usage ${components.usagePremiumPerWeek} + buyLow ${components.buyLowPremiumPerWeek} + projUpside ${components.projectionUpsidePerWeek} = option ${components.optionValuePerWeek}/w × ${components.horizonWeeks}w = ${components.optionTotal}; postRoleLineupLoss ${metric(components.postRoleLineupLossTotal)}; lineup loss already in gross; inputs ${components.optionCoverage}${components.missingInputs.length ? ` missing ${components.missingInputs.join(",")}` : ""}; uncalibrated]` : "";
+const emergingText = emerging => !emerging?.comparable ? "" : ` | Trend W${emerging.weeksCompared.join("/")}: snaps ${metric(emerging.snapShareDelta)}, targets ${metric(emerging.targetsDelta)}, opportunities ${metric(emerging.opportunitiesDelta)}, xFP ${metric(emerging.xfpDelta)}, routes n/d -> ${emerging.progression}${emerging.progressionSource ? ` ${emerging.progressionSource}` : ""}, emerging option ${metric(emerging.optionValuePerWeek, " pts/w")} [uncalibrated]`;
 const nextUnlockText = scenario => !scenario ? "" : scenario.status !== "EVALUATED" ? ` | NextUnlock=${scenario.status}`
   : ` | NextUnlock=scenario only, not executable: start W${scenario.startWeek}, unlock ${scenario.unlockVerified ? scenario.unlockAt : "UNVERIFIED"}, horizon ${metric(scenario.horizonWeeks, "w")}, net ${metric(scenario.netGainTotal, " pts")}, cut ${scenario.dropCandidate?.name || "n/d"}, indicative max ${metric(scenario.indicativeMaxBid, " $")}, coverage ${scenario.coverageIssues.join(",") || "complete"}`;
 
@@ -318,7 +325,8 @@ export function formatDecisionContext(context) {
   lines.push("CONDITIONAL ACQUISITION PLAN — REVALIDATE AFTER EACH RESULT", JSON.stringify(context.acquisitionPlan || null));
   lines.push("RECENT TRANSACTIONS (72h)", ...formatRecentTransactions(context.recentTransactions || []), `Truncated: ${context.transactionsTruncatedCount || 0} | Availability as of: ${context.availabilityAsOf || "n/d"}`, ...(context.snapshotIssues || []));
   if (context.poolCoverage) lines.push("CANDIDATE POOL", ...formatPoolCoverage(context.poolCoverage));
-  const waiverLine = (player, index) => `${index + 1}. ${player.name} ${player.position} ${player.nflTeam || "FA"} | Class=${player.decisionClass} | Immediate=${player.immediateValue} | Strategic=${player.strategicUpside} | Market=${player.marketScore} | GrossGain=${metric(player.lineupGain, " pts/w")} | Drop=${player.dropCandidate?.name || "none"} | DropCost=${metric(player.dropCost, " pts/w")} | NetGain=${metric(player.netGain, " pts/w over role horizon")} | Availability=${player.availability?.availability || "UNKNOWN"} | TargetWeekDelta=${metric(player.targetWeekDelta, " pts")} | Horizon=${metric(player.horizonWeeks, " weeks")} | GrossTotal=${metric(player.grossGainTotal, " pts")} | PostRoleCutLoss=${metric(player.postRoleCutCostTotal, " pts")} | NetTotal=${metric(player.netGainTotal, " pts")} | FAAB market estimate=${player.faabMarket?.join("–") || "n/d"} $ | SuggestedBid=${metric(player.suggestedBid, " $")} | PersonalMax=${metric(player.maxForTeam, " $")} | Budget=${metric(player.bidPctInitial, "% initial")}/${metric(player.bidPctRemaining, "% remaining")} | AuctionWinProbability=n/d | Role=${player.roleConfirmation} | Coverage=${player.coverageIssues.join(",") || "complete"}${player.coverageBlockers?.length ? ` (blocked by ${[...new Set(player.coverageBlockers.map(row => row.name || row.playerId))].join(", ")})` : ""} | Cut=${player.cutSelection || "n/d"}${dropCostText(player.dropCostComponents)} | Entry=${player.poolEntry?.reasons?.join("+") || "n/d"}${player.poolEntry && !player.poolEntry.valuationCovered ? " (no projection: no numeric gain)" : ""}${player.poolEntry?.recentDrop ? ` | RecentDrop=${player.poolEntry.recentDrop.droppedAt} clearance unverified` : ""}${player.ripple?.length ? ` | Ripple=${player.ripple.map(row => `${row.triggerName || row.triggerPlayerId} ${row.triggerStatus || row.type} ${row.group}`).join("; ")} (re-evaluate; no share or succession attributed)` : ""}${nextUnlockText(player.nextUnlockScenario)} | ${player.interpretation}${player.reasons.length ? ` | ${player.reasons.join("; ")}` : ""}`;
+  if (context.coherence) lines.push("COHERENCE CHECKS (before publication)", ...formatCoherenceWarnings(context.coherence));
+  const waiverLine = (player, index) => `${index + 1}. ${player.name} ${player.position} ${player.nflTeam || "FA"} | Class=${player.decisionClass} | Immediate=${player.immediateValue} | Strategic=${player.strategicUpside} | Market=${player.marketScore} | GrossGain=${metric(player.lineupGain, " pts/w")} | Drop=${player.dropCandidate?.name || "none"} | DropCost=${metric(player.dropCost, " pts/w")} | NetGain=${metric(player.netGain, " pts/w over role horizon")} | Availability=${player.availability?.availability || "UNKNOWN"} | TargetWeekDelta=${metric(player.targetWeekDelta, " pts")} | Horizon=${metric(player.horizonWeeks, " weeks")} | GrossTotal=${metric(player.grossGainTotal, " pts")} | PostRoleCutLoss=${metric(player.postRoleCutCostTotal, " pts")} | NetTotal=${metric(player.netGainTotal, " pts")} | FAAB market estimate=${player.faabMarket?.join("–") || "n/d"} $ | SuggestedBid=${metric(player.suggestedBid, " $")} | PersonalMax=${metric(player.maxForTeam, " $")} | Budget=${metric(player.bidPctInitial, "% initial")}/${metric(player.bidPctRemaining, "% remaining")} | AuctionWinProbability=n/d | Role=${player.roleConfirmation} | Coverage=${player.coverageIssues.join(",") || "complete"}${player.coverageBlockers?.length ? ` (blocked by ${[...new Set(player.coverageBlockers.map(row => row.name || row.playerId))].join(", ")})` : ""} | Cut=${player.cutSelection || "n/d"}${dropCostText(player.dropCostComponents)} | RoleProfile=${player.roleProfile?.profile || "none"}${player.roleProfile?.profile ? ` [${player.roleProfile.basis.join(",")}; uncalibrated thresholds]` : ""}${emergingText(player.emergingRole)}${["JUSTIFIED", "NOT_JUSTIFIED", "UNPRICED"].includes(player.progressionGuard) ? ` | ProgressionGuard=${player.progressionGuard} (sacrifice ${metric(player.progressionSacrificeTotal, " pts")} vs net ${metric(player.netGainTotal, " pts")}; cutting an organic riser for a rental)` : ""} | Entry=${player.poolEntry?.reasons?.join("+") || "n/d"}${player.poolEntry && !player.poolEntry.valuationCovered ? " (no projection: no numeric gain)" : ""}${player.poolEntry?.recentDrop ? ` | RecentDrop=${player.poolEntry.recentDrop.droppedAt} clearance unverified` : ""}${player.ripple?.length ? ` | Ripple=${player.ripple.map(row => `${row.triggerName || row.triggerPlayerId} ${row.triggerStatus || row.type} ${row.group}`).join("; ")} (re-evaluate; no share or succession attributed)` : ""}${nextUnlockText(player.nextUnlockScenario)} | ${player.interpretation}${player.reasons.length ? ` | ${player.reasons.join("; ")}` : ""}`;
   lines.push("", "WAIVER — RECOMMENDED ACTIONS");
   for (const action of ["ADD_NOW", "CLAIM_IF_CHEAP", "WATCH", "IGNORE"]) {
     lines.push("", action.replaceAll("_", " "));

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { createWaiverEvaluator } from "./waiver-evaluator.js";
 import { extractDecisionFeatures, SEVERITY_BY_STATUS } from "./decision-features.js";
+import { buildCoherenceWarnings, formatCoherenceWarnings } from "../public/assets/decision-coherence.js";
 import { resolveAcquisitionAvailability, summarizeRecentTransactions, resolveRoleEvidence, formatRecentTransactions, findRecentDrops, nextWeekHorizon } from "../public/assets/acquisition-availability.js";
 /**
  * Adineu Fantasy — Contexte IA & Waiver Wire Report
@@ -554,6 +555,8 @@ export async function getFreeAgents({
     rosterCapacity: STARTER_SLOT_ORDER.length + ROSTER_SETTINGS_2026.benchSlots + fitContext.protectedIds.size,
     evaluateCandidate: withWaiver
   }) : null;
+  // Sanity checks before publication: computed on what is actually returned.
+  const coherence = buildCoherenceWarnings({ boardRows: board, marketRows: market, myPlayers: fitContext?.myPlayers ?? [] });
   if (onDecisionInputs) {
     const evaluatedPlayers = [...market, ...(fitContext?.myPlayers || [])];
     const paceById = Object.fromEntries(evaluatedPlayers.map(player => [player.sleeperId, fitContext?.paceOf(player) ?? null]));
@@ -579,7 +582,7 @@ export async function getFreeAgents({
     playerIndexProvenance: { source: `${SLEEPER_API}/players/nfl`, fetchedAt: playersIndexCaches.get(fetchImpl)?.at ? new Date(playersIndexCaches.get(fetchImpl).at).toISOString() : null, fallback: index.size ? null : "CATALOG_FALLBACK" },
     decisionScope: { leagueId, season, targetWeek: week, roster: team, asOf },
     season, leagueId, provenanceVersion: 1, evaluatedCandidateCount: market.length, returnedCandidateCount: Object.values(byPosition).flat().length,
-    acquisitionPlan, rosterPreferences: fitContext?.rosterPreferences ?? [], poolCoverage: boardCoverage,
+    acquisitionPlan, rosterPreferences: fitContext?.rosterPreferences ?? [], poolCoverage: boardCoverage, coherence,
     ...transactionSummary, availabilityAsOf: asOf, ownershipAsOf, transactionsFetchedAt, ownershipRechecked, snapshotSynchronized: false,
     transactionCoverage: `${transactionsByWeek.length}/${week}`,
     snapshotIssues,
@@ -594,7 +597,11 @@ const formatEntry = player => {
   const entry = player.poolEntry;
   if (!entry) return "";
   const ripple = (player.ripple || []).map(row => `${row.triggerName || `#${row.triggerPlayerId}`} ${row.triggerStatus || row.type} (${row.group})`);
-  return ` · Entrée ${entry.reasons.join("+") || "n/d"}${entry.valuationCovered ? "" : " · projection absente : aucun gain chiffré"}` +
+  const emerging = player.emergingRole;
+  const profile = (player.roleProfile?.profile ? ` · Profil de rôle ${player.roleProfile.profile} (${player.roleProfile.basis.join(",")}, seuils non calibrés)` : "") +
+    (emerging?.comparable ? ` · Tendance S${emerging.weeksCompared.join("/")} : snaps ${emerging.snapShareDelta ?? "n/d"}, cibles ${emerging.targetsDelta ?? "n/d"}, opportunités ${emerging.opportunitiesDelta ?? "n/d"}, xFP ${emerging.xfpDelta ?? "n/d"}, routes n/d → ${emerging.progression}${emerging.progressionSource ? ` (${emerging.progressionSource})` : ""}` : "") +
+    (["NOT_JUSTIFIED", "UNPRICED", "JUSTIFIED"].includes(player.waiver?.fit?.progressionGuard) ? ` · Coupe d'une progression organique : ${player.waiver.fit.progressionGuard} (sacrifice ${player.waiver.fit.progressionSacrificeTotal ?? "n/d"} pts vs net ${player.waiver.fit.netGainTotal ?? "n/d"})` : "");
+  return `${profile} · Entrée ${entry.reasons.join("+") || "n/d"}${entry.valuationCovered ? "" : " · projection absente : aucun gain chiffré"}` +
     (entry.recentDrop ? ` · coupé le ${entry.recentDrop.droppedAt}, déblocage non vérifié` : "") +
     (ripple.length ? ` · Ripple à réévaluer (aucune part attribuée) : ${ripple.join(" ; ")}` : "");
 };
@@ -611,7 +618,7 @@ export function formatPoolCoverage(pool) {
 }
 
 /** Rend la liste de free agents en un bulletin texte, groupé par poste. */
-export function formatWaiverReport({ byPosition, week, faabRemaining = null, degraded = false, coverage = null, recentTransactions = [], transactionsTruncatedCount = 0, availabilityAsOf = null, snapshotIssues = [], acquisitionPlan = null, rosterPreferences = [], poolCoverage = null }) {
+export function formatWaiverReport({ byPosition, week, faabRemaining = null, degraded = false, coverage = null, recentTransactions = [], transactionsTruncatedCount = 0, availabilityAsOf = null, snapshotIssues = [], acquisitionPlan = null, rosterPreferences = [], poolCoverage = null, coherence = null }) {
   const lines = [`📋 WAIVER WIRE REPORT — ADINEU${week ? ` (Semaine ${week})` : ""}`];
   if (Number.isFinite(faabRemaining)) lines.push(`FAAB restant : ${faabRemaining} $ / ${GENERAL_SETTINGS_2026.waiver.budget} $`);
   if (degraded) lines.push(`Couverture dégradée : projections ${coverage?.projectionWeeks || "n/d"}, usage ${coverage?.statsWeeks || "n/d"}.`);
@@ -619,6 +626,7 @@ export function formatWaiverReport({ byPosition, week, faabRemaining = null, deg
   lines.push(`Disponibilité au ${availabilityAsOf || "n/d"} · transactions 72 h : ${recentTransactions.length} (${transactionsTruncatedCount} non affichées).`, ...snapshotIssues);
   if (recentTransactions.length) lines.push(...formatRecentTransactions(recentTransactions));
   if (poolCoverage) lines.push(...formatPoolCoverage(poolCoverage));
+  if (coherence) lines.push(...formatCoherenceWarnings(coherence));
   lines.push("Scénarios alternatifs : une même coupe ne peut pas financer deux acquisitions.");
   if (rosterPreferences.length) lines.push("Préférences temporaires :", JSON.stringify(rosterPreferences));
   if (acquisitionPlan) {

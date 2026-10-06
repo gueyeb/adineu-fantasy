@@ -525,6 +525,9 @@ export async function renderTradesPage(container) {
       if (entry?.recentDrop) notes.push("Coupé récemment · déblocage non vérifié");
       if (entry && !entry.valuationCovered) notes.push("Projection absente · aucun gain chiffré");
       if (entry?.reasons?.includes("SOURCED_EVENT")) notes.push("Événement sourcé");
+      if (p.roleProfile?.profile) notes.push(`Profil ${p.roleProfile.profile}`);
+      if (p.emergingRole?.progression === "RISING") notes.push(`Rôle en hausse (xFP ${p.emergingRole.xfpDelta >= 0 ? "+" : ""}${p.emergingRole.xfpDelta}/sem, ${p.emergingRole.progressionSource === "ORGANIC" ? "organique" : "coïncide avec une absence"})`);
+      if (["NOT_JUSTIFIED", "UNPRICED"].includes(p.waiver?.fit?.progressionGuard)) notes.push("Couperait une progression organique sans gain net documenté");
       if (p.ripple?.length) notes.push(`À réévaluer : ${p.ripple.map(row => `${row.triggerName || row.triggerPlayerId} ${row.triggerStatus || row.type}`).join(", ")} (aucune part attribuée)`);
       const next = p.nextUnlockScenario;
       if (next) notes.push(next.status === "EVALUATED"

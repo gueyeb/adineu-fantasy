@@ -10,6 +10,7 @@ import { normalizeRosterPreferences } from '../public/assets/roster-preferences.
 import { buildStarterSlotOrder } from '../public/assets/roster-view.js';
 import { buildAcquisitionPlan } from '../public/assets/waiver-plan.js';
 import { createWaiverEvaluator } from './waiver-evaluator.js';
+import { buildCoherenceWarnings } from '../public/assets/decision-coherence.js';
 
 /** Recalculate market, roster fit, actions and conditional plan from captured model inputs.
  * Version 2 reconstructs event, usage/xFP and ROS features from source inputs. No live fetch allowed. */
@@ -81,5 +82,6 @@ export function recomputeDecisionInputs(inputs) {
   const acquisitionPlan = fitContext ? buildAcquisitionPlan({ candidates:Object.values(byPosition).flat(), myPlayers:fitContext.myPlayers,
     faabRemaining:fitContext.faabRemaining, rosterCapacity:buildStarterSlotOrder(ROSTER_SETTINGS_2026).length + ROSTER_SETTINGS_2026.benchSlots + fitContext.protectedIds.size,
     evaluateCandidate:evaluate }) : null;
-  return { byPosition, acquisitionPlan };
+  const coherence = buildCoherenceWarnings({ boardRows:Object.values(byPosition).flat(), marketRows:market, myPlayers:fitContext?.myPlayers ?? [] });
+  return { byPosition, acquisitionPlan, coherence };
 }

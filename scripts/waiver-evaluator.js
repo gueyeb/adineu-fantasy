@@ -66,12 +66,20 @@ export function createWaiverEvaluator({ fitContext, week, availabilityFor, owner
       decision.actionBlockers.push("UNKNOWN_FAAB_BALANCE");
       decision.interpretation = "Positive roster value; verify the FAAB balance before bidding.";
     }
-    // A personal willingness-to-pay ceiling is not the cost of a free-agent add.
-    const suggestedBid = decision.recommendedAction === "CLAIM_IF_CHEAP" ? personalMaxBid : 0;
     const nextUnlockScenario = evaluateNextUnlockScenario({ row, availability, rosterContext, week, horizonFor });
     if (availability?.availability === "GAME_LOCKED" && !decision.actionBlockers.includes("GAME_LOCKED")) decision.actionBlockers.push("GAME_LOCKED");
     if (availability?.coverageIssues?.includes("RECENT_DROP_CLEARANCE_UNVERIFIED")) decision.actionBlockers.push("RECENT_DROP_CLEARANCE_UNVERIFIED");
     if (row.valuationCovered === false) decision.actionBlockers.push("NO_PROJECTION");
+    // Not an absolute ban: the cut is allowed as soon as the documented net gain pays for it.
+    if (fit && ["NOT_JUSTIFIED", "UNPRICED"].includes(fit.progressionGuard)) {
+      decision.actionBlockers.push(`PROGRESSION_SACRIFICE_${fit.progressionGuard}`);
+      if (["ADD_NOW", "CLAIM_IF_CHEAP"].includes(decision.recommendedAction)) {
+        decision.recommendedAction = "WATCH";
+        decision.interpretation = "Rental gain does not document the cost of cutting an organically rising role.";
+      }
+    }
+    // A personal willingness-to-pay ceiling is not the cost of a free-agent add.
+    const suggestedBid = decision.recommendedAction === "CLAIM_IF_CHEAP" ? personalMaxBid : 0;
     return {
       ...row,
       availability,
@@ -84,9 +92,13 @@ export function createWaiverEvaluator({ fitContext, week, availabilityFor, owner
         weeklyLineupDeltas: fit?.weeklyLineupDeltas ?? [], dropCandidate: fit?.dropCandidate ?? null,
         suggestedBid, personalMaxBid, availability, roleConfirmation: row.events.roleConfirmation,
         cutSelection: fit?.cutSelection ?? null, dropCostComponents: fit?.dropCostComponents ?? null,
-        poolEntryReasons: row.poolEntry?.reasons ?? [], nextUnlockScenario },
+        poolEntryReasons: row.poolEntry?.reasons ?? [], nextUnlockScenario,
+        roleProfile: row.roleProfile?.profile ?? null, progressionGuard: fit?.progressionGuard ?? null,
+        progressionSacrificeTotal: fit?.progressionSacrificeTotal ?? null },
       waiver: {
         poolEntry: row.poolEntry ?? null,
+        roleProfile: row.roleProfile ?? null,
+        emergingRole: row.emergingRole ?? null,
         ripple: row.ripple ?? [],
         nextUnlockScenario,
         roleConfirmation: row.events.roleConfirmation,

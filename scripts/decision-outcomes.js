@@ -86,12 +86,29 @@ export function evaluateDecisionOutcomes(snapshot, outcomes, { decisionCutoff, e
   }
   const finalPoints=valid.filter(row=>row.kind==='ACTUAL_POINTS');
   const recommendationOutcomes=candidates.map(candidate=>({playerId:candidate.sleeperId,recommendedAction:candidate.waiver?.decision?.recommendedAction ?? 'UNKNOWN',
+    roleProfile:candidate.roleProfile?.profile ?? candidate.waiver?.roleProfile?.profile ?? 'NONE',
     windows:[2,4].map(windowWeeks=>{
       const points=finalPoints.filter(row=>row.playerId===candidate.sleeperId && row.week>=report.week && row.week<report.week+windowWeeks);
       return {windowWeeks,expectedWeeks:windowWeeks,observedWeeks:points.length,complete:points.length===windowWeeks,
         pointsTotal:points.length ? points.reduce((sum,row)=>sum+row.points,0) : null,
         assessment:'DESCRIPTIVE_NOT_TRANSACTION_REGRET',observations:points.map(row=>({week:row.week,points:row.points,source:row.source,observedAt:row.observedAt}))};
     })}));
+  // Role profiles against 2/4-week outcomes, WATCH/IGNORE included. Descriptive only: it defines
+  // no weight or threshold; those follow once a profile reaches the minimum sample.
+  const dated=(playerId,week)=>projectionRows.find(row=>row.playerId===playerId && row.week===week)?.predicted ?? null;
+  const roleProfileEvaluation=[...new Set(recommendationOutcomes.map(row=>row.roleProfile))].sort().flatMap(roleProfile=>[2,4].map(windowWeeks=>{
+    const group=recommendationOutcomes.filter(row=>row.roleProfile===roleProfile);
+    const complete=group.map(row=>({row,window:row.windows.find(window=>window.windowWeeks===windowWeeks)})).filter(({window})=>window.complete);
+    const projected=complete.map(({row,window})=>window.observations.map(obs=>dated(row.playerId,obs.week)));
+    const comparable=complete.filter((_,i)=>projected[i].every(Number.isFinite));
+    const actions={};
+    for (const {row} of complete) actions[row.recommendedAction]=(actions[row.recommendedAction] || 0)+1;
+    return {roleProfile,windowWeeks,candidates:group.length,completeWindows:complete.length,
+      meanActualPointsPerWeek:mean(complete.map(({window})=>window.pointsTotal/windowWeeks)),
+      meanProjectedPointsPerWeek:comparable.length ? mean(comparable.map(({row,window})=>window.observations.reduce((sum,obs)=>sum+dated(row.playerId,obs.week),0)/windowWeeks)) : null,
+      comparableWindows:comparable.length,byRecommendedAction:actions,
+      sampleStatus:complete.length>=minimumCalibrationSample ? 'DESCRIPTIVE_SAMPLE_AVAILABLE' : 'INSUFFICIENT_SAMPLE'};
+  }));
   const horizons=[...new Set(projectionRows.map(row=>row.horizonWeeks))].sort((a,b)=>a-b).map(horizonWeeks=>({horizonWeeks,...summarizeErrors(projectionRows.filter(row=>row.horizonWeeks===horizonWeeks))}));
   const groups=[...new Set(claimRows.map(row=>`${row.position}:${row.duration}`))].map(key=>{
     const group=claimRows.filter(row=>`${row.position}:${row.duration}`===key);
@@ -102,7 +119,8 @@ export function evaluateDecisionOutcomes(snapshot, outcomes, { decisionCutoff, e
     projectionAccuracy:{...summarizeErrors(projectionRows),byHorizon:horizons,rows:projectionRows,metric:'SLEEPER_RAW_PPR_PROJECTION',errorDefinition:'PREDICTED_MINUS_ACTUAL',sampleUniverse:'MATCHED_DATED_PROJECTIONS_WITH_FINAL_OBSERVATIONS'},
     operational:{observedChecks:actionRows.length,invalidChecks:actionRows.filter(row=>!row.executable).length,validityRate:mean(actionRows.map(row=>Number(row.executable))),rows:actionRows},
     faab:{observedWinningClaims:claimRows.length,groups,rows:claimRows,minimumCalibrationSample,selectionBias:'WINNING_BIDS_ONLY',sampleUniverse:'RETURNED_CANDIDATES_WITH_MATCHED_WINNING_CLAIMS',auctionWinProbability:null,parametersChanged:false},
-    recommendationOutcomes, exclusions,cutRegret:null,falseRoleAlertRate:null,calibrationApplied:false };
+    recommendationOutcomes, roleProfileEvaluation:{rows:roleProfileEvaluation,minimumCalibrationSample,weightsDefined:false,thresholdsCalibrated:false,
+      sampleUniverse:'RETURNED_CANDIDATES_WITH_COMPLETE_FINAL_WINDOWS',assessment:'DESCRIPTIVE_NOT_TRANSACTION_REGRET'}, exclusions,cutRegret:null,falseRoleAlertRate:null,calibrationApplied:false };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {

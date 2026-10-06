@@ -80,3 +80,20 @@ test('WATCH and IGNORE observations receive descriptive windows even without acq
   assert.equal(result.recommendationOutcomes[0].windows[0].complete,false);
   assert.equal(result.recommendationOutcomes[0].windows[0].pointsTotal,0);
 });
+
+test('role profiles are evaluated on complete 2/4-week windows, WATCH included, without defining weights',()=>{
+  const watched={...report,byPosition:{WR:[{...report.byPosition.WR[0],roleProfile:{profile:'PURE_RENTAL'},waiver:{...report.byPosition.WR[0].waiver,decision:{recommendedAction:'WATCH'}}}]}};
+  const twoWeeks={...inputs,raw:{projectionsByWeek:{4:{x:{pts_ppr:10}},5:{x:{pts_ppr:8}}},fetchedAtByPath:{'/projections/nfl/regular/2026/4':'2026-10-04T09:00:00Z','/projections/nfl/regular/2026/5':'2026-10-04T09:00:00Z'}}};
+  const profiled=createDecisionSnapshot(watched,{inputs:twoWeeks});
+  const second={...actual,week:5,points:6,observedAt:'2026-10-11T21:00:00Z',kickoffAt:'2026-10-11T17:00:00Z',finishedAt:'2026-10-11T20:00:00Z'};
+  const result=evaluateDecisionOutcomes(profiled,{...outcomes([actual,second]),snapshotHash:profiled.reportHash},{...options,evaluatedAt:'2026-10-12T12:00:00Z'});
+  assert.equal(result.recommendationOutcomes[0].roleProfile,'PURE_RENTAL');
+  const [two,four]=result.roleProfileEvaluation.rows;
+  assert.deepEqual([two.roleProfile,two.windowWeeks,two.completeWindows,two.meanActualPointsPerWeek,two.meanProjectedPointsPerWeek],['PURE_RENTAL',2,1,3,9]);
+  assert.deepEqual(two.byRecommendedAction,{WATCH:1});
+  assert.equal(two.sampleStatus,'INSUFFICIENT_SAMPLE');
+  assert.equal(four.completeWindows,0);
+  assert.equal(four.meanActualPointsPerWeek,null);
+  assert.equal(result.roleProfileEvaluation.weightsDefined,false);
+  assert.equal(result.calibrationApplied,false);
+});

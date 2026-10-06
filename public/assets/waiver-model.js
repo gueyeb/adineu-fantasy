@@ -64,6 +64,7 @@ export function buildOpportunitySignals(playerId, statsByWeek) {
   const lastTwo = played.slice(-2);
   return {
     gamesPlayed: played.length,
+    series: weeks,
     last,
     prevSnapShare: mean(previous.map(week => week.snapShare).filter(Number.isFinite)),
     prevOpportunities: mean(previous.map(week => week.opportunities)),
@@ -279,14 +280,22 @@ export function evaluateRosterFit({ marketRow, myPlayers, paceOf, week, faabRema
     const netGainTotal = grossGainTotal === null ? null : round(grossGainTotal - dropCostTotal - postRoleCutCostTotal);
     const preference = rosterPreferences.find(row => row.playerId === String(cut?.sleeperId));
     const preferencePenaltyTotal = preference?.penaltyPoints ?? 0;
-    const selectionScore = netGainTotal === null ? null : round(netGainTotal - preferencePenaltyTotal);
-    return { preference, preferencePenaltyTotal, selectionScore, sleeperId: cut?.sleeperId ?? null, name: cut?.name ?? "Place libre", position: cut?.position ?? null,
+    // A rental ends; the cut does not. Cutting an organic riser for it must be paid for by the
+    // documented net gain. Uncalibrated, so it only orders cuts: netGainTotal keeps its definition.
+    const emerging = cut?.emergingRole ?? null;
+    const organicRiser = Boolean(cut) && horizonWeeks < remaining && emerging?.progression === "RISING" && emerging.progressionSource === "ORGANIC";
+    const progressionSacrificeTotal = !organicRiser ? 0 : Number.isFinite(emerging.optionValuePerWeek) ? round(emerging.optionValuePerWeek * remaining) : null;
+    const progressionGuard = !organicRiser ? "NOT_APPLICABLE" : progressionSacrificeTotal === null ? "UNPRICED"
+      : netGainTotal !== null && netGainTotal - progressionSacrificeTotal > 0 ? "JUSTIFIED" : netGainTotal === null ? "UNPRICED" : "NOT_JUSTIFIED";
+    const selectionScore = netGainTotal === null ? null : round(netGainTotal - preferencePenaltyTotal - (progressionSacrificeTotal ?? 0));
+    return { preference, preferencePenaltyTotal, selectionScore, progressionGuard, progressionSacrificeTotal, emergingRole: emerging, sleeperId: cut?.sleeperId ?? null, name: cut?.name ?? "Place libre", position: cut?.position ?? null,
       nflTeam: cut?.nflTeam || null, weeklyLineupDeltas, grossGainTotal, netGainTotal, dropCostTotal,
       postRoleCutCostTotal, postRoleCutDeltas,
       // Every term of the cut cost, with the roster inputs it was computed from.
       dropCostComponents: { horizonWeeks, usagePremiumPerWeek: option.usagePremium, buyLowPremiumPerWeek: option.buyLowPremium,
         projectionUpsidePerWeek: option.projectionUpside, optionValuePerWeek, optionTotal: dropCostTotal,
         postRoleLineupLossTotal: postRoleCutCostTotal, preferencePenaltyTotal: rosterPreferences.find(row => row.playerId === String(cut?.sleeperId))?.penaltyPoints ?? 0,
+        progressionSacrificeTotal, progressionGuard, emergingRole: emerging,
         lineupLossIncludedInGross: true, optionApplicable: option.applicable, optionCoverage: option.coverage,
         missingInputs: option.missingInputs, inputs: option.inputs, calibrated: false },
       coverageBlockers,
@@ -299,6 +308,7 @@ export function evaluateRosterFit({ marketRow, myPlayers, paceOf, week, faabRema
   };
   const scenarios = (hasOpenRosterSlot ? [null] : candidates).map(simulate).sort((a, b) =>
     Number(b.legalTransaction && b.netGainTotal !== null) - Number(a.legalTransaction && a.netGainTotal !== null) ||
+    Number(a.progressionGuard === "UNPRICED") - Number(b.progressionGuard === "UNPRICED") ||
     (b.selectionScore ?? -Infinity) - (a.selectionScore ?? -Infinity) ||
     Number(b.position === marketRow.position) - Number(a.position === marketRow.position) ||
     String(a.sleeperId).localeCompare(String(b.sleeperId)));
@@ -318,6 +328,7 @@ export function evaluateRosterFit({ marketRow, myPlayers, paceOf, week, faabRema
     preferencePenaltyTotal: chosen?.preferencePenaltyTotal ?? 0,
     selectionScore: chosen?.selectionScore ?? null,
     preferenceOverridden: Boolean(chosen?.preference),
+    progressionGuard: chosen?.progressionGuard ?? "NOT_APPLICABLE", progressionSacrificeTotal: chosen ? chosen.progressionSacrificeTotal : 0,
     appliedPreference: chosen?.preference ?? null,
     gainPerWeek, grossGainAverage: gainPerWeek, horizonWeeks, netGainAverage, netGainPerWeek, netGainRosWeeks: remaining,
     grossGainTotal: chosen?.grossGainTotal ?? null, netGainTotal: chosen?.netGainTotal ?? null,

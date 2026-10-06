@@ -8,7 +8,7 @@ import {
   buildSleeperWeek,
   buildSleeperSeasonMeetings
 } from "./rivalry-week.js?v=714a861458";
-import { renderTradesPage } from "./trade-ui.js?v=98c0dee855";
+import { renderTradesPage } from "./trade-ui.js?v=6e90e58131";
 import { renderMatchupsHub } from "./matchups-live.js?v=5c1a0cd6d4";
 import { calculatePlayoffRace } from "./playoff-race.js?v=52283bf11a";
 import { calculateLuck, calculateRankHistory } from "./standings-luck.js?v=7363afbb9e";

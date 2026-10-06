@@ -579,3 +579,7 @@ Types : `INJURY`, `RETURN`, `ROLE_CHANGE`, `NFL_TRANSACTION`. L’événement fa
 
 Changements de contrat : `fit.dropCandidate` et `dropCostPerWeek` valent `null` quand l’horizon n’est pas couvert ; `faabMarket` vaut `null` pour un joueur sans valorisation ; `regretRisk` peut valoir `UNKNOWN` ; `featureExtractionVersion` passe à 2 (les archives version 1 restent recalculables). Les joueurs en slot réserve ne sont plus alignés dans les lineups simulées.
 
+### P1 — profils de rôle, progression, cohérence (6 octobre 2026)
+
+Nouveaux champs par candidat : `roleProfile`, `emergingRole`, `waiver.fit.progressionGuard`, `waiver.fit.progressionSacrificeTotal` ; par rapport : `coherence` (`warnings`, `publishable`, `counts`, `playerNames`). `selectionScore` soustrait désormais le sacrifice de progression quand il s’applique ; `netGainTotal` est inchangé. Seuils et pondérations de ces trois mécanismes sont des déclencheurs de revue non calibrés. L’évaluation rétrospective expose `roleProfileEvaluation`, descriptive, sans pondération tant que l’échantillon est insuffisant.
+

@@ -1,8 +1,8 @@
 # Decision Engine — propagation du contexte live
 
-Retour ajouté le 5 octobre 2026 depuis le document « Corrections ADINEU — Waiver / Decision Engine ». Ce document complète le backlog existant ; les demandes ci-dessous ne sont pas encore toutes implémentées. Les exemples Week 4 constituent des cas de régression à reconstruire, pas des faits NFL certifiés ni des overrides à appliquer directement.
+Retour ajouté le 5 octobre 2026 depuis le document « Corrections ADINEU — Waiver / Decision Engine ». Ce document complète le backlog existant. **État au 6 octobre 2026 : P0 et P1 livrés en local (non déployés) ; P2 instrumenté, en attente de données.** Les exemples Week 4 constituent des cas de régression à reconstruire, pas des faits NFL certifiés ni des overrides à appliquer directement.
 
-## État constaté dans le code
+## État constaté dans le code (avant livraison, 5 octobre)
 
 - Transactions : collecte récente, invalidation des preuves d’accès périmées et relecture de propriété existent. Résolution nominative livrée le 5 octobre : joueurs, équipe fantasy, manager, statut et propriété courante ; IDs conservés. Un DROP ne prouve pas FREE_AGENT : propriétaire courant et éventuel waiver lock restent déterminants.
 - Pool : `decision-features.js` parcourt déjà l’index Sleeper complet, avec catalogue en repli. Mais les filtres excluent les joueurs en statut ALERT et ceux sans projection/rang ni match statistique. L’évaluation de tous les joueurs disponibles et leur présence dans un board limité sont deux garanties différentes.
@@ -34,14 +34,25 @@ Retour ajouté le 5 octobre 2026 depuis le document « Corrections ADINEU — Wa
 
 ## P1 — optionalité et cohérence
 
-- [ ] Ajouter une distinction de profil de rôle : PURE_RENTAL, INJURY_PROMOTION_WITH_EXISTING_ROLE, ROLE_EXPANSION, BREAKOUT, UNCERTAIN. Conserver DecisionClass et l’horizon confirmé comme dimensions distinctes.
-- [ ] Décomposer Emerging Role Option Value depuis tendances snaps/cibles/opportunités datées et comparables. Routes inconnues restent null ; aucun proxy snap → routes.
-- [ ] Comparer le coût de sacrifier une progression organique au bénéfice d’une location ; n’autoriser cette coupe que si le bénéfice net documenté la justifie. Pas d’interdiction absolue ni de poids présenté comme calibré sans évaluation.
-- [ ] Ajouter les avertissements de cohérence : coupe trop concentrée, news sans effet explicable, progression ignorée, candidat pertinent absent du board, BUY_LOW non représenté. Distinguer incohérence de calcul, manque de couverture et recommandation WATCH justifiée par coût de coupe.
+- [x] Ajouter une distinction de profil de rôle : PURE_RENTAL, INJURY_PROMOTION_WITH_EXISTING_ROLE, ROLE_EXPANSION, BREAKOUT, UNCERTAIN. Conserver DecisionClass et l’horizon confirmé comme dimensions distinctes.
+- [x] Décomposer Emerging Role Option Value depuis tendances snaps/cibles/opportunités datées et comparables. Routes inconnues restent null ; aucun proxy snap → routes.
+- [x] Comparer le coût de sacrifier une progression organique au bénéfice d’une location ; n’autoriser cette coupe que si le bénéfice net documenté la justifie. Pas d’interdiction absolue ni de poids présenté comme calibré sans évaluation.
+- [x] Ajouter les avertissements de cohérence : coupe trop concentrée, news sans effet explicable, progression ignorée, candidat pertinent absent du board, BUY_LOW non représenté. Distinguer incohérence de calcul, manque de couverture et recommandation WATCH justifiée par coût de coupe.
+
+### Livraison P1 du 6 octobre 2026 (locale, non déployée)
+
+- **Profil de rôle** (`public/assets/role-profile.js`, champ `roleProfile`) : troisième dimension, à côté de `decisionClass` et de l’horizon confirmé. `PROMOTION` + rôle antérieur à l’absence (≥ 30 % des snaps ou ≥ 5 opportunités sur les semaines précédentes) → `INJURY_PROMOTION_WITH_EXISTING_ROLE` ; sans rôle antérieur → `PURE_RENTAL` ; sans historique → `UNCERTAIN`. Hors promotion : xFP en hausse deux semaines de suite et organique → `ROLE_EXPANSION` ; saut d’une semaine → `BREAKOUT` ; hausse qui coïncide avec l’absence d’un coéquipier mieux classé → `UNCERTAIN`. `null` quand aucun récit de rôle ne s’applique. `basis` donne le motif ; les seuils sont exportés avec `calibrated:false`.
+- **Rôle émergent** (`emergingRole`) : écarts dernière semaine jouée vs moyenne des précédentes pour snaps, cibles, opportunités et xFP (modèle de volume déjà utilisé par l’usage), semaines comparées listées, `consecutiveRises`. `routesDelta` et `routesSource` restent `null`. `progressionSource` : `ORGANIC` ou `COINCIDES_WITH_TEAMMATE_ABSENCE` ; seul un coéquipier absent **mieux classé** (search rank) peut expliquer une hausse, un rang inconnu reste une explication possible. C’est le traitement du mélange progression organique / promotion temporaire. `optionValuePerWeek` = hausse d’xFP non encore projetée, 0 hors hausse, `null` sans données.
+- **Progression vs location** (`progressionGuard`) : s’applique quand la coupe est un joueur en hausse organique et que l’acquisition est temporaire. Sacrifice = option émergente × semaines restantes (la coupe est permanente). `JUSTIFIED` si le gain net total le dépasse, `NOT_JUSTIFIED` sinon, `UNPRICED` si l’option n’est pas chiffrable. Le sacrifice entre dans `selectionScore` (ordre des coupes, plafond d’enchère), pas dans `netGainTotal`. `NOT_JUSTIFIED`/`UNPRICED` rétrogradent une action en `WATCH` avec le blocage `PROGRESSION_SACRIFICE_*` : pas d’interdiction, la coupe redevient possible dès que le gain documenté la couvre. Pondération non calibrée.
+- **Cohérence avant publication** (`public/assets/decision-coherence.js`, champ `coherence`) : `publishable=false` dès qu’une incohérence de calcul existe. Catégories : `CALCULATION_INCONSISTENCY` (bloquant : action sans gain couvert, joueur épinglé absent, BUY_LOW coupé par une action, progression sacrifiée par une action), `COVERAGE_GAP` (à revoir : coupe concentrée, aucune comparaison couverte, news sans effet mesurable, candidats signalés hors board, BUY_LOW hors board), `CONSTRAINT` (coupe concentrée parce que seule éligible), `JUSTIFIED_WATCH` (gain brut positif annulé par le coût de coupe). Affiché dans le bulletin et l’AI Context, archivé avec le snapshot. Le rapport reste produit même non publiable : aucun blocage automatique d’envoi n’est branché.
+- Constat live S5 (roster t0z, 76 candidats) : rapport publiable ; 85 agents libres portant un signal heuristique sont hors du board à 12 par poste (`RELEVANT_CANDIDATE_ABSENT`). Ce sont des signaux non confirmés, pas des recommandations manquées.
+- Tests : `test/role-profile.test.js`, `test/decision-coherence.test.js`. La forme du cas Harris → Jennings est couverte par fixture fictive (couper une hausse organique pour une location d’une semaine) ; la fixture sourcée reste à fournir.
 
 ## P2 — validation des durées
 
 - [ ] Évaluer les profils de rôle contre snapshots pré-match et résultats 2/4 semaines, incluant WATCH/IGNORE. Définir ensuite les pondérations et seuils à partir de cette évaluation.
+  - Livré le 6 octobre : le profil est archivé dans chaque snapshot, et `evaluateDecisionOutcomes` renvoie `roleProfileEvaluation` (par profil × fenêtre 2/4 semaines : fenêtres complètes, points réels et projetés moyens par semaine, répartition des actions, WATCH/IGNORE inclus).
+  - Reste ouvert : il n’existe aucun snapshot profilé antérieur au 6 octobre, donc aucun échantillon. Tant qu’un profil n’atteint pas `minimumCalibrationSample` (20) fenêtres complètes, `sampleStatus=INSUFFICIENT_SAMPLE`, `weightsDefined=false` et les seuils restent ceux, non calibrés, du P1. Il faut collecter un snapshot par semaine (`node scripts/decision-snapshot.js collect <team> <fichier>`) puis saisir les résultats.
 
 ## Régressions et critères de validation
 
@@ -53,4 +64,4 @@ Retour ajouté le 5 octobre 2026 depuis le document « Corrections ADINEU — Wa
 6. GAME_LOCKED : action bloquée, marché conservé ; scénario futur daté et couvert seulement si le prochain horizon est connu.
 7. Invariant : même joueur, roster, snapshot et horizon donnent les mêmes métriques pour Coach, Waiver et AI Context ; les explications doivent rendre les objectifs différents lisibles.
 
-Validation de cette mise à jour : comparaison du retour avec les parcours de collecte, extraction de features, fit et plans existants. Aucun calcul modifié, aucune affirmation de livraison de ces cases, aucun déploiement.
+Validation au 6 octobre : 315 tests Node, `npm run check`, parité live / recalcul hors-ligne (métriques et cohérence identiques) sur le roster t0z en S4 puis S5. Non vérifié : rendu navigateur de l’onglet Waiver. Aucun déploiement. Régressions encore sans fixture sourcée : 1 (Harris → Jennings) et 3 (Coleman/Moore).

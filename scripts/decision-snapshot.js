@@ -7,7 +7,7 @@ import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const digest = report => createHash('sha256').update(JSON.stringify(report)).digest('hex');
-const fields = ['season', 'leagueId', 'week', 'lastCompletedWeek', 'generatedAt', 'availabilityAsOf', 'ownershipAsOf', 'transactionsFetchedAt', 'ownershipRechecked', 'snapshotSynchronized', 'transactionCoverage', 'snapshotIssues', 'recentTransactions', 'transactionsTruncatedCount', 'rankingModel', 'decisionScope', 'degraded', 'coverage', 'provenanceVersion', 'evaluatedCandidateCount', 'returnedCandidateCount', 'rosterProvenance', 'playerIndexProvenance', 'faabRemaining', 'byPosition', 'acquisitionPlan', 'rosterPreferences', 'poolCoverage'];
+const fields = ['season', 'leagueId', 'week', 'lastCompletedWeek', 'generatedAt', 'availabilityAsOf', 'ownershipAsOf', 'transactionsFetchedAt', 'ownershipRechecked', 'snapshotSynchronized', 'transactionCoverage', 'snapshotIssues', 'recentTransactions', 'transactionsTruncatedCount', 'rankingModel', 'decisionScope', 'degraded', 'coverage', 'provenanceVersion', 'evaluatedCandidateCount', 'returnedCandidateCount', 'rosterProvenance', 'playerIndexProvenance', 'faabRemaining', 'byPosition', 'acquisitionPlan', 'rosterPreferences', 'poolCoverage', 'coherence'];
 
 /** Frozen decision outputs only, not a training dataset or a new recommendation. */
 export function createDecisionSnapshot(report, { recordedAt = new Date().toISOString(), inputs = null, modelFingerprint = null } = {}) {
@@ -47,7 +47,7 @@ export function replayDecisionSnapshot(snapshot, { cutoff } = {}) {
   return { mode:'HISTORICAL_OUTPUT_REPLAY', executable:false, cutoff, reportHash:snapshot.reportHash, report:structuredClone(snapshot.report), audit:auditDecisionReport(snapshot.report) };
 }
 
-const modelFiles = ['public/assets/team-metrics.js','public/assets/roster-preferences.js','scripts/decision-features.js','scripts/decision-provenance.js','public/assets/acquisition-availability.js','scripts/waiver-evaluator.js','scripts/decision-recompute.js','scripts/league-context.js','public/assets/waiver-model.js','public/assets/waiver-plan.js','public/assets/trade-score.js','public/assets/trade-value.js','public/assets/rest-of-season.js','public/assets/usage-score.js','public/assets/league-settings.js','public/assets/roster-view.js'];
+const modelFiles = ['public/assets/role-profile.js','public/assets/team-position-ripple.js','public/assets/decision-coherence.js','public/assets/team-metrics.js','public/assets/roster-preferences.js','scripts/decision-features.js','scripts/decision-provenance.js','public/assets/acquisition-availability.js','scripts/waiver-evaluator.js','scripts/decision-recompute.js','scripts/league-context.js','public/assets/waiver-model.js','public/assets/waiver-plan.js','public/assets/trade-score.js','public/assets/trade-value.js','public/assets/rest-of-season.js','public/assets/usage-score.js','public/assets/league-settings.js','public/assets/roster-view.js'];
 export async function decisionModelFingerprint() {
   const hashes = await Promise.all(modelFiles.map(async path => [path, createHash('sha256').update(await readFile(new URL(`../${path}`, import.meta.url))).digest('hex')]));
   return digest(hashes);
@@ -60,7 +60,9 @@ export async function recomputeDecisionSnapshot(snapshot, { cutoff, allowModelCh
   const sameModel = currentFingerprint === snapshot.modelFingerprint;
   if (!sameModel && !allowModelChange) throw Error('Model changed; explicit comparison mode required');
   const report = recomputeDecisionInputs(snapshot.inputs);
-  const sameOutput = digest(report) === digest({ byPosition:snapshot.report.byPosition, acquisitionPlan:snapshot.report.acquisitionPlan });
+  // Coherence checks are derived from the board: archives written before them still compare on the board itself.
+  const compared = value => ({ byPosition:value.byPosition, acquisitionPlan:value.acquisitionPlan, ...(snapshot.report.coherence ? { coherence:value.coherence } : {}) });
+  const sameOutput = digest(compared(report)) === digest(compared(snapshot.report));
   return { mode:'OFFLINE_CALCULATION_REPLAY', executable:false, sameModel, sameOutput, currentFingerprint,
     snapshotFingerprint:snapshot.modelFingerprint, featureExtractionRecomputed:snapshot.inputs.version === 2, report };
 }
