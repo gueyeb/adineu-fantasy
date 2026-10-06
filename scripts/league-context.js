@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { loadProjectionCapture, buildProjectionComparison } from './projection-comparison.js';
 import { createWaiverEvaluator } from "./waiver-evaluator.js";
 import { extractDecisionFeatures, SEVERITY_BY_STATUS } from "./decision-features.js";
 import { buildCoherenceWarnings, formatCoherenceWarnings } from "../public/assets/decision-coherence.js";
@@ -405,7 +406,8 @@ export async function getFreeAgents({
   rosterPreferences = null,
   evidencePath = process.env.DECISION_EVIDENCE_FILE,
   asOf = null,
-  onDecisionInputs = null
+  onDecisionInputs = null,
+  projectionCapturePath = process.env.PROJECTION_COMPARISON_FILE
 } = {}) {
   const { catalog } = await loadPlayerCatalog(catalogUrl);
   const catalogById = new Map((catalog.players || []).map(player => [player.sleeperId, player]));
@@ -557,6 +559,9 @@ export async function getFreeAgents({
   }) : null;
   // Sanity checks before publication: computed on what is actually returned.
   const coherence = buildCoherenceWarnings({ boardRows: board, marketRows: market, myPlayers: fitContext?.myPlayers ?? [] });
+  const projectionCapture = await loadProjectionCapture(projectionCapturePath);
+  const projectionComparison = buildProjectionComparison({ capture: projectionCapture, season, week, asOf,
+    players: [...index].map(([sleeperId, player]) => ({ ...player, sleeperId })), schedule });
   if (onDecisionInputs) {
     const evaluatedPlayers = [...market, ...(fitContext?.myPlayers || [])];
     const paceById = Object.fromEntries(evaluatedPlayers.map(player => [player.sleeperId, fitContext?.paceOf(player) ?? null]));
@@ -566,7 +571,7 @@ export async function getFreeAgents({
       ownershipRechecked, transactionsComplete: transactionsByWeek.length === week,
       marketRows: rows, availabilityById: Object.fromEntries(market.map(player => [player.sleeperId, availabilityFor(player)])),
       fitContext: fitContext ? { ...serialFit, protectedIds: [...fitContext.protectedIds], reserveIds: [...fitContext.reserveIds], lockedIds: [...fitContext.lockedIds], starterIds: [...fitContext.starterIds], paceById, weeklyPaceById } : null,
-      raw: { projectionsByWeek, statsByWeek, fetchedAtByPath, schedule, rosters, catalog, nflState, users, playersIndex: Object.fromEntries(index), availabilityEvidenceById, roleEvidenceById, eventsById, allTransactions },
+      raw: { projectionCapture, projectionsByWeek, statsByWeek, fetchedAtByPath, schedule, rosters, catalog, nflState, users, playersIndex: Object.fromEntries(index), availabilityEvidenceById, roleEvidenceById, eventsById, allTransactions },
       playerIndexFetchedAt: playersIndexCaches.get(fetchImpl)?.at ? new Date(playersIndexCaches.get(fetchImpl).at).toISOString() : null
     })));
   }
@@ -582,7 +587,7 @@ export async function getFreeAgents({
     playerIndexProvenance: { source: `${SLEEPER_API}/players/nfl`, fetchedAt: playersIndexCaches.get(fetchImpl)?.at ? new Date(playersIndexCaches.get(fetchImpl).at).toISOString() : null, fallback: index.size ? null : "CATALOG_FALLBACK" },
     decisionScope: { leagueId, season, targetWeek: week, roster: team, asOf },
     season, leagueId, provenanceVersion: 1, evaluatedCandidateCount: market.length, returnedCandidateCount: Object.values(byPosition).flat().length,
-    acquisitionPlan, rosterPreferences: fitContext?.rosterPreferences ?? [], poolCoverage: boardCoverage, coherence,
+    projectionComparison, acquisitionPlan, rosterPreferences: fitContext?.rosterPreferences ?? [], poolCoverage: boardCoverage, coherence,
     ...transactionSummary, availabilityAsOf: asOf, ownershipAsOf, transactionsFetchedAt, ownershipRechecked, snapshotSynchronized: false,
     transactionCoverage: `${transactionsByWeek.length}/${week}`,
     snapshotIssues,

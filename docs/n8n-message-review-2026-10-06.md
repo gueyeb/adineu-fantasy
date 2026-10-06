@@ -34,3 +34,8 @@ Les projections sont étiquetées MAE ; le message rappelle que l’horizon zér
 Coach distingue compléter un slot vide, optimiser, et un choix proche quand le gain projeté est inférieur à 1 point. Ce seuil de rendu est une règle de prudence non calibrée, pas un intervalle statistique. Santé/rôle et disponibilité/verrouillage doivent être vérifiés ; le titulaire ne sert de repli que s’il reste disponible. Aucun statut de santé ou déblocage n’est inventé.
 
 Validation : 293 tests passent, contrôles statiques et assets réussis. Les garde-fous de rendu ne remplacent pas les contrôles d’exécution. Restent à implémenter : certification des snapshots FAAB pré-waiver, évaluation buy-low/sell-high à horizon fixe et référence comparable, présentation ROS bilatérale/coût de coupe des trades, justification TE2 derrière McBride et validation des choix lineup par disponibilité réelle. Aucun déploiement.
+
+
+## Comparaison externe locale — 7 octobre
+
+Context et Coach exposent désormais `projectionComparison`, et le `message` Coach peut afficher les valeurs natives Draft Sharks/CBS pour les joueurs cités. Cache choisi via `PROJECTION_COMPARISON_FILE`, collecté explicitement hors requêtes HTTP ; pas de modification du suivi/calibration, du workflow ou de la production. Les données non validées sont retenues sans inventer une moyenne ou une recommandation. [Procédure, contrat et limites](projection-comparison-n8n.md).

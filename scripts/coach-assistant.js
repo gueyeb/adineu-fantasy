@@ -1,3 +1,4 @@
+import { formatProjectionComparison } from './projection-comparison.js';
 const ACTION_ORDER = ["ADD_NOW", "CLAIM_IF_CHEAP", "WATCH"];
 const validPreferences = new Set(["LISTEN", "KEEP", "SHOP", "UNTOUCHABLE"]);
 const blockerLabels = {
@@ -95,6 +96,7 @@ export function buildCoachPlan({ decisionContext, trades, preferences = {} }) {
     lineup: { alerts: context.lineup?.alerts || [], optimal },
     waiverActions,
     acquisitionPlan: context.acquisitionPlan ?? null,
+    projectionComparison: context.projectionComparison ?? null,
     rosterPreferences: context.rosterPreferences ?? [],
     scenariosAreAlternatives: true,
     recentTransactions: context.recentTransactions ?? [],
@@ -150,5 +152,9 @@ export function formatCoachPlan(plan) {
   }
   if (plan.tradeTarget) lines.push("", "🤝 TRADE À EXPLORER", `${plan.tradeTarget.partnerName} · ${plan.tradeTarget.title}`);
   if (plan.priorities[0]?.type === "HOLD") lines.push("", "✅ Aucun mouvement prioritaire : conserve ton roster.");
+  const comparisonIds = [...Object.values(plan.waiverActions).flat().map(player => player.sleeperId),
+    ...(plan.lineup.optimal?.changes ?? []).flatMap(change => [change.in?.sleeperId, change.out?.sleeperId])].filter(Boolean);
+  const comparisonLines = formatProjectionComparison(plan.projectionComparison, comparisonIds);
+  if (comparisonLines.length) lines.push('', ...comparisonLines);
   return lines.join("\n");
 }

@@ -18,3 +18,6 @@ supabase/.temp/
 output/decision-snapshots/
 output/decision-outcomes/
 output/decision-journals/
+
+.firecrawl/
+output/projection-comparisons/

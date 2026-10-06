@@ -191,3 +191,32 @@ test("usage/xFP and blended ROS are reextracted from archived stats rather than 
   assert.notEqual(changed.rosPpg,baseline.rosPpg);
   assert.notEqual(changed.usageDiagnostic.actualMinusXfp,baseline.usageDiagnostic.actualMinusXfp);
 });
+
+test('optional projection comparison preserves decisions and is recomputed from archived source rows', async () => {
+  const { mkdtemp, writeFile, rm } = await import('node:fs/promises');
+  const { join } = await import('node:path');
+  const { tmpdir } = await import('node:os');
+  const { recomputeDecisionInputs } = await import('../scripts/decision-recompute.js');
+  const directory = await mkdtemp(join(tmpdir(), 'adineu-comparison-'));
+  try {
+    const path = join(directory, 'capture.json');
+    await writeFile(path, JSON.stringify({ version: 1, season: 2026, week: 4, scoring: 'PPR', capturedAt: asOf, sources: [{
+      provider: 'draftsharks-com', capability: 'fantasy-sports-rankings/weekly_rankings', position: 'WR', fetchedAt: asOf,
+      data: { season: 2026, week: 4, position: 'WR', scoring: 'PPR', superflex: false, observed_at_ms: Date.parse(asOf),
+        source_url: 'https://www.draftsharks.com/weekly-rankings/', players: [{ name: 'WR A', team: 'CHI', position: 'WR', player_id: 888, projected_points: 25, opponent_id: 'SEA' }] }
+    }] }));
+    const fetchImpl = fixture({ wrAdds: true });
+    const baseline = await getFreeAgents({ ...options, position: null, fetchImpl, projectionCapturePath: null });
+    let inputs;
+    const report = await getFreeAgents({ ...options, position: null, fetchImpl, projectionCapturePath: path, onDecisionInputs: value => { inputs = value; } });
+    assert.equal(report.projectionComparison.status, 'CONTEXT_ONLY');
+    assert.equal(report.projectionComparison.rows[0].playerId, 'wrA');
+    assert.deepEqual(report.byPosition, baseline.byPosition);
+    assert.deepEqual(report.acquisitionPlan, baseline.acquisitionPlan);
+    assert.deepEqual(recomputeDecisionInputs(inputs).projectionComparison, report.projectionComparison);
+    inputs.raw.projectionCapture.sources[0].data.players[0].projected_points = 30;
+    const updated = recomputeDecisionInputs(inputs);
+    assert.equal(updated.projectionComparison.rows[0].values[0].points, 30);
+    assert.deepEqual(updated.byPosition, report.byPosition);
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});

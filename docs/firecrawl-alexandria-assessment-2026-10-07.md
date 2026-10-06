@@ -23,7 +23,7 @@ Les contrats sont paginés : vérifier couverture/continuation avant de présent
 - Conserver projections hebdomadaires, ROS, actuals et rangs dans des dimensions distinctes. Comparer seulement même saison/semaine/scoring/poste et identités vérifiées.
 - Tester ultérieurement l’apport sur snapshots pré-kickoff et cohortes communes avant de remplacer la projection actuelle.
 
-## Contrat d’intégration proposé, non implémenté
+## Contrat initial et livraison locale
 
 Capture immuable : provider/capability, paramètres explicites, requestedWeek/returnedWeek, saison, scoring détaillé, source URL, fetchedAt/providerUpdatedAt, unité, namespace et mapping Sleeper, couverture/limites, champ exact utilisé. Refuser un calendrier ou une période contradictoires. PPR seul ne certifie pas tous les barèmes QB/K/DEF de la ligue ; recalculer depuis les statistiques lorsque possible et couvert.
 
@@ -32,3 +32,10 @@ Capture immuable : provider/capability, paramètres explicites, requestedWeek/re
 Ces contrats de projections ne remplacent pas les preuves datées de blessures, depth-chart et déblocage individuel. Les groupes de claims alternatifs et le plafond spéculatif restent des chantiers du moteur distincts.
 
 Preuves locales de cette inspection : /tmp/.firecrawl/firecrawl-fantasy.md, draftsharks-weekly-contract.json, cbs-projections-contract.json. Fichiers temporaires de découverte, sans credentials ; ne pas les utiliser comme source live ni comme archives pré-match certifiées. Aucun code modifié, aucun déploiement.
+
+
+## Suite implémentée localement
+
+Le pilote contextuel à deux fournisseurs est livré : collecte CLI explicite, cache privé immuable, validation de scope/fraîcheur/identités/calendrier, comparaison native et couverture dans Context/Coach et leurs messages n8n, archivage/recalcul sans réseau. Deux appels réels WR S5 ont coûté dix crédits déclarés ; 77 joueurs ont deux valeurs validées. Cette suite complète l’inspection initiale ci-dessus, où aucun outil fournisseur n’avait encore été exécuté.
+
+Les valeurs natives PPR restent indicatives : aucun remplacement des projections Sleeper, aucun gain/enchère recalculé, aucun consensus probabiliste. Voir [contrat, limites et procédure n8n](projection-comparison-n8n.md). Aucun déploiement ou workflow modifié par cette livraison.

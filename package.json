@@ -24,6 +24,7 @@
     "decision:snapshot": "node scripts/decision-snapshot.js",
     "decision:evaluate": "node scripts/decision-outcomes.js",
     "decision:journal": "node scripts/decision-journal.js",
+    "projections:collect": "node scripts/collect-projections.js",
     "wopr:validate": "node scripts/wopr-evidence.js validate",
     "wopr:compare": "node scripts/wopr-evidence.js compare"
   },

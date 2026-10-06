@@ -1,3 +1,4 @@
+import { buildProjectionComparison } from './projection-comparison.js';
 import { extractDecisionFeatures } from './decision-features.js';
 import { resolveAcquisitionAvailability, findRecentDrops, nextWeekHorizon } from '../public/assets/acquisition-availability.js';
 import { BYE_WEEKS_2026 } from '../public/assets/league-settings.js';
@@ -83,5 +84,9 @@ export function recomputeDecisionInputs(inputs) {
     faabRemaining:fitContext.faabRemaining, rosterCapacity:buildStarterSlotOrder(ROSTER_SETTINGS_2026).length + ROSTER_SETTINGS_2026.benchSlots + fitContext.protectedIds.size,
     evaluateCandidate:evaluate }) : null;
   const coherence = buildCoherenceWarnings({ boardRows:Object.values(byPosition).flat(), marketRows:market, myPlayers:fitContext?.myPlayers ?? [] });
-  return { byPosition, acquisitionPlan, coherence };
+  const projectionComparison = Object.hasOwn(inputs.raw ?? {}, 'projectionCapture') ? buildProjectionComparison({
+    capture: inputs.raw.projectionCapture, season: inputs.season, week: inputs.week, asOf: inputs.asOf,
+    players: Object.entries(inputs.raw.playersIndex).map(([sleeperId, player]) => ({ ...player, sleeperId })), schedule: inputs.raw.schedule
+  }) : null;
+  return { byPosition, acquisitionPlan, coherence, ...(projectionComparison ? { projectionComparison } : {}) };
 }

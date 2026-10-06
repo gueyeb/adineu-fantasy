@@ -1,3 +1,4 @@
+import { formatProjectionComparison } from './projection-comparison.js';
 import { BYE_WEEKS_2026 } from "../public/assets/league-settings.js";
 import { formatRecentTransactions } from "../public/assets/acquisition-availability.js";
 import { formatPoolCoverage } from "./league-context.js";
@@ -194,6 +195,7 @@ export function buildDecisionContext({ context, playerValues = {}, statuses = ne
     mode: "decision",
     decisionScope: waivers?.decisionScope ?? null,
     acquisitionPlan: waivers?.acquisitionPlan ?? null,
+    projectionComparison: waivers?.projectionComparison ?? null,
     rosterPreferences: waivers?.rosterPreferences ?? [],
     recentTransactions: waivers?.recentTransactions ?? [],
     transactionsTruncatedCount: waivers?.transactionsTruncatedCount ?? 0,
@@ -340,6 +342,10 @@ export function formatDecisionContext(context) {
     players.forEach((player, index) => lines.push(waiverLine(player, index)));
   }
 
+  const comparisonIds = [...context.myTeam.starters.map(entry => entry.player?.sleeperId),
+    ...context.myTeam.bench.map(player => player.sleeperId), ...context.topAvailable.map(player => player.sleeperId)].filter(Boolean);
+  const comparisonLines = formatProjectionComparison(context.projectionComparison, comparisonIds);
+  if (comparisonLines.length) lines.push('', ...comparisonLines);
   const coverage = context.modelCoverage;
   lines.push(
     "",
