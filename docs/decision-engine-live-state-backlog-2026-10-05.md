@@ -84,3 +84,7 @@ Validation au 6 octobre : 323 tests Node, `npm run check`, parité live / recalc
 ### Complément Boukki / DvP du 6 octobre
 
 Voir [le retour détaillé](decision-feedback-dvp-2026-10-06.md) : scénario pour slot vide, groupes de claims alternatifs, plafond spéculatif distinct, explication TE2, rotations de slots et contrat DvP. Correction livrée : opportunité de streaming positive mais horizon incomplet = WATCH plutôt que IGNORE ; les contrôles d’exécution restent actifs.
+
+### 06/10 — Slots vides QB/K/DEF
+
+Scénario cible d’une semaine livré, ROS conservé séparément, coupe permanente et vérifications d’exécution maintenues. La DEF manquante remonte dans Coach et dans le plan à heure d’exécution égale. Voir [le détail et les limites](decision-feedback-dvp-2026-10-06.md). Validation : 330 tests ; aucun déploiement.

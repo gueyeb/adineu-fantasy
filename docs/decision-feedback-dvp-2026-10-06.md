@@ -12,7 +12,7 @@ Une DEF/K/QB avec delta cible positif mais horizon incomplet est désormais clas
 
 ## Prochains changements
 
-- [ ] Scénario d’urgence pour compléter un slot : horizon cible d’une semaine, indépendant de la comparaison ROS ; coupe permanente évaluée séparément et aucun verrou ignoré. Faire apparaître l’urgence DEF dans Coach même quand les acquisitions restent bloquées.
+- [x] Scénario d’urgence pour compléter un slot QB/K/DEF structurellement vide : horizon cible d’une semaine, indépendant de la comparaison ROS ; coupe permanente évaluée séparément et aucun verrou ignoré. Faire apparaître l’urgence DEF dans Coach même quand les acquisitions restent bloquées.
 - [ ] Portefeuille de claims alternatifs : Coleman puis Harris avec la même coupe constituent un groupe de fallback, pas deux ajouts supposés gagnés. Conserver ordre, budget maximal exposé, dépendances et raisons d’échec. Ne pas promettre une annulation automatique sans règles plateforme vérifiées. Ajouter ensuite la DEF avec la place libre, sans consommer deux fois cette place.
 - [ ] Option spéculative : séparer strategicUpside, perte de la coupe, speculativeCeiling et plafond basé sur un gain de lineup couvert. Un rôle unconfirmed ne devient pas confirmé parce que Market est élevé. Pas de prix non nul uniquement fondé sur une performance récente ; seuils et calibration à définir.
 - [ ] TE2 : expliquer semaine de bye du titulaire, possibilité FLEX, rôle de secours et valeur nette de la place de banc. Un marché élevé pour Hockenson ne suffit pas à justifier une acquisition derrière McBride.
@@ -31,3 +31,15 @@ Requis : version/saison/semaines achevées, nombre de matchs par défense/poste,
 SELL_HIGH Raymond ne signifie pas couper ; comparer optionalité, alternatives et horizon de l’ajout. Les preuves de disponibilité et rôle ne sont pas remplacées par une appréciation humaine non sourcée. Les préférences de conservation individuelles ne sont pas appliquées à partir du commentaire attaché. L’état 1–3/497 dollars est celui de l’export fourni, pas une vérification live actuelle.
 
 Validation : défaut STREAMER/IGNORE reproduit avant correction, test du cas incomplet et du scénario négatif couvert ; **324 tests passent**, contrôles statiques, 42 assets à jour et whitespace réussis. Aucun push ni déploiement.
+
+## Livraison : slot vide, horizon hebdomadaire
+
+`starterVacancyScenario` compare le remplissage d’un QB/K/DEF absent de la lineup réalisable depuis le roster actif (IR exclu). Le scénario ne confond pas un joueur déjà disponible sur le banc avec une acquisition nécessaire. Les slots verrouillés restent fixes. Le fit principal prend cet horizon cible d’une semaine (`decisionHorizon=TARGET_WEEK_SLOT_FILL`), alors que `rosFit` conserve séparément horizon, couverture, gain net et blocages du scénario ROS. Les preuves de durée de rôle et le marché ne sont pas modifiés (`roleDurationChanged=false`). Il s’agit d’une fenêtre de décision, pas d’une confirmation de rôle d’une semaine.
+
+Avec une place libre, les projections futures ne sont pas requises pour chiffrer le gain S5. Si une coupe est nécessaire, sa perte de lineup après cette semaine reste évaluée sur la saison : manque de couverture = gain net inconnu, aucune action. Les coûts d’option/préférence et les protections de progression restent appliqués. Les projections cibles manquantes, les joueurs réservés, la propriété, le kickoff et les promotions non confirmées gardent leurs blocages. Aucun déblocage ni projection zéro n’est inventé.
+
+Le plan privilégie un slot vide à heure d’exécution égale, puis recalcule roster et budget. Il reste glouton et conditionnel. Coach priorise une option par slot vide, puis laisse de la place aux autres postes dans la watchlist. Les exports IA affichent les scénarios hebdomadaires à part ; métriques canoniques identiques dans les trois outils. Une disponibilité inconnue reste WATCH, même si le gain S5 est connu.
+
+Portée : slots structurellement vides QB/K/DEF ; un titulaire OUT encore présent, les slots RB/WR/FLEX et les groupes de claims alternatifs restent des cas distincts. Ce changement ne résout pas toutes les acquisitions à horizon incomplet.
+
+Validation : **330 tests passent**, dont absence de projection S7 avec gain S5 conservé, coupe permanente bloquée faute de couverture future, disponibilité/projection cible inconnue, position déjà pourvue, parité des métriques, priorité opérationnelle et watchlist multi-postes. Contrôles statiques, 42 assets et whitespace réussis. Aucun push ni déploiement.

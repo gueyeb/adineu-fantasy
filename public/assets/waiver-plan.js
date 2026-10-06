@@ -32,7 +32,8 @@ export function buildAcquisitionPlan({ candidates, myPlayers, faabRemaining, eva
         (!row.waiver.fit.dropCandidate || !usedCuts.has(String(row.waiver.fit.dropCandidate.sleeperId))))
       .sort((a, b) => {
         const time = row => row.waiver.decision.recommendedAction === "ADD_NOW" ? 0 : Date.parse(row.availability?.waiverProcessesAt) || Infinity;
-        return time(a) - time(b) || (b.waiver.fit.selectionScore ?? b.waiver.fit.netGainTotal) - (a.waiver.fit.selectionScore ?? a.waiver.fit.netGainTotal) || String(a.sleeperId).localeCompare(String(b.sleeperId));
+        return time(a) - time(b) || Number(Boolean(b.starterVacancyScenario)) - Number(Boolean(a.starterVacancyScenario)) ||
+          (b.waiver.fit.selectionScore ?? b.waiver.fit.netGainTotal) - (a.waiver.fit.selectionScore ?? a.waiver.fit.netGainTotal) || String(a.sleeperId).localeCompare(String(b.sleeperId));
       });
     const chosen = evaluated[0];
     if (!chosen) break;

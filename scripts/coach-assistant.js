@@ -18,6 +18,7 @@ export function normalizeCoachPreferences(input = {}) {
 function compactWaiver(player) {
   return {
     modelMetrics: player.modelMetrics ?? null,
+    starterVacancyScenario: player.starterVacancyScenario ?? null,
     sleeperId: player.sleeperId, name: player.name, position: player.position, nflTeam: player.nflTeam,
     decisionClass: player.decisionClass, recommendedAction: player.recommendedAction,
     immediateValue: player.immediateValue, strategicUpside: player.strategicUpside,
@@ -32,12 +33,28 @@ function compactWaiver(player) {
   };
 }
 
+// Show one candidate per vacant streaming slot before alternative players for that same slot.
+function prioritizeVacancies(rows) {
+  const ordered = [...rows].sort((a, b) =>
+    Number(Boolean(b.starterVacancyScenario)) - Number(Boolean(a.starterVacancyScenario)) ||
+    (a.starterVacancyScenario && b.starterVacancyScenario ? (b.targetWeekDelta ?? -Infinity) - (a.targetWeekDelta ?? -Infinity) : 0));
+  const seen = new Set();
+  const primary = [], alternatives = [], other = [];
+  for (const row of ordered) {
+    const slot = row.starterVacancyScenario?.slot;
+    if (!slot) other.push(row);
+    else if (seen.has(slot)) alternatives.push(row);
+    else { seen.add(slot); primary.push(row); }
+  }
+  return [...primary, ...other, ...alternatives];
+}
+
 export function buildCoachPlan({ decisionContext, trades, preferences = {} }) {
   const context = decisionContext;
   const team = context.myTeam;
   const normalizedPreferences = normalizeCoachPreferences(preferences);
   const waiverActions = Object.fromEntries(ACTION_ORDER.map(action => [action,
-    (context.waiverActions?.[action] || []).slice(0, action === "WATCH" ? 4 : 3).map(compactWaiver)
+    prioritizeVacancies(context.waiverActions?.[action] || []).slice(0, action === "WATCH" ? 4 : 3).map(compactWaiver)
   ]));
   const ownedIds = new Set(['starters', 'bench', 'ir'].flatMap(group => (team[group] || [])
     .map(entry => String((entry?.player || entry)?.sleeperId || '')).filter(Boolean)));
@@ -117,7 +134,7 @@ export function formatCoachPlan(plan) {
     const targets = plan.waiverActions[action];
     if (!targets.length) continue;
     lines.push("", action === "ADD_NOW" ? "🎯 WAIVERS — AJOUTER MAINTENANT" : "💸 WAIVERS — SEULEMENT AU BON PRIX");
-    targets.forEach(player => lines.push(`• ${player.name} (${player.position}) · gain net ${player.netGain} pt/sem sur le rôle · coupe ${player.dropCandidate?.name || "n/d"} · max ${player.maxForTeam ?? "n/d"} $ · S${plan.week}: ${player.targetWeekDelta ?? "n/d"} pt · total net ${player.netGainTotal ?? "n/d"} pt / ${player.horizonWeeks ?? "n/d"} sem`));
+    targets.forEach(player => lines.push(`• ${player.name} (${player.position})${player.starterVacancyScenario ? ` · compléter ${player.starterVacancyScenario.slot} en S${plan.week}` : ""} · gain net ${player.netGain} pt/sem ${player.starterVacancyScenario ? `sur S${plan.week}` : "sur le rôle"} · coupe ${player.dropCandidate?.name || "n/d"} · max ${player.maxForTeam ?? "n/d"} $ · S${plan.week}: ${player.targetWeekDelta ?? "n/d"} pt · total net ${player.netGainTotal ?? "n/d"} pt / ${player.horizonWeeks ?? "n/d"} sem`));
   }
   if (plan.acquisitionPlan?.steps.length) {
     lines.push("", "PLAN CONDITIONNEL — VÉRIFIER APRÈS CHAQUE RÉSULTAT");
@@ -127,7 +144,7 @@ export function formatCoachPlan(plan) {
   if (plan.waiverActions.ADD_NOW.length + plan.waiverActions.CLAIM_IF_CHEAP.length > 1) lines.push("Scénarios alternatifs : deux claims avec la même coupe ne peuvent pas être exécutés ensemble.");
   if (plan.watchlist.length) {
     lines.push("", "👀 WATCHLIST");
-    plan.watchlist.forEach(player => lines.push(`• ${player.name} (${player.position}) · ${player.actionBlockers?.length
+    plan.watchlist.forEach(player => lines.push(`• ${player.name} (${player.position})${player.starterVacancyScenario ? ` · compléter ${player.starterVacancyScenario.slot} en S${plan.week} (${player.targetWeekDelta ?? "n/d"} pts projetés) · ROS évalué séparément` : ""} · ${player.actionBlockers?.length
       ? `à surveiller, action bloquée : ${player.actionBlockers.map(code => blockerLabels[code] || code.replaceAll('_', ' ')).join(' ; ')}`
       : player.interpretation}`));
   }

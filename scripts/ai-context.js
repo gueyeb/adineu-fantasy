@@ -44,6 +44,8 @@ function waiverRows(report) {
       progressionSacrificeTotal: player.waiver.fit?.progressionSacrificeTotal ?? null,
       ripple: player.ripple ?? [],
       nextUnlockScenario: player.nextUnlockScenario ?? null,
+      starterVacancyScenario: player.starterVacancyScenario ?? null,
+      decisionHorizon: player.waiver.decisionHorizon ?? 'ROLE_WINDOW',
       cutSelection: player.waiver.fit?.cutSelection ?? null,
       cutExclusions: player.waiver.fit?.cutExclusions ?? [],
       dropCostComponents: player.waiver.fit?.dropCostComponents ?? null,
@@ -323,6 +325,9 @@ export function formatDecisionContext(context) {
 
   lines.push("TEMPORARY ROSTER PREFERENCES", JSON.stringify(context.rosterPreferences || []));
   lines.push("CONDITIONAL ACQUISITION PLAN — REVALIDATE AFTER EACH RESULT", JSON.stringify(context.acquisitionPlan || null));
+  const vacancyRows = Object.values(context.waiverActions || {}).flat().filter(player => player.starterVacancyScenario);
+  if (vacancyRows.length) lines.push("TARGET WEEK — FILL STARTER SLOTS (ROS separate)", ...vacancyRows.map(player =>
+    `${player.name}: ${player.starterVacancyScenario.slot} S${context.week} | target gain=${metric(player.targetWeekDelta)} | net after permanent cut cost=${metric(player.netGainTotal)} | ${player.recommendedAction} | availability=${player.availability?.availability || "UNKNOWN"}`));
   lines.push("RECENT TRANSACTIONS (72h)", ...formatRecentTransactions(context.recentTransactions || []), `Truncated: ${context.transactionsTruncatedCount || 0} | Availability as of: ${context.availabilityAsOf || "n/d"}`, ...(context.snapshotIssues || []));
   if (context.poolCoverage) lines.push("CANDIDATE POOL", ...formatPoolCoverage(context.poolCoverage));
   if (context.coherence) lines.push("COHERENCE CHECKS (before publication)", ...formatCoherenceWarnings(context.coherence));
