@@ -353,6 +353,7 @@ export function evaluateRosterFit({ marketRow, myPlayers, paceOf, week, faabRema
 /** Turns market upside and roster-specific net gain into an explicit action, not one mixed rank. */
 export function classifyWaiverDecision({ position, marketScore = 0, flags = [], usageSignal = null, netGain = 0, availability = null, roleConfirmation = "NOT_APPLICABLE", legalTransaction = true, horizonCovered = true, targetWeekDelta = null }) {
   const skillPosition = ["RB", "WR", "TE"].includes(position);
+  const incompleteStreamingOpportunity = ["QB", "K", "DEF"].includes(position) && !horizonCovered && Number.isFinite(targetWeekDelta) && targetWeekDelta > 0;
   const immediateValue = Math.round(Math.max(0, Math.min(100, (targetWeekDelta ?? netGain) * 25)));
   const eventBonus = flags.includes("PROMOTION") ? 20
     : flags.some(flag => ["SNAP_SURGE", "USAGE_SURGE"].includes(flag)) ? 15 : 0;
@@ -360,14 +361,14 @@ export function classifyWaiverDecision({ position, marketScore = 0, flags = [], 
     marketScore * (skillPosition ? 1 : 0.55) + eventBonus + (usageSignal === "BUY_LOW" ? 10 : 0)
   )));
   const decisionClass = flags.includes("PROMOTION") ? "INJURY_PROMOTION"
-    : ["QB", "K", "DEF"].includes(position) && netGain > 0 ? "STREAMER"
+    : ["QB", "K", "DEF"].includes(position) && (netGain > 0 || incompleteStreamingOpportunity) ? "STREAMER"
     : flags.some(flag => ["SNAP_SURGE", "USAGE_SURGE"].includes(flag)) ? "BREAKOUT"
     : netGain >= 1.5 ? "STARTER_UPGRADE"
     : skillPosition && strategicUpside >= 40 ? "UPSIDE_STASH"
     : "NO_ACTION";
   let recommendedAction = netGain >= 1.5 && immediateValue >= 38 ? "ADD_NOW"
     : netGain > 0 && (immediateValue >= 15 || decisionClass === "STREAMER") ? "CLAIM_IF_CHEAP"
-    : strategicUpside >= 40 ? "WATCH"
+    : strategicUpside >= 40 || incompleteStreamingOpportunity ? "WATCH"
     : "IGNORE";
   if (["ADD_NOW", "CLAIM_IF_CHEAP"].includes(recommendedAction)) {
     if (!legalTransaction || !horizonCovered || !availability || availability.availability === "ROSTERED" || availability.canStartTargetWeek !== true || (flags.includes("PROMOTION") && roleConfirmation !== "CONFIRMED")) recommendedAction = "WATCH";

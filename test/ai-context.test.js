@@ -2,6 +2,18 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { buildDecisionContext, formatDecisionContext } from "../scripts/ai-context.js";
 import { classifyWaiverDecision } from "../public/assets/waiver-model.js";
+test("a positive streaming week with unknown long horizon is WATCH rather than IGNORE", () => {
+  const decision = classifyWaiverDecision({ position: 'DEF', marketScore: 0, netGain: 0,
+    targetWeekDelta: 7.9, horizonCovered: false,
+    availability: { availability: 'UNKNOWN', canStartTargetWeek: false } });
+  assert.equal(decision.decisionClass, 'STREAMER');
+  assert.equal(decision.recommendedAction, 'WATCH');
+  assert.ok(decision.actionBlockers.includes('INCOMPLETE_HORIZON'));
+  assert.ok(decision.actionBlockers.includes('TARGET_WEEK_ELIGIBILITY_UNVERIFIED'));
+  const covered = classifyWaiverDecision({ position: 'DEF', marketScore: 0, netGain: -2,
+    targetWeekDelta: 7.9, horizonCovered: true });
+  assert.equal(covered.recommendedAction, 'IGNORE', 'a known negative full scenario is not an unknown one');
+});
 
 const context = {
   generatedAt: "2026-09-30T12:30:00.000Z",

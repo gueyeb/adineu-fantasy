@@ -80,3 +80,7 @@ Point relevé pendant le rejeu, traité le 6 octobre : `usageAdjustedRosPpg` pou
 7. Invariant : même joueur, roster, snapshot et horizon donnent les mêmes métriques pour Coach, Waiver et AI Context ; les explications doivent rendre les objectifs différents lisibles.
 
 Validation au 6 octobre : 323 tests Node, `npm run check`, parité live / recalcul hors-ligne (métriques et cohérence identiques) sur le roster t0z en S4 puis S5. Onglet Waiver vérifié dans un navigateur en live S5 (desktop 1710 px et mobile 390 px, aucune erreur console, aucune valeur `undefined`) : les notes du moteur débordaient de la colonne joueur, corrigé par un retour à la ligne dans `styles.css`. Non vérifié à l’écran : la note de scénario `GAME_LOCKED`, aucune ligne n’étant verrouillée au moment du contrôle. Aucun déploiement. Les sept régressions sont couvertes ; 1 à 5 par rejeu du snapshot réel du 5 octobre.
+
+### Complément Boukki / DvP du 6 octobre
+
+Voir [le retour détaillé](decision-feedback-dvp-2026-10-06.md) : scénario pour slot vide, groupes de claims alternatifs, plafond spéculatif distinct, explication TE2, rotations de slots et contrat DvP. Correction livrée : opportunité de streaming positive mais horizon incomplet = WATCH plutôt que IGNORE ; les contrôles d’exécution restent actifs.
