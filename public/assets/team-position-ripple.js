@@ -1,7 +1,8 @@
 import { isCurrentEvidence } from "./acquisition-availability.js?v=454ffc5ed4";
 
 export const RIPPLE_EVENT_TYPES = ["INJURY", "RETURN", "ROLE_CHANGE", "NFL_TRANSACTION"];
-const SNAPSHOT_TRIGGER_STATUSES = new Set(["Out", "Doubtful", "IR", "PUP", "Sus", "NA"]);
+// Questionable is only a possible absence: it asks for a second look, nothing more.
+const SNAPSHOT_TRIGGER_STATUSES = new Set(["Out", "Doubtful", "IR", "PUP", "Sus", "NA", "Questionable"]);
 const FANTASY_POSITIONS = new Set(["QB", "RB", "WR", "TE", "K", "DEF"]);
 
 const teamOf = value => typeof value === "string" && value.trim() ? value.trim().toUpperCase() : null;
@@ -46,7 +47,8 @@ export function buildTeamPositionRipple({ players, eventsById = {}, asOf, week, 
   for (const player of snapshot.values()) {
     if (!SNAPSHOT_TRIGGER_STATUSES.has(player.injuryStatus) || !player.nflTeam || !FANTASY_POSITIONS.has(player.position)) continue;
     ripple(`${player.nflTeam}:${player.position}`, player.id, { trigger: "SNAPSHOT_STATUS", triggerName: player.name ?? null,
-      triggerStatus: player.injuryStatus, type: null, observedAt: null, source: "SLEEPER_PLAYERS_SNAPSHOT" });
+      triggerStatus: player.injuryStatus, certainty: player.injuryStatus === "Questionable" ? "POSSIBLE_ABSENCE" : "REPORTED_ABSENCE",
+      type: null, observedAt: null, source: "SLEEPER_PLAYERS_SNAPSHOT" });
   }
 
   const issues = [];
@@ -66,7 +68,7 @@ export function buildTeamPositionRipple({ players, eventsById = {}, asOf, week, 
     sourcedEventPlayerIds.add(playerId);
     for (const position of positions) {
       ripple(`${nflTeam}:${position}`, playerId, { trigger: "SOURCED_EVENT", triggerName: known?.name ?? null,
-        triggerStatus: null, type: event.type, observedAt: event.observedAt, source: event.source });
+        triggerStatus: null, certainty: "SOURCED_EVENT", type: event.type, observedAt: event.observedAt, source: event.source });
     }
   }
 

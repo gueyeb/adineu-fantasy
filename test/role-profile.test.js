@@ -49,6 +49,8 @@ test("role profile is a separate dimension: five profiles, null when no role sto
   const promoted = signals => classifyRoleProfile({ flags: ["PROMOTION"], signals }).profile;
   assert.equal(promoted({ gamesPlayed: 3, prevSnapShare: 0.45, prevOpportunities: 6 }), "INJURY_PROMOTION_WITH_EXISTING_ROLE");
   assert.equal(promoted({ gamesPlayed: 3, prevSnapShare: 0.05, prevOpportunities: 1 }), "PURE_RENTAL");
+  // Présent sur le terrain sans ballon : ce n'est pas un rôle acquis.
+  assert.equal(promoted({ gamesPlayed: 3, prevSnapShare: 0.48, prevOpportunities: 1 }), "PURE_RENTAL");
   assert.equal(promoted({ gamesPlayed: 1, prevSnapShare: null, prevOpportunities: null }), "UNCERTAIN");
 
   const rising = { progression: "RISING", progressionSource: "ORGANIC", consecutiveRises: 2 };

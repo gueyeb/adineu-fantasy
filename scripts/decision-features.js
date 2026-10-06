@@ -66,13 +66,19 @@ export function extractDecisionFeatures({ index, catalog, rosters, nflState, pro
   // transactions are deliberately not an input: an acquisition never changes an NFL depth chart.
   const ripple = buildTeamPositionRipple({ players: [...candidateIds].map(id => ({ ...meta(id), id })).filter(player => player.nflTeam),
     eventsById, asOf, week, season, leagueId });
-  // An absent teammate ranked behind a player cannot explain that player's rise. Unknown ranks
-  // stay possible explanations: the rise is then not called organic.
-  const absencesAhead = (id, entries) => entries.filter(entry => {
+  // A teammate ranked behind a player opens nothing for him. Unknown ranks stay possible.
+  const isAheadOf = (id, entry) => {
     const own = meta(id)?.searchRank;
     const other = meta(entry.triggerPlayerId)?.searchRank;
     return !(Number.isFinite(own) && Number.isFinite(other)) || other < own;
-  });
+  };
+  const lastStatsWeek = statsByWeek.at(-1);
+  const playedLastWeek = id => { const row = lastStatsWeek?.stats?.[id]; return Boolean(row && (row.off_snp > 0 || row.gp > 0)); };
+  // An absence explains a rise only if it was already true while the rise was measured: a
+  // teammate who played the last completed week and got hurt afterwards explains nothing.
+  const absencesAhead = (id, entries) => entries.filter(entry => entry.certainty !== "POSSIBLE_ABSENCE" && isAheadOf(id, entry) && !playedLastWeek(entry.triggerPlayerId));
+  // Shown and acted on: sourced events, and snapshot statuses of teammates ahead only.
+  const relevantRipple = id => (ripple.byPlayerId.get(String(id)) ?? []).filter(entry => entry.trigger === "SOURCED_EVENT" || isAheadOf(id, entry));
   const recentDrops = findRecentDrops(allTransactions, { asOf });
   const exclusions = { ROSTERED: 0, INACTIVE_OR_NO_NFL_TEAM: 0, NON_FANTASY_POSITION: 0, STATUS_ALERT: 0, NO_PROJECTION_OR_STATS: 0 };
   const entryReasonCounts = {};
@@ -124,7 +130,7 @@ export function extractDecisionFeatures({ index, catalog, rosters, nflState, pro
     if (events.flags.includes("PROMOTION") || roleEvidence.roleConfirmation === "CONFIRMED") {
       Object.assign(events, roleEvidence);
     }
-    const playerRipple = ripple.byPlayerId.get(String(id)) ?? [];
+    const playerRipple = relevantRipple(id);
     const emergingRole = buildEmergingRole({ series: signals.series, xfpByWeek: xfpByWeekById.get(id), absenceTriggers: absencesAhead(id, playerRipple) });
     const roleProfile = classifyRoleProfile({ flags: events.flags, signals, emergingRole });
     const pace = effectivePpg({ rosPpg, weekProjection, duration: events.duration, week, confirmedRoleWeeks: roleEvidence.roleWeeks });
@@ -163,7 +169,7 @@ export function extractDecisionFeatures({ index, catalog, rosters, nflState, pro
     const player = meta(id) || { name: `Player #${id}`, position: "FLEX" };
     const usage = usageById.get(id);
     const signals = buildOpportunitySignals(id, statsByWeek);
-    const playerRipple = ripple.byPlayerId.get(String(id)) ?? [];
+    const playerRipple = relevantRipple(id);
     return {
       ...(catalogById.get(id) || {}), ...player, sleeperId: id,
       provenance: provenanceFor(id, player, rosDetailFor(id, player)?.source ?? "NONE"),

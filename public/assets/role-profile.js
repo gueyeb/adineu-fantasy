@@ -6,7 +6,7 @@
  * Thresholds are review triggers, never calibrated weights: they wait for the P2 evaluation.
  */
 export const ROLE_PROFILES = ["PURE_RENTAL", "INJURY_PROMOTION_WITH_EXISTING_ROLE", "ROLE_EXPANSION", "BREAKOUT", "UNCERTAIN"];
-export const ROLE_PROFILE_THRESHOLDS = { existingSnapShare: 0.3, existingOpportunities: 5, risingXfpDelta: 1, expansionRises: 2, calibrated: false };
+export const ROLE_PROFILE_THRESHOLDS = { existingOpportunities: 5, risingXfpDelta: 1, expansionRises: 2, calibrated: false };
 
 const round = (value, digits = 1) => Number(value.toFixed(digits));
 const mean = values => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
@@ -59,10 +59,11 @@ export function classifyRoleProfile({ flags = [], signals = {}, emergingRole = n
   const done = profile => ({ profile, basis, thresholds: ROLE_PROFILE_THRESHOLDS, calibrated: false });
   const surge = flags.some(flag => ["SNAP_SURGE", "USAGE_SURGE"].includes(flag));
   if (flags.includes("PROMOTION")) {
-    const hasBaseline = (signals.gamesPlayed ?? 0) >= 2 && (Number.isFinite(signals.prevSnapShare) || Number.isFinite(signals.prevOpportunities));
+    const hasBaseline = (signals.gamesPlayed ?? 0) >= 2 && Number.isFinite(signals.prevOpportunities);
     if (!hasBaseline) { basis.push("NO_USAGE_BASELINE_BEFORE_ABSENCE"); return done("UNCERTAIN"); }
-    const existing = (signals.prevSnapShare ?? 0) >= ROLE_PROFILE_THRESHOLDS.existingSnapShare ||
-      (signals.prevOpportunities ?? 0) >= ROLE_PROFILE_THRESHOLDS.existingOpportunities;
+    // Being on the field is not a role: only targets and carries count (Week 4 replay — a receiver
+    // at 48 % of the snaps for one target had no role to keep once the starter returns).
+    const existing = (signals.prevOpportunities ?? 0) >= ROLE_PROFILE_THRESHOLDS.existingOpportunities;
     basis.push(existing ? "ROLE_BEFORE_ABSENCE" : "NO_ROLE_BEFORE_ABSENCE");
     return done(existing ? "INJURY_PROMOTION_WITH_EXISTING_ROLE" : "PURE_RENTAL");
   }

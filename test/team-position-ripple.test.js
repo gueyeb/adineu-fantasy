@@ -17,18 +17,19 @@ const withStatus = (players, id, injuryStatus) => players.map(p => (p.id === id 
 test("a snapshot status ripples to the other players of the same team:position group only", () => {
   const result = run(withStatus(base(), "wr-a", "Out"));
   assert.deepEqual([...result.byPlayerId.keys()], ["wr-b", "wr-c"]);
-  assert.deepEqual(result.byPlayerId.get("wr-b"), [{ trigger: "SNAPSHOT_STATUS", triggerName: "Name wr-a", triggerStatus: "Out",
+  assert.deepEqual(result.byPlayerId.get("wr-b"), [{ trigger: "SNAPSHOT_STATUS", triggerName: "Name wr-a", triggerStatus: "Out", certainty: "REPORTED_ABSENCE",
     type: null, observedAt: null, source: "SLEEPER_PLAYERS_SNAPSHOT", triggerPlayerId: "wr-a", group: "AAA:WR",
     effect: "REEVALUATE", shareAttributed: null, successionInferred: false }]);
   assert.equal(result.sourcedEventPlayerIds.size, 0);
   assert.deepEqual(result.issues, []);
 });
 
-test("every blocking Sleeper status triggers; Questionable and healthy players do not", () => {
+test("every blocking Sleeper status triggers; Questionable is only a possible absence; healthy players do not", () => {
   for (const status of ["Out", "Doubtful", "IR", "PUP", "Sus", "NA"]) {
     assert.deepEqual([...run(withStatus(base(), "wr-a", status)).byPlayerId.keys()], ["wr-b", "wr-c"], status);
   }
-  assert.equal(run(withStatus(base(), "wr-a", "Questionable")).byPlayerId.size, 0);
+  const possible = run(withStatus(base(), "wr-a", "Questionable")).byPlayerId.get("wr-b");
+  assert.deepEqual(possible.map(entry => [entry.triggerStatus, entry.certainty, entry.effect, entry.shareAttributed]), [["Questionable", "POSSIBLE_ABSENCE", "REEVALUATE", null]]);
   assert.equal(run(base()).byPlayerId.size, 0);
 });
 
@@ -50,7 +51,7 @@ test("inactive players receive no entry", () => {
 test("a sourced event ripples to every listed position of its team and flags only the trigger", () => {
   const result = run(base(), { "wr-a": event({ type: "RETURN", positions: ["WR", "TE"] }) });
   assert.deepEqual([...result.byPlayerId.keys()], ["te-a", "wr-b", "wr-c"]);
-  assert.deepEqual(result.byPlayerId.get("te-a"), [{ trigger: "SOURCED_EVENT", triggerName: "Name wr-a", triggerStatus: null,
+  assert.deepEqual(result.byPlayerId.get("te-a"), [{ trigger: "SOURCED_EVENT", triggerName: "Name wr-a", triggerStatus: null, certainty: "SOURCED_EVENT",
     type: "RETURN", observedAt: "2026-10-06T08:00:00Z", source: "https://example.com/team-report", triggerPlayerId: "wr-a",
     group: "AAA:TE", effect: "REEVALUATE", shareAttributed: null, successionInferred: false }]);
   assert.equal(result.byPlayerId.get("wr-b")[0].group, "AAA:WR");
@@ -98,7 +99,7 @@ test("a trigger missing from the snapshot still ripples to its sourced group", (
 test("no entry ever carries a share, a successor or a duration", () => {
   const players = withStatus(base(), "wr-a", "IR");
   const result = run(players, { "wr-a": event({ note: "fictitious note", targetShare: 0.3, successorId: "wr-b", weeksOut: 4 }), "te-a": event({ type: "ROLE_CHANGE", positions: ["TE", "WR"] }) });
-  const allowed = ["effect", "group", "observedAt", "shareAttributed", "source", "successionInferred", "trigger", "triggerName", "triggerPlayerId", "triggerStatus", "type"];
+  const allowed = ["certainty", "effect", "group", "observedAt", "shareAttributed", "source", "successionInferred", "trigger", "triggerName", "triggerPlayerId", "triggerStatus", "type"];
   const all = [...result.byPlayerId.values()].flat();
   assert.ok(all.length > 0);
   for (const entry of all) {
