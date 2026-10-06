@@ -557,3 +557,25 @@ Nouveau backlog priorisé : [transactions nominatives, couverture du pool, rippl
 Les transactions 72 h exposent désormais des movements ADD/DROP avec playerId/playerName, rosterId/teamName/manager, statut d’exécution et currentOwnerRosterId. Les noms viennent de l’index et des users/rosters du snapshot, sans rapprochement externe ; non résolus = null en JSON, UNKNOWN explicite en texte. AI Context conserve les mêmes mouvements ; bulletin et export IA utilisent le même format nominatif. Les données transactionnelles originales et IDs restent présents. La propriété courante l’emporte sur un DROP historique ; absence de propriétaire n’est pas une preuve de déblocage (UNKNOWN). Aucune transaction pending n’est présentée comme complete.
 
 La résolution nominative ne modifie pas à elle seule le pool ni les filtres des joueurs sans projections : ces cases P0 restent ouvertes. Validation : noms/managers résolus, identité inconnue, DROP suivi d’une propriété différente, texte commun ; **271 tests passent**, contrôles statiques et assets réussis. Aucun déploiement.
+
+## Contexte live — livraison du 6 octobre 2026
+
+Détail et reproduction Kamara : `docs/decision-engine-live-state-backlog-2026-10-05.md`. Le fichier de preuves accepte `eventsById` à la racine (exemple **fictif**) :
+
+```json
+"eventsById": {
+  "player-id": {
+    "type": "RETURN",
+    "nflTeam": "KC",
+    "positions": ["WR"],
+    "source": "https://example.com/dated-team-announcement",
+    "observedAt": "2026-10-04T09:00:00Z",
+    "expiresAt": "2026-10-06T09:00:00Z"
+  }
+}
+```
+
+Types : `INJURY`, `RETURN`, `ROLE_CHANGE`, `NFL_TRANSACTION`. L’événement fait entrer le joueur dans l’analyse et signale son groupe équipe/poste à réévaluer ; il ne crée ni projection, ni part de cibles, ni succession, ni action.
+
+Changements de contrat : `fit.dropCandidate` et `dropCostPerWeek` valent `null` quand l’horizon n’est pas couvert ; `faabMarket` vaut `null` pour un joueur sans valorisation ; `regretRisk` peut valoir `UNKNOWN` ; `featureExtractionVersion` passe à 2 (les archives version 1 restent recalculables). Les joueurs en slot réserve ne sont plus alignés dans les lineups simulées.
+

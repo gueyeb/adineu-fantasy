@@ -1,5 +1,6 @@
 import { BYE_WEEKS_2026 } from "../public/assets/league-settings.js";
 import { formatRecentTransactions } from "../public/assets/acquisition-availability.js";
+import { formatPoolCoverage } from "./league-context.js";
 import { classifyWaiverDecision } from "../public/assets/waiver-model.js";
 
 const round = value => value !== null && value !== undefined && Number.isFinite(Number(value)) ? Number(Number(value).toFixed(1)) : null;
@@ -35,6 +36,13 @@ function waiverRows(report) {
     })
     .map(player => ({
       modelMetrics: player.modelMetrics ?? null,
+      poolEntry: player.poolEntry ?? null,
+      ripple: player.ripple ?? [],
+      nextUnlockScenario: player.nextUnlockScenario ?? null,
+      cutSelection: player.waiver.fit?.cutSelection ?? null,
+      cutExclusions: player.waiver.fit?.cutExclusions ?? [],
+      dropCostComponents: player.waiver.fit?.dropCostComponents ?? null,
+      coverageBlockers: player.waiver.fit?.coverageBlockers ?? [],
       decision: player.waiver.decision ?? null,
       horizonCovered: player.waiver.fit?.horizonCovered ?? false,
       preferencePenaltyTotal: player.waiver.fit?.preferencePenaltyTotal ?? 0,
@@ -122,7 +130,11 @@ function buildTeamDiagnosis(context, available) {
       bench: `${context.myTeam.bench.length}/${context.league.rosterSettings.benchSlots}`,
       ir: `${context.myTeam.ir.length}/${context.league.rosterSettings.reserveSlots}`
     },
-    dropCandidates
+    dropCandidates,
+    // A cut list built while most of the roster is locked is a constraint, not a ranking.
+    cutPoolNote: available.some(player => player.cutSelection === "ONLY_ELIGIBLE_CUT")
+      ? "Target-week cuts limited to unlocked players (others GAME_LOCKED); see NextUnlock scenarios for the full comparison."
+      : available.length && available.every(player => player.cutSelection === "UNRANKED_INCOMPLETE_COVERAGE") ? "No cut designated: horizon coverage incomplete." : null
   };
 }
 
@@ -185,6 +197,7 @@ export function buildDecisionContext({ context, playerValues = {}, statuses = ne
     rosterProvenance: waivers?.rosterProvenance ?? [],
     playerIndexProvenance: waivers?.playerIndexProvenance ?? null,
     candidateCoverage: { evaluated: waivers?.evaluatedCandidateCount ?? null, returned: waivers?.returnedCandidateCount ?? null },
+    poolCoverage: waivers?.poolCoverage ?? null,
     myTeam: enrichedTeam,
     lineup: lineup || { alerts: [], optimal: null },
     nextMatchup: matchup,
@@ -224,6 +237,10 @@ function decisionPlayerLine(prefix, player) {
   return fields.join(" | ");
 }
 
+const dropCostText = components => components ? ` [usage ${components.usagePremiumPerWeek} + buyLow ${components.buyLowPremiumPerWeek} + projUpside ${components.projectionUpsidePerWeek} = option ${components.optionValuePerWeek}/w × ${components.horizonWeeks}w = ${components.optionTotal}; postRoleLineupLoss ${metric(components.postRoleLineupLossTotal)}; lineup loss already in gross; inputs ${components.optionCoverage}${components.missingInputs.length ? ` missing ${components.missingInputs.join(",")}` : ""}; uncalibrated]` : "";
+const nextUnlockText = scenario => !scenario ? "" : scenario.status !== "EVALUATED" ? ` | NextUnlock=${scenario.status}`
+  : ` | NextUnlock=scenario only, not executable: start W${scenario.startWeek}, unlock ${scenario.unlockVerified ? scenario.unlockAt : "UNVERIFIED"}, horizon ${metric(scenario.horizonWeeks, "w")}, net ${metric(scenario.netGainTotal, " pts")}, cut ${scenario.dropCandidate?.name || "n/d"}, indicative max ${metric(scenario.indicativeMaxBid, " $")}, coverage ${scenario.coverageIssues.join(",") || "complete"}`;
+
 export function formatDecisionContext(context) {
   const league = context.league;
   const team = context.myTeam;
@@ -248,7 +265,7 @@ export function formatDecisionContext(context) {
     `Strengths: ${context.teamDiagnosis.strengths.length ? context.teamDiagnosis.strengths.map(row => `${row.position} (+${row.margin} PPG vs replacement)`).join("; ") : "none detected"}`,
     `Weaknesses: ${context.teamDiagnosis.weaknesses.length ? context.teamDiagnosis.weaknesses.map(row => `${row.position} (${row.margin >= 0 ? "+" : ""}${row.margin} PPG vs replacement)`).join("; ") : "none detected"}`,
     `Roster pressure: bench ${context.teamDiagnosis.rosterPressure.bench}; IR ${context.teamDiagnosis.rosterPressure.ir}`,
-    `Lowest marginal cuts: ${context.teamDiagnosis.dropCandidates.length ? context.teamDiagnosis.dropCandidates.map(player => `${player.name} (immediate ${metric(player.immediateValuePerWeek)}, option ${metric(player.optionValuePerWeek)}, total ${metric(player.totalCostPerWeek)} pts/w, usage ${metric(player.usageScore)}, bye S${player.byeWeek ?? "n/d"}, regret ${player.regretRisk})`).join("; ") : "n/d"}`,
+    `Lowest marginal cuts: ${context.teamDiagnosis.dropCandidates.length ? context.teamDiagnosis.dropCandidates.map(player => `${player.name} (immediate ${metric(player.immediateValuePerWeek)}, option ${metric(player.optionValuePerWeek)}, total ${metric(player.totalCostPerWeek)} pts/w, usage ${metric(player.usageScore)}, bye S${player.byeWeek ?? "n/d"}, regret ${player.regretRisk})`).join("; ") : "n/d"}${context.teamDiagnosis.cutPoolNote ? ` | ${context.teamDiagnosis.cutPoolNote}` : ""}`,
     "",
     "STRATEGY STATE",
     `Playoff urgency: ${context.strategyState.playoffUrgency} (rule-based standings; distinct from simulated odds)`,
@@ -300,7 +317,8 @@ export function formatDecisionContext(context) {
   lines.push("TEMPORARY ROSTER PREFERENCES", JSON.stringify(context.rosterPreferences || []));
   lines.push("CONDITIONAL ACQUISITION PLAN — REVALIDATE AFTER EACH RESULT", JSON.stringify(context.acquisitionPlan || null));
   lines.push("RECENT TRANSACTIONS (72h)", ...formatRecentTransactions(context.recentTransactions || []), `Truncated: ${context.transactionsTruncatedCount || 0} | Availability as of: ${context.availabilityAsOf || "n/d"}`, ...(context.snapshotIssues || []));
-  const waiverLine = (player, index) => `${index + 1}. ${player.name} ${player.position} ${player.nflTeam || "FA"} | Class=${player.decisionClass} | Immediate=${player.immediateValue} | Strategic=${player.strategicUpside} | Market=${player.marketScore} | GrossGain=${metric(player.lineupGain, " pts/w")} | Drop=${player.dropCandidate?.name || "none"} | DropCost=${metric(player.dropCost, " pts/w")} | NetGain=${metric(player.netGain, " pts/w over role horizon")} | Availability=${player.availability?.availability || "UNKNOWN"} | TargetWeekDelta=${metric(player.targetWeekDelta, " pts")} | Horizon=${metric(player.horizonWeeks, " weeks")} | GrossTotal=${metric(player.grossGainTotal, " pts")} | PostRoleCutLoss=${metric(player.postRoleCutCostTotal, " pts")} | NetTotal=${metric(player.netGainTotal, " pts")} | FAAB market estimate=${player.faabMarket?.join("–") || "n/d"} $ | SuggestedBid=${metric(player.suggestedBid, " $")} | PersonalMax=${metric(player.maxForTeam, " $")} | Budget=${metric(player.bidPctInitial, "% initial")}/${metric(player.bidPctRemaining, "% remaining")} | AuctionWinProbability=n/d | Role=${player.roleConfirmation} | Coverage=${player.coverageIssues.join(",") || "complete"} | ${player.interpretation}${player.reasons.length ? ` | ${player.reasons.join("; ")}` : ""}`;
+  if (context.poolCoverage) lines.push("CANDIDATE POOL", ...formatPoolCoverage(context.poolCoverage));
+  const waiverLine = (player, index) => `${index + 1}. ${player.name} ${player.position} ${player.nflTeam || "FA"} | Class=${player.decisionClass} | Immediate=${player.immediateValue} | Strategic=${player.strategicUpside} | Market=${player.marketScore} | GrossGain=${metric(player.lineupGain, " pts/w")} | Drop=${player.dropCandidate?.name || "none"} | DropCost=${metric(player.dropCost, " pts/w")} | NetGain=${metric(player.netGain, " pts/w over role horizon")} | Availability=${player.availability?.availability || "UNKNOWN"} | TargetWeekDelta=${metric(player.targetWeekDelta, " pts")} | Horizon=${metric(player.horizonWeeks, " weeks")} | GrossTotal=${metric(player.grossGainTotal, " pts")} | PostRoleCutLoss=${metric(player.postRoleCutCostTotal, " pts")} | NetTotal=${metric(player.netGainTotal, " pts")} | FAAB market estimate=${player.faabMarket?.join("–") || "n/d"} $ | SuggestedBid=${metric(player.suggestedBid, " $")} | PersonalMax=${metric(player.maxForTeam, " $")} | Budget=${metric(player.bidPctInitial, "% initial")}/${metric(player.bidPctRemaining, "% remaining")} | AuctionWinProbability=n/d | Role=${player.roleConfirmation} | Coverage=${player.coverageIssues.join(",") || "complete"}${player.coverageBlockers?.length ? ` (blocked by ${[...new Set(player.coverageBlockers.map(row => row.name || row.playerId))].join(", ")})` : ""} | Cut=${player.cutSelection || "n/d"}${dropCostText(player.dropCostComponents)} | Entry=${player.poolEntry?.reasons?.join("+") || "n/d"}${player.poolEntry && !player.poolEntry.valuationCovered ? " (no projection: no numeric gain)" : ""}${player.poolEntry?.recentDrop ? ` | RecentDrop=${player.poolEntry.recentDrop.droppedAt} clearance unverified` : ""}${player.ripple?.length ? ` | Ripple=${player.ripple.map(row => `${row.triggerName || row.triggerPlayerId} ${row.triggerStatus || row.type} ${row.group}`).join("; ")} (re-evaluate; no share or succession attributed)` : ""}${nextUnlockText(player.nextUnlockScenario)} | ${player.interpretation}${player.reasons.length ? ` | ${player.reasons.join("; ")}` : ""}`;
   lines.push("", "WAIVER — RECOMMENDED ACTIONS");
   for (const action of ["ADD_NOW", "CLAIM_IF_CHEAP", "WATCH", "IGNORE"]) {
     lines.push("", action.replaceAll("_", " "));

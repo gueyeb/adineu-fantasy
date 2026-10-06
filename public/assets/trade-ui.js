@@ -519,7 +519,20 @@ export async function renderTradesPage(container) {
     const metric = value => Number.isFinite(value) ? String(value) : "n/d";
     const signed = value => Number.isFinite(value) ? `${value >= 0 ? "+" : ""}${value}` : "n/d";
     const date = value => value && Number.isFinite(typeof value === "number" ? value : Date.parse(value)) ? new Date(value).toLocaleString("fr-FR", { timeZone: "Europe/Paris", dateStyle: "short", timeStyle: "short" }) : "n/d";
-    const availabilityText = p => `${p.availability?.availability || "UNKNOWN"} · ${p.waiver?.decision?.recommendedAction || "WATCH"}`;
+    const engineNotes = p => {
+      const notes = [];
+      const entry = p.poolEntry;
+      if (entry?.recentDrop) notes.push("Coupé récemment · déblocage non vérifié");
+      if (entry && !entry.valuationCovered) notes.push("Projection absente · aucun gain chiffré");
+      if (entry?.reasons?.includes("SOURCED_EVENT")) notes.push("Événement sourcé");
+      if (p.ripple?.length) notes.push(`À réévaluer : ${p.ripple.map(row => `${row.triggerName || row.triggerPlayerId} ${row.triggerStatus || row.type}`).join(", ")} (aucune part attribuée)`);
+      const next = p.nextUnlockScenario;
+      if (next) notes.push(next.status === "EVALUATED"
+        ? `Scénario S${next.startWeek} (non exécutable, déblocage ${next.unlockVerified ? "vérifié" : "non vérifié"}) : net ${next.netGainTotal ?? "n/d"} pts · coupe ${next.dropCandidate?.name || "n/d"} · plafond indicatif ${next.indicativeMaxBid ?? "n/d"} $`
+        : `Prochain déblocage : ${next.status}`);
+      return notes.join(" · ");
+    };
+    const availabilityText = p => [`${p.availability?.availability || "UNKNOWN"} · ${p.waiver?.decision?.recommendedAction || "WATCH"}`, engineNotes(p)].filter(Boolean).join(" · ");
     const money = range => range && range[1] > 0 ? `${range[0]}–${range[1]} $` : "—";
     const usageCell = w => Number.isFinite(w.usageScore) ? `${w.usageScore}${w.usageSignal === "BUY_LOW" ? " 🟢" : w.usageSignal === "SELL_HIGH" ? " 🔥" : ""}` : "—";
     const positionCards = positionOrder
@@ -583,10 +596,10 @@ export async function renderTradesPage(container) {
                     <td>${escapeHtml(p.name)} <small style="color:var(--muted);">(${escapeHtml(p.position)}${p.nflTeam ? ` ${escapeHtml(p.nflTeam)}` : ""})</small><br><small>${escapeHtml(availabilityText(p))}</small><br><small>Kickoff ${escapeHtml(date(p.availability?.kickoffAt))} · waiver ${escapeHtml(date(p.availability?.waiverProcessesAt))}</small>${p.waiver.newsOverride ? `<br><small style="color:var(--gold);">⚡ ${escapeHtml(p.waiver.reasons.join(" · "))}</small>` : ""}</td>
                     <td>${p.waiver.fit.priorityScore}</td>
                     <td>${signed(p.waiver.fit.targetWeekDelta)} pts</td>
-                    <td>${escapeHtml(p.waiver.fit.dropCandidate?.name || "—")}${p.waiver.fit.preferenceOverridden ? `<br><small>Préférence dépassée : ${escapeHtml(p.waiver.fit.appliedPreference.reason)}</small>` : ""}</td>
+                    <td>${escapeHtml(p.waiver.fit.dropCandidate?.name || "—")}${p.waiver.fit.cutSelection === "ONLY_ELIGIBLE_CUT" ? "<br><small>Seule coupe éligible (autres joueurs verrouillés)</small>" : p.waiver.fit.cutSelection === "UNRANKED_INCOMPLETE_COVERAGE" ? "<br><small>Aucune coupe désignée : couverture incomplète</small>" : ""}${p.waiver.fit.preferenceOverridden ? `<br><small>Préférence dépassée : ${escapeHtml(p.waiver.fit.appliedPreference.reason)}</small>` : ""}</td>
                     <td>${metric(p.waiver.fit.horizonWeeks)} sem<br><small>Option coupe : ${metric(p.waiver.fit.dropCostTotal)} pts estimés<br>Perte après rôle : ${metric(p.waiver.fit.postRoleCutCostTotal)} pts</small></td>
                     <td style="font-weight:700;">${signed(p.waiver.fit.netGainTotal)} pts<br><small>Brut ${metric(p.waiver.fit.grossGainTotal)} · moyenne rôle ${metric(p.waiver.fit.netGainAverage)} pts/sem</small><details><summary>Détail par semaine</summary>${p.waiver.fit.weeklyLineupDeltas.map(row => `<div>S${row.week} : ${signed(row.delta)} pts · ${escapeHtml(row.slot || "banc")} ${row.covered ? "" : "· projection manquante"}</div>`).join("")}<p>${escapeHtml(p.waiver.fit.coverageIssues.join(" · "))}</p></details></td>
-                    <td>${p.waiver.faabMarket[0]}–${p.waiver.faabMarket[1]} $</td>
+                    <td>${money(p.waiver.faabMarket)}</td>
                     <td style="font-weight:700;">${metric(p.waiver.suggestedBid)} $ / ${metric(p.waiver.personalMaxBid)} $<br><small>${metric(p.waiver.bidPctInitial)} % initial · ${metric(p.waiver.bidPctRemaining)} % restant</small></td>
                   </tr>
                 `).join("")}
@@ -603,7 +616,7 @@ export async function renderTradesPage(container) {
               <td>${escapeHtml(t.name)} <small style="color:var(--muted);">(${escapeHtml(t.position || "?")}${t.nflTeam ? ` ${escapeHtml(t.nflTeam)}` : ""})</small>${t.waiver?.newsOverride ? `<br><small style="color:var(--gold);">⚡ ${escapeHtml(t.waiver.reasons.join(" · "))}</small>` : ""}</td>
               <td class="num">${Number(t.adds).toLocaleString("fr-FR")}</td>
               <td>${t.rostered ? `Rosté · ${escapeHtml(t.rosteredBy || "?")}` : t.injuryStatus ? `Libre · ${escapeHtml(t.injuryStatus)}` : "<strong>Libre</strong>"}</td>
-              <td>${t.waiver ? `${escapeHtml(t.waiver.category)} · ${t.waiver.faabMarket[0]}–${t.waiver.faabMarket[1]} $` : "—"}</td>
+              <td>${t.waiver ? `${escapeHtml(t.waiver.category)} · ${money(t.waiver.faabMarket)}` : "—"}</td>
               <td>${t.waiver?.fit ? `${t.waiver.fit.faabMaxForMe} $` : "—"}</td>
             </tr>`).join("")}</tbody>
           </table></div></details>` : ""}

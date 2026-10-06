@@ -2,16 +2,16 @@ import { readFile } from "node:fs/promises";
 
 /** Operator-maintained, server-side JSON. Never accept a file path from an HTTP request. */
 export async function loadDecisionEvidence({ path = process.env.DECISION_EVIDENCE_FILE, leagueId, season, week } = {}) {
-  if (!path) return { availabilityById: {}, rolesById: {}, rosterPreferences: [], issues: ["DECISION_EVIDENCE_NOT_CONFIGURED"] };
+  if (!path) return { availabilityById: {}, rolesById: {}, eventsById: {}, rosterPreferences: [], issues: ["DECISION_EVIDENCE_NOT_CONFIGURED"] };
   try {
     const data = JSON.parse(await readFile(path, "utf8"));
     if (data.version !== 1 || String(data.leagueId) !== String(leagueId) || String(data.season) !== String(season) || data.targetWeek !== week) {
-      return { availabilityById: {}, rolesById: {}, rosterPreferences: [], issues: ["DECISION_EVIDENCE_SCOPE_MISMATCH"] };
+      return { availabilityById: {}, rolesById: {}, eventsById: {}, rosterPreferences: [], issues: ["DECISION_EVIDENCE_SCOPE_MISMATCH"] };
     }
     const normalize = rows => Object.fromEntries(Object.entries(rows || {}).filter(([id, row]) => id.length <= 80 && row && typeof row === "object" && !Array.isArray(row)).map(([id, row]) => [id, { ...row, leagueId: data.leagueId, season: data.season, targetWeek: data.targetWeek }]));
-    return { availabilityById: normalize(data.availabilityById), rolesById: normalize(data.rolesById), rosterPreferences: Array.isArray(data.rosterPreferences) ? data.rosterPreferences : [], issues: [] };
+    return { availabilityById: normalize(data.availabilityById), rolesById: normalize(data.rolesById), eventsById: normalize(data.eventsById), rosterPreferences: Array.isArray(data.rosterPreferences) ? data.rosterPreferences : [], issues: [] };
   } catch {
-    return { availabilityById: {}, rolesById: {}, rosterPreferences: [], issues: ["DECISION_EVIDENCE_UNREADABLE"] };
+    return { availabilityById: {}, rolesById: {}, eventsById: {}, rosterPreferences: [], issues: ["DECISION_EVIDENCE_UNREADABLE"] };
   }
 }
 

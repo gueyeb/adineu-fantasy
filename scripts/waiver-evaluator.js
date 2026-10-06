@@ -1,8 +1,42 @@
-import { evaluateRosterFit, classifyWaiverDecision } from '../public/assets/waiver-model.js';
+import { evaluateRosterFit, classifyWaiverDecision, LAST_REGULAR_WEEK } from '../public/assets/waiver-model.js';
 import { GENERAL_SETTINGS_2026 } from '../public/assets/league-settings.js';
 
+/** GAME_LOCKED blocks the target week only. The scenario below restarts the fit at the next
+ * week, on that week's projections, and stays a review item: never an action, never a bid.
+ * `horizonFor(row)` returns { startWeek, firstKickoffAt, bye, source } or null when the schedule
+ * does not cover the next week. The unlock is verified only by dated operator evidence. */
+export function evaluateNextUnlockScenario({ row, availability, rosterContext, week, horizonFor = () => null }) {
+  if (availability?.availability !== "GAME_LOCKED") return null;
+  const asOf = Date.parse(availability.availabilityAsOf);
+  const processes = Date.parse(availability.waiverProcessesAt);
+  const unlockVerified = Number.isFinite(processes) && Number.isFinite(asOf) && processes > asOf;
+  const horizon = week + 1 <= LAST_REGULAR_WEEK ? horizonFor(row) : null;
+  const base = { executableNow: false, reviewAction: "REVALIDATE_AT_UNLOCK", unlockVerified,
+    unlockAt: unlockVerified ? availability.waiverProcessesAt : null, unlockSource: unlockVerified ? availability.evidence?.[0]?.source ?? null : null,
+    startWeek: horizon?.startWeek ?? null, firstKickoffAt: horizon?.firstKickoffAt ?? null, byeAtStart: horizon?.bye ?? null,
+    scheduleSource: horizon?.source ?? null, horizonWeeks: null, horizonCovered: false, coverageIssues: [], coverageBlockers: [],
+    targetWeekDelta: null, grossGainTotal: null, netGainTotal: null, weeklyLineupDeltas: [], dropCandidate: null, cutSelection: null,
+    indicativeMaxBid: null, indicativeMarketRange: row.faabMarket ?? null, marketRangeBasis: "CURRENT_WEEK_MARKET_ESTIMATE" };
+  if (week + 1 > LAST_REGULAR_WEEK) return { ...base, status: "NO_REGULAR_SEASON_WEEK_LEFT" };
+  if (!horizon) return { ...base, status: "HORIZON_UNKNOWN", coverageIssues: ["NEXT_WEEK_SCHEDULE_UNVERIFIED"] };
+  if (!rosterContext) return { ...base, status: "NO_ROSTER_CONTEXT" };
+  // The locked week consumes one week of a temporary role; nothing is extended beyond it.
+  const remainingNow = Math.max(1, LAST_REGULAR_WEEK - week + 1);
+  const roleWeeks = row.events?.roleWeeks > 0 ? row.events.roleWeeks : 0;
+  const temporary = roleWeeks > 0 && roleWeeks < remainingNow;
+  if (temporary && roleWeeks - (horizon.startWeek - week) <= 0) return { ...base, status: "ROLE_WINDOW_ENDS_BEFORE_UNLOCK", coverageIssues: ["NO_ROLE_WEEK_AFTER_UNLOCK"] };
+  const futureRow = { ...row, events: { ...row.events, roleWeeks: temporary ? roleWeeks - (horizon.startWeek - week) : 0 } };
+  const fit = evaluateRosterFit({ marketRow: futureRow, ...rosterContext, week: horizon.startWeek, frozenSlots: {}, lockedIds: new Set() });
+  return { ...base, status: "EVALUATED", horizonWeeks: fit.horizonWeeks, horizonCovered: fit.horizonCovered,
+    coverageIssues: [...fit.coverageIssues, ...(unlockVerified ? [] : ["UNLOCK_UNVERIFIED"])], coverageBlockers: fit.coverageBlockers,
+    targetWeekDelta: fit.targetWeekDelta, grossGainTotal: fit.grossGainTotal, netGainTotal: fit.netGainTotal,
+    weeklyLineupDeltas: fit.weeklyLineupDeltas, dropCandidate: fit.dropCandidate, cutSelection: fit.cutSelection,
+    // Personal ceiling for that scenario, shown for planning only; the proposed bid stays 0.
+    indicativeMaxBid: fit.horizonCovered && fit.legalTransaction ? fit.faabMaxForMe : null };
+}
+
 /** Shared by live reports and offline recalculation; no I/O. */
-export function createWaiverEvaluator({ fitContext, week, availabilityFor, ownershipRechecked, transactionsComplete }) {
+export function createWaiverEvaluator({ fitContext, week, availabilityFor, ownershipRechecked, transactionsComplete, horizonFor = () => null }) {
   return (row, state = null) => {
     const rosterContext = fitContext && state ? { ...fitContext, ...state,
       protectedIds: new Set([...fitContext.protectedIds, ...state.protectedIds]) } : fitContext;
@@ -34,17 +68,27 @@ export function createWaiverEvaluator({ fitContext, week, availabilityFor, owner
     }
     // A personal willingness-to-pay ceiling is not the cost of a free-agent add.
     const suggestedBid = decision.recommendedAction === "CLAIM_IF_CHEAP" ? personalMaxBid : 0;
+    const nextUnlockScenario = evaluateNextUnlockScenario({ row, availability, rosterContext, week, horizonFor });
+    if (availability?.availability === "GAME_LOCKED" && !decision.actionBlockers.includes("GAME_LOCKED")) decision.actionBlockers.push("GAME_LOCKED");
+    if (availability?.coverageIssues?.includes("RECENT_DROP_CLEARANCE_UNVERIFIED")) decision.actionBlockers.push("RECENT_DROP_CLEARANCE_UNVERIFIED");
+    if (row.valuationCovered === false) decision.actionBlockers.push("NO_PROJECTION");
     return {
       ...row,
       availability,
+      nextUnlockScenario,
       modelMetrics: { playerId: row.sleeperId, targetWeek: week, marketScore: row.marketScore, faabMarket: row.faabMarket,
         immediateValue: decision.immediateValue, strategicUpside: decision.strategicUpside, decisionClass: decision.decisionClass,
         horizonWeeks: fit?.horizonWeeks ?? null, targetWeekDelta: fit?.targetWeekDelta ?? null,
         grossGainTotal: fit?.grossGainTotal ?? null, netGainTotal: fit?.netGainTotal ?? null,
         dropCostTotal: fit?.dropCostTotal ?? null, postRoleCutCostTotal: fit?.postRoleCutCostTotal ?? null,
         weeklyLineupDeltas: fit?.weeklyLineupDeltas ?? [], dropCandidate: fit?.dropCandidate ?? null,
-        suggestedBid, personalMaxBid, availability, roleConfirmation: row.events.roleConfirmation },
+        suggestedBid, personalMaxBid, availability, roleConfirmation: row.events.roleConfirmation,
+        cutSelection: fit?.cutSelection ?? null, dropCostComponents: fit?.dropCostComponents ?? null,
+        poolEntryReasons: row.poolEntry?.reasons ?? [], nextUnlockScenario },
       waiver: {
+        poolEntry: row.poolEntry ?? null,
+        ripple: row.ripple ?? [],
+        nextUnlockScenario,
         roleConfirmation: row.events.roleConfirmation,
         roleEvidence: row.events.evidence ?? [],
         announcedRole: row.events.announcedRole ?? null,

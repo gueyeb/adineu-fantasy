@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { createWaiverEvaluator } from "./waiver-evaluator.js";
 import { extractDecisionFeatures, SEVERITY_BY_STATUS } from "./decision-features.js";
-import { resolveAcquisitionAvailability, summarizeRecentTransactions, resolveRoleEvidence, formatRecentTransactions } from "../public/assets/acquisition-availability.js";
+import { resolveAcquisitionAvailability, summarizeRecentTransactions, resolveRoleEvidence, formatRecentTransactions, findRecentDrops, nextWeekHorizon } from "../public/assets/acquisition-availability.js";
 /**
  * Adineu Fantasy — Contexte IA & Waiver Wire Report
  *
@@ -400,6 +400,7 @@ export async function getFreeAgents({
   forceRefreshInjuryStatuses = false,
   availabilityEvidenceById = null,
   roleEvidenceById = null,
+  eventsById = null,
   rosterPreferences = null,
   evidencePath = process.env.DECISION_EVIDENCE_FILE,
   asOf = null,
@@ -425,6 +426,7 @@ export async function getFreeAgents({
   ]);
   availabilityEvidenceById ??= storedEvidence.availabilityById;
   roleEvidenceById ??= storedEvidence.rolesById;
+  eventsById ??= storedEvidence.eventsById ?? {};
   rosterPreferences ??= storedEvidence.rosterPreferences;
   const transactionsByWeek = [];
   for (let w = 1; w <= week; w++) {
@@ -449,12 +451,15 @@ export async function getFreeAgents({
   if (!ownershipRechecked) snapshotIssues.push("OWNERSHIP_RECHECK_FAILED");
   if (transactionsByWeek.length !== week) snapshotIssues.push("INCOMPLETE_TRANSACTIONS");
   const kickoffFor = player => schedule.find(game => game.week === week && [game.away_team, game.home_team].includes(player.nflTeam));
+  const recentDrops = findRecentDrops(allTransactions, { asOf });
   const availabilityFor = player => {
     const game = kickoffFor(player);
     return resolveAcquisitionAvailability({ playerId: player.sleeperId, rosters,
       evidence: availabilityEvidenceById[player.sleeperId], kickoffAt: game?.kickoffAt,
-      kickoffSource: game?.source, asOf, week, season, leagueId, latestTransactionAt: latestTransactionAt(player.sleeperId) });
+      kickoffSource: game?.source, asOf, week, season, leagueId, latestTransactionAt: latestTransactionAt(player.sleeperId),
+      recentDrop: recentDrops.get(String(player.sleeperId)) ?? null });
   };
+  const horizonFor = player => nextWeekHorizon({ schedule, week, nflTeam: player.nflTeam });
 
   let index = new Map();
   try {
@@ -480,7 +485,7 @@ export async function getFreeAgents({
     statsByWeek.length < (lastCompletedWeek > 0 ? Math.min(3, lastCompletedWeek) : 0);
 
   const fetchedAtByPath = Object.fromEntries([...weeklyCaches.get(fetchImpl) || []].map(([path, entry]) => [path, new Date(entry.at).toISOString()]));
-  const { rows, usageById, rosFor, rosDetailFor, meta, provenanceFor } = extractDecisionFeatures({ index, catalog, rosters, nflState, projectionsByWeek, statsByWeek, fetchedAtByPath, roleEvidenceById, asOf, week, lastCompletedWeek, season, leagueId });
+  const { rows, rosFor, meta, rosterPlayerFor, poolCoverage } = extractDecisionFeatures({ index, catalog, rosters, nflState, projectionsByWeek, statsByWeek, fetchedAtByPath, roleEvidenceById, eventsById, allTransactions, asOf, week, lastCompletedWeek, season, leagueId });
 
   const market = evaluateMarket({ rows, week });
   let users = [];
@@ -489,19 +494,7 @@ export async function getFreeAgents({
   if (team) {
     const { roster } = findRosterByTeam(rosters, users, team);
     rosterPreferences = normalizeRosterPreferences(rosterPreferences, { asOf, rosterId: roster.roster_id }).filter(row => (roster.players || []).includes(row.playerId));
-    const myPlayers = (roster.players || []).map(id => {
-      const player = meta(id) || { name: `Player #${id}`, position: "FLEX" };
-      const usage = usageById.get(id);
-      return {
-        ...(catalogById.get(id) || {}), ...player, sleeperId: id,
-        provenance: provenanceFor(id, player, rosDetailFor(id, player)?.source ?? "NONE"),
-        projectedPpg: projectionsByWeek[week]?.[id]?.pts_ppr,
-        injuryStatus: player.injuryStatus,
-        usageScore: usage?.usageScore ?? null,
-        usageSignal: usage?.signal ?? null,
-        xfp: usage?.xfp ?? null
-      };
-    });
+    const myPlayers = (roster.players || []).map(rosterPlayerFor);
     const fallback = restOfSeasonEstimate(week);
     const paceOf = player => player.effectivePpg ?? rosFor(player.sleeperId, player) ?? fallback(player);
     const replacementByPosition = Object.fromEntries(FANTASY_POSITIONS.map(pos => [pos, market.find(row => row.position === pos)?.replacementPpg ?? 0]));
@@ -523,19 +516,23 @@ export async function getFreeAgents({
     const projectionCovered = (player, w) => Number.isFinite(weeklyPaceOf(player, w));
     const activeCount = myPlayers.filter(p => !protectedIds.has(String(p.sleeperId))).length;
     const hasOpenRosterSlot = activeCount < STARTER_SLOT_ORDER.length + ROSTER_SETTINGS_2026.benchSlots;
-    fitContext = { rosterPreferences, myPlayers, paceOf, weeklyPaceOf, projectionCovered, frozenSlots, hasOpenRosterSlot, starterIds, lockedIds, protectedIds, replacementByPosition, faabRemaining: calculateFaabRemaining(GENERAL_SETTINGS_2026.waiver.budget, roster.settings?.waiver_budget_used) };
+    fitContext = { rosterPreferences, myPlayers, paceOf, weeklyPaceOf, projectionCovered, frozenSlots, hasOpenRosterSlot, starterIds, lockedIds, protectedIds, reserveIds: new Set(protectedIds), replacementByPosition, faabRemaining: calculateFaabRemaining(GENERAL_SETTINGS_2026.waiver.budget, roster.settings?.waiver_budget_used) };
   }
 
-  const withWaiver = createWaiverEvaluator({ fitContext, week, availabilityFor, ownershipRechecked, transactionsComplete: transactionsByWeek.length === week });
+  const withWaiver = createWaiverEvaluator({ fitContext, week, availabilityFor, ownershipRechecked, transactionsComplete: transactionsByWeek.length === week, horizonFor });
 
   const normalizedPosition = position ? String(position).toUpperCase() : null;
   const byPosition = {};
   for (const row of market) {
     if (normalizedPosition && row.position !== normalizedPosition) continue;
     if (!byPosition[row.position]) byPosition[row.position] = [];
-    if (byPosition[row.position].length >= limitPerPosition) continue;
+    // The per-position limit never hides a recent cut or a sourced event.
+    if (byPosition[row.position].length >= limitPerPosition && !row.poolEntry?.pinned) continue;
     byPosition[row.position].push(withWaiver(row));
   }
+  const board = Object.values(byPosition).flat();
+  const boardCoverage = { ...poolCoverage, evaluated: market.length, returned: board.length, limitPerPosition,
+    pinnedOnBoard: board.filter(row => row.poolEntry?.pinned).map(row => ({ playerId: row.sleeperId, name: row.name, reasons: row.poolEntry.reasons, availability: row.availability?.availability ?? "UNKNOWN" })) };
 
   // Signaux de marché de la ligue (benchmark Fantasy Life, lot 1) : enchères gagnées + trending Sleeper.
   const rosterNameById = new Map(listRosterIdentities(rosters, users).map(({ roster, teamName }) => [String(roster.roster_id), teamName]));
@@ -562,15 +559,16 @@ export async function getFreeAgents({
     const paceById = Object.fromEntries(evaluatedPlayers.map(player => [player.sleeperId, fitContext?.paceOf(player) ?? null]));
     const weeklyPaceById = Object.fromEntries(evaluatedPlayers.map(player => [player.sleeperId, Object.fromEntries(Array.from({ length: LAST_REGULAR_WEEK - week + 1 }, (_, i) => [week + i, fitContext?.weeklyPaceOf(player, week + i) ?? null]))]));
     const { paceOf, weeklyPaceOf, projectionCovered, ...serialFit } = fitContext || {};
-    await onDecisionInputs(JSON.parse(JSON.stringify({ version: 2, featureExtractionVersion: 1, lastCompletedWeek, capturedAt: new Date().toISOString(), leagueId, season, week, asOf, team, position, limitPerPosition,
+    await onDecisionInputs(JSON.parse(JSON.stringify({ version: 2, featureExtractionVersion: 2, lastCompletedWeek, capturedAt: new Date().toISOString(), leagueId, season, week, asOf, team, position, limitPerPosition,
       ownershipRechecked, transactionsComplete: transactionsByWeek.length === week,
       marketRows: rows, availabilityById: Object.fromEntries(market.map(player => [player.sleeperId, availabilityFor(player)])),
-      fitContext: fitContext ? { ...serialFit, protectedIds: [...fitContext.protectedIds], lockedIds: [...fitContext.lockedIds], starterIds: [...fitContext.starterIds], paceById, weeklyPaceById } : null,
-      raw: { projectionsByWeek, statsByWeek, fetchedAtByPath, schedule, rosters, catalog, nflState, users, playersIndex: Object.fromEntries(index), availabilityEvidenceById, roleEvidenceById, allTransactions },
+      fitContext: fitContext ? { ...serialFit, protectedIds: [...fitContext.protectedIds], reserveIds: [...fitContext.reserveIds], lockedIds: [...fitContext.lockedIds], starterIds: [...fitContext.starterIds], paceById, weeklyPaceById } : null,
+      raw: { projectionsByWeek, statsByWeek, fetchedAtByPath, schedule, rosters, catalog, nflState, users, playersIndex: Object.fromEntries(index), availabilityEvidenceById, roleEvidenceById, eventsById, allTransactions },
       playerIndexFetchedAt: playersIndexCaches.get(fetchImpl)?.at ? new Date(playersIndexCaches.get(fetchImpl).at).toISOString() : null
     })));
   }
   const transactionSummary = summarizeRecentTransactions(allTransactions, { asOf, playerMeta: meta, rosters,
+    availabilityOf: playerId => { const player = meta(playerId); return player ? availabilityFor({ ...player, sleeperId: playerId }) : null; },
     rosterMeta: rosterId => {
       const roster = rosters.find(row => String(row.roster_id) === String(rosterId));
       const user = users.find(row => row.user_id === roster?.owner_id);
@@ -581,7 +579,7 @@ export async function getFreeAgents({
     playerIndexProvenance: { source: `${SLEEPER_API}/players/nfl`, fetchedAt: playersIndexCaches.get(fetchImpl)?.at ? new Date(playersIndexCaches.get(fetchImpl).at).toISOString() : null, fallback: index.size ? null : "CATALOG_FALLBACK" },
     decisionScope: { leagueId, season, targetWeek: week, roster: team, asOf },
     season, leagueId, provenanceVersion: 1, evaluatedCandidateCount: market.length, returnedCandidateCount: Object.values(byPosition).flat().length,
-    acquisitionPlan, rosterPreferences: fitContext?.rosterPreferences ?? [],
+    acquisitionPlan, rosterPreferences: fitContext?.rosterPreferences ?? [], poolCoverage: boardCoverage,
     ...transactionSummary, availabilityAsOf: asOf, ownershipAsOf, transactionsFetchedAt, ownershipRechecked, snapshotSynchronized: false,
     transactionCoverage: `${transactionsByWeek.length}/${week}`,
     snapshotIssues,
@@ -591,14 +589,36 @@ export async function getFreeAgents({
   };
 }
 
+const formatDropCost = components => components ? ` · Coût de coupe : usage ${components.usagePremiumPerWeek} + buy-low ${components.buyLowPremiumPerWeek} + upside proj. ${components.projectionUpsidePerWeek} ; option ${components.optionTotal} sur ${components.horizonWeeks} sem ; perte après rôle ${components.postRoleLineupLossTotal ?? "n/d"}${components.missingInputs.length ? ` ; manquant ${components.missingInputs.join(",")}` : ""}` : "";
+const formatEntry = player => {
+  const entry = player.poolEntry;
+  if (!entry) return "";
+  const ripple = (player.ripple || []).map(row => `${row.triggerName || `#${row.triggerPlayerId}`} ${row.triggerStatus || row.type} (${row.group})`);
+  return ` · Entrée ${entry.reasons.join("+") || "n/d"}${entry.valuationCovered ? "" : " · projection absente : aucun gain chiffré"}` +
+    (entry.recentDrop ? ` · coupé le ${entry.recentDrop.droppedAt}, déblocage non vérifié` : "") +
+    (ripple.length ? ` · Ripple à réévaluer (aucune part attribuée) : ${ripple.join(" ; ")}` : "");
+};
+const formatNextUnlock = scenario => !scenario ? "" : scenario.status !== "EVALUATED"
+  ? ` · Prochain déblocage : ${scenario.status}`
+  : ` · Prochain déblocage (scénario, non exécutable) : S${scenario.startWeek}, ${scenario.unlockVerified ? `déblocage ${scenario.unlockAt}` : "déblocage non vérifié"}, horizon ${scenario.horizonWeeks} sem, net ${scenario.netGainTotal ?? "n/d"} pts, coupe ${scenario.dropCandidate?.name || "n/d"}, plafond indicatif ${scenario.indicativeMaxBid ?? "n/d"} $`;
+export function formatPoolCoverage(pool) {
+  const excluded = Object.entries(pool.excluded || {}).map(([reason, count]) => `${reason} ${count}`).join(", ");
+  const reasons = Object.entries(pool.entryReasons || {}).map(([reason, count]) => `${reason} ${count}`).join(", ");
+  return [`Pool (${pool.source}) : ${pool.considered} considérés, ${pool.included} évalués, ${pool.returned ?? "n/d"} affichés (limite ${pool.limitPerPosition ?? "n/d"}/poste), ${pool.unvalued} sans valorisation.`,
+    `Motifs d'entrée : ${reasons || "n/d"} · Exclusions : ${excluded || "n/d"}.`,
+    ...(pool.pinnedOnBoard?.length ? [`Maintenus au board (coupe récente / événement sourcé) : ${pool.pinnedOnBoard.map(row => `${row.name} [${row.reasons.join("+")}] ${row.availability}`).join(" ; ")}`] : []),
+    ...(pool.rippleIssues?.length ? [`Événements non propagés : ${pool.rippleIssues.map(row => `${row.code} #${row.playerId}`).join(", ")}`] : [])];
+}
+
 /** Rend la liste de free agents en un bulletin texte, groupé par poste. */
-export function formatWaiverReport({ byPosition, week, faabRemaining = null, degraded = false, coverage = null, recentTransactions = [], transactionsTruncatedCount = 0, availabilityAsOf = null, snapshotIssues = [], acquisitionPlan = null, rosterPreferences = [] }) {
+export function formatWaiverReport({ byPosition, week, faabRemaining = null, degraded = false, coverage = null, recentTransactions = [], transactionsTruncatedCount = 0, availabilityAsOf = null, snapshotIssues = [], acquisitionPlan = null, rosterPreferences = [], poolCoverage = null }) {
   const lines = [`📋 WAIVER WIRE REPORT — ADINEU${week ? ` (Semaine ${week})` : ""}`];
   if (Number.isFinite(faabRemaining)) lines.push(`FAAB restant : ${faabRemaining} $ / ${GENERAL_SETTINGS_2026.waiver.budget} $`);
   if (degraded) lines.push(`Couverture dégradée : projections ${coverage?.projectionWeeks || "n/d"}, usage ${coverage?.statsWeeks || "n/d"}.`);
 
   lines.push(`Disponibilité au ${availabilityAsOf || "n/d"} · transactions 72 h : ${recentTransactions.length} (${transactionsTruncatedCount} non affichées).`, ...snapshotIssues);
   if (recentTransactions.length) lines.push(...formatRecentTransactions(recentTransactions));
+  if (poolCoverage) lines.push(...formatPoolCoverage(poolCoverage));
   lines.push("Scénarios alternatifs : une même coupe ne peut pas financer deux acquisitions.");
   if (rosterPreferences.length) lines.push("Préférences temporaires :", JSON.stringify(rosterPreferences));
   if (acquisitionPlan) {
@@ -618,7 +638,8 @@ export function formatWaiverReport({ byPosition, week, faabRemaining = null, deg
         ? ` · ${player.waiver.category} · S${week} ${player.weekProjection ?? player.waiver.projectedPpg ?? "n/d"} · ROS ${player.waiver.rosPpg ?? "n/d"} · FAAB marché ${player.waiver.faabMarket?.join("–") || "n/d"} $` +
           (player.waiver.decision ? ` · Disponibilité ${player.availability?.availability || "UNKNOWN"} · Action ${player.waiver.decision.recommendedAction} · Classe ${player.waiver.decision.decisionClass} · Immédiat ${player.waiver.decision.immediateValue} · Stratégique ${player.waiver.decision.strategicUpside}` : "") +
           (Number.isFinite(player.waiver.usageScore) ? ` · Usage ${player.waiver.usageScore}${player.waiver.usageSignal ? ` ${player.waiver.usageSignal}` : ""}` : "") +
-          (player.waiver.fit ? ` · Priorité ${player.waiver.fit.priorityScore} · Capture ${player.waiver.fit.fitScore}% · Delta S${week} ${player.waiver.fit.targetWeekDelta ?? "n/d"} · Gain brut ${player.waiver.fit.grossGainTotal ?? "n/d"} sur ${player.waiver.fit.horizonWeeks} sem · Gain net total ${player.waiver.fit.netGainTotal ?? "n/d"} · Gain net moyen ROS ${player.waiver.fit.netGainPerWeek ?? "n/d"} pts/sem · Coupe ${player.waiver.fit.dropCandidate?.name || "n/d"} (${player.waiver.fit.dropCostPerWeek} pts/sem) · Max ${player.waiver.fit.faabMaxForMe} $` : "") +
+          (player.waiver.fit ? ` · Priorité ${player.waiver.fit.priorityScore} · Capture ${player.waiver.fit.fitScore}% · Delta S${week} ${player.waiver.fit.targetWeekDelta ?? "n/d"} · Gain brut ${player.waiver.fit.grossGainTotal ?? "n/d"} sur ${player.waiver.fit.horizonWeeks} sem · Gain net total ${player.waiver.fit.netGainTotal ?? "n/d"} · Gain net moyen ROS ${player.waiver.fit.netGainPerWeek ?? "n/d"} pts/sem · Coupe ${player.waiver.fit.dropCandidate?.name || "n/d"} (${player.waiver.fit.dropCostPerWeek ?? "n/d"} pts/sem) · Max ${player.waiver.fit.faabMaxForMe} $${player.waiver.fit.cutSelection ? ` · Sélection coupe ${player.waiver.fit.cutSelection}` : ""}${formatDropCost(player.waiver.fit.dropCostComponents)}` : "") +
+          formatEntry(player) + formatNextUnlock(player.nextUnlockScenario) +
           ` · Enchère proposée ${player.waiver.suggestedBid ?? "n/d"} $ · % initial ${player.waiver.bidPctInitial ?? "n/d"} · % restant ${player.waiver.bidPctRemaining ?? "n/d"}` +
           (player.waiver.duration ? ` · Durée ${player.waiver.duration}` : "") +
           (player.waiver.newsOverride ? ` · ⚡ ${player.waiver.reasons.join(" ; ")}` : "")

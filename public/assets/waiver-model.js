@@ -145,7 +145,7 @@ export function effectivePpg({ rosPpg, weekProjection, duration, week, confirmed
 export function replacementLevels(rows) {
   const levels = {};
   for (const position of FANTASY_POSITIONS) {
-    const pace = rows.filter(row => row.position === position).map(row => row.effectivePpg).sort((a, b) => b - a).slice(1, 6);
+    const pace = rows.filter(row => row.position === position && row.valuationCovered !== false).map(row => row.effectivePpg).sort((a, b) => b - a).slice(1, 6);
     levels[position] = pace.length ? round(mean(pace)) : 0;
   }
   return levels;
@@ -160,6 +160,11 @@ export function evaluateMarket({ rows, week, budget = GENERAL_SETTINGS_2026.waiv
   const remaining = Math.max(1, LAST_REGULAR_WEEK - week + 1);
   const replacement = replacementLevels(rows);
   return rows.map(row => {
+    // No projection, rank or usable pace: the player is analysed but never priced.
+    if (row.valuationCovered === false) {
+      return { ...row, replacementPpg: replacement[row.position], surplusPoints: null, marketScore: null,
+        usageBonus: 0, faabMarket: null, faabPct: null, category: "NON VALORISÉ" };
+    }
     const surplus = Math.max(0, (row.effectivePpg - replacement[row.position]) * remaining);
     const faab = Math.min(budget, surplus * pricePerPoint);
     const pct = faab / budget * 100;
@@ -175,7 +180,9 @@ export function evaluateMarket({ rows, week, budget = GENERAL_SETTINGS_2026.waiv
       faabPct: range.map(value => round(value / budget * 100)),
       category: marketCategory(pct)
     };
-  }).sort((a, b) => b.marketScore - a.marketScore || b.surplusPoints - a.surplusPoints || b.effectivePpg - a.effectivePpg);
+  }).sort((a, b) => Number(b.valuationCovered !== false) - Number(a.valuationCovered !== false) ||
+    b.marketScore - a.marketScore || b.surplusPoints - a.surplusPoints || b.effectivePpg - a.effectivePpg ||
+    String(a.sleeperId).localeCompare(String(b.sleeperId)));
 }
 
 /** Evaluate complete, alternative roster transactions on one shared role horizon.
@@ -183,22 +190,45 @@ export function evaluateMarket({ rows, week, budget = GENERAL_SETTINGS_2026.waiv
  * premium is subtracted separately, avoiding a second charge for the same lineup loss. */
 export function evaluateRosterFit({ marketRow, myPlayers, paceOf, week, faabRemaining,
   protectedIds = new Set(), lockedIds = new Set(), starterIds = new Set(), weeklyPaceOf = null,
-  projectionCovered = null, replacementByPosition = {}, hasOpenRosterSlot = false, frozenSlots = {}, rosterPreferences = [] }) {
+  projectionCovered = null, replacementByPosition = {}, hasOpenRosterSlot = false, frozenSlots = {}, rosterPreferences = [],
+  reserveIds = new Set() }) {
   const remaining = Math.max(1, LAST_REGULAR_WEEK - week + 1);
   const horizonWeeks = Math.min(remaining, marketRow.events?.roleWeeks > 0 ? marketRow.events.roleWeeks : remaining);
-  const optionValue = player => {
-    if (!player || !["RB", "WR", "TE"].includes(player.position)) return 0;
-    const usage = Number.isFinite(player.usageScore) ? Math.max(0, player.usageScore - 50) / 50 * 1.5 : 0;
-    const signal = player.usageSignal === "BUY_LOW" ? 1 : 0;
-    const upside = Number.isFinite(player.projectedPpg) ? Math.max(0, player.projectedPpg - paceOf(player)) * 0.15 : 0;
-    return round(usage + signal + upside);
+  // Bench-option premium of a cut, one named component per input. A missing input contributes
+  // nothing and is listed: an unknown option is not a low option.
+  const optionComponents = player => {
+    if (!player) return { applicable: false, usagePremium: 0, buyLowPremium: 0, projectionUpside: 0, total: 0, missingInputs: [], coverage: "NOT_APPLICABLE", inputs: null };
+    const pace = paceOf(player);
+    const inputs = { usageScore: player.usageScore ?? null, usageSignal: player.usageSignal ?? null, usageTrend: player.usageTrend ?? null,
+      weekProjection: Number.isFinite(player.projectedPpg) ? round(player.projectedPpg) : null, pace: Number.isFinite(pace) ? round(pace) : null,
+      rosPpg: player.rosPpg ?? null, lastSnapShare: player.signals?.last?.snapShare ?? null, prevSnapShare: player.signals?.prevSnapShare ?? null,
+      lastOpportunities: player.signals?.last?.opportunities ?? null, prevOpportunities: player.signals?.prevOpportunities ?? null,
+      gamesPlayed: player.signals?.gamesPlayed ?? null };
+    if (!["RB", "WR", "TE"].includes(player.position)) return { applicable: false, usagePremium: 0, buyLowPremium: 0, projectionUpside: 0, total: 0, missingInputs: [], coverage: "NOT_APPLICABLE", inputs };
+    const missingInputs = [...(Number.isFinite(player.usageScore) ? [] : ["USAGE_SCORE"]), ...(Number.isFinite(player.projectedPpg) ? [] : ["WEEK_PROJECTION"])];
+    const usagePremium = Number.isFinite(player.usageScore) ? round(Math.max(0, player.usageScore - 50) / 50 * 1.5, 2) : 0;
+    const buyLowPremium = player.usageSignal === "BUY_LOW" ? 1 : 0;
+    const projectionUpside = Number.isFinite(player.projectedPpg) && Number.isFinite(pace) ? round(Math.max(0, player.projectedPpg - pace) * 0.15, 2) : 0;
+    return { applicable: true, usagePremium, buyLowPremium, projectionUpside, total: round(usagePremium + buyLowPremium + projectionUpside),
+      missingInputs, coverage: missingInputs.length === 2 ? "NONE" : missingInputs.length ? "PARTIAL" : "COMPLETE", inputs, calibrated: false };
   };
-  const beforeRos = buildProjectedLineup(myPlayers, { estimate: paceOf });
+  // A reserve (IR) slot cannot be started without another roster move: those players are held out
+  // of every simulated lineup, so their missing projections no longer block the whole horizon.
+  const startable = players => players.filter(p => !reserveIds.has(String(p.sleeperId)));
+  const activePlayers = startable(myPlayers);
+  const beforeRos = buildProjectedLineup(activePlayers, { estimate: paceOf });
   const candidates = myPlayers.filter(player => !lockedIds.has(String(player.sleeperId)) &&
     !protectedIds.has(String(player.sleeperId)) && (!starterIds.has(String(player.sleeperId)) || player.position === marketRow.position));
+  // Why a roster player was never compared as a cut: a lone eligible cut is a constraint, not a ranking.
+  const cutExclusions = myPlayers.filter(player => !candidates.includes(player)).map(player => ({ playerId: String(player.sleeperId), name: player.name ?? null,
+    reason: protectedIds.has(String(player.sleeperId)) ? (reserveIds.has(String(player.sleeperId)) ? "RESERVE_SLOT" : "PROTECTED")
+      : lockedIds.has(String(player.sleeperId)) ? "GAME_LOCKED_OR_KICKOFF_UNKNOWN" : "STARTER_AT_ANOTHER_POSITION" }));
   const simulate = cut => {
-    const pool = [...myPlayers.filter(p => !cut || String(p.sleeperId) !== String(cut.sleeperId)), marketRow];
+    const pool = [...activePlayers.filter(p => !cut || String(p.sleeperId) !== String(cut.sleeperId)), marketRow];
     const coverageIssues = new Set();
+    const coverageBlockers = [];
+    const blockersFor = (players, w) => players.filter(p => !projectionCovered(p, w)).map(p => ({ week: w,
+      playerId: String(p.sleeperId), name: p.name ?? null, role: p === marketRow ? "CANDIDATE" : "ROSTER", injuryStatus: p.injuryStatus ?? null }));
     const priorRolesCovered = w => {
       const covered = myPlayers.every(p => !p.plannedRoleWindow ||
         (w >= p.plannedRoleWindow.startWeek && w < p.plannedRoleWindow.endWeekExclusive));
@@ -211,11 +241,12 @@ export function evaluateRosterFit({ marketRow, myPlayers, paceOf, week, faabRema
       const fixedSlots = w === week ? frozenSlots : {};
       // Unknown values are used only to construct a diagnostic lineup, never a publishable gain.
       const safeEstimate = p => Number.isFinite(estimate(p)) ? estimate(p) : 0;
-      const before = buildProjectedLineup(myPlayers, { estimate: safeEstimate, fixedSlots });
+      const before = buildProjectedLineup(activePlayers, { estimate: safeEstimate, fixedSlots });
       const after = buildProjectedLineup(pool, { estimate: safeEstimate, fixedSlots });
-      const projectionsCovered = !projectionCovered || [...myPlayers, marketRow].every(p => projectionCovered(p, w));
+      const blockers = projectionCovered ? blockersFor([...activePlayers, marketRow], w) : [];
+      const projectionsCovered = !blockers.length;
       const covered = priorRolesCovered(w) && projectionsCovered;
-      if (!projectionsCovered) coverageIssues.add(`MISSING_PROJECTIONS_WEEK_${w}`);
+      if (!projectionsCovered) { coverageIssues.add(`MISSING_PROJECTIONS_WEEK_${w}`); coverageBlockers.push(...blockers); }
       const newEmptySlots = after.emptySlots.filter(slot => !before.emptySlots.includes(slot));
       if (newEmptySlots.length) coverageIssues.add("ROSTER_COMPOSITION_VIOLATION");
       return { week: w, delta: covered && !newEmptySlots.length ? round(after.total - before.total) : null,
@@ -227,21 +258,23 @@ export function evaluateRosterFit({ marketRow, myPlayers, paceOf, week, faabRema
     // never extend the rental's positive surplus into those weeks.
     const postRoleCutDeltas = [];
     if (cut && horizonWeeks < remaining) {
-      const retained = myPlayers.filter(p => String(p.sleeperId) !== String(cut.sleeperId));
+      const retained = activePlayers.filter(p => String(p.sleeperId) !== String(cut.sleeperId));
       for (let w = week + Math.ceil(horizonWeeks); w <= LAST_REGULAR_WEEK; w++) {
         const estimate = p => weeklyPaceOf ? weeklyPaceOf(p, w) : paceOf(p);
-        const projectionsCovered = !projectionCovered || myPlayers.every(p => projectionCovered(p, w));
+        const blockers = projectionCovered ? blockersFor(activePlayers, w) : [];
+        const projectionsCovered = !blockers.length;
         const covered = priorRolesCovered(w) && projectionsCovered;
-        if (!projectionsCovered) coverageIssues.add(`MISSING_POST_ROLE_PROJECTIONS_WEEK_${w}`);
+        if (!projectionsCovered) { coverageIssues.add(`MISSING_POST_ROLE_PROJECTIONS_WEEK_${w}`); coverageBlockers.push(...blockers); }
         const safeEstimate = p => Number.isFinite(estimate(p)) ? estimate(p) : 0;
-        const before = buildProjectedLineup(myPlayers, { estimate: safeEstimate });
+        const before = buildProjectedLineup(activePlayers, { estimate: safeEstimate });
         const after = buildProjectedLineup(retained, { estimate: safeEstimate });
         postRoleCutDeltas.push({ week: w, lostPoints: covered ? round(Math.max(0, before.total - after.total)) : null });
       }
     }
     const postRoleCutCostTotal = postRoleCutDeltas.some(row => row.lostPoints === null) ? null : round(postRoleCutDeltas.reduce((sum, row) => sum + row.lostPoints, 0));
     const grossGainTotal = coverageIssues.size ? null : round(weeklyLineupDeltas.reduce((sum, row) => sum + row.delta * row.weight, 0));
-    const optionValuePerWeek = optionValue(cut);
+    const option = optionComponents(cut);
+    const optionValuePerWeek = option.total;
     const dropCostTotal = round(optionValuePerWeek * horizonWeeks);
     const netGainTotal = grossGainTotal === null ? null : round(grossGainTotal - dropCostTotal - postRoleCutCostTotal);
     const preference = rosterPreferences.find(row => row.playerId === String(cut?.sleeperId));
@@ -250,11 +283,18 @@ export function evaluateRosterFit({ marketRow, myPlayers, paceOf, week, faabRema
     return { preference, preferencePenaltyTotal, selectionScore, sleeperId: cut?.sleeperId ?? null, name: cut?.name ?? "Place libre", position: cut?.position ?? null,
       nflTeam: cut?.nflTeam || null, weeklyLineupDeltas, grossGainTotal, netGainTotal, dropCostTotal,
       postRoleCutCostTotal, postRoleCutDeltas,
+      // Every term of the cut cost, with the roster inputs it was computed from.
+      dropCostComponents: { horizonWeeks, usagePremiumPerWeek: option.usagePremium, buyLowPremiumPerWeek: option.buyLowPremium,
+        projectionUpsidePerWeek: option.projectionUpside, optionValuePerWeek, optionTotal: dropCostTotal,
+        postRoleLineupLossTotal: postRoleCutCostTotal, preferencePenaltyTotal: rosterPreferences.find(row => row.playerId === String(cut?.sleeperId))?.penaltyPoints ?? 0,
+        lineupLossIncludedInGross: true, optionApplicable: option.applicable, optionCoverage: option.coverage,
+        missingInputs: option.missingInputs, inputs: option.inputs, calibrated: false },
+      coverageBlockers,
       immediateValuePerWeek: cut ? round(Math.max(0, paceOf(cut) - (replacementByPosition[cut.position] ?? paceOf(cut)))) : 0,
       optionValuePerWeek, totalCostPerWeek: optionValuePerWeek,
       usageScore: cut?.usageScore ?? null, usageSignal: cut?.usageSignal || null,
       byeWeek: BYE_WEEKS_2026[cut?.nflTeam] ?? null,
-      regretRisk: optionValuePerWeek >= 1.5 ? "HIGH" : optionValuePerWeek >= 0.7 ? "MEDIUM" : "LOW",
+      regretRisk: option.coverage === "NONE" ? "UNKNOWN" : optionValuePerWeek >= 1.5 ? "HIGH" : optionValuePerWeek >= 0.7 ? "MEDIUM" : "LOW",
       coverageIssues: [...coverageIssues], legalTransaction: !coverageIssues.has("ROSTER_COMPOSITION_VIOLATION") };
   };
   const scenarios = (hasOpenRosterSlot ? [null] : candidates).map(simulate).sort((a, b) =>
@@ -264,6 +304,9 @@ export function evaluateRosterFit({ marketRow, myPlayers, paceOf, week, faabRema
     String(a.sleeperId).localeCompare(String(b.sleeperId)));
   const chosen = scenarios[0] || null;
   const horizonCovered = Boolean(chosen && chosen.netGainTotal !== null);
+  // Without a covered comparison the order above is only the id tie-break: it designates nobody.
+  const cutRanked = horizonCovered;
+  const coveredCuts = scenarios.filter(row => row.sleeperId && row.netGainTotal !== null);
   const legalTransaction = Boolean(chosen?.legalTransaction);
   const gainPerWeek = horizonCovered ? round(chosen.grossGainTotal / horizonWeeks) : null;
   const netGainAverage = horizonCovered ? round(chosen.netGainTotal / horizonWeeks) : null;
@@ -283,9 +326,15 @@ export function evaluateRosterFit({ marketRow, myPlayers, paceOf, week, faabRema
     postRoleCutDeltas: chosen?.postRoleCutDeltas ?? [], targetWeekDelta: chosen?.weeklyLineupDeltas[0]?.delta ?? null,
     weeklyLineupDeltas: chosen?.weeklyLineupDeltas ?? [], slot: chosen?.weeklyLineupDeltas.find(row => row.slot)?.slot ?? null,
     scenariosAreAlternatives: true, legalTransaction, horizonCovered, coverageIssues: chosen?.coverageIssues ?? ["NO_LEGAL_CUT"],
-    fitScore, dropCandidate: chosen?.sleeperId ? { sleeperId: chosen.sleeperId, name: chosen.name, position: chosen.position } : null,
-    dropCandidates: scenarios.filter(row => row.sleeperId).slice(0, 3),
-    dropCostPerWeek: chosen?.totalCostPerWeek ?? 0, dropOptionValuePerWeek: chosen?.optionValuePerWeek ?? 0,
+    coverageBlockers: [...new Map((chosen?.coverageBlockers ?? []).map(row => [`${row.week}:${row.playerId}`, row])).values()],
+    assumptions: reserveIds.size ? ["RESERVE_PLAYERS_NOT_STARTABLE"] : [],
+    cutSelection: !chosen ? "NO_LEGAL_CUT" : !chosen.sleeperId ? "OPEN_ROSTER_SLOT" : !cutRanked ? "UNRANKED_INCOMPLETE_COVERAGE" : candidates.length === 1 ? "ONLY_ELIGIBLE_CUT" : "RANKED_BY_NET_GAIN",
+    cutExclusions,
+    comparedCutCount: scenarios.filter(row => row.sleeperId).length, coveredCutCount: coveredCuts.length,
+    fitScore, dropCandidate: chosen?.sleeperId && cutRanked ? { sleeperId: chosen.sleeperId, name: chosen.name, position: chosen.position } : null,
+    dropCostComponents: cutRanked ? chosen?.dropCostComponents ?? null : null,
+    dropCandidates: scenarios.filter(row => row.sleeperId).slice(0, 3).map(row => ({ ...row, ranked: row.netGainTotal !== null })),
+    dropCostPerWeek: cutRanked ? chosen?.totalCostPerWeek ?? 0 : null, dropOptionValuePerWeek: cutRanked ? chosen?.optionValuePerWeek ?? 0 : null,
     faabMaxForMe: maxForMe, rosLineupBaseline: beforeRos.total, contingencyValue: null
   };
 }

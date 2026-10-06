@@ -2,7 +2,8 @@ import { buildPlayerWeeks, calculateUsageScores } from '../public/assets/usage-s
 import { usageAdjustedRosPpg } from '../public/assets/rest-of-season.js';
 import { estimateBaselineProjectedPpg } from '../public/assets/trade-value.js';
 import { FANTASY_POSITIONS, computeRosPpg, buildOpportunitySignals, detectEvents, effectivePpg } from '../public/assets/waiver-model.js';
-import { resolveRoleEvidence } from '../public/assets/acquisition-availability.js';
+import { resolveRoleEvidence, findRecentDrops } from '../public/assets/acquisition-availability.js';
+import { buildTeamPositionRipple } from '../public/assets/team-position-ripple.js';
 import { buildDecisionProvenance } from './decision-provenance.js';
 export const SEVERITY_BY_STATUS = {
   Questionable: "WATCH",
@@ -15,7 +16,7 @@ export const SEVERITY_BY_STATUS = {
 };
 
 /** Shared source-to-feature extraction, pure and scoped to the archived decision time. */
-export function extractDecisionFeatures({ index, catalog, rosters, nflState, projectionsByWeek, statsByWeek, fetchedAtByPath, roleEvidenceById, asOf, week, lastCompletedWeek, season, leagueId }) {
+export function extractDecisionFeatures({ index, catalog, rosters, nflState, projectionsByWeek, statsByWeek, fetchedAtByPath, roleEvidenceById, eventsById = {}, allTransactions = [], asOf, week, lastCompletedWeek, season, leagueId }) {
   const catalogById = new Map((catalog.players || []).map(player => [player.sleeperId, player]));
   const rosteredIds = new Set(rosters.flatMap(roster => roster.players || []).map(String));
   const seasonStart = Date.parse(nflState?.season_start_date || "2026-09-09");
@@ -52,14 +53,28 @@ export function extractDecisionFeatures({ index, catalog, rosters, nflState, pro
     byTeamPosition.get(key).push({ ...player, id, rosPpg: rosFor(id, player) });
   }
 
+  // Team/position ripple: Sleeper snapshot statuses + dated operator events. Fantasy-league
+  // transactions are deliberately not an input: an acquisition never changes an NFL depth chart.
+  const ripple = buildTeamPositionRipple({ players: [...candidateIds].map(id => ({ ...meta(id), id })).filter(player => player.nflTeam),
+    eventsById, asOf, week, season, leagueId });
+  const recentDrops = findRecentDrops(allTransactions, { asOf });
+  const exclusions = { ROSTERED: 0, INACTIVE_OR_NO_NFL_TEAM: 0, NON_FANTASY_POSITION: 0, STATUS_ALERT: 0, NO_PROJECTION_OR_STATS: 0 };
+  const entryReasonCounts = {};
+
   const provenanceFor = (id, player, rosSource) => buildDecisionProvenance({ playerId: id, nflTeam: player.nflTeam, position: player.position, week, lastCompletedWeek, season, projectionsByWeek, statsByWeek, fetchedAtByPath, rosSource });
   const rows = [];
   for (const id of candidateIds) {
-    if (rosteredIds.has(id)) continue;
+    if (rosteredIds.has(id)) { exclusions.ROSTERED++; continue; }
     const player = meta(id);
-    if (!player?.active || !player.nflTeam || !FANTASY_POSITIONS.includes(player.position)) continue;
+    if (!player?.active || !player.nflTeam) { exclusions.INACTIVE_OR_NO_NFL_TEAM++; continue; }
+    if (!FANTASY_POSITIONS.includes(player.position)) { exclusions.NON_FANTASY_POSITION++; continue; }
+    // Un événement sourcé et daté, ou une coupe récente, justifie l'analyse même sans projection :
+    // le joueur entre dans le pool, jamais dans un gain chiffré.
+    const sourcedEvent = ripple.sourcedEventPlayerIds.has(String(id));
+    const recentDrop = recentDrops.get(String(id)) ?? null;
+    const statusAlert = SEVERITY_BY_STATUS[player.injuryStatus] === "ALERT";
     // Jamais recommandé s'il ne peut pas jouer (IR/Out/Doubtful/PUP/Sus/NA), même sévérité que le Start/Sit.
-    if (SEVERITY_BY_STATUS[player.injuryStatus] === "ALERT") continue;
+    if (statusAlert && !sourcedEvent && !recentDrop) { exclusions.STATUS_ALERT++; continue; }
     const catalogEntry = catalogById.get(id) || {};
     // Repli étiqueté : sans couverture de projections futures, estimation par rang (ECR catalogue).
     const rosDetail = rosDetailFor(id, player);
@@ -69,7 +84,15 @@ export function extractDecisionFeatures({ index, catalog, rosters, nflState, pro
     const rosPpg = projectedRos ?? rankFallback;
     const signals = buildOpportunitySignals(id, statsByWeek);
     const weekProjection = projectionsByWeek[week]?.[id]?.pts_ppr ?? null;
-    if (rosPpg === null && !signals.gamesPlayed) continue;
+    const roleEvidenceCurrent = resolveRoleEvidence(roleEvidenceById[id], { asOf, week, season, leagueId }).roleConfirmation === "CONFIRMED";
+    const entryReasons = [
+      ...(projectedRos !== null ? ["PROJECTION"] : []), ...(rankFallback !== null ? ["RANK_FALLBACK"] : []),
+      ...(signals.gamesPlayed ? ["RECENT_STATS"] : []), ...(sourcedEvent ? ["SOURCED_EVENT"] : []),
+      ...(roleEvidenceCurrent ? ["ROLE_EVIDENCE"] : []), ...(recentDrop ? ["RECENT_DROP"] : [])
+    ];
+    if (!entryReasons.length) { exclusions.NO_PROJECTION_OR_STATS++; continue; }
+    for (const reason of entryReasons) entryReasonCounts[reason] = (entryReasonCounts[reason] || 0) + 1;
+    const valuationCovered = rosPpg !== null || Number.isFinite(weekProjection);
     const teammates = byTeamPosition.get(`${player.nflTeam}:${player.position}`) || [];
     const events = detectEvents({ player: { ...player, id, rosPpg }, teammates, signals });
     const roleEvidence = resolveRoleEvidence(roleEvidenceById[id], { asOf, week, season, leagueId });
@@ -88,6 +111,11 @@ export function extractDecisionFeatures({ index, catalog, rosters, nflState, pro
     const pace = effectivePpg({ rosPpg, weekProjection, duration: events.duration, week, confirmedRoleWeeks: roleEvidence.roleWeeks });
     rows.push({
       ...catalogEntry,
+      poolEntry: { reasons: entryReasons, statusAlert, valuationCovered, recentDrop,
+        // Kept on the board beyond the per-position limit: the limit must not hide them.
+        pinned: sourcedEvent || roleEvidenceCurrent || Boolean(recentDrop) },
+      valuationCovered,
+      ripple: ripple.byPlayerId.get(String(id)) ?? [],
       sleeperId: id,
       name: player.name,
       position: player.position,
@@ -99,7 +127,7 @@ export function extractDecisionFeatures({ index, catalog, rosters, nflState, pro
       usageSignal: usageById.get(id)?.signal ?? null,
       xfp: usageById.get(id)?.xfp ?? null,
       weekProjection: Number.isFinite(weekProjection) ? Number(weekProjection.toFixed(1)) : null,
-      effectivePpg: pace.effective,
+      effectivePpg: valuationCovered ? pace.effective : null,
       signals,
       usageDiagnostic: usageById.has(id) ? { sampleGames: usageById.get(id).games, actualWeightedPpg: usageById.get(id).ppg, xfpWeightedPpg: usageById.get(id).xfp, actualMinusXfp: usageById.get(id).gap, trend: usageById.get(id).trend, trendUnit: "COMPOSITE_DIFFERENCE_TIMES_100", recencyWeights: [0.5, 0.3, 0.2], model: usageResult.models[player.position], method: "VOLUME_LINEAR_REGRESSION", opportunityQualityMeasured: false } : null,
       provenance: provenanceFor(id, player, projectedRos !== null ? (rosDetail?.source || "SLEEPER_PROJECTIONS") : rankFallback !== null ? "RANK_ESTIMATE" : "NONE"),
@@ -109,5 +137,28 @@ export function extractDecisionFeatures({ index, catalog, rosters, nflState, pro
   }
 
 
-  return { rows, usageById, rosFor, rosDetailFor, meta, provenanceFor };
+  /** One roster player with every input its cut cost reads; shared by live and recomputed fits. */
+  const rosterPlayerFor = id => {
+    const player = meta(id) || { name: `Player #${id}`, position: "FLEX" };
+    const usage = usageById.get(id);
+    return {
+      ...(catalogById.get(id) || {}), ...player, sleeperId: id,
+      provenance: provenanceFor(id, player, rosDetailFor(id, player)?.source ?? "NONE"),
+      projectedPpg: projectionsByWeek[week]?.[id]?.pts_ppr,
+      injuryStatus: player.injuryStatus,
+      rosPpg: rosFor(id, player),
+      signals: buildOpportunitySignals(id, statsByWeek),
+      usageScore: usage?.usageScore ?? null,
+      usageSignal: usage?.signal ?? null,
+      usageTrend: usage?.trend ?? null,
+      xfp: usage?.xfp ?? null,
+      ripple: ripple.byPlayerId.get(String(id)) ?? []
+    };
+  };
+  const poolCoverage = { source: index.size ? "SLEEPER_PLAYERS_INDEX" : "CATALOG_FALLBACK", considered: candidateIds.size,
+    included: rows.length, excluded: exclusions, entryReasons: entryReasonCounts,
+    unvalued: rows.filter(row => !row.valuationCovered).length, pinned: rows.filter(row => row.poolEntry.pinned).length,
+    rippleIssues: ripple.issues };
+
+  return { rows, usageById, rosFor, rosDetailFor, meta, provenanceFor, rosterPlayerFor, poolCoverage, recentDrops, ripple };
 }

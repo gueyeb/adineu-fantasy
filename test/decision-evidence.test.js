@@ -28,3 +28,24 @@ test("operator evidence loads end to end, rejects wrong scope and recovers from 
   await writeFile(path, "broken");
   assert.deepEqual((await loadDecisionEvidence({ path, ...scope })).issues, ["DECISION_EVIDENCE_UNREADABLE"]);
 });
+
+test("operator events load keyed by player id with the file scope; every failure path returns an empty eventsById", async t => {
+  const dir = await mkdtemp(join(tmpdir(), "adineu-evidence-"));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const path = join(dir, "evidence.json");
+  const scope = { leagueId: "league", season: "2026", week: 4 };
+  const injury = { type: "INJURY", nflTeam: "AAA", positions: ["WR"], source: "https://example.com/team-report", observedAt: "2026-10-04T09:00:00Z", expiresAt: "2026-10-04T18:00:00Z", note: "fictitious" };
+  await writeFile(path, JSON.stringify({ version: 1, leagueId: "league", season: "2026", targetWeek: 4, eventsById: { "wr-a": injury, "wr-list": [injury], "wr-null": null, ["x".repeat(81)]: injury } }));
+  const loaded = await loadDecisionEvidence({ path, ...scope });
+  assert.deepEqual(loaded.issues, []);
+  assert.deepEqual(loaded.eventsById, { "wr-a": { ...injury, leagueId: "league", season: "2026", targetWeek: 4 } });
+  assert.deepEqual(loaded.availabilityById, {});
+  assert.deepEqual((await loadDecisionEvidence({ path, ...scope, week: 5 })).eventsById, {});
+  await writeFile(path, "broken");
+  assert.deepEqual((await loadDecisionEvidence({ path, ...scope })).eventsById, {});
+  const unconfigured = await loadDecisionEvidence({ path: "", ...scope });
+  assert.deepEqual(unconfigured.issues, ["DECISION_EVIDENCE_NOT_CONFIGURED"]);
+  assert.deepEqual(unconfigured.eventsById, {});
+  await writeFile(path, JSON.stringify({ version: 1, leagueId: "league", season: "2026", targetWeek: 4 }));
+  assert.deepEqual((await loadDecisionEvidence({ path, ...scope })).eventsById, {});
+});

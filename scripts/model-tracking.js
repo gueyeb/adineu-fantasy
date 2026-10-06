@@ -177,7 +177,7 @@ export async function takeSnapshot({ supabase, fetchImpl = fetch, season, week, 
   ]);
   const marketRows = Object.values(market.byPosition).flat().map(row => ({
     sleeper_player_id: row.sleeperId, name: row.name, position: row.position, nfl_team: row.nflTeam,
-    category: row.waiver.category, market_score: row.waiver.score, faab_low: row.waiver.faabMarket[0], faab_high: row.waiver.faabMarket[1],
+    category: row.waiver.category, market_score: row.waiver.score, faab_low: row.waiver.faabMarket?.[0] ?? null, faab_high: row.waiver.faabMarket?.[1] ?? null,
     surplus_points: row.surplusPoints, effective_ppg: row.effectivePpg, ros_ppg: row.rosPpg,
     news_override: Boolean(row.waiver.newsOverride), events: row.waiver.flags?.length ? { flags: row.waiver.flags, reasons: row.waiver.reasons, duration: row.waiver.duration } : null
   }));

@@ -7,7 +7,7 @@ import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const digest = report => createHash('sha256').update(JSON.stringify(report)).digest('hex');
-const fields = ['season', 'leagueId', 'week', 'lastCompletedWeek', 'generatedAt', 'availabilityAsOf', 'ownershipAsOf', 'transactionsFetchedAt', 'ownershipRechecked', 'snapshotSynchronized', 'transactionCoverage', 'snapshotIssues', 'recentTransactions', 'transactionsTruncatedCount', 'rankingModel', 'decisionScope', 'degraded', 'coverage', 'provenanceVersion', 'evaluatedCandidateCount', 'returnedCandidateCount', 'rosterProvenance', 'playerIndexProvenance', 'faabRemaining', 'byPosition', 'acquisitionPlan', 'rosterPreferences'];
+const fields = ['season', 'leagueId', 'week', 'lastCompletedWeek', 'generatedAt', 'availabilityAsOf', 'ownershipAsOf', 'transactionsFetchedAt', 'ownershipRechecked', 'snapshotSynchronized', 'transactionCoverage', 'snapshotIssues', 'recentTransactions', 'transactionsTruncatedCount', 'rankingModel', 'decisionScope', 'degraded', 'coverage', 'provenanceVersion', 'evaluatedCandidateCount', 'returnedCandidateCount', 'rosterProvenance', 'playerIndexProvenance', 'faabRemaining', 'byPosition', 'acquisitionPlan', 'rosterPreferences', 'poolCoverage'];
 
 /** Frozen decision outputs only, not a training dataset or a new recommendation. */
 export function createDecisionSnapshot(report, { recordedAt = new Date().toISOString(), inputs = null, modelFingerprint = null } = {}) {
