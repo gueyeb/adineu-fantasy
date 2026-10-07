@@ -196,3 +196,7 @@ Validation : reproduction du plafond inventé, ajout gratuit avec solde inconnu,
 ### Claims alternatifs — 7 octobre 2026
 
 Le plan gagnant glouton reste disponible ; `alternativeClaimGroups` et `claimPortfolio` ajoutent les replis sur une coupe/place libre partagée au même instant de traitement. Chaque issue recalcule roster, rôle et FAAB. Le maximum des scénarios détaillés distingue les alternatives de dépenses cumulées ; exploration limitée à seize scénarios, maximum global inconnu si tronquée. Les claims cumulables avec deux coupes justifiées restent disponibles. Aucun automatisme de soumission ou d’annulation Sleeper. [Contrat, limites et evals](conditional-claim-portfolio-2026-10-07.md). Rendu local partagé Waiver/AI Context/Coach, utilisable dans le message n8n ; aucun déploiement.
+
+### 07/10 — utilité TE supplémentaire
+
+Diagnostic partagé des semaines TE/FLEX, bye couvert dans le rôle, coût de coupe et gain net. Aucun score ou prix nouveau ; secours sur blessure future et valeur d’une acquisition alternative inconnus. [Contrat et evals](te-roster-utility-2026-10-07.md).

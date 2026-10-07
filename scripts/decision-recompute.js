@@ -60,7 +60,7 @@ export function recomputeDecisionInputs(inputs) {
         return [slot,id];
       }).filter(([slot,id])=>slot && lockedIds.includes(String(id))));
       const rosterPreferences=normalizeRosterPreferences(fit.rosterPreferences,{asOf:inputs.asOf,rosterId:roster.roster_id}).filter(row=>(roster.players || []).includes(row.playerId));
-      fit = { ...fit, myPlayers, paceById, weeklyPaceById, protectedIds, reserveIds:protectedIds, lockedIds, starterIds:(roster.starters || []).map(String), frozenSlots, rosterPreferences,
+      fit = { ...fit, myPlayers, paceById, weeklyPaceById, protectedIds, reserveIds:protectedIds, lockedIds, starterIds:(roster.starters || []).map(String), starterTeId:(roster.starters || [])[slots.indexOf("TE")] ?? null, frozenSlots, rosterPreferences,
         faabRemaining:calculateFaabRemaining(GENERAL_SETTINGS_2026.waiver.budget,roster.settings?.waiver_budget_used),
         hasOpenRosterSlot:myPlayers.filter(player=>!protectedIds.includes(String(player.sleeperId))).length < slots.length + ROSTER_SETTINGS_2026.benchSlots,
         replacementByPosition:Object.fromEntries(['QB','RB','WR','TE','K','DEF'].map(position=>[position,market.find(row=>row.position === position)?.replacementPpg ?? 0])) };

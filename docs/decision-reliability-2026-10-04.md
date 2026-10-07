@@ -588,3 +588,7 @@ Nouveaux champs par candidat : `roleProfile`, `emergingRole`, `waiver.fit.progre
 ## Suite DEC-02/06 — claims alternatifs, 7 octobre 2026
 
 Le plan principal et ses budgets restent ceux de son chemin gagnant. Les groupes de repli partagent une coupe/place et une date de traitement ; un repli est évalué sur la branche où les choix précédents ont échoué ou ont été écartés. La suite recalcule les coupes, le budget et les fenêtres de rôle. Le portefeuille borne le détail à deux replis par groupe et seize scénarios ; pas de maximum global inventé si l’exploration est partielle. Les autres claims supposent toujours leur succès, et aucune annulation automatique de plateforme n’est certifiée. JSON commun et messages Coach/n8n explicites. [Contrat et validation](conditional-claim-portfolio-2026-10-07.md). Livré localement, sans soumission ni déploiement.
+
+### 07/10 — contrat TE
+
+Le diagnostic réutilise le fit choisi et les métriques canoniques, conserve les limites de couverture et explicite les acquisitions précédentes supposées réussies. Les gains de rotation TE/FLEX sont ceux de toute la lineup. [Contrat et evals](te-roster-utility-2026-10-07.md).

@@ -1,3 +1,4 @@
+import { formatTeRosterUtility } from './te-roster-utility.js';
 import { formatClaimPortfolio } from '../public/assets/waiver-plan.js';
 import { formatProjectionComparison } from './projection-comparison.js';
 import { BYE_WEEKS_2026 } from "../public/assets/league-settings.js";
@@ -39,6 +40,7 @@ function waiverRows(report) {
     })
     .map(player => ({
       modelMetrics: player.modelMetrics ?? null,
+      teRosterUtility: player.teRosterUtility ?? null,
       poolEntry: player.poolEntry ?? null,
       roleProfile: player.roleProfile ?? null,
       emergingRole: player.emergingRole ?? null,
@@ -351,6 +353,8 @@ export function formatDecisionContext(context) {
     players.forEach((player, index) => lines.push(waiverLine(player, index)));
   }
 
+  const teRows = Object.values(context.waiverActions).flat().filter(player => player.teRosterUtility);
+  if (teRows.length) lines.push('', 'TE — ROSTER UTILITY (projection only)', ...teRows.map(player => `${player.name}: ${formatTeRosterUtility(player.teRosterUtility)}`));
   const comparisonIds = [...context.myTeam.starters.map(entry => entry.player?.sleeperId),
     ...context.myTeam.bench.map(player => player.sleeperId), ...context.topAvailable.map(player => player.sleeperId)].filter(Boolean);
   const comparisonLines = formatProjectionComparison(context.projectionComparison, comparisonIds);

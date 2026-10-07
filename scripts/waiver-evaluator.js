@@ -1,3 +1,4 @@
+import { buildTeRosterUtility } from './te-roster-utility.js';
 import { evaluateRosterFit, classifyWaiverDecision, LAST_REGULAR_WEEK } from '../public/assets/waiver-model.js';
 import { GENERAL_SETTINGS_2026 } from '../public/assets/league-settings.js';
 import { buildProjectedLineup } from '../public/assets/trade-score.js';
@@ -62,6 +63,7 @@ export function createWaiverEvaluator({ fitContext, week, availabilityFor, owner
     const rosFit = rosterContext ? evaluateRosterFit({ marketRow: row, week, ...rosterContext }) : null;
     const starterVacancyScenario = evaluateStarterVacancyScenario({ row, rosterContext, week, rosFit });
     const fit = starterVacancyScenario?.fit ?? rosFit;
+    const teRosterUtility = buildTeRosterUtility({ row, rosterContext, fit, week });
     const positionWeight = ({ RB: 1.2, WR: 1.15, TE: 1, QB: 0.65, K: 0.45, DEF: 0.5 })[row.position] || 1;
     const durationWeight = ({ SEASON_LONG: 1.2, BREAKOUT: 1.15, SHORT_2_4W: 0.9, RENTAL_1W: 0.65, UNCERTAIN: 0.75 })[row.events.duration] || 0.85;
     const priorityScore = fit ? Math.round(Math.max(0, Math.min(100,
@@ -105,6 +107,7 @@ export function createWaiverEvaluator({ fitContext, week, availabilityFor, owner
       ...row,
       availability,
       nextUnlockScenario,
+      teRosterUtility,
       starterVacancyScenario,
       modelMetrics: { playerId: row.sleeperId, targetWeek: week, marketScore: row.marketScore, faabMarket: row.faabMarket,
         decisionHorizon: starterVacancyScenario ? 'TARGET_WEEK_SLOT_FILL' : 'ROLE_WINDOW',
@@ -115,12 +118,12 @@ export function createWaiverEvaluator({ fitContext, week, availabilityFor, owner
         weeklyLineupDeltas: fit?.weeklyLineupDeltas ?? [], dropCandidate: fit?.dropCandidate ?? null,
         suggestedBid, personalMaxBid, availability, roleConfirmation: row.events.roleConfirmation,
         cutSelection: fit?.cutSelection ?? null, dropCostComponents: fit?.dropCostComponents ?? null,
-        poolEntryReasons: row.poolEntry?.reasons ?? [], nextUnlockScenario, starterVacancyScenario,
+        teRosterUtility, poolEntryReasons: row.poolEntry?.reasons ?? [], nextUnlockScenario, starterVacancyScenario,
         roleProfile: row.roleProfile?.profile ?? null, progressionGuard: fit?.progressionGuard ?? null,
         progressionSacrificeTotal: fit?.progressionSacrificeTotal ?? null },
       waiver: {
         decisionHorizon: starterVacancyScenario ? 'TARGET_WEEK_SLOT_FILL' : 'ROLE_WINDOW',
-        starterVacancyScenario,
+        teRosterUtility, starterVacancyScenario,
         poolEntry: row.poolEntry ?? null,
         roleProfile: row.roleProfile ?? null,
         emergingRole: row.emergingRole ?? null,

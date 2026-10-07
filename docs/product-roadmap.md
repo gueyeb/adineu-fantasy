@@ -90,3 +90,7 @@ Nouveau backlog priorisé : [transactions nominatives, couverture du pool, rippl
 ### 07/10 — portefeuille de claims alternatifs
 
 Livré localement : groupes de repli sur la même coupe/place et la même date, branches de succès/échec, budget et roster recalculés ; les acquisitions justifiant des coupes distinctes restent cumulables. Maximum des scénarios détaillés seulement avec couverture complète, limites explicites ; aucune annulation Sleeper supposée. Rendu Coach/n8n et export IA compact du plan. [Contrat et evals](conditional-claim-portfolio-2026-10-07.md). Prochains sujets du feedback DvP : utilité TE2, mouvements WR/FLEX couplés, diagnostics de projections manquantes ; prix spéculatif toujours à définir/calibrer.
+
+### 07/10 — diagnostic TE supplémentaire
+
+Livré localement : référence au slot TE, bye dans la durée du rôle, utilisation FLEX, coût de coupe et gain net ; absence de données et secours sur blessure restent explicites. Prochains chantiers : rotations WR/FLEX globales, diagnostic des projections manquantes, provenance compacte. Prix spéculatif à définir/calibrer. [Contrat et evals](te-roster-utility-2026-10-07.md).

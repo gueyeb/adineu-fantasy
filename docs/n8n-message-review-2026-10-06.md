@@ -44,3 +44,7 @@ Context et Coach exposent désormais `projectionComparison`, et le `message` Coa
 ## Claims alternatifs locaux — 7 octobre
 
 Le `message` Coach expose maintenant le plan principal et les groupes de repli : un seul succès dans un groupe, budget maximal des branches détaillées, autres étapes recalculées après succès/échec. Les listes individuelles restent dans le JSON mais ne sont plus dupliquées comme consignes cumulées quand le plan existe. Couverture partielle = maximum global inconnu ; annulation automatique Sleeper non vérifiée. Contrat HTTP privé testé avec des fixtures, aucun message réel ni changement de workflow. [Contrat et evals](conditional-claim-portfolio-2026-10-07.md).
+
+### 07/10 — utilité TE dans Coach
+
+Rendu local partagé : bye du titulaire, semaines projetées TE/FLEX, coupe et gain net, secours sur blessure future n/d. Trois diagnostics maximum dans le texte ; détail JSON complet. Aucun workflow de production modifié. [Contrat et evals](te-roster-utility-2026-10-07.md).

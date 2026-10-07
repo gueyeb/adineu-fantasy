@@ -1,3 +1,4 @@
+import { formatTeRosterUtility } from './te-roster-utility.js';
 import { formatClaimPortfolio } from '../public/assets/waiver-plan.js';
 import { formatProjectionComparison } from './projection-comparison.js';
 const ACTION_ORDER = ["ADD_NOW", "CLAIM_IF_CHEAP", "WATCH"];
@@ -20,6 +21,7 @@ export function normalizeCoachPreferences(input = {}) {
 function compactWaiver(player) {
   return {
     modelMetrics: player.modelMetrics ?? null,
+    teRosterUtility: player.teRosterUtility ?? null,
     starterVacancyScenario: player.starterVacancyScenario ?? null,
     sleeperId: player.sleeperId, name: player.name, position: player.position, nflTeam: player.nflTeam,
     decisionClass: player.decisionClass, recommendedAction: player.recommendedAction,
@@ -153,6 +155,14 @@ export function formatCoachPlan(plan) {
       ? `à surveiller, action bloquée : ${player.actionBlockers.map(code => blockerLabels[code] || code.replaceAll('_', ' ')).join(' ; ')}`
       : player.interpretation}`));
   }
+  const teRowsById = new Map();
+  const standaloneActions = plan.acquisitionPlan ? [] : [...plan.waiverActions.ADD_NOW, ...plan.waiverActions.CLAIM_IF_CHEAP];
+  for (const player of [...(plan.acquisitionPlan?.steps ?? []), ...standaloneActions, ...plan.watchlist]) {
+    const id = String(player.playerId ?? player.sleeperId);
+    if (player.teRosterUtility && !teRowsById.has(id)) teRowsById.set(id, player);
+  }
+  const teRows = [...teRowsById.values()];
+  if (teRows.length) lines.push('', '🏈 UTILITÉ DU TE', ...teRows.slice(0, 3).map(player => `• ${player.name} · ${formatTeRosterUtility(player.teRosterUtility)}`));
   if (plan.tradeTarget) lines.push("", "🤝 TRADE À EXPLORER", `${plan.tradeTarget.partnerName} · ${plan.tradeTarget.title}`);
   if (plan.priorities[0]?.type === "HOLD") lines.push("", "✅ Aucun mouvement prioritaire : conserve ton roster.");
   const comparisonIds = [...Object.values(plan.waiverActions).flat().map(player => player.sleeperId),

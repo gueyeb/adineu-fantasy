@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { formatTeRosterUtility } from './te-roster-utility.js';
 import { loadProjectionCapture, buildProjectionComparison } from './projection-comparison.js';
 import { createWaiverEvaluator } from "./waiver-evaluator.js";
 import { extractDecisionFeatures, SEVERITY_BY_STATUS } from "./decision-features.js";
@@ -519,7 +520,7 @@ export async function getFreeAgents({
     const projectionCovered = (player, w) => Number.isFinite(weeklyPaceOf(player, w));
     const activeCount = myPlayers.filter(p => !protectedIds.has(String(p.sleeperId))).length;
     const hasOpenRosterSlot = activeCount < STARTER_SLOT_ORDER.length + ROSTER_SETTINGS_2026.benchSlots;
-    fitContext = { rosterPreferences, myPlayers, paceOf, weeklyPaceOf, projectionCovered, frozenSlots, hasOpenRosterSlot, starterIds, lockedIds, protectedIds, reserveIds: new Set(protectedIds), replacementByPosition, faabRemaining: calculateFaabRemaining(GENERAL_SETTINGS_2026.waiver.budget, roster.settings?.waiver_budget_used) };
+    fitContext = { rosterPreferences, myPlayers, paceOf, weeklyPaceOf, projectionCovered, frozenSlots, hasOpenRosterSlot, starterTeId: (roster.starters || [])[STARTER_SLOT_ORDER.indexOf("TE")] ?? null, starterIds, lockedIds, protectedIds, reserveIds: new Set(protectedIds), replacementByPosition, faabRemaining: calculateFaabRemaining(GENERAL_SETTINGS_2026.waiver.budget, roster.settings?.waiver_budget_used) };
   }
 
   const withWaiver = createWaiverEvaluator({ fitContext, week, availabilityFor, ownershipRechecked, transactionsComplete: transactionsByWeek.length === week, horizonFor });
@@ -653,7 +654,7 @@ export function formatWaiverReport({ byPosition, week, faabRemaining = null, deg
           (player.waiver.decision ? ` · Disponibilité ${player.availability?.availability || "UNKNOWN"} · Action ${player.waiver.decision.recommendedAction} · Classe ${player.waiver.decision.decisionClass} · Immédiat ${player.waiver.decision.immediateValue} · Stratégique ${player.waiver.decision.strategicUpside}` : "") +
           (Number.isFinite(player.waiver.usageScore) ? ` · Usage ${player.waiver.usageScore}${player.waiver.usageSignal ? ` ${player.waiver.usageSignal}` : ""}` : "") +
           (player.waiver.fit ? ` · Priorité ${player.waiver.fit.priorityScore} · Capture ${player.waiver.fit.fitScore}% · Delta S${week} ${player.waiver.fit.targetWeekDelta ?? "n/d"} · Gain brut ${player.waiver.fit.grossGainTotal ?? "n/d"} sur ${player.waiver.fit.horizonWeeks} sem · Gain net total ${player.waiver.fit.netGainTotal ?? "n/d"} · Gain net moyen ROS ${player.waiver.fit.netGainPerWeek ?? "n/d"} pts/sem · Coupe ${player.waiver.fit.dropCandidate?.name || "n/d"} (${player.waiver.fit.dropCostPerWeek ?? "n/d"} pts/sem) · Max ${player.waiver.fit.faabMaxForMe} $${player.waiver.fit.cutSelection ? ` · Sélection coupe ${player.waiver.fit.cutSelection}` : ""}${formatDropCost(player.waiver.fit.dropCostComponents)}` : "") +
-          formatEntry(player) + formatNextUnlock(player.nextUnlockScenario) +
+          formatEntry(player) + formatNextUnlock(player.nextUnlockScenario) + (player.teRosterUtility ? ` · ${formatTeRosterUtility(player.teRosterUtility)}` : '') +
           ` · Enchère proposée ${player.waiver.suggestedBid ?? "n/d"} $ · % initial ${player.waiver.bidPctInitial ?? "n/d"} · % restant ${player.waiver.bidPctRemaining ?? "n/d"}` +
           (player.waiver.duration ? ` · Durée ${player.waiver.duration}` : "") +
           (player.waiver.newsOverride ? ` · ⚡ ${player.waiver.reasons.join(" ; ")}` : "")

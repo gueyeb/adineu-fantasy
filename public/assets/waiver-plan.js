@@ -49,6 +49,7 @@ function runGreedyPlan({ candidates, myPlayers, faabRemaining, evaluateCandidate
     const bid = Math.floor(chosen.waiver.suggestedBid);
     const dependsOnPlayerIds = steps.map(step => step.playerId);
     steps.push({ playerId: String(chosen.sleeperId), name: chosen.name, position: chosen.position,
+      teRosterUtility: chosen.teRosterUtility ?? null,
       roleConfirmation: chosen.waiver.roleConfirmation ?? "NOT_APPLICABLE",
       recommendedAction: chosen.waiver.decision.recommendedAction, dropCandidate: fit.dropCandidate,
       suggestedBid: bid, personalMaxBid: chosen.waiver.personalMaxBid, budgetBefore: remainingBudget, budgetAfter: budgetKnown ? remainingBudget - bid : null,
@@ -74,7 +75,7 @@ function runGreedyPlan({ candidates, myPlayers, faabRemaining, evaluateCandidate
 const resourceOf = row => String(row.waiver.fit.dropCandidate?.sleeperId ?? 'OPEN_ROSTER_SLOT');
 const processTime = row => Date.parse(row.availability.waiverProcessesAt);
 const groupKey = row => JSON.stringify([resourceOf(row), processTime(row)]);
-const claimView = row => ({ playerId: String(row.sleeperId), name: row.name, position: row.position,
+const claimView = row => ({ teRosterUtility: row.teRosterUtility ?? null, playerId: String(row.sleeperId), name: row.name, position: row.position,
   recommendedAction: row.waiver.decision.recommendedAction, decisionClass: row.waiver.decision.decisionClass ?? null,
   suggestedBid: row.waiver.suggestedBid, personalMaxBid: row.waiver.personalMaxBid,
   targetWeekDelta: row.waiver.fit.targetWeekDelta, netGainTotal: row.waiver.fit.netGainTotal,

@@ -253,7 +253,12 @@ export function evaluateRosterFit({ marketRow, myPlayers, paceOf, week, faabRema
       return { week: w, delta: covered && !newEmptySlots.length ? round(after.total - before.total) : null,
         beforeTotal: covered ? before.total : null, afterTotal: covered ? after.total : null,
         slot: after.slots.find(slot => slot.sleeperId === String(marketRow.sleeperId))?.slot || null,
-        weight: Math.min(1, horizonWeeks - i), covered };
+        weight: Math.min(1, horizonWeeks - i), covered,
+        ...(marketRow.position === 'TE' ? { teUsage: {
+          before: covered ? before.slots.filter(slot => slot.slot === 'TE').map(slot => ({ playerId: slot.sleeperId, name: slot.name, projectedPoints: slot.projectedPpg })) : null,
+          after: covered ? after.slots.filter(slot => slot.slot === 'TE').map(slot => ({ playerId: slot.sleeperId, name: slot.name, projectedPoints: slot.projectedPpg })) : null,
+          previousTeSlotAfter: covered ? after.slots.find(slot => slot.sleeperId && slot.sleeperId === before.slots.find(slot => slot.slot === 'TE')?.sleeperId)?.slot ?? null : null
+        } } : {}) };
     });
     // A rental ends, but a cut is permanent. Price only lost lineup production after the role;
     // never extend the rental's positive surplus into those weeks.
