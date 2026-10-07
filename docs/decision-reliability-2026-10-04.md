@@ -11,6 +11,8 @@ Référence : backlog utilisateur `ADINEU_Model-Decision_Backlog_2026-10-04.md`,
 - Le calendrier nflverse déjà utilisé par le projet fournit les kickoffs ; `gametime` est en heure Eastern, convertie en UTC avec gestion EST/EDT. Source : [dictionnaire nflverse](https://nflreadr.nflverse.com/articles/dictionary_schedules.html). Le calendrier est mis en cache 12 h ; ce n’est pas une garantie contre une modification récente.
 - L’[API publique Sleeper](https://docs.sleeper.com/) ne documente pas les déblocages individuels. La preuve opérateur reste nécessaire ; sans preuve valide, `UNKNOWN` et surveillance.
 
+> **Évolution du 7 octobre 2026.** La règle « sans preuve valide, `UNKNOWN` » ci-dessus est complétée : sans preuve, l’état est **déduit** des réglages de waivers Sleeper de la ligue quand l’historique les confirme, étiqueté `LEAGUE_RULES_INFERRED` et « à confirmer dans Sleeper ». Voir `docs/decision-engine-live-state-backlog-2026-10-05.md`, section audit S5.
+
 ## Charger les preuves serveur
 
 Configurer `DECISION_EVIDENCE_FILE` avec un chemin serveur, hors `public/`, vers un JSON ignoré par Git. Le fichier est relu à chaque rapport. Le chemin ne peut pas être fourni par une requête HTTP. Le même chemin est utilisé par le serveur et la CLI si la variable est chargée dans leur environnement.

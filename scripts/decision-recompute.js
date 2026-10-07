@@ -1,6 +1,6 @@
 import { buildProjectionComparison } from './projection-comparison.js';
 import { extractDecisionFeatures } from './decision-features.js';
-import { resolveAcquisitionAvailability, findRecentDrops, nextWeekHorizon } from '../public/assets/acquisition-availability.js';
+import { resolveAcquisitionAvailability, findRecentDrops, nextWeekHorizon, deriveWaiverRules } from '../public/assets/acquisition-availability.js';
 import { BYE_WEEKS_2026 } from '../public/assets/league-settings.js';
 import { restOfSeasonEstimate } from '../public/assets/trade-score.js';
 import { evaluateMarket } from '../public/assets/waiver-model.js';
@@ -29,7 +29,7 @@ export function recomputeDecisionInputs(inputs) {
     availabilityById = Object.fromEntries(marketRows.map(player => {
       const game = raw.schedule.find(game => game.week === inputs.week && [game.away_team, game.home_team].includes(player.nflTeam));
       const latestTransactionAt = Math.max(0,...raw.allTransactions.filter(t=>t.status === 'complete' && (Object.hasOwn(t.adds || {},player.sleeperId) || Object.hasOwn(t.drops || {},player.sleeperId))).map(t=>Number(t.status_updated ?? t.created) || 0));
-      return [player.sleeperId,resolveAcquisitionAvailability({ playerId:player.sleeperId, rosters:raw.rosters, evidence:raw.availabilityEvidenceById[player.sleeperId],kickoffAt:game?.kickoffAt,kickoffSource:game?.source,asOf:inputs.asOf,week:inputs.week,season:inputs.season,leagueId:inputs.leagueId,latestTransactionAt,recentDrop:recentDrops.get(String(player.sleeperId)) ?? null })];
+      return [player.sleeperId,resolveAcquisitionAvailability({ playerId:player.sleeperId, rosters:raw.rosters, evidence:raw.availabilityEvidenceById[player.sleeperId],kickoffAt:game?.kickoffAt,kickoffSource:game?.source,asOf:inputs.asOf,week:inputs.week,season:inputs.season,leagueId:inputs.leagueId,latestTransactionAt,recentDrop:recentDrops.get(String(player.sleeperId)) ?? null,nflTeam:player.nflTeam,schedule:raw.schedule,waiverRules:deriveWaiverRules({ leagueSettings:raw.leagueSettings, transactions:raw.allTransactions }) })];
     }));
   }
   const market = evaluateMarket({ rows:marketRows, week:inputs.week, budget:GENERAL_SETTINGS_2026.waiver.budget });

@@ -216,6 +216,12 @@ function decisionReadiness(board, { emptyStarterSlotCount = 0, planStepCount = n
     out.push(warning("AVAILABILITY_UNVERIFIED", "COVERAGE_GAP", [], { total: withAvailability.length },
       `Disponibilité non vérifiée pour les ${withAvailability.length} candidats affichés : impossible de distinguer ajout libre et claim, aucune action ni enchère n'est proposée.`));
   }
+  const inferred = withAvailability.filter(row => row.availability.availabilitySource === "LEAGUE_RULES_INFERRED");
+  if (inferred.length) {
+    const actionable = inferred.filter(row => ACTIONABLE.has(actionOf(row)));
+    out.push(warning("AVAILABILITY_INFERRED", "COVERAGE_GAP", ids(actionable), { total: inferred.length, actionable: actionable.length },
+      `Disponibilité déduite des règles de waivers de la ligue pour ${plural(inferred.length, "candidat")}, non observée : ${actionable.length ? `${plural(actionable.length, "action")} à confirmer dans Sleeper.` : "aucune action n'en dépend."}`));
+  }
   if (emptyStarterSlotCount > 0 && planStepCount === 0) {
     out.push(warning("EMPTY_STARTER_SLOT_UNRESOLVED", "COVERAGE_GAP", [], { emptyStarterSlotCount },
       `${plural(emptyStarterSlotCount, "slot titulaire vide", "slots titulaires vides")} sans étape exécutable dans le plan : le besoin est identifié, pas résolu.`));
@@ -253,7 +259,9 @@ export function buildCoherenceWarnings({ boardRows = [], marketRows = [], myPlay
   // BLOCKED: do not send. DEGRADED: readable, but not a plan to execute. Distinct from model coverage.
   const publishable = counts.CALCULATION_INCONSISTENCY === 0;
   const reasons = [...warnings.filter(item => DEGRADING_CODES.includes(item.code)).map(item => item.code), ...(modelDegraded ? ["MODEL_COVERAGE_DEGRADED"] : [])];
-  const decisionStatus = { status: !publishable ? "BLOCKED" : reasons.length ? "DEGRADED" : "EXECUTABLE", reasons };
+  const toConfirm = warnings.some(item => item.code === "AVAILABILITY_INFERRED" && item.details.actionable > 0);
+  const decisionStatus = { status: !publishable ? "BLOCKED" : reasons.length ? "DEGRADED" : toConfirm ? "TO_CONFIRM" : "EXECUTABLE",
+    reasons: reasons.length || !toConfirm ? reasons : ["AVAILABILITY_INFERRED"] };
   return { warnings, publishable, counts, playerNames, decisionStatus };
 }
 
@@ -261,7 +269,8 @@ export function buildCoherenceWarnings({ boardRows = [], marketRows = [], myPlay
 export function formatCoherenceWarnings(result, { nameOf = () => null } = {}) {
   const warnings = list(result?.warnings);
   const status = result?.decisionStatus;
-  const statusLine = status?.status === "DEGRADED" ? [`⚠ DÉCISION DÉGRADÉE (${status.reasons.join(", ")}) : rapport lisible, pas un plan exécutable.`] : [];
+  const statusLine = status?.status === "DEGRADED" ? [`⚠ DÉCISION DÉGRADÉE (${status.reasons.join(", ")}) : rapport lisible, pas un plan exécutable.`]
+    : status?.status === "TO_CONFIRM" ? ["Décision à confirmer : disponibilités déduites des règles de la ligue, à vérifier dans Sleeper avant d'agir."] : [];
   if (!warnings.length) return [...statusLine, "Cohérence : aucun avertissement."];
   const label = id => nameOf(id) || result?.playerNames?.[id] || id;
   const blocking = warnings.filter(item => item.category === "CALCULATION_INCONSISTENCY").length;

@@ -535,7 +535,7 @@ export async function renderTradesPage(container) {
         : `Prochain déblocage : ${next.status}`);
       return notes.join(" · ");
     };
-    const availabilityText = p => [`${p.availability?.availability || "UNKNOWN"} · ${p.waiver?.decision?.recommendedAction || "WATCH"}`, engineNotes(p)].filter(Boolean).join(" · ");
+    const availabilityText = p => [`${p.availability?.availability || "UNKNOWN"}${p.availability?.availabilitySource === "LEAGUE_RULES_INFERRED" ? " (déduite — à confirmer dans Sleeper)" : ""} · ${p.waiver?.decision?.recommendedAction || "WATCH"}`, engineNotes(p)].filter(Boolean).join(" · ");
     const money = range => range && range[1] > 0 ? `${range[0]}–${range[1]} $` : "—";
     const usageCell = w => Number.isFinite(w.usageScore) ? `${w.usageScore}${w.usageSignal === "BUY_LOW" ? " 🟢" : w.usageSignal === "SELL_HIGH" ? " 🔥" : ""}` : "—";
     const positionCards = positionOrder
@@ -554,7 +554,7 @@ export async function renderTradesPage(container) {
               <td class="num">${p.waiver ? usageCell(p.waiver) : "—"}</td>
               <td class="num">${money(p.waiver?.faabMarket)}</td>
               <td class="num">${p.waiver?.fit ? p.waiver.fit.fitScore : "—"}</td>
-              <td class="num"><strong>${Number.isFinite(p.waiver?.personalMaxBid) ? `${p.waiver.personalMaxBid} $` : "n/d"}</strong></td>
+              <td class="num"><strong>${Number.isFinite(p.waiver?.personalMaxBid) ? `${p.waiver.personalMaxBid} $` : p.waiver?.maxBidStatus === "NOT_DETERMINED_UNCALIBRATED_POTENTIAL" ? "non déterminé" : "n/d"}</strong></td>
             </tr>`).join("")}</tbody>
           </table></div>`;
       })

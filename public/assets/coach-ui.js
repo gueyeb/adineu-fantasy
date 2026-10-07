@@ -26,7 +26,7 @@ function waiverCard(player) {
     <p>${escapeHtml(player.nflTeam || "FA")} · delta semaine <b>${signed(player.targetWeekDelta)} pts</b><br>Gain net total ${signed(player.netGainTotal)} pts sur ${player.horizonWeeks ?? "n/d"} sem</p>
     <dl><div><dt>Coupe</dt><dd>${escapeHtml(player.dropCandidate?.name || "Aucune")}</dd></div><div><dt>Enchère proposée</dt><dd>${Number.isFinite(player.suggestedBid) ? `${player.suggestedBid} $` : "non déterminée"}</dd></div><div><dt>Plafond Boukki</dt><dd>${player.maxForTeam ?? 0} $</dd></div></dl>
     ${player.preferenceOverridden ? `<small>Préférence temporaire dépassée : ${escapeHtml(player.appliedPreference?.reason)} (${player.preferencePenaltyTotal} points d’utilité).</small><br>` : ""}
-    <small>${escapeHtml(player.availability?.availability || "UNKNOWN")} · ${escapeHtml(player.roleConfirmation || "UNCONFIRMED")}</small><br><small>${escapeHtml(player.interpretation)}</small>
+    <small>${escapeHtml(player.availability?.availability || "UNKNOWN")}${player.availability?.availabilitySource === "LEAGUE_RULES_INFERRED" ? " (déduite — à confirmer dans Sleeper)" : ""} · ${escapeHtml(player.roleConfirmation || "UNCONFIRMED")}</small><br><small>${escapeHtml(player.interpretation)}</small>
   </article>`;
 }
 

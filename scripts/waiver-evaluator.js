@@ -29,10 +29,14 @@ export function evaluateNextUnlockScenario({ row, availability, rosterContext, w
   if (availability?.availability !== "GAME_LOCKED") return null;
   const asOf = Date.parse(availability.availabilityAsOf);
   const processes = Date.parse(availability.waiverProcessesAt);
-  const unlockVerified = Number.isFinite(processes) && Number.isFinite(asOf) && processes > asOf;
+  const unlockKnown = Number.isFinite(processes) && Number.isFinite(asOf) && processes > asOf;
+  // Verified only by dated operator evidence; the league's weekly run gives a deduced date.
+  const unlockVerified = unlockKnown && availability.waiverProcessesAtSource === "OPERATOR_EVIDENCE";
+  const unlockInferred = unlockKnown && !unlockVerified;
   const horizon = week + 1 <= LAST_REGULAR_WEEK ? horizonFor(row) : null;
   const base = { executableNow: false, reviewAction: "REVALIDATE_AT_UNLOCK", unlockVerified,
-    unlockAt: unlockVerified ? availability.waiverProcessesAt : null, unlockSource: unlockVerified ? availability.evidence?.[0]?.source ?? null : null,
+    unlockAt: unlockKnown ? availability.waiverProcessesAt : null, unlockInferred,
+    unlockSource: unlockVerified ? availability.evidence?.[0]?.source ?? null : unlockInferred ? "LEAGUE_RULES_INFERRED" : null,
     startWeek: horizon?.startWeek ?? null, firstKickoffAt: horizon?.firstKickoffAt ?? null, byeAtStart: horizon?.bye ?? null,
     scheduleSource: horizon?.source ?? null, horizonWeeks: null, horizonCovered: false, coverageIssues: [], coverageBlockers: [],
     targetWeekDelta: null, grossGainTotal: null, netGainTotal: null, weeklyLineupDeltas: [], dropCandidate: null, cutSelection: null,
@@ -48,7 +52,7 @@ export function evaluateNextUnlockScenario({ row, availability, rosterContext, w
   const futureRow = { ...row, events: { ...row.events, roleWeeks: temporary ? roleWeeks - (horizon.startWeek - week) : 0 } };
   const fit = evaluateRosterFit({ marketRow: futureRow, ...rosterContext, week: horizon.startWeek, frozenSlots: {}, lockedIds: new Set() });
   return { ...base, status: "EVALUATED", horizonWeeks: fit.horizonWeeks, horizonCovered: fit.horizonCovered,
-    coverageIssues: [...fit.coverageIssues, ...(unlockVerified ? [] : ["UNLOCK_UNVERIFIED"])], coverageBlockers: fit.coverageBlockers,
+    coverageIssues: [...fit.coverageIssues, ...(unlockVerified ? [] : [unlockInferred ? "UNLOCK_INFERRED_NOT_VERIFIED" : "UNLOCK_UNVERIFIED"])], coverageBlockers: fit.coverageBlockers,
     targetWeekDelta: fit.targetWeekDelta, grossGainTotal: fit.grossGainTotal, netGainTotal: fit.netGainTotal,
     weeklyLineupDeltas: fit.weeklyLineupDeltas, dropCandidate: fit.dropCandidate, cutSelection: fit.cutSelection,
     // Personal ceiling for that scenario, shown for planning only; the proposed bid stays 0.
@@ -112,6 +116,16 @@ export function createWaiverEvaluator({ fitContext, week, availabilityFor, owner
       decision.watchReason = "ORGANIC_RISE_NOT_PRICED";
       decision.interpretation = "No projected lineup gain today; an organically rising role is watched, its upside is not priced.";
     }
+    // A 0 $ ceiling must be founded. With an uncalibrated rising role, or an uncovered horizon, the
+    // model has no basis for a number: the ceiling is not determined rather than zero.
+    const maxBidStatus = !fit ? "NO_ROSTER_CONTEXT" : personalMaxBid === null ? "UNKNOWN_FAAB_BALANCE"
+      : fit && (!fit.horizonCovered || !fit.legalTransaction) ? "NOT_DETERMINED_INCOMPLETE_COVERAGE"
+      : personalMaxBid === 0 && unpricedPotential ? "NOT_DETERMINED_UNCALIBRATED_POTENTIAL" : "DETERMINED";
+    const shownMaxBid = maxBidStatus === "DETERMINED" ? personalMaxBid : null;
+    // A deduced availability can carry an action, never without saying it must be confirmed.
+    const inferredAvailability = availability?.availabilitySource === "LEAGUE_RULES_INFERRED";
+    decision.confirmation = inferredAvailability && ["ADD_NOW", "CLAIM_IF_CHEAP"].includes(decision.recommendedAction) ? "CONFIRM_IN_SLEEPER" : null;
+    if (decision.confirmation) decision.interpretation = `${decision.interpretation} Availability deduced from league waiver rules: confirm in Sleeper before acting.`;
     // 0 $ is a real bid in this league: without an executable action the bid is not determined.
     const action = decision.recommendedAction;
     const bidStatus = action === "CLAIM_IF_CHEAP" ? "PROPOSED" : action === "ADD_NOW" ? "FREE_ADD" : "NOT_DETERMINED";
@@ -132,7 +146,7 @@ export function createWaiverEvaluator({ fitContext, week, availabilityFor, owner
         grossGainTotal: fit?.grossGainTotal ?? null, netGainTotal: fit?.netGainTotal ?? null,
         dropCostTotal: fit?.dropCostTotal ?? null, postRoleCutCostTotal: fit?.postRoleCutCostTotal ?? null,
         weeklyLineupDeltas: fit?.weeklyLineupDeltas ?? [], dropCandidate: fit?.dropCandidate ?? null,
-        suggestedBid, personalMaxBid, availability, roleConfirmation: row.events.roleConfirmation,
+        suggestedBid, personalMaxBid: shownMaxBid, maxBidStatus, availability, roleConfirmation: row.events.roleConfirmation,
         cutSelection: fit?.cutSelection ?? null, dropCostComponents: fit?.dropCostComponents ?? null,
         teRosterUtility, poolEntryReasons: row.poolEntry?.reasons ?? [], nextUnlockScenario, starterVacancyScenario,
         roleProfile: row.roleProfile?.profile ?? null, progressionGuard: fit?.progressionGuard ?? null,
@@ -149,7 +163,8 @@ export function createWaiverEvaluator({ fitContext, week, availabilityFor, owner
         roleEvidence: row.events.evidence ?? [],
         announcedRole: row.events.announcedRole ?? null,
         suggestedBid,
-        personalMaxBid,
+        personalMaxBid: shownMaxBid,
+        maxBidStatus,
         bidPctInitial: Number.isFinite(suggestedBid) ? Number((suggestedBid / GENERAL_SETTINGS_2026.waiver.budget * 100).toFixed(1)) : null,
         bidStatus, bidUndeterminedReason, unpricedPotential,
         bidPctRemaining: rosterContext?.faabRemaining > 0 && Number.isFinite(suggestedBid) ? Number((suggestedBid / rosterContext.faabRemaining * 100).toFixed(1)) : null,

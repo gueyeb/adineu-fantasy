@@ -4,7 +4,7 @@ import { loadProjectionCapture, buildProjectionComparison } from './projection-c
 import { createWaiverEvaluator } from "./waiver-evaluator.js";
 import { extractDecisionFeatures, SEVERITY_BY_STATUS } from "./decision-features.js";
 import { buildCoherenceWarnings, formatCoherenceWarnings, countEmptyStarterSlots } from "../public/assets/decision-coherence.js";
-import { resolveAcquisitionAvailability, summarizeRecentTransactions, resolveRoleEvidence, formatRecentTransactions, findRecentDrops, nextWeekHorizon } from "../public/assets/acquisition-availability.js";
+import { resolveAcquisitionAvailability, summarizeRecentTransactions, resolveRoleEvidence, formatRecentTransactions, findRecentDrops, nextWeekHorizon, deriveWaiverRules } from "../public/assets/acquisition-availability.js";
 /**
  * Adineu Fantasy — Contexte IA & Waiver Wire Report
  *
@@ -447,6 +447,9 @@ export async function getFreeAgents({
     } catch {}
   }
   const transactionsFetchedAt = new Date().toISOString();
+  // Waiver schedule comes from Sleeper's own league settings, checked against the league's history.
+  let leagueSettings = null;
+  try { leagueSettings = (await sleeperGet(`/league/${leagueId}`, { fetchImpl }))?.settings ?? null; } catch {}
   let ownershipRechecked = false;
   try {
     rosters = await sleeperGet(`/league/${leagueId}/rosters`, { fetchImpl });
@@ -463,12 +466,15 @@ export async function getFreeAgents({
   if (transactionsByWeek.length !== week) snapshotIssues.push("INCOMPLETE_TRANSACTIONS");
   const kickoffFor = player => schedule.find(game => game.week === week && [game.away_team, game.home_team].includes(player.nflTeam));
   const recentDrops = findRecentDrops(allTransactions, { asOf });
+  const waiverRules = deriveWaiverRules({ leagueSettings, transactions: allTransactions });
+  if (!waiverRules) snapshotIssues.push("WAIVER_RULES_NOT_DERIVABLE");
   const availabilityFor = player => {
     const game = kickoffFor(player);
     return resolveAcquisitionAvailability({ playerId: player.sleeperId, rosters,
       evidence: availabilityEvidenceById[player.sleeperId], kickoffAt: game?.kickoffAt,
       kickoffSource: game?.source, asOf, week, season, leagueId, latestTransactionAt: latestTransactionAt(player.sleeperId),
-      recentDrop: recentDrops.get(String(player.sleeperId)) ?? null });
+      recentDrop: recentDrops.get(String(player.sleeperId)) ?? null,
+      nflTeam: player.nflTeam, schedule, waiverRules });
   };
   const horizonFor = player => nextWeekHorizon({ schedule, week, nflTeam: player.nflTeam });
 
@@ -580,7 +586,7 @@ export async function getFreeAgents({
       ownershipRechecked, transactionsComplete: transactionsByWeek.length === week,
       marketRows: rows, availabilityById: Object.fromEntries(market.map(player => [player.sleeperId, availabilityFor(player)])),
       fitContext: fitContext ? { ...serialFit, protectedIds: [...fitContext.protectedIds], reserveIds: [...fitContext.reserveIds], lockedIds: [...fitContext.lockedIds], starterIds: [...fitContext.starterIds], paceById, weeklyPaceById } : null,
-      raw: { projectionCapture, projectionsByWeek, statsByWeek, fetchedAtByPath, schedule, rosters, catalog, nflState, users, playersIndex: Object.fromEntries(index), availabilityEvidenceById, roleEvidenceById, eventsById, allTransactions },
+      raw: { projectionCapture, projectionsByWeek, statsByWeek, fetchedAtByPath, schedule, rosters, catalog, nflState, users, playersIndex: Object.fromEntries(index), availabilityEvidenceById, roleEvidenceById, eventsById, leagueSettings, allTransactions },
       playerIndexFetchedAt: playersIndexCaches.get(fetchImpl)?.at ? new Date(playersIndexCaches.get(fetchImpl).at).toISOString() : null
     })));
   }
@@ -606,6 +612,12 @@ export async function getFreeAgents({
   };
 }
 
+const formatMaxBid = waiver => waiver.maxBidStatus && waiver.maxBidStatus !== "DETERMINED"
+  ? `Plafond non déterminé : ${({ NOT_DETERMINED_UNCALIBRATED_POTENTIAL: "potentiel non calibré", NOT_DETERMINED_INCOMPLETE_COVERAGE: "couverture incomplète", UNKNOWN_FAAB_BALANCE: "solde FAAB inconnu", NO_ROSTER_CONTEXT: "aucun roster" })[waiver.maxBidStatus] || waiver.maxBidStatus}`
+  : `Plafond ${waiver.personalMaxBid ?? "n/d"} $`;
+const formatAvailability = availability => !availability ? "UNKNOWN" : availability.availabilitySource === "LEAGUE_RULES_INFERRED"
+  ? `${availability.availability} (déduite — à confirmer dans Sleeper${availability.waiverProcessesAt ? ` ; passage estimé ${availability.waiverProcessesAt.slice(0, 16)}Z` : ""})`
+  : `${availability.availability}${availability.waiverProcessesAt ? ` (passage ${availability.waiverProcessesAt.slice(0, 16)}Z)` : ""}`;
 const formatDropCost = components => components ? ` · Coût de coupe : usage ${components.usagePremiumPerWeek} + buy-low ${components.buyLowPremiumPerWeek} + upside proj. ${components.projectionUpsidePerWeek} ; option ${components.optionTotal} sur ${components.horizonWeeks} sem ; perte après rôle ${components.postRoleLineupLossTotal ?? "n/d"}${components.missingInputs.length ? ` ; manquant ${components.missingInputs.join(",")}` : ""}` : "";
 const formatEntry = player => {
   const entry = player.poolEntry;
@@ -661,11 +673,11 @@ export function formatWaiverReport({ byPosition, week, faabRemaining = null, deg
       const note = player.adineu?.thesis ? ` — ${player.adineu.thesis}` : "";
       const waiver = player.waiver
         ? ` · ${player.waiver.category} · S${week} ${player.weekProjection ?? player.waiver.projectedPpg ?? "n/d"} · ROS ${player.waiver.rosPpg ?? "n/d"} · FAAB marché ${player.waiver.faabMarket?.join("–") || "n/d"} $` +
-          (player.waiver.decision ? ` · Disponibilité ${player.availability?.availability || "UNKNOWN"} · Action ${player.waiver.decision.recommendedAction} · Classe ${player.waiver.decision.decisionClass} · Immédiat ${player.waiver.decision.immediateValue} · Stratégique ${player.waiver.decision.strategicUpside}` : "") +
+          (player.waiver.decision ? ` · Disponibilité ${formatAvailability(player.availability)} · Action ${player.waiver.decision.recommendedAction} · Classe ${player.waiver.decision.decisionClass} · Immédiat ${player.waiver.decision.immediateValue} · Stratégique ${player.waiver.decision.strategicUpside}` : "") +
           (Number.isFinite(player.waiver.usageScore) ? ` · Usage ${player.waiver.usageScore}${player.waiver.usageSignal ? ` ${player.waiver.usageSignal}` : ""}` : "") +
           (player.waiver.fit ? ` · Priorité ${player.waiver.fit.priorityScore} · Capture ${player.waiver.fit.fitScore}% · Delta S${week} ${player.waiver.fit.targetWeekDelta ?? "n/d"} · Gain brut ${player.waiver.fit.grossGainTotal ?? "n/d"} sur ${player.waiver.fit.horizonWeeks} sem · Gain net total ${player.waiver.fit.netGainTotal ?? "n/d"} · Gain net moyen ROS ${player.waiver.fit.netGainPerWeek ?? "n/d"} pts/sem · Coupe ${player.waiver.fit.dropCandidate?.name || "n/d"} (${player.waiver.fit.dropCostPerWeek ?? "n/d"} pts/sem) · Max ${player.waiver.fit.faabMaxForMe} $${player.waiver.fit.cutSelection ? ` · Sélection coupe ${player.waiver.fit.cutSelection}` : ""}${formatDropCost(player.waiver.fit.dropCostComponents)}` : "") +
           formatEntry(player) + formatNextUnlock(player.nextUnlockScenario) + (player.teRosterUtility ? ` · ${formatTeRosterUtility(player.teRosterUtility)}` : '') +
-          ` · ${player.waiver.bidStatus === "NOT_DETERMINED" ? `Enchère non déterminée (${player.waiver.bidUndeterminedReason})` : `Enchère proposée ${player.waiver.suggestedBid ?? "n/d"} $`} · % initial ${player.waiver.bidPctInitial ?? "n/d"} · % restant ${player.waiver.bidPctRemaining ?? "n/d"}` +
+          ` · ${formatMaxBid(player.waiver)} · ${player.waiver.bidStatus === "NOT_DETERMINED" ? `Enchère non déterminée (${player.waiver.bidUndeterminedReason})` : `Enchère proposée ${player.waiver.suggestedBid ?? "n/d"} $`} · % initial ${player.waiver.bidPctInitial ?? "n/d"} · % restant ${player.waiver.bidPctRemaining ?? "n/d"}` +
           (player.waiver.duration ? ` · Durée ${player.waiver.duration}` : "") +
           (player.waiver.newsOverride ? ` · ⚡ ${player.waiver.reasons.join(" ; ")}` : "")
         : "";
