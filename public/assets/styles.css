@@ -931,3 +931,29 @@ tr.compare-best td { background: rgba(184, 255, 61, .08); }
   .coach-scoreboard { grid-template-columns: 1fr; }
   .coach-scoreboard > div { min-height: 125px; }
 }
+
+/* Weekly comparison: team beside complete acquisition scenarios. */
+.coach-week-layout { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:28px; margin:32px 0; }
+.coach-week-column { min-width:0; }
+.coach-week-column h2 { font-size:1.4rem; margin:0 0 16px; }
+.coach-table-scroll { overflow-x:auto; }
+.coach-week-table { width:100%; border-collapse:collapse; font-size:.86rem; }
+.coach-week-table caption { text-align:left; padding:14px 0; color:#b8c3d1; }
+.coach-week-table th, .coach-week-table td { padding:12px 9px; border-bottom:1px solid #283244; text-align:right; }
+.coach-week-table th:first-child, .coach-week-table td:first-child, .coach-week-table th:nth-child(2), .coach-week-table td:nth-child(2) { text-align:left; }
+.coach-week-table small { display:block; margin-top:4px; color:#aab8c9; }
+.coach-group-row { color:#50d4ae; background:#141f2e; }
+.coach-group-row th { text-align:left; }
+.coach-lineup-switch { display:flex; gap:8px; flex-wrap:wrap; }
+.coach-lineup-switch button { padding:10px 14px; border:1px solid #37465c; border-radius:8px; background:#172234; color:#d8e2f0; cursor:pointer; }
+.coach-lineup-switch button[aria-pressed="true"] { background:#50d4ae; color:#102521; }
+.coach-move-group { border:1px solid #344155; border-radius:12px; padding:16px; margin:16px 0; }
+.coach-move-group h3 { color:#ffb86a; font-size:1rem; margin:0 0 12px; }
+.coach-move summary { display:flex; justify-content:space-between; gap:12px; padding:12px 0; cursor:pointer; }
+.coach-move summary span { color:#50d4ae; font-size:.85rem; }
+.coach-move dl div { display:flex; justify-content:space-between; gap:14px; margin:10px 0; }
+.coach-move dd { margin:0; text-align:right; }
+.coach-move p, .coach-review-details p, .coach-week-column > p { color:#b8c3d1; font-size:.9rem; line-height:1.6; }
+.coach-review-status { border-left:3px solid #ffb86a; padding:12px; background:#182130; }
+.coach-review-details summary { cursor:pointer; padding:12px 0; }
+@media (max-width:850px) { .coach-week-layout { grid-template-columns:1fr; gap:24px; } }

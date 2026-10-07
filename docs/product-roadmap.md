@@ -98,3 +98,7 @@ Livré localement : référence au slot TE, bye dans la durée du rôle, utilisa
 ### 07/10 — Rotations WR/FLEX explicites
 
 Livré : les mouvements liés deviennent une décision avec gain total et affectations de slots dans Coach/n8n et AI Context. Optimisation inchangée, détail JSON préservé. [Contrat](lineup-rotations-2026-10-07.md). Prochain chantier : diagnostic des projections manquantes.
+
+### 07/10 — Coach hebdomadaire : équipe et mouvements
+
+Incrément local : vue comparative actuel/proposé, mouvements groupés par coupe, alertes et alternatives ; sélection des streamers par semaine cible partagée live/recompute. Diagnostics des projections du roster et signal de potentiel de coupe non chiffré. Valorisation/calibration de l'optionalité et provenance compacte restent ouvertes. Vérification de l'asset Coach de production seulement, sans assimilation à un audit de tout le serveur. [Backlog consolidé et limites](coach-weekly-board-2026-10-07.md).

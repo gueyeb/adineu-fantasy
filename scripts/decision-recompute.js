@@ -1,3 +1,4 @@
+import { selectWaiverBoard } from "../public/assets/waiver-board.js";
 import { buildProjectionComparison } from './projection-comparison.js';
 import { extractDecisionFeatures } from './decision-features.js';
 import { resolveAcquisitionAvailability, findRecentDrops, nextWeekHorizon, deriveWaiverRules } from '../public/assets/acquisition-availability.js';
@@ -77,10 +78,8 @@ export function recomputeDecisionInputs(inputs) {
     horizonFor:player=>nextWeekHorizon({ schedule:inputs.raw?.schedule || [], week:inputs.week, nflTeam:player.nflTeam }),
     bidReferenceByPosition:sourceFeatures ? buildLeagueBidReference(inputs.raw.allTransactions, { positionOf:id=>sourceFeatures.meta(id)?.position ?? null }) : {} });
   const byPosition = {};
-  for (const row of market) {
-    if (inputs.position && row.position !== inputs.position.toUpperCase()) continue;
-    byPosition[row.position] ??= [];
-    if (byPosition[row.position].length < inputs.limitPerPosition || row.poolEntry?.pinned) byPosition[row.position].push(evaluate(row));
+  for (const row of selectWaiverBoard(market, { limitPerPosition: inputs.limitPerPosition, position: inputs.position })) {
+    (byPosition[row.position] ??= []).push(evaluate(row));
   }
   const planCandidates = fitContext ? selectPlanCandidates(market).map(row=>evaluate(row)) : [];
   const acquisitionPlan = fitContext ? buildAcquisitionPlan({ candidates:planCandidates, myPlayers:fitContext.myPlayers,

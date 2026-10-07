@@ -21,6 +21,10 @@ export function normalizeCoachPreferences(input = {}) {
 
 function compactWaiver(player) {
   return {
+    provenance: player.provenance ?? null,
+    weekProjection: player.weekProjection ?? null, rosPpg: player.rosPpg ?? null,
+    usageScore: player.usageScore ?? null,
+    dropCostComponents: player.dropCostComponents ?? player.modelMetrics?.dropCostComponents ?? null,
     modelMetrics: player.modelMetrics ?? null,
     teRosterUtility: player.teRosterUtility ?? null,
     starterVacancyScenario: player.starterVacancyScenario ?? null,
@@ -96,7 +100,13 @@ export function buildCoachPlan({ decisionContext, trades, preferences = {} }) {
       faabPosture: context.strategyState?.faabPosture || "UNKNOWN",
       benchFlexibility: context.strategyState?.benchFlexibility || "UNKNOWN"
     },
-    priorities,
+    priorities: priorities.slice(0, 3),
+    roster: { starters: team.starters || [], bench: team.bench || [], ir: team.ir || [] },
+    projectionDiagnostics: (context.rosterProvenance || []).flatMap(row =>
+      (row.provenance?.projections?.weeks || []).filter(item => ["PLAYER_MISSING", "LOAD_FAILED"].includes(item.status))
+        .map(item => ({ playerId: row.playerId, name: ['starters', 'bench', 'ir'].flatMap(group => team[group] || [])
+          .map(entry => entry.player || entry).find(player => String(player.sleeperId) === String(row.playerId))?.name || `Joueur #${row.playerId}`,
+          week: item.week, cause: item.status, source: item.source, fetchedAt: item.fetchedAt }))),
     lineup: { alerts: context.lineup?.alerts || [], optimal },
     waiverActions,
     acquisitionPlan: context.acquisitionPlan ?? null,

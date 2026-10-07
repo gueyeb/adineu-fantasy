@@ -1,3 +1,4 @@
+import { renderWeeklyRoster, renderWeeklyMoves } from "./coach-week-view.js?v=67b2ba9a14";
 import { LEAGUE_METADATA_2026 } from "./league-settings.js?v=f6d1bf5212";
 
 const login = document.getElementById("coach-login");
@@ -24,7 +25,7 @@ function waiverCard(player) {
     <div class="coach-waiver-head"><span>${escapeHtml(player.decisionClass?.replaceAll("_", " "))}</span><strong>${escapeHtml(player.position)}</strong></div>
     <h3>${escapeHtml(player.name)}</h3>
     <p>${escapeHtml(player.nflTeam || "FA")} · delta semaine <b>${signed(player.targetWeekDelta)} pts</b><br>Gain net total ${signed(player.netGainTotal)} pts sur ${player.horizonWeeks ?? "n/d"} sem</p>
-    <dl><div><dt>Coupe</dt><dd>${escapeHtml(player.dropCandidate?.name || "Aucune")}</dd></div><div><dt>Enchère proposée</dt><dd>${Number.isFinite(player.suggestedBid) ? `${player.suggestedBid} $` : "non déterminée"}</dd></div><div><dt>Plafond Boukki</dt><dd>${player.maxForTeam ?? 0} $</dd></div></dl>
+    <dl><div><dt>Coupe</dt><dd>${escapeHtml(player.dropCandidate?.name || "Aucune")}</dd></div><div><dt>Enchère proposée</dt><dd>${Number.isFinite(player.suggestedBid) ? `${player.suggestedBid} $` : "non déterminée"}</dd></div><div><dt>Plafond Boukki</dt><dd>${Number.isFinite(player.maxForTeam) ? `${player.maxForTeam} $` : "non déterminé"}</dd></div></dl>
     ${player.preferenceOverridden ? `<small>Préférence temporaire dépassée : ${escapeHtml(player.appliedPreference?.reason)} (${player.preferencePenaltyTotal} points d’utilité).</small><br>` : ""}
     <small>${escapeHtml(player.availability?.availability || "UNKNOWN")}${player.availability?.availabilitySource === "LEAGUE_RULES_INFERRED" ? " (déduite — à confirmer dans Sleeper)" : ""} · ${escapeHtml(player.roleConfirmation || "UNCONFIRMED")}</small><br><small>${escapeHtml(player.interpretation)}</small>
   </article>`;
@@ -32,6 +33,9 @@ function waiverCard(player) {
 
 function renderPlan(plan) {
   currentPlan = plan;
+  document.getElementById("coach-week-roster").innerHTML = renderWeeklyRoster(plan);
+  document.getElementById("coach-week-moves").innerHTML = renderWeeklyMoves(plan);
+  for (const button of document.querySelectorAll("[data-coach-lineup]")) button.setAttribute("aria-pressed", String(button.dataset.coachLineup === "current"));
   const record = plan.teamState.record || { wins: 0, losses: 0, ties: 0 };
   const opponent = plan.nextMatchup?.opponent;
   document.getElementById("coach-week").textContent = `Semaine ${plan.week}`;
@@ -116,3 +120,9 @@ document.getElementById("coach-logout").addEventListener("click", async () => {
   } catch { status.textContent = "Déconnexion impossible. Réessaie."; }
 });
 loadCoach();
+
+for (const button of document.querySelectorAll("[data-coach-lineup]")) button.addEventListener("click", () => {
+  if (!currentPlan) return;
+  for (const other of document.querySelectorAll("[data-coach-lineup]")) other.setAttribute("aria-pressed", String(other === button));
+  document.getElementById("coach-week-roster").innerHTML = renderWeeklyRoster(currentPlan, button.dataset.coachLineup === "suggested");
+});

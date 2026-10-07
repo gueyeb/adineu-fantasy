@@ -86,3 +86,13 @@ test("an unpublishable report is refused to bearer automation but still shown to
   current = undefined;
   assert.equal((await fetch(`${base}/api/coach?team=t0z`, { headers: bearer })).status, 200);
 });
+
+test('version fingerprints key sources while health response remains compatible', async t => {
+  const server=createAppServer();
+  server.listen(0,'127.0.0.1'); await once(server,'listening'); t.after(()=>server.close());
+  const base=`http://127.0.0.1:${server.address().port}`;
+  const version=await (await fetch(`${base}/api/version`)).json();
+  assert.match(version.sourceFingerprint,/^[a-f0-9]{64}$/);
+  assert.match(version.files['public/assets/waiver-board.js'],/^[a-f0-9]{64}$/);
+  assert.deepEqual(await (await fetch(`${base}/api/health`)).json(),{status:'ok'});
+});

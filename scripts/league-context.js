@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { selectWaiverBoard } from "../public/assets/waiver-board.js";
 import { formatTeRosterUtility } from './te-roster-utility.js';
 import { loadProjectionCapture, buildProjectionComparison } from './projection-comparison.js';
 import { createWaiverEvaluator } from "./waiver-evaluator.js";
@@ -542,12 +543,8 @@ export async function getFreeAgents({
 
   const normalizedPosition = position ? String(position).toUpperCase() : null;
   const byPosition = {};
-  for (const row of market) {
-    if (normalizedPosition && row.position !== normalizedPosition) continue;
-    if (!byPosition[row.position]) byPosition[row.position] = [];
-    // The per-position limit never hides a recent cut or a sourced event.
-    if (byPosition[row.position].length >= limitPerPosition && !row.poolEntry?.pinned) continue;
-    byPosition[row.position].push(withWaiver(row));
+  for (const row of selectWaiverBoard(market, { limitPerPosition, position: normalizedPosition })) {
+    (byPosition[row.position] ??= []).push(withWaiver(row));
   }
   const board = Object.values(byPosition).flat();
   const boardCoverage = { ...poolCoverage, evaluated: market.length, returned: board.length, limitPerPosition,
