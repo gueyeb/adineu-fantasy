@@ -6,8 +6,8 @@
   <meta name="robots" content="noindex, nofollow">
   <title>Coach privé — Adineu NFL</title>
   <link rel="icon" href="/favicon.svg">
-  <link rel="stylesheet" href="/assets/styles.css?v=a1a7d810a6">
-  <script type="module" src="/assets/coach-ui.js?v=a005466e6d"></script>
+  <link rel="stylesheet" href="/assets/styles.css?v=0b2ed949cf">
+  <script type="module" src="/assets/coach-ui.js?v=51a1a5dba1"></script>
 </head>
 <body class="coach-page">
   <main class="coach-shell">
@@ -47,7 +47,11 @@
       </header>
       <div id="coach-scoreboard" class="coach-scoreboard"></div>
       <div id="coach-priorities" class="coach-priorities"></div>
-      <div id="coach-grid" class="coach-grid"></div>
+      <div class="coach-week-layout">
+        <section class="coach-week-column"><h2>Ton équipe</h2><div class="coach-lineup-switch" role="group" aria-label="Comparer les lineups"><button type="button" data-coach-lineup="current" aria-pressed="true">Lineup actuelle</button><button type="button" data-coach-lineup="suggested" aria-pressed="false">Lineup proposée</button></div><div id="coach-week-roster"></div></section>
+        <section class="coach-week-column"><h2>Mouvements recommandés</h2><p>Ajout, coupe et coût comparés sur ton roster. Les scénarios restent conditionnels.</p><div id="coach-week-moves"></div></section>
+      </div>
+      <details class="coach-raw"><summary>Analyse complète · lineup, waivers, watchlist et trades</summary><div id="coach-grid" class="coach-grid"></div></details>
       <details class="coach-raw">
         <summary>Version texte pour n8n / assistant IA</summary>
         <pre id="coach-message"></pre>

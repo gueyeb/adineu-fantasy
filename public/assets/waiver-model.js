@@ -292,19 +292,21 @@ export function evaluateRosterFit({ marketRow, myPlayers, paceOf, week, faabRema
     // A rental ends; the cut does not. Cutting an organic riser for it must be paid for by the
     // documented net gain. Uncalibrated, so it only orders cuts: netGainTotal keeps its definition.
     const emerging = cut?.emergingRole ?? null;
+    const unpricedCutPotential = Boolean(cut) && (emerging?.opportunitiesDelta > 0 || emerging?.snapShareDelta > 0) &&
+      (cut.usageTrend > 0 || emerging?.progression === "RISING");
     const organicRiser = Boolean(cut) && horizonWeeks < remaining && emerging?.progression === "RISING" && emerging.progressionSource === "ORGANIC";
     const progressionSacrificeTotal = !organicRiser ? 0 : Number.isFinite(emerging.optionValuePerWeek) ? round(emerging.optionValuePerWeek * remaining) : null;
     const progressionGuard = !organicRiser ? "NOT_APPLICABLE" : progressionSacrificeTotal === null ? "UNPRICED"
       : netGainTotal !== null && netGainTotal - progressionSacrificeTotal > 0 ? "JUSTIFIED" : netGainTotal === null ? "UNPRICED" : "NOT_JUSTIFIED";
     const selectionScore = netGainTotal === null ? null : round(netGainTotal - preferencePenaltyTotal - (progressionSacrificeTotal ?? 0));
-    return { preference, preferencePenaltyTotal, selectionScore, progressionGuard, progressionSacrificeTotal, emergingRole: emerging, sleeperId: cut?.sleeperId ?? null, name: cut?.name ?? "Place libre", position: cut?.position ?? null,
+    return { unpricedCutPotential, preference, preferencePenaltyTotal, selectionScore, progressionGuard, progressionSacrificeTotal, emergingRole: emerging, sleeperId: cut?.sleeperId ?? null, name: cut?.name ?? "Place libre", position: cut?.position ?? null,
       nflTeam: cut?.nflTeam || null, weeklyLineupDeltas, grossGainTotal, netGainTotal, dropCostTotal,
       postRoleCutCostTotal, postRoleCutDeltas,
       // Every term of the cut cost, with the roster inputs it was computed from.
       dropCostComponents: { horizonWeeks, usagePremiumPerWeek: option.usagePremium, buyLowPremiumPerWeek: option.buyLowPremium,
         projectionUpsidePerWeek: option.projectionUpside, optionValuePerWeek, optionTotal: dropCostTotal,
         postRoleLineupLossTotal: postRoleCutCostTotal, preferencePenaltyTotal: rosterPreferences.find(row => row.playerId === String(cut?.sleeperId))?.penaltyPoints ?? 0,
-        progressionSacrificeTotal, progressionGuard, emergingRole: emerging,
+        unpricedCutPotential, progressionSacrificeTotal, progressionGuard, emergingRole: emerging,
         lineupLossIncludedInGross: true, optionApplicable: option.applicable, optionCoverage: option.coverage,
         missingInputs: option.missingInputs, inputs: option.inputs, calibrated: false },
       coverageBlockers,
@@ -312,7 +314,7 @@ export function evaluateRosterFit({ marketRow, myPlayers, paceOf, week, faabRema
       optionValuePerWeek, totalCostPerWeek: optionValuePerWeek,
       usageScore: cut?.usageScore ?? null, usageSignal: cut?.usageSignal || null,
       byeWeek: BYE_WEEKS_2026[cut?.nflTeam] ?? null,
-      regretRisk: option.coverage === "NONE" ? "UNKNOWN" : optionValuePerWeek >= 1.5 ? "HIGH" : optionValuePerWeek >= 0.7 ? "MEDIUM" : "LOW",
+      regretRisk: unpricedCutPotential || option.coverage === "NONE" ? "UNKNOWN" : optionValuePerWeek >= 1.5 ? "HIGH" : optionValuePerWeek >= 0.7 ? "MEDIUM" : "LOW",
       coverageIssues: [...coverageIssues], legalTransaction: !coverageIssues.has("ROSTER_COMPOSITION_VIOLATION") };
   };
   const scenarios = (hasOpenRosterSlot ? [null] : candidates).map(simulate).sort((a, b) =>
