@@ -60,7 +60,7 @@ export function evaluateNextUnlockScenario({ row, availability, rosterContext, w
 }
 
 /** Shared by live reports and offline recalculation; no I/O. */
-export function createWaiverEvaluator({ fitContext, week, availabilityFor, ownershipRechecked, transactionsComplete, horizonFor = () => null }) {
+export function createWaiverEvaluator({ fitContext, week, availabilityFor, ownershipRechecked, transactionsComplete, horizonFor = () => null, bidReferenceByPosition = {} }) {
   return (row, state = null) => {
     const rosterContext = fitContext && state ? { ...fitContext, ...state,
       protectedIds: new Set([...fitContext.protectedIds, ...state.protectedIds]) } : fitContext;
@@ -132,8 +132,15 @@ export function createWaiverEvaluator({ fitContext, week, availabilityFor, owner
     // Three separate numbers: market estimate (likely cost), personal ceiling (value to this roster),
     // proposed bid (the market's high estimate, never above the ceiling).
     const marketHigh = Number.isFinite(row.faabMarket?.[1]) ? row.faabMarket[1] : null;
-    const suggestedBid = action === "CLAIM_IF_CHEAP" ? (marketHigh === null ? personalMaxBid : Math.min(personalMaxBid, marketHigh)) : action === "ADD_NOW" ? 0 : null;
-    const bidBasis = action !== "CLAIM_IF_CHEAP" ? null : marketHigh === null ? "PERSONAL_CEILING_NO_MARKET_ESTIMATE" : "MARKET_HIGH_ESTIMATE_CAPPED_BY_PERSONAL_CEILING";
+    // When the model has no market signal (0 $ or nothing), the likely cost is what such claims
+    // have actually cost in this league at that position: the median winning bid of the season.
+    const leagueReference = bidReferenceByPosition?.[row.position] ?? null;
+    const noMarketSignal = marketHigh === null || marketHigh === 0;
+    const useLeague = noMarketSignal && leagueReference?.usable === true;
+    const likelyCost = useLeague ? Math.ceil(leagueReference.median) : marketHigh;
+    const suggestedBid = action === "CLAIM_IF_CHEAP" ? (likelyCost === null ? personalMaxBid : Math.min(personalMaxBid, likelyCost)) : action === "ADD_NOW" ? 0 : null;
+    const bidBasis = action !== "CLAIM_IF_CHEAP" ? null : useLeague ? "LEAGUE_MEDIAN_WINNING_BID_CAPPED_BY_PERSONAL_CEILING"
+      : marketHigh === null ? "PERSONAL_CEILING_NO_MARKET_ESTIMATE" : "MARKET_HIGH_ESTIMATE_CAPPED_BY_PERSONAL_CEILING";
     // A market estimated at 0 $ is the model's guess about rivals, not a promise: say what room is left.
     const bidNote = action === "CLAIM_IF_CHEAP" && suggestedBid === 0 && personalMaxBid > 0 ? "ZERO_MARKET_ESTIMATE_NOT_A_GUARANTEE" : null;
     const bidUndeterminedReason = bidStatus !== "NOT_DETERMINED" ? null
@@ -172,7 +179,7 @@ export function createWaiverEvaluator({ fitContext, week, availabilityFor, owner
         personalMaxBid: shownMaxBid,
         maxBidStatus,
         bidPctInitial: Number.isFinite(suggestedBid) ? Number((suggestedBid / GENERAL_SETTINGS_2026.waiver.budget * 100).toFixed(1)) : null,
-        bidStatus, bidUndeterminedReason, bidBasis, bidNote, unpricedPotential,
+        bidStatus, bidUndeterminedReason, bidBasis, bidNote, leagueBidReference: leagueReference, unpricedPotential,
         bidPctRemaining: rosterContext?.faabRemaining > 0 && Number.isFinite(suggestedBid) ? Number((suggestedBid / rosterContext.faabRemaining * 100).toFixed(1)) : null,
         marketMethod: "Projection window (ROS or labeled rank fallback), surplus over replacement × PRICE_PER_POINT; not observed rival bids",
         marketEstimate: row.marketEstimate,

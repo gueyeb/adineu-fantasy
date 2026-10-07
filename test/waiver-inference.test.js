@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { deriveWaiverRules, inferWaiverState, resolveAcquisitionAvailability, weeklyWaiverRuns } from "../public/assets/acquisition-availability.js";
 import { createWaiverEvaluator } from "../scripts/waiver-evaluator.js";
 import { buildCoherenceWarnings } from "../public/assets/decision-coherence.js";
+import { buildLeagueBidReference } from "../public/assets/league-market.js";
 
 // Réglages au format Sleeper et historique fictif : aucune transaction réelle.
 const settings = { waiver_type: 2, daily_waivers: 0, waiver_day_of_week: 2, daily_waivers_hour: 0, waiver_clear_days: 1 };
@@ -149,4 +150,35 @@ test("market estimate, personal ceiling and proposed bid are three numbers: a 0 
   assert.ok(unpricedByMarket.waiver.personalMaxBid >= priced.waiver.personalMaxBid);
   // L'enchère proposée ne dépasse jamais le plafond personnel.
   assert.equal(evaluate(defense("d2", [40, 90])).waiver.suggestedBid, 24);
+});
+
+test("without a market signal the proposed bid follows the league's real winning bids, capped by the personal ceiling", () => {
+  const claim = (id, bid, status = "complete") => ({ type: "waiver", status, settings: { waiver_bid: bid }, adds: { [id]: 1 } });
+  const transactions = [0, 11, 12, 15, 20, 22, 28, 31, 55].map((bid, i) => claim(`def${i}`, bid)).concat([claim("defx", 13, "failed"), claim("k1", 3), { type: "free_agent", status: "complete", adds: { def0: 2 } }]);
+  const reference = buildLeagueBidReference(transactions, { positionOf: id => id.startsWith("def") ? "DEF" : id.startsWith("k") ? "K" : null });
+  assert.deepEqual([reference.DEF.winningCount, reference.DEF.min, reference.DEF.p25, reference.DEF.median, reference.DEF.p75, reference.DEF.max, reference.DEF.failedCount, reference.DEF.failedMax, reference.DEF.usable],
+    [9, 0, 12, 20, 28, 55, 1, 13, true]);
+  // Un seul claim gagnant à ce poste : descriptif, pas utilisable.
+  assert.deepEqual([reference.K.winningCount, reference.K.usable], [1, false]);
+
+  const myPlayers = [{ sleeperId: "k", name: "Kicker", position: "K", nflTeam: "ZZZ", projectedPpg: 8 }];
+  const weekly = { k: 8, best: 8.6, good: 8.3, small: 2 };
+  const fitContext = { myPlayers, faabRemaining: 497, hasOpenRosterSlot: true, paceOf: x => weekly[x.sleeperId] ?? 0, weeklyPaceOf: x => weekly[x.sleeperId] ?? null,
+    projectionCovered: x => Number.isFinite(weekly[x.sleeperId]) };
+  const defense = (sleeperId, faabMarket) => ({ sleeperId, name: sleeperId, position: "DEF", nflTeam: "AAA", surplusPoints: 5, faabMarket, marketScore: 20, signals: {}, events: { flags: [], roleWeeks: 1 } });
+  const evaluate = (row, bidReferenceByPosition = reference) => createWaiverEvaluator({ fitContext, week: 5, availabilityFor: () => resolve("2026-10-07T06:00:00Z"),
+    ownershipRechecked: true, transactionsComplete: true, bidReferenceByPosition })(row);
+  const best = evaluate(defense("best", [0, 0]));
+  assert.deepEqual([best.waiver.personalMaxBid, best.waiver.suggestedBid, best.waiver.bidBasis, best.waiver.bidNote], [25, 20, "LEAGUE_MEDIAN_WINNING_BID_CAPPED_BY_PERSONAL_CEILING", null]);
+  // Le modèle a un signal de marché : il reste la référence.
+  const good = evaluate(defense("good", [7, 11]));
+  assert.deepEqual([good.waiver.suggestedBid, good.waiver.bidBasis], [11, "MARKET_HIGH_ESTIMATE_CAPPED_BY_PERSONAL_CEILING"]);
+  // Le meilleur choix n'est plus proposé moins cher que le moins bon.
+  assert.ok(best.waiver.suggestedBid >= good.waiver.suggestedBid);
+  // Jamais au-dessus de ce que le gain vaut pour le roster.
+  const small = evaluate(defense("small", [0, 0]));
+  assert.ok(small.waiver.suggestedBid <= small.waiver.personalMaxBid && small.waiver.personalMaxBid < 20);
+  // Échantillon insuffisant : retour à l'estimation du modèle, avec la note.
+  const noSample = evaluate(defense("best", [0, 0]), { DEF: { ...reference.DEF, usable: false } });
+  assert.deepEqual([noSample.waiver.suggestedBid, noSample.waiver.bidNote], [0, "ZERO_MARKET_ESTIMATE_NOT_A_GUARANTEE"]);
 });

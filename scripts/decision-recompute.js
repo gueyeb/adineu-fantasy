@@ -11,6 +11,7 @@ import { normalizeRosterPreferences } from '../public/assets/roster-preferences.
 import { buildStarterSlotOrder } from '../public/assets/roster-view.js';
 import { buildAcquisitionPlan, selectPlanCandidates, planPlayerIds } from '../public/assets/waiver-plan.js';
 import { createWaiverEvaluator } from './waiver-evaluator.js';
+import { buildLeagueBidReference } from '../public/assets/league-market.js';
 import { buildCoherenceWarnings, countEmptyStarterSlots } from '../public/assets/decision-coherence.js';
 
 /** Recalculate market, roster fit, actions and conditional plan from captured model inputs.
@@ -73,7 +74,8 @@ export function recomputeDecisionInputs(inputs) {
   }
   const evaluate = createWaiverEvaluator({ fitContext, week:inputs.week, availabilityFor:row=>availabilityById[row.sleeperId],
     ownershipRechecked:inputs.ownershipRechecked, transactionsComplete:inputs.transactionsComplete,
-    horizonFor:player=>nextWeekHorizon({ schedule:inputs.raw?.schedule || [], week:inputs.week, nflTeam:player.nflTeam }) });
+    horizonFor:player=>nextWeekHorizon({ schedule:inputs.raw?.schedule || [], week:inputs.week, nflTeam:player.nflTeam }),
+    bidReferenceByPosition:sourceFeatures ? buildLeagueBidReference(inputs.raw.allTransactions, { positionOf:id=>sourceFeatures.meta(id)?.position ?? null }) : {} });
   const byPosition = {};
   for (const row of market) {
     if (inputs.position && row.position !== inputs.position.toUpperCase()) continue;

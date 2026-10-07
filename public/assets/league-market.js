@@ -55,6 +55,32 @@ export function summarizeFaabByPosition(claims = []) {
   }]));
 }
 
+/** What a claim has cost in this league, per position: winning bids of the season (quartiles) and
+ * the losing bids Sleeper also publishes. Descriptive only — it is not a probability of winning,
+ * and it is `usable` only from `minimumSample` winning claims. */
+export function buildLeagueBidReference(transactions = [], { positionOf = () => null, minimumSample = 5 } = {}) {
+  const won = {};
+  const lost = {};
+  for (const transaction of Array.isArray(transactions) ? transactions : []) {
+    if (transaction.type !== "waiver" || !["complete", "failed"].includes(transaction.status)) continue;
+    const bid = Number(transaction.settings?.waiver_bid);
+    if (!Number.isFinite(bid)) continue;
+    for (const playerId of Object.keys(transaction.adds || {})) {
+      const position = positionOf(playerId);
+      if (!position) continue;
+      ((transaction.status === "complete" ? won : lost)[position] ||= []).push(bid);
+    }
+  }
+  const quantile = (sorted, q) => sorted[Math.min(sorted.length - 1, Math.max(0, Math.ceil(q * sorted.length) - 1))];
+  return Object.fromEntries([...new Set([...Object.keys(won), ...Object.keys(lost)])].sort().map(position => {
+    const bids = [...(won[position] || [])].sort((a, b) => a - b);
+    const failed = lost[position] || [];
+    return [position, { winningCount: bids.length, min: bids[0] ?? null, p25: bids.length ? quantile(bids, 0.25) : null, median: median(bids),
+      p75: bids.length ? quantile(bids, 0.75) : null, max: bids.at(-1) ?? null, failedCount: failed.length, failedMax: failed.length ? Math.max(...failed) : null,
+      usable: bids.length >= minimumSample, minimumSample, statistic: "SEASON_WINNING_BIDS", calibrated: false }];
+  }));
+}
+
 /** Trending adds (Sleeper platform-wide), flagged rostered-in-Adineu or joined to the v2 model row. */
 export function buildTrendingAdds(trending = [], { rosteredIds = new Set(), rosterOf = () => null, playerMeta = () => null, modelRowOf = () => null, limit = 15 } = {}) {
   return (Array.isArray(trending) ? trending : []).slice(0, limit).map(({ player_id: playerId, count }) => {

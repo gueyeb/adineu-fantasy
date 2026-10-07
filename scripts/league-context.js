@@ -28,7 +28,7 @@ import {
 } from "../public/assets/league-settings.js";
 import { resolveOperationalWeek, resolveLastCompletedWeek } from "../public/assets/nfl-week.js";
 import { findRosterByTeam, buildStarterSlotOrder, buildRosterSlots, listRosterIdentities } from "../public/assets/roster-view.js";
-import { buildFaabHistory, buildTrendingAdds, summarizeFaabByPosition } from "../public/assets/league-market.js";
+import { buildFaabHistory, buildTrendingAdds, summarizeFaabByPosition, buildLeagueBidReference } from "../public/assets/league-market.js";
 import { buildPlayerWeeks, calculateUsageScores } from "../public/assets/usage-score.js";
 import { calculateFaabRemaining } from "../public/assets/team-metrics.js";
 import { restOfSeasonEstimate } from "../public/assets/trade-score.js";
@@ -536,7 +536,9 @@ export async function getFreeAgents({
     fitContext = { rosterPreferences, myPlayers, paceOf, weeklyPaceOf, projectionCovered, frozenSlots, hasOpenRosterSlot, starterTeId: (roster.starters || [])[STARTER_SLOT_ORDER.indexOf("TE")] ?? null, starterIds, lockedIds, protectedIds, reserveIds: new Set(protectedIds), replacementByPosition, faabRemaining: calculateFaabRemaining(GENERAL_SETTINGS_2026.waiver.budget, roster.settings?.waiver_budget_used) };
   }
 
-  const withWaiver = createWaiverEvaluator({ fitContext, week, availabilityFor, ownershipRechecked, transactionsComplete: transactionsByWeek.length === week, horizonFor });
+  // Real prices of this league, per position, for claims the model cannot price.
+  const leagueBidReference = buildLeagueBidReference(allTransactions, { positionOf: id => meta(id)?.position ?? null });
+  const withWaiver = createWaiverEvaluator({ fitContext, week, availabilityFor, ownershipRechecked, transactionsComplete: transactionsByWeek.length === week, horizonFor, bidReferenceByPosition: leagueBidReference });
 
   const normalizedPosition = position ? String(position).toUpperCase() : null;
   const byPosition = {};
@@ -620,7 +622,7 @@ export async function getFreeAgents({
     snapshotIssues,
     generatedAt: new Date().toISOString(), week, lastCompletedWeek, rankingModel: "WAIVER_V2", degraded, coverage,
     pricePerPoint: PRICE_PER_POINT, team: team || null, faabRemaining: fitContext?.faabRemaining ?? null, byPosition,
-    faabHistory: faabHistory.slice(0, 30), faabByPosition: summarizeFaabByPosition(faabHistory), trending
+    faabHistory: faabHistory.slice(0, 30), faabByPosition: summarizeFaabByPosition(faabHistory), leagueBidReference, trending
   };
 }
 
@@ -658,7 +660,7 @@ export function formatPoolCoverage(pool) {
 }
 
 /** Rend la liste de free agents en un bulletin texte, groupé par poste. */
-export function formatWaiverReport({ byPosition, week, faabRemaining = null, degraded = false, coverage = null, recentTransactions = [], transactionsTruncatedCount = 0, availabilityAsOf = null, snapshotIssues = [], acquisitionPlan = null, rosterPreferences = [], poolCoverage = null, coherence = null }) {
+export function formatWaiverReport({ byPosition, week, faabRemaining = null, degraded = false, coverage = null, recentTransactions = [], transactionsTruncatedCount = 0, availabilityAsOf = null, snapshotIssues = [], acquisitionPlan = null, rosterPreferences = [], poolCoverage = null, coherence = null, leagueBidReference = null }) {
   const lines = [`📋 WAIVER WIRE REPORT — ADINEU${week ? ` (Semaine ${week})` : ""}`];
   if (Number.isFinite(faabRemaining)) lines.push(`FAAB restant : ${faabRemaining} $ / ${GENERAL_SETTINGS_2026.waiver.budget} $`);
   if (degraded) lines.push(`Couverture dégradée : projections ${coverage?.projectionWeeks || "n/d"}, usage ${coverage?.statsWeeks || "n/d"}.`);
@@ -666,6 +668,8 @@ export function formatWaiverReport({ byPosition, week, faabRemaining = null, deg
   lines.push(`Disponibilité au ${availabilityAsOf || "n/d"} · transactions 72 h : ${recentTransactions.length} (${transactionsTruncatedCount} non affichées).`, ...snapshotIssues);
   if (recentTransactions.length) lines.push(...formatRecentTransactions(recentTransactions));
   if (poolCoverage) lines.push(...formatPoolCoverage(poolCoverage));
+  const usableReferences = Object.entries(leagueBidReference || {}).filter(([, row]) => row.usable);
+  if (usableReferences.length) lines.push(`Enchères gagnantes de la ligue cette saison (médiane · min–max · claims) : ${usableReferences.map(([position, row]) => `${position} ${row.median} $ · ${row.min}–${row.max} $ · ${row.winningCount}`).join(" ; ")}. Descriptif, pas une probabilité de gain.`);
   if (coherence) lines.push(...formatCoherenceWarnings(coherence));
   lines.push("Scénarios alternatifs : une même coupe ne peut pas financer deux acquisitions.");
   if (rosterPreferences.length) lines.push("Préférences temporaires :", JSON.stringify(rosterPreferences));
@@ -689,7 +693,7 @@ export function formatWaiverReport({ byPosition, week, faabRemaining = null, deg
           (Number.isFinite(player.waiver.usageScore) ? ` · Usage ${player.waiver.usageScore}${player.waiver.usageSignal ? ` ${player.waiver.usageSignal}` : ""}` : "") +
           (player.waiver.fit ? ` · Priorité ${player.waiver.fit.priorityScore} · Capture ${player.waiver.fit.fitScore}% · Delta S${week} ${player.waiver.fit.targetWeekDelta ?? "n/d"} · Gain brut ${player.waiver.fit.grossGainTotal ?? "n/d"} sur ${player.waiver.fit.horizonWeeks} sem · Gain net total ${player.waiver.fit.netGainTotal ?? "n/d"} · Gain net moyen ROS ${player.waiver.fit.netGainPerWeek ?? "n/d"} pts/sem · Coupe ${player.waiver.fit.dropCandidate?.name || "n/d"} (${player.waiver.fit.dropCostPerWeek ?? "n/d"} pts/sem) · Max ${player.waiver.fit.faabMaxForMe} $${player.waiver.fit.cutSelection ? ` · Sélection coupe ${player.waiver.fit.cutSelection}` : ""}${formatDropCost(player.waiver.fit.dropCostComponents)}` : "") +
           formatEntry(player) + formatNextUnlock(player.nextUnlockScenario) + (player.teRosterUtility ? ` · ${formatTeRosterUtility(player.teRosterUtility)}` : '') +
-          ` · ${formatMaxBid(player.waiver)} · ${player.waiver.bidStatus === "NOT_DETERMINED" ? `Enchère non déterminée (${player.waiver.bidUndeterminedReason})` : `Enchère proposée ${player.waiver.suggestedBid ?? "n/d"} $${player.waiver.bidNote === "ZERO_MARKET_ESTIMATE_NOT_A_GUARANTEE" ? ` (marché estimé à 0 $, sans garantie : marge jusqu'au plafond de ${player.waiver.personalMaxBid} $)` : ""}`} · % initial ${player.waiver.bidPctInitial ?? "n/d"} · % restant ${player.waiver.bidPctRemaining ?? "n/d"}` +
+          ` · ${formatMaxBid(player.waiver)} · ${player.waiver.bidStatus === "NOT_DETERMINED" ? `Enchère non déterminée (${player.waiver.bidUndeterminedReason})` : `Enchère proposée ${player.waiver.suggestedBid ?? "n/d"} $${player.waiver.bidBasis === "LEAGUE_MEDIAN_WINNING_BID_CAPPED_BY_PERSONAL_CEILING" ? ` (médiane des enchères gagnantes ${player.position} de la ligue : ${player.waiver.leagueBidReference.median} $, bornée par ton plafond)` : ""}${player.waiver.bidNote === "ZERO_MARKET_ESTIMATE_NOT_A_GUARANTEE" ? ` (marché estimé à 0 $, sans garantie : marge jusqu'au plafond de ${player.waiver.personalMaxBid} $)` : ""}`} · % initial ${player.waiver.bidPctInitial ?? "n/d"} · % restant ${player.waiver.bidPctRemaining ?? "n/d"}` +
           (player.waiver.duration ? ` · Durée ${player.waiver.duration}` : "") +
           (player.waiver.newsOverride ? ` · ⚡ ${player.waiver.reasons.join(" ; ")}` : "")
         : "";
