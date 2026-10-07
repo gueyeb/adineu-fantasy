@@ -1,4 +1,5 @@
 import { formatLineupMovements } from "./lineup-movements.js";
+import { summarizeDecisionProvenance, formatProvenanceSummary } from './decision-provenance.js';
 import { formatTeRosterUtility } from './te-roster-utility.js';
 import { formatClaimPortfolio } from '../public/assets/waiver-plan.js';
 import { formatProjectionComparison } from './projection-comparison.js';
@@ -217,7 +218,7 @@ export function buildDecisionContext({ context, playerValues = {}, statuses = ne
     availabilityAsOf: waivers?.availabilityAsOf ?? null,
     snapshotIssues: waivers?.snapshotIssues ?? [],
     dataThroughWeek: waivers?.lastCompletedWeek ?? null,
-    candidateProvenance: available.map(player => ({ playerId: player.sleeperId, provenance: player.provenance, usageDiagnostic: player.usageDiagnostic })),
+    candidateProvenance: available.map(player => ({ playerId: player.sleeperId, name: player.name, provenance: player.provenance, usageDiagnostic: player.usageDiagnostic })),
     rosterProvenance: waivers?.rosterProvenance ?? [],
     playerIndexProvenance: waivers?.playerIndexProvenance ?? null,
     candidateCoverage: { evaluated: waivers?.evaluatedCandidateCount ?? null, returned: waivers?.returnedCandidateCount ?? null },
@@ -262,7 +263,7 @@ function decisionPlayerLine(prefix, player) {
   return fields.join(" | ");
 }
 
-const dropCostText = components => components ? ` [usage ${components.usagePremiumPerWeek} + buyLow ${components.buyLowPremiumPerWeek} + projUpside ${components.projectionUpsidePerWeek} = option ${components.optionValuePerWeek}/w × ${components.horizonWeeks}w = ${components.optionTotal}; postRoleLineupLoss ${metric(components.postRoleLineupLossTotal)}; lineup loss already in gross; inputs ${components.optionCoverage}${components.missingInputs.length ? ` missing ${components.missingInputs.join(",")}` : ""}; uncalibrated]` : "";
+const dropCostText = components => components ? ` [usage ${components.usagePremiumPerWeek} + buyLow ${components.buyLowPremiumPerWeek} + projUpside ${components.projectionUpsidePerWeek} = option ${components.optionValuePerWeek}/w × ${components.horizonWeeks}w = ${components.optionTotal}; postRoleLineupLoss ${metric(components.postRoleLineupLossTotal)}; lineup loss already in gross; inputs ${components.optionCoverage}${components.missingInputs.length ? ` missing ${components.missingInputs.join(",")}` : ""}; uncalibrated${components.unpricedCutPotential ? "; cut potential UNPRICED, excluded from net gain" : ""}]` : "";
 const emergingText = emerging => !emerging?.comparable ? "" : ` | Trend W${emerging.weeksCompared.join("/")}: snaps ${metric(emerging.snapShareDelta)}, targets ${metric(emerging.targetsDelta)}, opportunities ${metric(emerging.opportunitiesDelta)}, xFP ${metric(emerging.xfpDelta)}, routes n/d -> ${emerging.progression}${emerging.progressionSource ? ` ${emerging.progressionSource}` : ""}, emerging option ${metric(emerging.optionValuePerWeek, " pts/w")} [uncalibrated]`;
 const nextUnlockText = scenario => !scenario ? "" : scenario.status !== "EVALUATED" ? ` | NextUnlock=${scenario.status}`
   : ` | NextUnlock=scenario only, not executable: start W${scenario.startWeek}, unlock ${scenario.unlockVerified ? scenario.unlockAt : "UNVERIFIED"}, horizon ${metric(scenario.horizonWeeks, "w")}, net ${metric(scenario.netGainTotal, " pts")}, cut ${scenario.dropCandidate?.name || "n/d"}, indicative max ${metric(scenario.indicativeMaxBid, " $")}, coverage ${scenario.coverageIssues.join(",") || "complete"}`;
@@ -375,7 +376,7 @@ export function formatDecisionContext(context) {
     "",
     "MODEL NOTES",
     "Week projections and ROS: Sleeper, with Adineu usage blend on distant weeks when available.",
-    `Player source coverage (source load dates; game completion unverified): ${JSON.stringify({ roster: context.rosterProvenance ?? [], candidates: context.candidateProvenance ?? [] })}`,
+    ...formatProvenanceSummary(summarizeDecisionProvenance({ roster: context.rosterProvenance, candidates: context.candidateProvenance })),
     "Usage/xFP/signals and waiver Market/Capture/Priority: Adineu estimates, not official NFL or Sleeper values.",
     `Coverage: projections ${coverage.projections || "n/d"}; usage ${coverage.usageStats || "n/d"}; player status ${coverage.playerIndex ? "available" : "unavailable"}; degraded=${coverage.degraded}.`,
     "SELL_HIGH/BUY_LOW describe production relative to estimated xFP; neither instructs a cut nor guarantees regression. WOPR is not xFP; no external chart is ingested without a numerical, versioned source and defined universe.",

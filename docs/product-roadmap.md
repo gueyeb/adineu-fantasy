@@ -102,3 +102,7 @@ Livré : les mouvements liés deviennent une décision avec gain total et affect
 ### 07/10 — Coach hebdomadaire : équipe et mouvements
 
 Incrément local : vue comparative actuel/proposé, mouvements groupés par coupe, alertes et alternatives ; sélection des streamers par semaine cible partagée live/recompute. Diagnostics des projections du roster et signal de potentiel de coupe non chiffré. Valorisation/calibration de l'optionalité et provenance compacte restent ouvertes. Vérification de l'asset Coach de production seulement, sans assimilation à un audit de tout le serveur. [Backlog consolidé et limites](coach-weekly-board-2026-10-07.md).
+
+### 07/10 — Livraison Coach vérifiée et export compact
+
+PR #1 fusionnée ; les neuf empreintes de production correspondent au commit fusionné. Validation visuelle du roster privé encore ouverte (connexion requise). Incrément suivant : résumé de provenance borné, diagnostics candidats dans Coach/n8n, avertissement explicite sur le potentiel de coupe non valorisé. Chiffres et sélection inchangés ; calibration ouverte. [Contrat et preuve de livraison](decision-compact-provenance-2026-10-07.md).
