@@ -2,8 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   COHERENCE_CATEGORIES, COHERENCE_MAX_LISTED_IDS, CUT_CONCENTRATION_MIN_ROWS, CUT_CONCENTRATION_SHARE,
-  buildCoherenceWarnings, formatCoherenceWarnings
-} from "../public/assets/decision-coherence.js";
+  buildCoherenceWarnings, formatCoherenceWarnings, countEmptyStarterSlots } from "../public/assets/decision-coherence.js";
 
 // Fictitious players only. A healthy board row: WATCH, ranked cut, covered gain, guard not applicable.
 const cut = (sleeperId, name = `Cut ${sleeperId}`) => ({ sleeperId, name });
@@ -20,7 +19,7 @@ const find = (result, code, category) => result.warnings.find(item => item.code 
 const codes = result => result.warnings.map(item => item.code);
 
 test("empty, missing and malformed input stay null-safe and publishable", () => {
-  const empty = { warnings: [], publishable: true, counts: { CALCULATION_INCONSISTENCY: 0, COVERAGE_GAP: 0, CONSTRAINT: 0, JUSTIFIED_WATCH: 0 }, playerNames: {} };
+  const empty = { warnings: [], publishable: true, counts: { CALCULATION_INCONSISTENCY: 0, COVERAGE_GAP: 0, CONSTRAINT: 0, JUSTIFIED_WATCH: 0 }, playerNames: {}, decisionStatus: { status: "EXECUTABLE", reasons: [] } };
   assert.deepEqual(buildCoherenceWarnings(), empty);
   assert.deepEqual(run({}), empty);
   assert.deepEqual(run({ boardRows: null, marketRows: undefined, myPlayers: "x" }), empty);
@@ -275,4 +274,19 @@ test("formatCoherenceWarnings: verdict line, one line per warning, safe on empty
   assert.equal(lines[0], "Cohérence : NON publiable (2 incohérence(s) de calcul)");
   assert.ok(lines[1].startsWith("[CALCULATION_INCONSISTENCY/BLOCKING] ACTIONABLE_WITHOUT_COVERED_GAIN — "));
   assert.ok(lines[2].startsWith("[CALCULATION_INCONSISTENCY/BLOCKING] PINNED_CANDIDATE_ABSENT — "));
+});
+
+test("decision status: unverified availability and an unresolved empty starter slot degrade the decision without blocking publication", () => {
+  const unknown = id => ({ ...row(id), availability: { availability: "UNKNOWN" } });
+  const degraded = buildCoherenceWarnings({ boardRows: [unknown("p1"), unknown("p2")], rosterState: { emptyStarterSlotCount: 1, planStepCount: 0 } });
+  assert.deepEqual(degraded.warnings.map(item => [item.code, item.category]), [["AVAILABILITY_UNVERIFIED", "COVERAGE_GAP"], ["EMPTY_STARTER_SLOT_UNRESOLVED", "COVERAGE_GAP"]]);
+  assert.equal(degraded.publishable, true);
+  assert.deepEqual(degraded.decisionStatus, { status: "DEGRADED", reasons: ["AVAILABILITY_UNVERIFIED", "EMPTY_STARTER_SLOT_UNRESOLVED"] });
+  assert.match(formatCoherenceWarnings(degraded)[0], /DÉCISION DÉGRADÉE \(AVAILABILITY_UNVERIFIED, EMPTY_STARTER_SLOT_UNRESOLVED\)/);
+  // Un candidat vérifié suffit à lever le doute global ; un plan qui comble le slot aussi.
+  const verified = buildCoherenceWarnings({ boardRows: [unknown("p1"), { ...row("p2"), availability: { availability: "FREE_AGENT" } }], rosterState: { emptyStarterSlotCount: 1, planStepCount: 1 } });
+  assert.deepEqual(verified.decisionStatus, { status: "EXECUTABLE", reasons: [] });
+  assert.equal(buildCoherenceWarnings({ modelDegraded: true }).decisionStatus.status, "DEGRADED");
+  assert.equal(countEmptyStarterSlots({ starterIds: new Set(["a", "b", "0"]) }, 9), 7);
+  assert.equal(countEmptyStarterSlots(null, 9), 0);
 });

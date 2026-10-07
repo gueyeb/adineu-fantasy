@@ -11,7 +11,7 @@ import { normalizeRosterPreferences } from '../public/assets/roster-preferences.
 import { buildStarterSlotOrder } from '../public/assets/roster-view.js';
 import { buildAcquisitionPlan } from '../public/assets/waiver-plan.js';
 import { createWaiverEvaluator } from './waiver-evaluator.js';
-import { buildCoherenceWarnings } from '../public/assets/decision-coherence.js';
+import { buildCoherenceWarnings, countEmptyStarterSlots } from '../public/assets/decision-coherence.js';
 
 /** Recalculate market, roster fit, actions and conditional plan from captured model inputs.
  * Version 2 reconstructs event, usage/xFP and ROS features from source inputs. No live fetch allowed. */
@@ -83,7 +83,8 @@ export function recomputeDecisionInputs(inputs) {
   const acquisitionPlan = fitContext ? buildAcquisitionPlan({ candidates:Object.values(byPosition).flat(), myPlayers:fitContext.myPlayers,
     faabRemaining:fitContext.faabRemaining, rosterCapacity:buildStarterSlotOrder(ROSTER_SETTINGS_2026).length + ROSTER_SETTINGS_2026.benchSlots + fitContext.protectedIds.size,
     evaluateCandidate:evaluate }) : null;
-  const coherence = buildCoherenceWarnings({ boardRows:Object.values(byPosition).flat(), marketRows:market, myPlayers:fitContext?.myPlayers ?? [] });
+  const coherence = buildCoherenceWarnings({ boardRows:Object.values(byPosition).flat(), marketRows:market, myPlayers:fitContext?.myPlayers ?? [], modelDegraded:Boolean(inputs.degraded),
+    rosterState:{ emptyStarterSlotCount:countEmptyStarterSlots(fitContext, buildStarterSlotOrder(ROSTER_SETTINGS_2026).length), planStepCount:acquisitionPlan?.steps.length ?? null } });
   const projectionComparison = Object.hasOwn(inputs.raw ?? {}, 'projectionCapture') ? buildProjectionComparison({
     capture: inputs.raw.projectionCapture, season: inputs.season, week: inputs.week, asOf: inputs.asOf,
     players: Object.entries(inputs.raw.playersIndex).map(([sleeperId, player]) => ({ ...player, sleeperId })), schedule: inputs.raw.schedule

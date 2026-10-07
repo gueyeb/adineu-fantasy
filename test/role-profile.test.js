@@ -110,9 +110,49 @@ test("an unjustified or unpriced progression sacrifice downgrades an actionable 
   const unpriced = run({ optionValuePerWeek: null });
   assert.equal(unpriced.waiver.decision.recommendedAction, "WATCH");
   assert.ok(unpriced.waiver.decision.actionBlockers.includes("PROGRESSION_SACRIFICE_UNPRICED"));
-  assert.equal(unpriced.waiver.suggestedBid, 0);
+  assert.equal(unpriced.waiver.suggestedBid, null);
   assert.ok(run().waiver.decision.actionBlockers.includes("PROGRESSION_SACRIFICE_NOT_JUSTIFIED"));
   const justified = run({ rentalWeekly: 60 });
   assert.equal(justified.waiver.decision.recommendedAction, "ADD_NOW");
   assert.equal(justified.modelMetrics.progressionGuard, "JUSTIFIED");
+});
+
+test("0 $ is a real bid: without an executable action the bid is not determined, and says why", () => {
+  const { marketRow, ...fitContext } = rentalFixture({ rentalWeekly: 60 });
+  const evaluate = availability => createWaiverEvaluator({ fitContext, week: 4, availabilityFor: () => availability, ownershipRechecked: true, transactionsComplete: true })(marketRow);
+  const free = evaluate({ availability: "FREE_AGENT", canAddNow: true, canStartTargetWeek: true, coverageIssues: [] });
+  assert.deepEqual([free.waiver.decision.recommendedAction, free.waiver.bidStatus, free.waiver.suggestedBid], ["ADD_NOW", "FREE_ADD", 0]);
+  const unknown = evaluate({ availability: "UNKNOWN", canAddNow: false, canStartTargetWeek: null, coverageIssues: ["WAIVER_STATE_UNVERIFIED"] });
+  assert.deepEqual([unknown.waiver.decision.recommendedAction, unknown.waiver.bidStatus, unknown.waiver.suggestedBid, unknown.waiver.bidUndeterminedReason],
+    ["WATCH", "NOT_DETERMINED", null, "AVAILABILITY_UNVERIFIED"]);
+  assert.equal(unknown.waiver.bidPctRemaining, null);
+  // La valeur pour le roster reste affichée : c'est la faisabilité qui manque, pas l'évaluation.
+  assert.ok(unknown.waiver.personalMaxBid > 0);
+});
+
+test("an organically rising role is watched, never ignored; its upside is shown beside the gain, not inside it", () => {
+  const myPlayers = [12, 11, 10, 9, 8, 7].map((points, i) => ({ sleeperId: `s${i}`, name: `S${i}`, position: "WR", nflTeam: "BBB", usageScore: 50, projectedPpg: points }));
+  const weekly = Object.fromEntries(myPlayers.map(p => [p.sleeperId, p.projectedPpg]));
+  const fitContext = { myPlayers, faabRemaining: 100, paceOf: p => weekly[p.sleeperId] ?? 0, weeklyPaceOf: p => weekly[p.sleeperId] ?? 3, projectionCovered: () => true };
+  const base = { sleeperId: "c", name: "Candidate", position: "WR", nflTeam: "AAA", surplusPoints: 0, faabMarket: [0, 0], marketScore: 5, signals: {}, events: { flags: [] } };
+  const evaluate = row => createWaiverEvaluator({ fitContext, week: 4, availabilityFor: () => ({ availability: "UNKNOWN", coverageIssues: [] }), ownershipRechecked: true, transactionsComplete: true })(row);
+  const flat = evaluate({ ...base, emergingRole: { progression: "STABLE", xfpDelta: 0.2 } });
+  assert.equal(flat.waiver.decision.recommendedAction, "IGNORE");
+  assert.equal(flat.waiver.unpricedPotential, null);
+  const rising = evaluate({ ...base, emergingRole: { progression: "RISING", progressionSource: "ORGANIC", xfpDelta: 5.6, weeksCompared: [2, 3, 4] } });
+  assert.equal(rising.waiver.decision.recommendedAction, "WATCH");
+  assert.equal(rising.waiver.decision.watchReason, "ORGANIC_RISE_NOT_PRICED");
+  assert.deepEqual(rising.waiver.unpricedPotential, { xfpDeltaPerWeek: 5.6, source: "ORGANIC", weeksCompared: [2, 3, 4], includedInGain: false, calibrated: false });
+  assert.equal(rising.waiver.fit.netGainTotal, flat.waiver.fit.netGainTotal);
+  // Une hausse qui coïncide avec une absence n'obtient pas ce traitement.
+  assert.equal(evaluate({ ...base, emergingRole: { progression: "RISING", progressionSource: "COINCIDES_WITH_TEAMMATE_ABSENCE", xfpDelta: 5.6 } }).waiver.decision.recommendedAction, "IGNORE");
+});
+
+test("a promotion on top of an existing role is valued on the rest of the season, a pure rental on its window", () => {
+  const fixture = rentalFixture();
+  const rental = evaluateRosterFit(fixture);
+  assert.deepEqual([rental.horizonWeeks, rental.horizonBasis], [1, "TEMPORARY_ROLE_WINDOW"]);
+  const existing = evaluateRosterFit({ ...fixture, marketRow: { ...fixture.marketRow, roleProfile: { profile: "INJURY_PROMOTION_WITH_EXISTING_ROLE" } } });
+  assert.deepEqual([existing.horizonWeeks, existing.horizonBasis], [LAST_REGULAR_WEEK - 3, "EXISTING_ROLE_REST_OF_SEASON"]);
+  assert.equal(existing.progressionGuard, "NOT_APPLICABLE");
 });

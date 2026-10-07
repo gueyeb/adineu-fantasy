@@ -54,7 +54,7 @@ test('a high market cannot hide the bench cut cost that erases the gain', () => 
   assert.equal(row.teRosterUtility.grossGainTotal, 3);
   assert.equal(row.teRosterUtility.cutOptionCostTotal, 3);
   assert.equal(row.teRosterUtility.netGainTotal, 0);
-  assert.equal(row.waiver.suggestedBid, 0);
+  assert.equal(row.waiver.suggestedBid, null);
 });
 
 test('missing projections keep bye utility and net value unverified', () => {

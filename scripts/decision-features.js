@@ -80,7 +80,9 @@ export function extractDecisionFeatures({ index, catalog, rosters, nflState, pro
   // teammate who played the last completed week and got hurt afterwards explains nothing.
   const absencesAhead = (id, entries) => entries.filter(entry => entry.certainty !== "POSSIBLE_ABSENCE" && isAheadOf(id, entry) && !playedLastWeek(entry.triggerPlayerId));
   // Shown and acted on: sourced events, and snapshot statuses of teammates ahead only.
-  const relevantRipple = id => (ripple.byPlayerId.get(String(id)) ?? []).filter(entry => entry.trigger === "SOURCED_EVENT" || isAheadOf(id, entry));
+  // A snapshot status is what Sleeper showed at capture time for the target week, not a history.
+  const relevantRipple = id => (ripple.byPlayerId.get(String(id)) ?? []).filter(entry => entry.trigger === "SOURCED_EVENT" || isAheadOf(id, entry))
+    .map(entry => entry.trigger === "SNAPSHOT_STATUS" ? { ...entry, statusAsOf: asOf ?? null, targetWeek: week } : entry);
   const recentDrops = findRecentDrops(allTransactions, { asOf });
   const exclusions = { ROSTERED: 0, INACTIVE_OR_NO_NFL_TEAM: 0, NON_FANTASY_POSITION: 0, STATUS_ALERT: 0, NO_PROJECTION_OR_STATS: 0 };
   const entryReasonCounts = {};

@@ -43,7 +43,7 @@ export function evaluateNextUnlockScenario({ row, availability, rosterContext, w
   // The locked week consumes one week of a temporary role; nothing is extended beyond it.
   const remainingNow = Math.max(1, LAST_REGULAR_WEEK - week + 1);
   const roleWeeks = row.events?.roleWeeks > 0 ? row.events.roleWeeks : 0;
-  const temporary = roleWeeks > 0 && roleWeeks < remainingNow;
+  const temporary = roleWeeks > 0 && roleWeeks < remainingNow && row.roleProfile?.profile !== "INJURY_PROMOTION_WITH_EXISTING_ROLE";
   if (temporary && roleWeeks - (horizon.startWeek - week) <= 0) return { ...base, status: "ROLE_WINDOW_ENDS_BEFORE_UNLOCK", coverageIssues: ["NO_ROLE_WEEK_AFTER_UNLOCK"] };
   const futureRow = { ...row, events: { ...row.events, roleWeeks: temporary ? roleWeeks - (horizon.startWeek - week) : 0 } };
   const fit = evaluateRosterFit({ marketRow: futureRow, ...rosterContext, week: horizon.startWeek, frozenSlots: {}, lockedIds: new Set() });
@@ -101,8 +101,24 @@ export function createWaiverEvaluator({ fitContext, week, availabilityFor, owner
         decision.interpretation = "Rental gain does not document the cost of cutting an organically rising role.";
       }
     }
-    // A personal willingness-to-pay ceiling is not the cost of a free-agent add.
-    const suggestedBid = decision.recommendedAction === "CLAIM_IF_CHEAP" ? personalMaxBid : 0;
+    // Expected points a rising role has gained and no projection prices yet. Shown next to the
+    // gain, never inside it: it is a trend, not a forecast.
+    const emerging = row.emergingRole;
+    const unpricedPotential = emerging?.progression === "RISING" && Number.isFinite(emerging.xfpDelta)
+      ? { xfpDeltaPerWeek: emerging.xfpDelta, source: emerging.progressionSource, weeksCompared: emerging.weeksCompared, includedInGain: false, calibrated: false } : null;
+    // Ignoring means there is nothing to look at: an organically rising role is at least watched.
+    if (decision.recommendedAction === "IGNORE" && unpricedPotential?.source === "ORGANIC") {
+      decision.recommendedAction = "WATCH";
+      decision.watchReason = "ORGANIC_RISE_NOT_PRICED";
+      decision.interpretation = "No projected lineup gain today; an organically rising role is watched, its upside is not priced.";
+    }
+    // 0 $ is a real bid in this league: without an executable action the bid is not determined.
+    const action = decision.recommendedAction;
+    const bidStatus = action === "CLAIM_IF_CHEAP" ? "PROPOSED" : action === "ADD_NOW" ? "FREE_ADD" : "NOT_DETERMINED";
+    const suggestedBid = action === "CLAIM_IF_CHEAP" ? personalMaxBid : action === "ADD_NOW" ? 0 : null;
+    const bidUndeterminedReason = bidStatus !== "NOT_DETERMINED" ? null
+      : availability?.availability === "UNKNOWN" ? "AVAILABILITY_UNVERIFIED"
+      : decision.actionBlockers[0] ?? (action === "IGNORE" ? "NO_PROJECTED_GAIN" : "NO_EXECUTABLE_ACTION");
     return {
       ...row,
       availability,
@@ -135,7 +151,8 @@ export function createWaiverEvaluator({ fitContext, week, availabilityFor, owner
         suggestedBid,
         personalMaxBid,
         bidPctInitial: Number.isFinite(suggestedBid) ? Number((suggestedBid / GENERAL_SETTINGS_2026.waiver.budget * 100).toFixed(1)) : null,
-        bidPctRemaining: rosterContext?.faabRemaining > 0 ? Number((suggestedBid / rosterContext.faabRemaining * 100).toFixed(1)) : null,
+        bidStatus, bidUndeterminedReason, unpricedPotential,
+        bidPctRemaining: rosterContext?.faabRemaining > 0 && Number.isFinite(suggestedBid) ? Number((suggestedBid / rosterContext.faabRemaining * 100).toFixed(1)) : null,
         marketMethod: "Projection window (ROS or labeled rank fallback), surplus over replacement × PRICE_PER_POINT; not observed rival bids",
         marketEstimate: row.marketEstimate,
         auctionWinProbability: null,

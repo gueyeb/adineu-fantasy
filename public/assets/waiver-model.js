@@ -194,7 +194,11 @@ export function evaluateRosterFit({ marketRow, myPlayers, paceOf, week, faabRema
   projectionCovered = null, replacementByPosition = {}, hasOpenRosterSlot = false, frozenSlots = {}, rosterPreferences = [],
   reserveIds = new Set() }) {
   const remaining = Math.max(1, LAST_REGULAR_WEEK - week + 1);
-  const horizonWeeks = Math.min(remaining, marketRow.events?.roleWeeks > 0 ? marketRow.events.roleWeeks : remaining);
+  // A promoted player who already had a role keeps it when the starter returns: he is valued on
+  // the season's weekly projections, not only on the weeks of the absence.
+  const existingRole = marketRow.roleProfile?.profile === "INJURY_PROMOTION_WITH_EXISTING_ROLE";
+  const horizonWeeks = Math.min(remaining, marketRow.events?.roleWeeks > 0 && !existingRole ? marketRow.events.roleWeeks : remaining);
+  const horizonBasis = existingRole ? "EXISTING_ROLE_REST_OF_SEASON" : marketRow.events?.roleWeeks > 0 && horizonWeeks < remaining ? "TEMPORARY_ROLE_WINDOW" : "REST_OF_SEASON";
   // Bench-option premium of a cut, one named component per input. A missing input contributes
   // nothing and is listed: an unknown option is not a low option.
   const optionComponents = player => {
@@ -335,7 +339,7 @@ export function evaluateRosterFit({ marketRow, myPlayers, paceOf, week, faabRema
     preferenceOverridden: Boolean(chosen?.preference),
     progressionGuard: chosen?.progressionGuard ?? "NOT_APPLICABLE", progressionSacrificeTotal: chosen ? chosen.progressionSacrificeTotal : 0,
     appliedPreference: chosen?.preference ?? null,
-    gainPerWeek, grossGainAverage: gainPerWeek, horizonWeeks, netGainAverage, netGainPerWeek, netGainRosWeeks: remaining,
+    gainPerWeek, grossGainAverage: gainPerWeek, horizonWeeks, horizonBasis, netGainAverage, netGainPerWeek, netGainRosWeeks: remaining,
     grossGainTotal: chosen?.grossGainTotal ?? null, netGainTotal: chosen?.netGainTotal ?? null,
     dropCostTotal: chosen?.dropCostTotal ?? null,
     postRoleCutCostTotal: chosen?.postRoleCutCostTotal ?? null,

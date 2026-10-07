@@ -122,6 +122,9 @@ export function formatCoachPlan(plan) {
     `${record.wins}-${record.losses}${record.ties ? `-${record.ties}` : ""} · #${plan.teamState.rank}/${plan.teamState.leagueTeams} · FAAB ${plan.teamState.faab?.remaining ?? "n/d"} $ · urgence playoffs ${plan.teamState.playoffUrgency}`
   ];
   const optimal = plan.lineup.optimal;
+  if (plan.coherence?.decisionStatus?.status === "DEGRADED") {
+    lines.push(`⚠ Décision dégradée : ${plan.coherence.warnings.filter(row => plan.coherence.decisionStatus.reasons.includes(row.code)).map(row => row.message).join(" ") || plan.coherence.decisionStatus.reasons.join(", ")}`);
+  }
   if (plan.publishable === false) {
     lines.push("⛔ Contrôle de cohérence : NON publiable — envoi automatique refusé. À corriger avant toute action :",
       ...plan.coherence.warnings.filter(row => row.category === "CALCULATION_INCONSISTENCY").map(row => `• ${row.code} — ${row.message}`));

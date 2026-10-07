@@ -3,7 +3,7 @@ import { formatTeRosterUtility } from './te-roster-utility.js';
 import { loadProjectionCapture, buildProjectionComparison } from './projection-comparison.js';
 import { createWaiverEvaluator } from "./waiver-evaluator.js";
 import { extractDecisionFeatures, SEVERITY_BY_STATUS } from "./decision-features.js";
-import { buildCoherenceWarnings, formatCoherenceWarnings } from "../public/assets/decision-coherence.js";
+import { buildCoherenceWarnings, formatCoherenceWarnings, countEmptyStarterSlots } from "../public/assets/decision-coherence.js";
 import { resolveAcquisitionAvailability, summarizeRecentTransactions, resolveRoleEvidence, formatRecentTransactions, findRecentDrops, nextWeekHorizon } from "../public/assets/acquisition-availability.js";
 /**
  * Adineu Fantasy — Contexte IA & Waiver Wire Report
@@ -220,8 +220,15 @@ export async function getMatchupContext({
   if (!opponentRow) return null;
   const opponent = listRosterIdentities(rosters, users).find(entry => entry.roster.roster_id === opponentRow.roster_id);
   if (!opponent) return null;
-  const projected = row => summarizeMatchupCoverage({
-    starters: row.starters || [], requiredSlots: STARTER_SLOT_ORDER.length, projections,
+  // Sleeper keeps a dropped player in the matchup's starters until the lineup is edited: a starter
+  // who is no longer on the roster is an empty slot, not a projection.
+  // Without a published roster list nothing can be reconciled: the starters are kept as given.
+  const ownedBy = new Map(rosters.filter(roster => Array.isArray(roster.players)).map(roster => [roster.roster_id, new Set(roster.players.map(String))]));
+  const isStale = (row, id) => Boolean(id) && id !== "0" && ownedBy.has(row.roster_id) && !ownedBy.get(row.roster_id).has(String(id));
+  const reconciled = row => (row.starters || []).map(id => isStale(row, id) ? "0" : id);
+  const staleStarters = row => (row.starters || []).filter(id => isStale(row, id)).map(String);
+  const projected = row => ({ staleStarters: staleStarters(row), ...summarizeMatchupCoverage({
+    starters: reconciled(row), requiredSlots: STARTER_SLOT_ORDER.length, projections,
     actualPoints: row.players_points || {},
     gameStateOf: id => {
       const team = players.get(id)?.nflTeam;
@@ -229,7 +236,7 @@ export async function getMatchupContext({
       if (!game?.kickoffAt) return "UNKNOWN";
       return game.completed ? "FINAL" : Date.parse(game.kickoffAt) <= Date.now() ? "LIVE" : "PREGAME";
     }
-  });
+  }) });
   return {
     week,
     opponent: {
@@ -559,7 +566,8 @@ export async function getFreeAgents({
     evaluateCandidate: withWaiver
   }) : null;
   // Sanity checks before publication: computed on what is actually returned.
-  const coherence = buildCoherenceWarnings({ boardRows: board, marketRows: market, myPlayers: fitContext?.myPlayers ?? [] });
+  const coherence = buildCoherenceWarnings({ boardRows: board, marketRows: market, myPlayers: fitContext?.myPlayers ?? [], modelDegraded: degraded,
+    rosterState: { emptyStarterSlotCount: countEmptyStarterSlots(fitContext, STARTER_SLOT_ORDER.length), planStepCount: acquisitionPlan?.steps.length ?? null } });
   const projectionCapture = await loadProjectionCapture(projectionCapturePath);
   const projectionComparison = buildProjectionComparison({ capture: projectionCapture, season, week, asOf,
     players: [...index].map(([sleeperId, player]) => ({ ...player, sleeperId })), schedule });
@@ -568,7 +576,7 @@ export async function getFreeAgents({
     const paceById = Object.fromEntries(evaluatedPlayers.map(player => [player.sleeperId, fitContext?.paceOf(player) ?? null]));
     const weeklyPaceById = Object.fromEntries(evaluatedPlayers.map(player => [player.sleeperId, Object.fromEntries(Array.from({ length: LAST_REGULAR_WEEK - week + 1 }, (_, i) => [week + i, fitContext?.weeklyPaceOf(player, week + i) ?? null]))]));
     const { paceOf, weeklyPaceOf, projectionCovered, ...serialFit } = fitContext || {};
-    await onDecisionInputs(JSON.parse(JSON.stringify({ version: 2, featureExtractionVersion: 2, lastCompletedWeek, capturedAt: new Date().toISOString(), leagueId, season, week, asOf, team, position, limitPerPosition,
+    await onDecisionInputs(JSON.parse(JSON.stringify({ version: 2, featureExtractionVersion: 2, degraded, lastCompletedWeek, capturedAt: new Date().toISOString(), leagueId, season, week, asOf, team, position, limitPerPosition,
       ownershipRechecked, transactionsComplete: transactionsByWeek.length === week,
       marketRows: rows, availabilityById: Object.fromEntries(market.map(player => [player.sleeperId, availabilityFor(player)])),
       fitContext: fitContext ? { ...serialFit, protectedIds: [...fitContext.protectedIds], reserveIds: [...fitContext.reserveIds], lockedIds: [...fitContext.lockedIds], starterIds: [...fitContext.starterIds], paceById, weeklyPaceById } : null,
@@ -602,12 +610,14 @@ const formatDropCost = components => components ? ` · Coût de coupe : usage ${
 const formatEntry = player => {
   const entry = player.poolEntry;
   if (!entry) return "";
-  const ripple = (player.ripple || []).map(row => `${row.triggerName || `#${row.triggerPlayerId}`} ${row.triggerStatus || row.type} (${row.group})`);
+  const ripple = (player.ripple || []).map(row => `${row.triggerName || `#${row.triggerPlayerId}`} ${row.triggerStatus || row.type} (${row.group}${row.statusAsOf ? `, statut Sleeper au ${row.statusAsOf.slice(0, 16)}Z pour S${row.targetWeek}` : ""})`);
   const emerging = player.emergingRole;
   const profile = (player.roleProfile?.profile ? ` · Profil de rôle ${player.roleProfile.profile} (${player.roleProfile.basis.join(",")}, seuils non calibrés)` : "") +
     (emerging?.comparable ? ` · Tendance S${emerging.weeksCompared.join("/")} : snaps ${emerging.snapShareDelta ?? "n/d"}, cibles ${emerging.targetsDelta ?? "n/d"}, opportunités ${emerging.opportunitiesDelta ?? "n/d"}, xFP ${emerging.xfpDelta ?? "n/d"}, routes n/d → ${emerging.progression}${emerging.progressionSource ? ` (${emerging.progressionSource})` : ""}` : "") +
     (["NOT_JUSTIFIED", "UNPRICED", "JUSTIFIED"].includes(player.waiver?.fit?.progressionGuard) ? ` · Coupe d'une progression organique : ${player.waiver.fit.progressionGuard} (sacrifice ${player.waiver.fit.progressionSacrificeTotal ?? "n/d"} pts vs net ${player.waiver.fit.netGainTotal ?? "n/d"})` : "");
-  return `${profile} · Entrée ${entry.reasons.join("+") || "n/d"}${entry.valuationCovered ? "" : " · projection absente : aucun gain chiffré"}` +
+  const potential = player.waiver?.unpricedPotential ? ` · Potentiel non valorisé dans le gain : xFP ${player.waiver.unpricedPotential.xfpDeltaPerWeek >= 0 ? "+" : ""}${player.waiver.unpricedPotential.xfpDeltaPerWeek}/sem (${player.waiver.unpricedPotential.source}, non calibré)` : "";
+  const horizon = player.waiver?.fit?.horizonBasis === "EXISTING_ROLE_REST_OF_SEASON" ? " · Horizon de valorisation : reste de saison (rôle préexistant ; la promotion ne dure que le temps de l'absence)" : "";
+  return `${profile}${potential}${horizon} · Entrée ${entry.reasons.join("+") || "n/d"}${entry.valuationCovered ? "" : " · projection absente : aucun gain chiffré"}` +
     (entry.recentDrop ? ` · coupé le ${entry.recentDrop.droppedAt}, déblocage non vérifié` : "") +
     (ripple.length ? ` · Ripple à réévaluer (aucune part attribuée) : ${ripple.join(" ; ")}` : "");
 };
@@ -655,7 +665,7 @@ export function formatWaiverReport({ byPosition, week, faabRemaining = null, deg
           (Number.isFinite(player.waiver.usageScore) ? ` · Usage ${player.waiver.usageScore}${player.waiver.usageSignal ? ` ${player.waiver.usageSignal}` : ""}` : "") +
           (player.waiver.fit ? ` · Priorité ${player.waiver.fit.priorityScore} · Capture ${player.waiver.fit.fitScore}% · Delta S${week} ${player.waiver.fit.targetWeekDelta ?? "n/d"} · Gain brut ${player.waiver.fit.grossGainTotal ?? "n/d"} sur ${player.waiver.fit.horizonWeeks} sem · Gain net total ${player.waiver.fit.netGainTotal ?? "n/d"} · Gain net moyen ROS ${player.waiver.fit.netGainPerWeek ?? "n/d"} pts/sem · Coupe ${player.waiver.fit.dropCandidate?.name || "n/d"} (${player.waiver.fit.dropCostPerWeek ?? "n/d"} pts/sem) · Max ${player.waiver.fit.faabMaxForMe} $${player.waiver.fit.cutSelection ? ` · Sélection coupe ${player.waiver.fit.cutSelection}` : ""}${formatDropCost(player.waiver.fit.dropCostComponents)}` : "") +
           formatEntry(player) + formatNextUnlock(player.nextUnlockScenario) + (player.teRosterUtility ? ` · ${formatTeRosterUtility(player.teRosterUtility)}` : '') +
-          ` · Enchère proposée ${player.waiver.suggestedBid ?? "n/d"} $ · % initial ${player.waiver.bidPctInitial ?? "n/d"} · % restant ${player.waiver.bidPctRemaining ?? "n/d"}` +
+          ` · ${player.waiver.bidStatus === "NOT_DETERMINED" ? `Enchère non déterminée (${player.waiver.bidUndeterminedReason})` : `Enchère proposée ${player.waiver.suggestedBid ?? "n/d"} $`} · % initial ${player.waiver.bidPctInitial ?? "n/d"} · % restant ${player.waiver.bidPctRemaining ?? "n/d"}` +
           (player.waiver.duration ? ` · Durée ${player.waiver.duration}` : "") +
           (player.waiver.newsOverride ? ` · ⚡ ${player.waiver.reasons.join(" ; ")}` : "")
         : "";

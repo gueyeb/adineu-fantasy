@@ -206,3 +206,24 @@ test("context and Coach preserve existing playoff output and degrade independent
   assert.equal(degraded.strategyState.playoffProbability,null);
   assert.equal(degraded.strategyState.playoffContext.reason,'SOURCE_UNAVAILABLE');
 });
+
+test("a starter dropped from the roster is an empty matchup slot, not a projection (stale Sleeper lineup)", async () => {
+  const fetchImpl = async url => ({ ok: true, json: async () => {
+    if (url.endsWith("/rosters")) return [
+      { roster_id: 1, owner_id: "u1", players: ["p1", "p2"], starters: ["p1", "0"], settings: {} },
+      { roster_id: 2, owner_id: "u2", players: ["p3", "p4"], starters: ["p3", "p4"], settings: {} }
+    ];
+    if (url.endsWith("/users")) return [{ user_id: "u1", display_name: "t0z", metadata: { team_name: "Boukki" } }, { user_id: "u2", display_name: "rival", metadata: { team_name: "Binaries" } }];
+    if (url.endsWith("/matchups/5")) return [
+      { roster_id: 1, matchup_id: 3, points: 0, starters: ["p1", "dropped"] }, { roster_id: 2, matchup_id: 3, points: 0, starters: ["p3", "p4"] }
+    ];
+    if (url.includes("/projections/nfl/regular/2026/5")) return { p1: { pts_ppr: 20 }, dropped: { pts_ppr: 6.8 }, p3: { pts_ppr: 18 }, p4: { pts_ppr: 9 } };
+    return {};
+  } });
+  const matchup = await getMatchupContext({ team: "t0z", week: 5, fetchImpl });
+  assert.equal(matchup.myProjection.total, 20);
+  assert.deepEqual(matchup.myProjection.staleStarters, ["dropped"]);
+  assert.equal(matchup.myProjection.emptySlots, 8);
+  assert.equal(matchup.opponentProjection.total, 27);
+  assert.deepEqual(matchup.opponentProjection.staleStarters, []);
+});

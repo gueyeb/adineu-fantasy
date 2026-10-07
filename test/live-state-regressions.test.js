@@ -87,7 +87,7 @@ test("pool: a recent cut and a sourced event enter without projection, unpriced 
   const evaluated = createWaiverEvaluator({ fitContext, week: 4, availabilityFor: () => resolveAcquisitionAvailability({ playerId: "returning", rosters: [], asOf }),
     ownershipRechecked: true, transactionsComplete: true })(unpriced);
   assert.equal(evaluated.waiver.fit.netGainTotal, null);
-  assert.equal(evaluated.waiver.suggestedBid, 0);
+  assert.equal(evaluated.waiver.suggestedBid, null);
   assert.ok(["WATCH", "IGNORE"].includes(evaluated.waiver.decision.recommendedAction));
   assert.ok(evaluated.waiver.decision.actionBlockers.includes("NO_PROJECTION"));
 });
@@ -167,7 +167,7 @@ test("GAME_LOCKED: the current action stays blocked; the next-week scenario is s
   assert.equal(unverified.availability.availability, "GAME_LOCKED");
   assert.equal(unverified.waiver.decision.recommendedAction, "WATCH");
   assert.ok(unverified.waiver.decision.actionBlockers.includes("GAME_LOCKED"));
-  assert.equal(unverified.waiver.suggestedBid, 0);
+  assert.equal(unverified.waiver.suggestedBid, null);
   const scenario = unverified.nextUnlockScenario;
   assert.equal(scenario.status, "EVALUATED");
   assert.equal(scenario.executableNow, false);

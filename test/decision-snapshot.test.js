@@ -60,7 +60,7 @@ test("missing starter projection blocks the actionable gain instead of replacing
   const candidate = report.byPosition.QB.find(p => p.sleeperId === "q");
   assert.equal(candidate.waiver.fit.netGainTotal, null);
   assert.equal(candidate.waiver.decision.recommendedAction, "WATCH");
-  assert.equal(candidate.waiver.suggestedBid, 0);
+  assert.equal(candidate.waiver.suggestedBid, null);
 });
 
 test("QB announcement must actually identify the starting QB", async () => {

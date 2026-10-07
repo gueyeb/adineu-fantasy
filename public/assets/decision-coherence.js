@@ -207,12 +207,29 @@ function actionableWithoutCoveredGain(boardRows) {
   )];
 }
 
+/** Can the board be acted on? A complete, coherent report can still be unusable when nothing says
+ * whether a player can be added, or when a known need has no executable step. */
+function decisionReadiness(board, { emptyStarterSlotCount = 0, planStepCount = null } = {}) {
+  const out = [];
+  const withAvailability = board.filter(row => row?.availability);
+  if (withAvailability.length && withAvailability.every(row => row.availability.availability === "UNKNOWN")) {
+    out.push(warning("AVAILABILITY_UNVERIFIED", "COVERAGE_GAP", [], { total: withAvailability.length },
+      `Disponibilité non vérifiée pour les ${withAvailability.length} candidats affichés : impossible de distinguer ajout libre et claim, aucune action ni enchère n'est proposée.`));
+  }
+  if (emptyStarterSlotCount > 0 && planStepCount === 0) {
+    out.push(warning("EMPTY_STARTER_SLOT_UNRESOLVED", "COVERAGE_GAP", [], { emptyStarterSlotCount },
+      `${plural(emptyStarterSlotCount, "slot titulaire vide", "slots titulaires vides")} sans étape exécutable dans le plan : le besoin est identifié, pas résolu.`));
+  }
+  return out;
+}
+const DEGRADING_CODES = ["AVAILABILITY_UNVERIFIED", "EMPTY_STARTER_SLOT_UNRESOLVED", "NO_CUT_COMPARISON_COVERED"];
+
 /**
  * Sanity checks run on an evaluated waiver board before it is published.
  * boardRows: evaluated rows shown on the board. marketRows: every evaluated free agent (superset,
  * same ids). myPlayers: roster players. `publishable` is false iff a CALCULATION_INCONSISTENCY exists.
  */
-export function buildCoherenceWarnings({ boardRows = [], marketRows = [], myPlayers = [] } = {}) {
+export function buildCoherenceWarnings({ boardRows = [], marketRows = [], myPlayers = [], rosterState = {}, modelDegraded = false } = {}) {
   const names = new Map([...list(marketRows), ...list(boardRows), ...list(myPlayers)].filter(row => row?.sleeperId != null).map(row => [String(row.sleeperId), row.name ?? null]));
   const board = list(boardRows);
   const market = list(marketRows);
@@ -226,22 +243,30 @@ export function buildCoherenceWarnings({ boardRows = [], marketRows = [], myPlay
     ...relevantCandidateAbsent(market, boardIds),
     ...buyLow(board, market, roster, boardIds),
     ...watchJustifiedByCutCost(board),
-    ...actionableWithoutCoveredGain(board)
+    ...actionableWithoutCoveredGain(board),
+    ...decisionReadiness(board, rosterState ?? {})
   ].sort((a, b) => COHERENCE_CATEGORIES.indexOf(a.category) - COHERENCE_CATEGORIES.indexOf(b.category)
     || compare(a.code, b.code) || compare(a.playerIds[0] ?? "", b.playerIds[0] ?? ""));
   const counts = Object.fromEntries(COHERENCE_CATEGORIES.map(category => [category, warnings.filter(item => item.category === category).length]));
   // Names travel with the result so every output can print them without another lookup.
   const playerNames = Object.fromEntries([...new Set(warnings.flatMap(item => item.playerIds))].filter(id => names.get(id)).map(id => [id, names.get(id)]));
-  return { warnings, publishable: counts.CALCULATION_INCONSISTENCY === 0, counts, playerNames };
+  // BLOCKED: do not send. DEGRADED: readable, but not a plan to execute. Distinct from model coverage.
+  const publishable = counts.CALCULATION_INCONSISTENCY === 0;
+  const reasons = [...warnings.filter(item => DEGRADING_CODES.includes(item.code)).map(item => item.code), ...(modelDegraded ? ["MODEL_COVERAGE_DEGRADED"] : [])];
+  const decisionStatus = { status: !publishable ? "BLOCKED" : reasons.length ? "DEGRADED" : "EXECUTABLE", reasons };
+  return { warnings, publishable, counts, playerNames, decisionStatus };
 }
 
 /** Text lines for the AI context / CLI: a verdict line, then one line per warning. */
 export function formatCoherenceWarnings(result, { nameOf = () => null } = {}) {
   const warnings = list(result?.warnings);
-  if (!warnings.length) return ["Cohérence : aucun avertissement."];
+  const status = result?.decisionStatus;
+  const statusLine = status?.status === "DEGRADED" ? [`⚠ DÉCISION DÉGRADÉE (${status.reasons.join(", ")}) : rapport lisible, pas un plan exécutable.`] : [];
+  if (!warnings.length) return [...statusLine, "Cohérence : aucun avertissement."];
   const label = id => nameOf(id) || result?.playerNames?.[id] || id;
   const blocking = warnings.filter(item => item.category === "CALCULATION_INCONSISTENCY").length;
   return [
+    ...statusLine,
     blocking ? `Cohérence : NON publiable (${blocking} incohérence(s) de calcul)` : "Cohérence : publiable",
     ...warnings.map(item => {
       const listed = Array.isArray(item.playerIds) ? item.playerIds : [];
@@ -250,4 +275,11 @@ export function formatCoherenceWarnings(result, { nameOf = () => null } = {}) {
       return `[${item.category}/${item.severity}] ${item.code} — ${item.message}${suffix}`;
     })
   ];
+}
+
+/** Required starter slots not filled by a rostered player ("0" in Sleeper's starters). */
+export function countEmptyStarterSlots(fitContext, requiredSlots) {
+  if (!fitContext?.starterIds) return 0;
+  const filled = [...fitContext.starterIds].filter(id => id && String(id) !== "0").length;
+  return Math.max(0, requiredSlots - filled);
 }
