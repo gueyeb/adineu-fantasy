@@ -94,7 +94,11 @@ Constats du contrôle des exports locaux, vérifiés puis corrigés.
   - Limites : statistique descriptive, pas une probabilité de gain (`auctionWinProbability=null`) ; elle ne s’applique pas quand le modèle a déjà un signal de marché, pour ne pas pousser chaque enchère vers le plafond ; la médiane par poste ne distingue pas un joueur disputé d’un joueur ignoré.
 - **07:00Z est une heure nominale, les résultats arrivent vers 07:09–07:10Z.** `processingMinutes` (retard maximal observé dans l’historique + 5 min, soit 15 min ici) : pendant cette fenêtre l’état est `WAIVER_LOCKED` avec la règle `WEEKLY_RUN_IN_PROGRESS`, personne n’est déclaré libre.
 - Constat live : à 07:01 UTC, pendant le passage, les 54 candidats affichés sortent `WAIVER_LOCKED` avec la règle `WEEKLY_RUN_IN_PROGRESS`.
-- À faire après le passage des waivers : régénérer les exports et vérifier disponibilités, transactions et plan restant.
+- **Contrôle après le passage du 7 octobre (exports régénérés à 07:18 UTC).**
+  - Règles déduites confirmées par les faits : les claims ont été traités à 07:09:21 UTC, dans la fenêtre « passage en cours » ; un ajout libre a été accepté par Sleeper à 07:14:32 sur un joueur que l’outil déclare libre. La fenêtre de 15 minutes s’est donc terminée environ 5 minutes après les résultats réels : prudente, pas fausse.
+  - États après passage : 42 candidats `FREE_AGENT` déduits, 14 `WAIVER_LOCKED` pour coupe récente (défenses et joueurs coupés pendant le passage).
+  - Enchères proposées à 07:01 comparées aux enchères gagnantes réelles : Dallas proposée 20 $, gagnée à 9 $ ; Jacksonville proposée 20 $, gagnée à 31 $ ; Denver proposée 11 $, gagnée à 11 $ par un autre manager. Un cas sur trois aurait été gagné à coup sûr : la médiane par poste est un repère, pas un prix.
+  - Plan restant : roster plein (16 joueurs), slot DEF toujours vide ; étape unique « ajout libre Atlanta, coupe MarShawn Lloyd, +7,9 pts en S5, net +5,6 ». Avertissement `CUT_CONCENTRATION` : Lloyd est la coupe de la plupart des scénarios.
 
 ## P2 — validation des durées
 
