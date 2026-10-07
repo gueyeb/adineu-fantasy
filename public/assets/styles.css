@@ -589,6 +589,16 @@ tbody tr:hover td { background: rgba(184, 255, 61, 0.045); }
 .recap-bench li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); background: var(--panel); font-size: 0.85rem; }
 .recap-bench li small { color: var(--muted); }
 .recap-bench li span { margin-left: auto; color: var(--gold); font-weight: 700; font-size: 0.78rem; }
+.weekly-table-scroll { overflow-x: auto; margin: 20px 0; }
+.weekly-table-scroll table { min-width: 500px; width: 100%; }
+.weekly-table-scroll caption { text-align: left; padding: 12px 0; color: var(--muted); }
+.weekly-details { border: 1px solid var(--line); padding: 16px 20px; margin: 16px 0; }
+.weekly-details summary { cursor: pointer; font-weight: 700; }
+.weekly-details li { padding: 8px 0; }
+.weekly-results li { justify-content: space-between; }
+.weekly-results li strong { flex: 1 1 150px; }
+.weekly-results li span { margin-left: 0; white-space: nowrap; }
+.public-week-section { border-bottom: 1px solid var(--line); }
 
 .note { margin-top: 22px; padding: 18px 20px; border-left: 4px solid var(--gold); background: var(--paper-soft); color: var(--muted); font-size: 0.88rem; }
 .note strong { color: var(--ink); }
