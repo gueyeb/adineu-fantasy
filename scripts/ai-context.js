@@ -1,3 +1,4 @@
+import { formatLineupMovements } from "./lineup-movements.js";
 import { formatTeRosterUtility } from './te-roster-utility.js';
 import { formatClaimPortfolio } from '../public/assets/waiver-plan.js';
 import { formatProjectionComparison } from './projection-comparison.js';
@@ -309,10 +310,9 @@ export function formatDecisionContext(context) {
     lines.push(`Current projected total: ${metric(optimal.currentTotal)} [Sleeper]`);
     lines.push(`Optimal projected total: ${metric(optimal.optimalTotal)} [Sleeper]`);
     lines.push(`Potential gain: +${metric(optimal.gain, " pts")}`);
-    lines.push(`Optimization opportunities: ${optimal.changes?.length ?? optimal.promote?.length ?? 0}`);
-    (optimal.changes || []).forEach(change => {
-      lines.push(`${change.slot}: ${change.in?.name || "EMPTY"} IN -> ${change.out?.name || "EMPTY"} OUT (${change.gain >= 0 ? "+" : ""}${change.gain} pts)`);
-    });
+    const movementLines = formatLineupMovements(optimal);
+    lines.push(`Optimization opportunities: ${movementLines.length}`);
+    lines.push(...movementLines);
   }
 
   lines.push("", "NEXT MATCHUP");

@@ -16,7 +16,7 @@ Une DEF/K/QB avec delta cible positif mais horizon incomplet est désormais clas
 - [x] Portefeuille de claims alternatifs : un choix puis son repli sur la même coupe/date, branches gagnant/repli/tous échoués, suite et budget recalculés. La DEF utilise la place libre une seule fois par branche, avant ou après les claims selon sa disponibilité. Maximum de dépense explicite sur les scénarios détaillés ; `null` si exploration partielle. Aucune annulation automatique supposée. [Contrat et limites](conditional-claim-portfolio-2026-10-07.md).
 - [ ] Option spéculative : séparer strategicUpside, perte de la coupe, speculativeCeiling et plafond basé sur un gain de lineup couvert. Un rôle unconfirmed ne devient pas confirmé parce que Market est élevé. Pas de prix non nul uniquement fondé sur une performance récente ; seuils et calibration à définir.
 - [x] TE2 : expliquer semaine de bye du titulaire, possibilité FLEX, rôle de secours et valeur nette de la place de banc. Un marché élevé pour Hockenson ne suffit pas à justifier une acquisition derrière McBride.
-- [ ] Rotation WR/FLEX : les mouvements Puka vers WR1 et Moore vers FLEX sont couplés. Afficher le remplacement global Wicks → Moore (+1,7), puis les affectations de slots, sans présenter +12,7 et −11 comme décisions indépendantes.
+- [x] Rotation WR/FLEX : les mouvements Puka vers WR1 et Moore vers FLEX sont couplés. Afficher le remplacement global Wicks → Moore (+1,7), puis les affectations de slots, sans présenter +12,7 et −11 comme décisions indépendantes.
 - [ ] Projections manquantes : identifier joueur + semaine + cause ; distinguer un bye confirmé d’un échec de chargement et d’une absence dans la source. Ne pas contourner une projection manquante par zéro.
 - [ ] Provenance compacte : garder les données détaillées dans le JSON et résumer couverture/source/date dans le texte plutôt que dupliquer toutes les semaines de tous les joueurs.
 
@@ -54,3 +54,7 @@ Validation de cette suite : **354 tests passent**, syntaxe, contrôles statiques
 ### 07/10 — Diagnostic TE livré localement
 
 Le candidat explique ses semaines projetées en TE/FLEX, le bye du titulaire dans la durée du rôle et le gain net après coupe. Référence au slot TE déclaré, réserves exclues ; données insuffisantes et secours sur blessure future restent non chiffrés. Les rotations TE vers FLEX utilisent le gain global de lineup. La valeur comparative d’une autre acquisition reste inconnue : une place libre n’est pas déclarée sans coût d’opportunité. [Contrat et validations](te-roster-utility-2026-10-07.md). Le chantier général WR/FLEX reste ouvert.
+
+### 07/10 — Rotations de lineup
+
+Remplacements liés regroupés, gain global puis affectations WR/FLEX ; même rendu Coach/n8n et AI Context. Deltas par slot conservés dans le JSON, optimisation inchangée. [Contrat et tests](lineup-rotations-2026-10-07.md).

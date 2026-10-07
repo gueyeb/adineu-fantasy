@@ -1,3 +1,4 @@
+import { formatLineupMovements } from "./lineup-movements.js";
 import { formatTeRosterUtility } from './te-roster-utility.js';
 import { formatClaimPortfolio } from '../public/assets/waiver-plan.js';
 import { formatProjectionComparison } from './projection-comparison.js';
@@ -128,11 +129,7 @@ export function formatCoachPlan(plan) {
   if (plan.snapshotIssues.includes('TRADE_RECEIVE_ALREADY_OWNED')) lines.push("⚠ Trade incohérent écarté : un joueur à recevoir appartient déjà au roster.");
   if (plan.lineup.alerts.length || optimal?.gain > 0) {
     lines.push("", "🏈 LINEUP — À FAIRE");
-    for (const change of optimal?.changes || []) {
-      const empty = !change.out;
-      const close = !empty && Number.isFinite(change.gain) && change.gain >= 0 && change.gain < 1;
-      lines.push(`• ${empty ? "Compléter " : close ? "Choix proche — " : "Optimiser "}${change.slot}: ${change.in?.name || "slot vide"} à la place de ${change.out?.name || "slot vide"} (${change.gain >= 0 ? "+" : ""}${change.gain} pts projetés)${close ? " · santé/rôle à confirmer ; conserver le titulaire comme repli si disponible" : " · vérifier disponibilité et verrouillage avant changement"}`);
-    }
+    lines.push(...formatLineupMovements(optimal).map(line => `• ${line}`));
     for (const alert of plan.lineup.alerts) lines.push(`• ${alert.slot}: ${alert.reason}`);
   }
   for (const action of ["ADD_NOW", "CLAIM_IF_CHEAP"]) {

@@ -10,6 +10,7 @@
  *   node scripts/lineup-advisor.js --team=t0z
  */
 
+import { groupLineupMovements } from "./lineup-movements.js";
 import { pathToFileURL } from "node:url";
 import { getLeagueContext, getFreeAgents, getInjuryStatuses, getPlayersIndex, getSchedule, getWeeklyProjections, getWeeklyStats, SEVERITY_BY_STATUS } from "./league-context.js";
 import { loadPlayerValues } from "./analyze-trades.js";
@@ -182,6 +183,7 @@ export function compareWithOptimalLineup({ myTeam, projections = {}, playerStatu
     promote: gain > 0 ? [...optimalIds].filter(id => !currentIds.has(id)).map(id => byId.get(id)).filter(player => weeklyEstimate(player) > 0) : [],
     bench: gain > 0 ? [...currentIds].filter(id => !optimalIds.has(id)).map(id => byId.get(String(id))) : [],
     changes,
+    movementGroups: groupLineupMovements(changes),
     slots: optimal.slots
   };
 }

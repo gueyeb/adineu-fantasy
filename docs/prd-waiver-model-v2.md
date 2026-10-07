@@ -200,3 +200,7 @@ Le plan gagnant glouton reste disponible ; `alternativeClaimGroups` et `claimPor
 ### 07/10 — utilité TE supplémentaire
 
 Diagnostic partagé des semaines TE/FLEX, bye couvert dans le rôle, coût de coupe et gain net. Aucun score ou prix nouveau ; secours sur blessure future et valeur d’une acquisition alternative inconnus. [Contrat et evals](te-roster-utility-2026-10-07.md).
+
+### 07/10 — Rotations WR/FLEX explicites
+
+Livré : les mouvements liés deviennent une décision avec gain total et affectations de slots dans Coach/n8n et AI Context. Optimisation inchangée, détail JSON préservé. [Contrat](lineup-rotations-2026-10-07.md). Prochain chantier : diagnostic des projections manquantes.

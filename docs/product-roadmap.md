@@ -94,3 +94,7 @@ Livré localement : groupes de repli sur la même coupe/place et la même date, 
 ### 07/10 — diagnostic TE supplémentaire
 
 Livré localement : référence au slot TE, bye dans la durée du rôle, utilisation FLEX, coût de coupe et gain net ; absence de données et secours sur blessure restent explicites. Prochains chantiers : rotations WR/FLEX globales, diagnostic des projections manquantes, provenance compacte. Prix spéculatif à définir/calibrer. [Contrat et evals](te-roster-utility-2026-10-07.md).
+
+### 07/10 — Rotations WR/FLEX explicites
+
+Livré : les mouvements liés deviennent une décision avec gain total et affectations de slots dans Coach/n8n et AI Context. Optimisation inchangée, détail JSON préservé. [Contrat](lineup-rotations-2026-10-07.md). Prochain chantier : diagnostic des projections manquantes.

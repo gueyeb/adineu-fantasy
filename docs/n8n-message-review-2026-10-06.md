@@ -48,3 +48,7 @@ Le `message` Coach expose maintenant le plan principal et les groupes de repli :
 ### 07/10 — utilité TE dans Coach
 
 Rendu local partagé : bye du titulaire, semaines projetées TE/FLEX, coupe et gain net, secours sur blessure future n/d. Trois diagnostics maximum dans le texte ; détail JSON complet. Aucun workflow de production modifié. [Contrat et evals](te-roster-utility-2026-10-07.md).
+
+### 07/10 — Rotations WR/FLEX explicites
+
+Livré : les mouvements liés deviennent une décision avec gain total et affectations de slots dans Coach/n8n et AI Context. Optimisation inchangée, détail JSON préservé. [Contrat](lineup-rotations-2026-10-07.md). Prochain chantier : diagnostic des projections manquantes.
