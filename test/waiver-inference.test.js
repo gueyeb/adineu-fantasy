@@ -49,8 +49,14 @@ test("boundaries: weekly run, kickoff, recent drop, end of lock, owned player", 
   assert.equal(before.waiverProcessesAt, "2026-10-07T07:00:00.000Z");
   assert.equal(before.inference.rule, "KICKOFF_SINCE_LAST_WEEKLY_RUN");
   assert.ok(before.coverageIssues.includes("AVAILABILITY_INFERRED_NOT_VERIFIED"));
-  // À l'instant du passage : libre, jusqu'à son kickoff.
-  const after = resolve("2026-10-07T07:00:00Z");
+  // Pendant le traitement (résultats observés ~9 min après l'heure, marge de 5 min) : pas encore libre.
+  assert.equal(rules.processingMinutes, 15);
+  const running = resolve("2026-10-07T07:00:00Z");
+  assert.deepEqual([running.availability, running.canAddNow, running.inference.rule, running.inference.processing, running.waiverProcessesAt],
+    ["WAIVER_LOCKED", false, "WEEKLY_RUN_IN_PROGRESS", true, "2026-10-07T07:15:00.000Z"]);
+  assert.equal(resolve("2026-10-07T07:14:59Z").availability, "WAIVER_LOCKED");
+  // Traitement terminé : libre, jusqu'à son kickoff.
+  const after = resolve("2026-10-07T07:15:00Z");
   assert.deepEqual([after.availability, after.canAddNow, after.canStartTargetWeek, after.inference.rule], ["FREE_AGENT", true, true, "CLEARED_AT_LAST_WEEKLY_RUN"]);
   assert.equal(resolve("2026-10-11T16:59:00Z").availability, "FREE_AGENT");
   // Kickoff : verrouillé, prochain passage déduit pour le scénario suivant.
@@ -123,4 +129,24 @@ test("ceiling: a founded zero stays zero, an uncalibrated rising role makes it u
   assert.deepEqual([rising.waiver.personalMaxBid, rising.waiver.maxBidStatus], [null, "NOT_DETERMINED_UNCALIBRATED_POTENTIAL"]);
   assert.equal(rising.waiver.fit.faabMaxForMe, 0);
   assert.equal(rising.waiver.suggestedBid, null);
+});
+
+test("market estimate, personal ceiling and proposed bid are three numbers: a 0 $ market never zeroes the ceiling", () => {
+  const myPlayers = [{ sleeperId: "k", name: "Kicker", position: "K", nflTeam: "ZZZ", projectedPpg: 8 }];
+  const weekly = { k: 8, d1: 8.6, d2: 8.3 };
+  const fitContext = { myPlayers, faabRemaining: 497, hasOpenRosterSlot: true, paceOf: x => weekly[x.sleeperId] ?? 0, weeklyPaceOf: x => weekly[x.sleeperId] ?? null,
+    projectionCovered: x => Number.isFinite(weekly[x.sleeperId]) };
+  const defense = (sleeperId, faabMarket) => ({ sleeperId, name: sleeperId, position: "DEF", nflTeam: "AAA", surplusPoints: 5, faabMarket, marketScore: 20, signals: {}, events: { flags: [], roleWeeks: 1 } });
+  const evaluate = row => createWaiverEvaluator({ fitContext, week: 5, availabilityFor: () => resolve("2026-10-07T06:00:00Z"), ownershipRechecked: true, transactionsComplete: true })(row);
+  const unpricedByMarket = evaluate(defense("d1", [0, 0]));
+  // 8,6 pts × 3 $ : la valeur pour ce roster, indépendante de l'estimation de marché.
+  assert.deepEqual([unpricedByMarket.waiver.faabMarket, unpricedByMarket.waiver.personalMaxBid, unpricedByMarket.waiver.suggestedBid], [[0, 0], 25, 0]);
+  assert.equal(unpricedByMarket.waiver.bidNote, "ZERO_MARKET_ESTIMATE_NOT_A_GUARANTEE");
+  assert.equal(unpricedByMarket.waiver.bidBasis, "MARKET_HIGH_ESTIMATE_CAPPED_BY_PERSONAL_CEILING");
+  const priced = evaluate(defense("d2", [7, 11]));
+  assert.deepEqual([priced.waiver.personalMaxBid, priced.waiver.suggestedBid, priced.waiver.bidNote], [24, 11, null]);
+  // Le plafond personnel suit le gain : le meilleur choix n'a jamais un plafond inférieur.
+  assert.ok(unpricedByMarket.waiver.personalMaxBid >= priced.waiver.personalMaxBid);
+  // L'enchère proposée ne dépasse jamais le plafond personnel.
+  assert.equal(evaluate(defense("d2", [40, 90])).waiver.suggestedBid, 24);
 });

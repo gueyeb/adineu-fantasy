@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { compareWithOptimalLineup, diagnoseLineup, formatLineupAdvisory } from "../scripts/lineup-advisor.js";
+import { compareWithOptimalLineup, diagnoseLineup, formatLineupAdvisory, formatReplacement } from "../scripts/lineup-advisor.js";
 
 const bench = [
   { sleeperId: "bench-rb", name: "Backup Runner", position: "RB", nflTeam: "KC", quality: { expertRank: 60 } },
@@ -59,7 +59,7 @@ test("diagnoseLineup never suggests a bench replacement that is itself flagged",
     RB: [{ sleeperId: "fa-rb", name: "Waiver Back", position: "RB", nflTeam: "CHI", quality: { expertRank: 150 } }]
   } });
 
-  assert.equal(alerts[0].replacement.source, "free_agent");
+  assert.equal(alerts[0].replacement.source, "acquisition_target");
   assert.equal(alerts[0].replacement.player.sleeperId, "fa-rb");
 });
 
@@ -85,12 +85,12 @@ test("formatLineupAdvisory reports a clean bill of health and a real bulletin", 
       player: null,
       severity: "ALERT",
       reason: "Slot vide",
-      replacement: { source: "free_agent", player: { name: "Streaming Kicker", position: "K", nflTeam: "LAC" } }
+      replacement: { source: "acquisition_target", player: { name: "Streaming Kicker", position: "K", nflTeam: "LAC" } }
     }]
   });
   assert.match(text, /START\/SIT ADVISOR/);
   assert.match(text, /K — Slot vide/);
-  assert.match(text, /Remplaçant conseillé \(free agent\) : Streaming Kicker \(K LAC\)/);
+  assert.match(text, /Remplaçant conseillé \(cible à acquérir\) : Streaming Kicker \(K LAC\)/);
 });
 
 test("compareWithOptimalLineup: a projected bench player replaces an Out starter and reports the gain", () => {
@@ -123,4 +123,33 @@ test("compareWithOptimalLineup never promotes an Out player even if Sleeper stil
   const result = compareWithOptimalLineup({ myTeam, projections, playerStatuses: new Map([["puka", "Out"]]) });
   assert.equal(result.gain, 0);
   assert.equal(result.promote.length, 0);
+});
+
+test("Start/Sit and the acquisition plan name the same target; a Questionable starter gets a fallback, not a swap", () => {
+  const myTeam = { starters: [
+    { slot: "RB", player: { sleeperId: "rb1", name: "Starter", position: "RB", nflTeam: "ARI" } },
+    { slot: "DEF", player: null }
+  ], bench: [{ sleeperId: "rb2", name: "Backup", position: "RB", nflTeam: "GB" }] };
+  const row = (sleeperId, name, score) => ({ sleeperId, name, position: "DEF", nflTeam: name, waiver: { score, suggestedBid: 0, personalMaxBid: 17,
+    decision: { recommendedAction: "CLAIM_IF_CHEAP", confirmation: "CONFIRM_IN_SLEEPER" } },
+    availability: { availability: "WAIVER_LOCKED", availabilitySource: "LEAGUE_RULES_INFERRED", waiverProcessesAt: "2026-10-07T07:15:00.000Z" } });
+  const freeAgentsByPosition = { DEF: [row("LAR", "Rams", 46), row("DAL", "Cowboys", 0)] };
+  const plan = { steps: [{ playerId: "DAL", name: "Cowboys", position: "DEF", recommendedAction: "CLAIM_IF_CHEAP", suggestedBid: 0, personalMaxBid: 25,
+    availability: { availability: "WAIVER_LOCKED", availabilitySource: "LEAGUE_RULES_INFERRED" } }] };
+  const { alerts } = diagnoseLineup({ myTeam, playerStatuses: new Map([["rb1", "Questionable"]]), freeAgentsByPosition, acquisitionPlan: plan });
+  const [rb, def] = alerts;
+  assert.equal(rb.replacementRole, "FALLBACK_IF_INACTIVE");
+  assert.equal(rb.advice, "surveiller Starter ; Backup en secours s'il est indisponible");
+  // Le slot vide reprend l'étape du plan, pas le meilleur score de marché.
+  assert.deepEqual([def.replacement.source, def.replacement.player.name], ["acquisition_plan", "Cowboys"]);
+  assert.equal(def.advice, "cible à acquérir : Cowboys — disponibilité WAIVER_LOCKED déduite — à confirmer dans Sleeper ; claim 0 $ (plafond 25 $) (étape du plan)");
+  // Sans plan : la cible reste une acquisition à faire, jamais un « free agent » par défaut.
+  const noPlan = diagnoseLineup({ myTeam, playerStatuses: new Map(), freeAgentsByPosition }).alerts[0];
+  assert.equal(noPlan.replacement.source, "acquisition_target");
+  assert.match(noPlan.advice, /^cible à acquérir : Rams — disponibilité WAIVER_LOCKED déduite/);
+  assert.doesNotMatch(noPlan.advice, /free agent/i);
+  // Une absence réelle reste un remplacement.
+  const out = diagnoseLineup({ myTeam, playerStatuses: new Map([["rb1", "Out"]]), freeAgentsByPosition }).alerts[0];
+  assert.deepEqual([out.replacementRole, out.advice], ["REPLACE", "remplaçant du banc : Backup"]);
+  assert.equal(formatReplacement({ replacement: null }), null);
 });

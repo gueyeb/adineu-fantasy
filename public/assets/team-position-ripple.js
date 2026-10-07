@@ -1,4 +1,4 @@
-import { isCurrentEvidence } from "./acquisition-availability.js?v=bf832d0a5a";
+import { isCurrentEvidence } from "./acquisition-availability.js?v=b05f3e356e";
 
 export const RIPPLE_EVENT_TYPES = ["INJURY", "RETURN", "ROLE_CHANGE", "NFL_TRANSACTION"];
 // Questionable is only a possible absence: it asks for a second look, nothing more.

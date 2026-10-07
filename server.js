@@ -197,7 +197,8 @@ export function createAppServer({
             playerStatuses: statuses,
             freeAgentsByPosition: waivers?.byPosition || {},
             byeWeeks: BYE_WEEKS_2026,
-            currentWeek: compactContext.week
+            currentWeek: compactContext.week,
+            acquisitionPlan: waivers?.acquisitionPlan ?? null
           });
           try {
             lineup.optimal = compareWithOptimalLineup({
@@ -362,7 +363,8 @@ export function createAppServer({
           playerStatuses,
           freeAgentsByPosition: freeAgents.byPosition,
           byeWeeks: BYE_WEEKS_2026,
-          currentWeek: context.week
+          currentWeek: context.week,
+          acquisitionPlan: freeAgents.acquisitionPlan ?? null
         });
         try {
           lineup.optimal = compareWithOptimalLineup({

@@ -82,6 +82,18 @@ Audit transmis par le manager sur les exports AI Context et Waiver du 7 octobre 
 - Rejeu live du 7 octobre 06:48 UTC, avant le passage : 54 candidats `WAIVER_LOCKED` déduits, 24 claims conditionnels, plan d’une étape pour le slot DEF vide (claim d’une défense à 0 $, +8,6 pts en S5), statut « à confirmer ». Coleman : WATCH, gain 0, plafond non déterminé. Harris : WATCH, +1,3 pt sur le reste de saison, plafond 3 $, bloqué par la promotion non confirmée.
 - Constat de l’audit non repris : Flournoy `WATCH+` relève du board de l’auditeur, pas du moteur (tendance en baisse dans l’export, classé `IGNORE`).
 
+### Second contrôle de l’export (7 octobre 2026) — Start/Sit, plan partagé, FAAB
+
+Constats du contrôle des exports locaux, vérifiés puis corrigés.
+
+- **Start/Sit proposait les Rams comme « free agent » alors qu’ils étaient en waivers.** Une cible hors roster est désormais une « cible à acquérir » avec sa disponibilité, l’action et l’enchère de la même évaluation que le rapport waivers. Quand le plan contient une étape pour le slot, c’est elle qui est reprise (`replacement.source=acquisition_plan`). La phrase (`alert.advice`, `formatReplacement`) est la même dans l’AI Context, le message Coach, le bulletin Start/Sit et l’interface.
+- **Plans différents selon l’export** (Dallas → Jacksonville → Denver d’un côté, Jacksonville → Denver → Patriots de l’autre). Cause : le plan était calculé sur les lignes affichées, donc sur la limite d’affichage de chaque route (5, 8 ou 10 par poste). Il est maintenant calculé sur un ensemble fixe (`selectPlanCandidates`, 15 par poste plus les joueurs maintenus), et tout joueur nommé par le plan est ajouté au board. Vérifié : même plan avec une limite de 3, 5 et 8.
+- **`Questionable` déclenchait « remplaçant conseillé ».** `replacementRole=FALLBACK_IF_INACTIVE` : « surveiller Love ; Lloyd en secours s’il est indisponible ». Out, IR, bye et slot vide restent des remplacements.
+- **Marché à 0 $ confondu avec plafond personnel à 0 $.** Trois nombres séparés : fourchette de marché (coût probable), plafond personnel (gain net × `PRICE_PER_POINT`, borné par le FAAB restant, plus par le marché) et enchère proposée (haut de la fourchette de marché, jamais au-dessus du plafond ; `bidBasis`). Une enchère à 0 $ avec un plafond positif porte `bidNote=ZERO_MARKET_ESTIMATE_NOT_A_GUARANTEE`. Dallas : marché 0–0 $, plafond 25 $, enchère proposée 0 $.
+  - Limite assumée : l’enchère proposée suit toujours l’estimation de marché, calculée sur la valeur reste-de-saison. Pour un streamer d’une semaine cette estimation est peu informative, d’où 0 $ sur le meilleur choix et 11 $ sur un moins bon. Le modèle n’a pas d’estimation calibrée des enchères rivales (`auctionWinProbability=null`) ; une piste est d’utiliser les enchères gagnantes réelles de la ligue par poste (`faabByPosition`), non faite.
+- **07:00Z est une heure nominale, les résultats arrivent vers 07:09–07:10Z.** `processingMinutes` (retard maximal observé dans l’historique + 5 min, soit 15 min ici) : pendant cette fenêtre l’état est `WAIVER_LOCKED` avec la règle `WEEKLY_RUN_IN_PROGRESS`, personne n’est déclaré libre.
+- À faire après le passage des waivers : régénérer les exports et vérifier disponibilités, transactions et plan restant.
+
 ## P2 — validation des durées
 
 - [ ] Évaluer les profils de rôle contre snapshots pré-match et résultats 2/4 semaines, incluant WATCH/IGNORE. Définir ensuite les pondérations et seuils à partir de cette évaluation.
@@ -99,7 +111,7 @@ Audit transmis par le manager sur les exports AI Context et Waiver du 7 octobre 
 6. GAME_LOCKED : action bloquée, marché conservé ; scénario futur daté et couvert seulement si le prochain horizon est connu.
 7. Invariant : même joueur, roster, snapshot et horizon donnent les mêmes métriques pour Coach, Waiver et AI Context ; les explications doivent rendre les objectifs différents lisibles.
 
-Validation au 6 octobre : 385 tests Node, `npm run check`, parité live / recalcul hors-ligne (métriques et cohérence identiques) sur le roster t0z en S4 puis S5. Onglet Waiver vérifié dans un navigateur en live S5 (desktop 1710 px et mobile 390 px, aucune erreur console, aucune valeur `undefined`) : les notes du moteur débordaient de la colonne joueur, corrigé par un retour à la ligne dans `styles.css`. Non vérifié à l’écran : la note de scénario `GAME_LOCKED`, aucune ligne n’étant verrouillée au moment du contrôle. Aucun déploiement. Les sept régressions sont couvertes ; 1 à 5 par rejeu du snapshot réel du 5 octobre.
+Validation au 6 octobre : 388 tests Node, `npm run check`, parité live / recalcul hors-ligne (métriques et cohérence identiques) sur le roster t0z en S4 puis S5. Onglet Waiver vérifié dans un navigateur en live S5 (desktop 1710 px et mobile 390 px, aucune erreur console, aucune valeur `undefined`) : les notes du moteur débordaient de la colonne joueur, corrigé par un retour à la ligne dans `styles.css`. Non vérifié à l’écran : la note de scénario `GAME_LOCKED`, aucune ligne n’étant verrouillée au moment du contrôle. Aucun déploiement. Les sept régressions sont couvertes ; 1 à 5 par rejeu du snapshot réel du 5 octobre.
 
 ### Complément Boukki / DvP du 6 octobre
 

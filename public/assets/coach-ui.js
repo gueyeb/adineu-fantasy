@@ -48,7 +48,7 @@ function renderPlan(plan) {
 
   const optimal = plan.lineup.optimal;
   const changes = (optimal?.changes || []).map(change => `<li><b>${escapeHtml(change.slot)}</b><span>${escapeHtml(change.in?.name || "Slot vide")} <i>à la place de</i> ${escapeHtml(change.out?.name || "Slot vide")}</span><strong>${signed(change.gain)}</strong></li>`).join("");
-  const lineupBody = changes || (plan.lineup.alerts.length ? plan.lineup.alerts.map(alert => `<li><b>${escapeHtml(alert.slot)}</b><span>${escapeHtml(alert.reason)}</span></li>`).join("") : `<p class="coach-empty">Lineup déjà optimale. Aucun point facile laissé sur le banc.</p>`);
+  const lineupBody = changes || (plan.lineup.alerts.length ? plan.lineup.alerts.map(alert => `<li><b>${escapeHtml(alert.slot)}</b><span>${escapeHtml(alert.reason)}${alert.advice ? ` — ${escapeHtml(alert.advice)}` : ""}</span></li>`).join("") : `<p class="coach-empty">Lineup déjà optimale. Aucun point facile laissé sur le banc.</p>`);
   const actionable = plan.acquisitionPlan ? plan.acquisitionPlan.steps.map(step => ({ ...step, maxForTeam: step.personalMaxBid, decisionClass: "PLAN_CONDITIONNEL" })) : [...plan.waiverActions.ADD_NOW, ...plan.waiverActions.CLAIM_IF_CHEAP];
   const watchlist = plan.watchlist || [];
   const cuts = (plan.cutCandidates || []).map(player => `<li><span><b>${escapeHtml(player.name)}</b><small>Usage ${player.usageScore ?? "—"} · bye S${player.byeWeek ?? "—"}</small></span><strong>${player.totalCostPerWeek ?? "—"}<small> pt/sem</small></strong><em class="risk-${String(player.regretRisk).toLowerCase()}">${escapeHtml(player.regretRisk)}</em></li>`).join("");

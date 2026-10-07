@@ -133,7 +133,7 @@ export function formatCoachPlan(plan) {
   if (plan.lineup.alerts.length || optimal?.gain > 0) {
     lines.push("", "🏈 LINEUP — À FAIRE");
     lines.push(...formatLineupMovements(optimal).map(line => `• ${line}`));
-    for (const alert of plan.lineup.alerts) lines.push(`• ${alert.slot}: ${alert.reason}`);
+    for (const alert of plan.lineup.alerts) lines.push(`• ${alert.slot}: ${alert.reason}${alert.advice ? ` — ${alert.advice}` : ""}`);
   }
   for (const action of ["ADD_NOW", "CLAIM_IF_CHEAP"]) {
     const targets = plan.acquisitionPlan ? [] : plan.waiverActions[action];

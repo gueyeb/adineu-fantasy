@@ -129,7 +129,13 @@ export function createWaiverEvaluator({ fitContext, week, availabilityFor, owner
     // 0 $ is a real bid in this league: without an executable action the bid is not determined.
     const action = decision.recommendedAction;
     const bidStatus = action === "CLAIM_IF_CHEAP" ? "PROPOSED" : action === "ADD_NOW" ? "FREE_ADD" : "NOT_DETERMINED";
-    const suggestedBid = action === "CLAIM_IF_CHEAP" ? personalMaxBid : action === "ADD_NOW" ? 0 : null;
+    // Three separate numbers: market estimate (likely cost), personal ceiling (value to this roster),
+    // proposed bid (the market's high estimate, never above the ceiling).
+    const marketHigh = Number.isFinite(row.faabMarket?.[1]) ? row.faabMarket[1] : null;
+    const suggestedBid = action === "CLAIM_IF_CHEAP" ? (marketHigh === null ? personalMaxBid : Math.min(personalMaxBid, marketHigh)) : action === "ADD_NOW" ? 0 : null;
+    const bidBasis = action !== "CLAIM_IF_CHEAP" ? null : marketHigh === null ? "PERSONAL_CEILING_NO_MARKET_ESTIMATE" : "MARKET_HIGH_ESTIMATE_CAPPED_BY_PERSONAL_CEILING";
+    // A market estimated at 0 $ is the model's guess about rivals, not a promise: say what room is left.
+    const bidNote = action === "CLAIM_IF_CHEAP" && suggestedBid === 0 && personalMaxBid > 0 ? "ZERO_MARKET_ESTIMATE_NOT_A_GUARANTEE" : null;
     const bidUndeterminedReason = bidStatus !== "NOT_DETERMINED" ? null
       : availability?.availability === "UNKNOWN" ? "AVAILABILITY_UNVERIFIED"
       : decision.actionBlockers[0] ?? (action === "IGNORE" ? "NO_PROJECTED_GAIN" : "NO_EXECUTABLE_ACTION");
@@ -166,7 +172,7 @@ export function createWaiverEvaluator({ fitContext, week, availabilityFor, owner
         personalMaxBid: shownMaxBid,
         maxBidStatus,
         bidPctInitial: Number.isFinite(suggestedBid) ? Number((suggestedBid / GENERAL_SETTINGS_2026.waiver.budget * 100).toFixed(1)) : null,
-        bidStatus, bidUndeterminedReason, unpricedPotential,
+        bidStatus, bidUndeterminedReason, bidBasis, bidNote, unpricedPotential,
         bidPctRemaining: rosterContext?.faabRemaining > 0 && Number.isFinite(suggestedBid) ? Number((suggestedBid / rosterContext.faabRemaining * 100).toFixed(1)) : null,
         marketMethod: "Projection window (ROS or labeled rank fallback), surplus over replacement × PRICE_PER_POINT; not observed rival bids",
         marketEstimate: row.marketEstimate,

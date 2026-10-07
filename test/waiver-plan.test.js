@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { normalizeRosterPreferences } from "../public/assets/roster-preferences.js";
-import { buildAcquisitionPlan } from "../public/assets/waiver-plan.js";
+import { buildAcquisitionPlan, selectPlanCandidates, planPlayerIds, PLAN_CANDIDATES_PER_POSITION } from "../public/assets/waiver-plan.js";
 import { evaluateRosterFit, classifyWaiverDecision } from "../public/assets/waiver-model.js";
 
 const asOf = "2026-10-05T10:00:00Z";
@@ -102,4 +102,15 @@ test("plan rejects a free-agent action carrying an auction charge", () => {
       waiver: { fit: { legalTransaction: true, horizonCovered: true, netGainTotal: 8 },
         suggestedBid: 20, personalMaxBid: 20, decision: { recommendedAction: "ADD_NOW" } } }) });
   assert.equal(plan.steps.length, 0);
+});
+
+test("plan candidates do not depend on a display limit, and every player the plan names can be listed", () => {
+  const market = Array.from({ length: 40 }, (_, i) => ({ sleeperId: `d${i}`, position: i % 2 ? "DEF" : "K", poolEntry: { pinned: i === 39 } }));
+  const selected = selectPlanCandidates(market);
+  assert.equal(selected.filter(row => row.position === "K").length, PLAN_CANDIDATES_PER_POSITION);
+  // Position DEF : 15 premiers + le joueur maintenu au board.
+  assert.equal(selected.filter(row => row.position === "DEF").length, PLAN_CANDIDATES_PER_POSITION + 1);
+  assert.deepEqual(selectPlanCandidates(market).map(row => row.sleeperId), selected.map(row => row.sleeperId));
+  assert.deepEqual([...planPlayerIds({ steps: [{ playerId: "a" }], claimPortfolio: { groups: [{ claims: [{ playerId: "b" }, { playerId: "a" }] }] } })], ["a", "b"]);
+  assert.equal(planPlayerIds(null).size, 0);
 });

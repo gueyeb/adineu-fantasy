@@ -692,7 +692,7 @@ export async function renderTradesPage(container) {
         ? `${escapeHtml(alert.player.name)} <small style="color:var(--muted);">(${escapeHtml(alert.player.position)}${alert.player.nflTeam ? " " + escapeHtml(alert.player.nflTeam) : ""})</small>`
         : `<em style="color:var(--muted);">Slot vide</em>`;
       const replacement = alert.replacement
-        ? `${escapeHtml(alert.replacement.player.name)} <small style="color:var(--muted);">(${escapeHtml(alert.replacement.player.position)}${alert.replacement.player.nflTeam ? " " + escapeHtml(alert.replacement.player.nflTeam) : ""} · ${alert.replacement.source === "bench" ? "banc" : "free agent"})</small>`
+        ? `${escapeHtml(alert.replacement.player.name)} <small style="color:var(--muted);">(${escapeHtml(alert.replacement.player.position)}${alert.replacement.player.nflTeam ? " " + escapeHtml(alert.replacement.player.nflTeam) : ""} · ${alert.replacement.source === "bench" ? "banc" : "cible à acquérir"})</small>${alert.advice ? `<br><small>${escapeHtml(alert.advice)}</small>` : ""}`
         : `<span style="color:var(--muted);">Aucun remplaçant évident.</span>`;
 
       return `

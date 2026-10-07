@@ -66,7 +66,11 @@ export function deriveWaiverRules({ leagueSettings, transactions = [], minimumBa
   const weekly = [...batches].filter(([, count]) => count >= 3).map(([key]) => key * 3_600_000);
   const matches = weekly.filter(at => { const local = localParts(at, SLEEPER_WAIVER_TIME_ZONE); return local.weekday === clearDay && Number(local.hour) === s.daily_waivers_hour; });
   if (matches.length < minimumBatches || matches.length !== weekly.length) return null;
-  return { clearDay, clearTime: `${String(s.daily_waivers_hour).padStart(2, "0")}:00 ${SLEEPER_WAIVER_TIME_ZONE}`, clearDays: s.waiver_clear_days,
+  // Results land a few minutes after the nominal hour: until then the run is in progress.
+  const delays = matches.map(at => Math.max(...transactions.filter(t => t.type === "waiver" && t.status === "complete" && Math.floor(Number(t.status_updated) / 3_600_000) * 3_600_000 === at)
+    .map(t => (Number(t.status_updated) - at) / 60_000)));
+  const processingMinutes = Math.ceil(Math.max(...delays)) + 5;
+  return { clearDay, clearTime: `${String(s.daily_waivers_hour).padStart(2, "0")}:00 ${SLEEPER_WAIVER_TIME_ZONE}`, clearDays: s.waiver_clear_days, processingMinutes,
     source: "SLEEPER_LEAGUE_SETTINGS", validation: { confirmedWeeklyBatches: matches.length, observedWeeklyBatches: weekly.length, latestConfirmedAt: new Date(Math.max(...matches)).toISOString() } };
 }
 
@@ -97,13 +101,18 @@ export function inferWaiverState({ nflTeam, schedule = [], asOf, recentDrop = nu
   const runs = waiverRules ? weeklyWaiverRuns({ asOf, clearDay: waiverRules.clearDay, clearTime: waiverRules.clearTime }) : null;
   if (!runs || !nflTeam || !schedule.length || !Number.isFinite(now)) return null;
   const kickoffs = schedule.filter(game => [game.away_team, game.home_team].includes(nflTeam)).map(game => Date.parse(game.kickoffAt)).filter(at => Number.isFinite(at) && at <= now);
-  const lockedByGame = kickoffs.length > 0 && Math.max(...kickoffs) > Date.parse(runs.lastRunAt);
+  // During the minutes the run takes, its results are not published: nobody is declared free yet.
+  const processingUntil = Date.parse(runs.lastRunAt) + (Number.isFinite(waiverRules.processingMinutes) ? waiverRules.processingMinutes : 0) * 60_000;
+  const processing = now < processingUntil;
+  const reference = processing ? Date.parse(runs.lastRunAt) - 7 * 86_400_000 : Date.parse(runs.lastRunAt);
+  const lockedByGame = kickoffs.length > 0 && Math.max(...kickoffs) > reference;
   const dropClearsAt = recentDrop && Number.isFinite(waiverRules.clearDays) ? Date.parse(recentDrop.droppedAt) + waiverRules.clearDays * 86_400_000 : null;
   const lockedByDrop = Number.isFinite(dropClearsAt) && dropClearsAt > now;
-  const processesAt = Math.max(lockedByGame ? Date.parse(runs.nextRunAt) : 0, lockedByDrop ? dropClearsAt : 0);
+  const processesAt = Math.max(lockedByGame ? (processing ? processingUntil : Date.parse(runs.nextRunAt)) : 0, lockedByDrop ? dropClearsAt : 0);
   return { availability: lockedByGame || lockedByDrop ? "WAIVER_LOCKED" : "FREE_AGENT",
     waiverProcessesAt: processesAt ? new Date(processesAt).toISOString() : null,
-    rule: lockedByGame ? "KICKOFF_SINCE_LAST_WEEKLY_RUN" : lockedByDrop ? "RECENT_DROP_CLEAR_DAYS" : "CLEARED_AT_LAST_WEEKLY_RUN",
+    processing: processing && lockedByGame,
+    rule: lockedByGame && processing ? "WEEKLY_RUN_IN_PROGRESS" : lockedByGame ? "KICKOFF_SINCE_LAST_WEEKLY_RUN" : lockedByDrop ? "RECENT_DROP_CLEAR_DAYS" : "CLEARED_AT_LAST_WEEKLY_RUN",
     lastRunAt: runs.lastRunAt, nextRunAt: runs.nextRunAt, approximate: true };
 }
 
@@ -139,7 +148,7 @@ export function resolveAcquisitionAvailability({ playerId, rosters, evidence = {
   const unclearedDrop = !owner && recentDrop && availability !== "FREE_AGENT" ? recentDrop : null;
   if (unclearedDrop && availability !== "WAIVER_LOCKED" && !inferred) coverageIssues.push("RECENT_DROP_CLEARANCE_UNVERIFIED");
   return { availability, availabilitySource, verified: availabilitySource !== "LEAGUE_RULES_INFERRED" && availabilitySource !== "NONE",
-    inference: inferred ? { rule: inferred.rule, lastRunAt: inferred.lastRunAt, nextRunAt: inferred.nextRunAt, rulesSource: waiverRules?.source ?? null, approximate: true } : null, recentDrop: owner ? null : recentDrop ?? null, ownerRosterId: owner?.roster_id ?? null, ownerId: owner?.owner_id ?? null, canAddNow, canStartTargetWeek,
+    inference: inferred ? { rule: inferred.rule, processing: inferred.processing, lastRunAt: inferred.lastRunAt, nextRunAt: inferred.nextRunAt, rulesSource: waiverRules?.source ?? null, approximate: true } : null, recentDrop: owner ? null : recentDrop ?? null, ownerRosterId: owner?.roster_id ?? null, ownerId: owner?.owner_id ?? null, canAddNow, canStartTargetWeek,
     waiverProcessesAt: processesValue, waiverProcessesAtSource: processesValue ? (observed && evidence.waiverProcessesAt ? "OPERATOR_EVIDENCE" : "LEAGUE_RULES_INFERRED") : null, kickoffAt: Number.isFinite(kickoff) ? kickoffValue : null,
     kickoffSource: kickoffSource || (current && evidence.kickoffAt ? evidence.source : null), availabilityAsOf: asOf,
     evidence: current ? [evidence] : [], coverageIssues };

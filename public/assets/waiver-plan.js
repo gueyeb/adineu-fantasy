@@ -86,6 +86,22 @@ const claimView = row => ({ teRosterUtility: row.teRosterUtility ?? null, player
 /** Review branches, not platform submissions. The primary winning path keeps its greedy semantics.
  * Only alternatives absent from that path compete for the same cut/open spot at the same processing time.
  * Each winner/failure branch is recalculated; ordinary later steps still assume success. */
+/** Candidates the plan considers per position: fixed, so a display limit never changes the plan. */
+export const PLAN_CANDIDATES_PER_POSITION = 15;
+export function selectPlanCandidates(marketRows, perPosition = PLAN_CANDIDATES_PER_POSITION) {
+  const counts = {};
+  return marketRows.filter(row => {
+    counts[row.position] = (counts[row.position] || 0) + 1;
+    return counts[row.position] <= perPosition || row.poolEntry?.pinned;
+  });
+}
+/** Every player the plan names, steps and alternative claims included. */
+export function planPlayerIds(plan) {
+  const ids = new Set();
+  JSON.stringify(plan ?? null, (key, value) => { if (key === "playerId" && value != null) ids.add(String(value)); return value; });
+  return ids;
+}
+
 export function buildAcquisitionPlan(options) {
   const primary = runGreedyPlan(options);
   const maxScenarios = 16;

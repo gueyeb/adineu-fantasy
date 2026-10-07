@@ -15,7 +15,7 @@ import { resolveAcquisitionAvailability, summarizeRecentTransactions, resolveRol
  */
 
 import { normalizeRosterPreferences } from "../public/assets/roster-preferences.js";
-import { buildAcquisitionPlan, formatClaimPortfolio } from "../public/assets/waiver-plan.js";
+import { buildAcquisitionPlan, formatClaimPortfolio, selectPlanCandidates, planPlayerIds } from "../public/assets/waiver-plan.js";
 import { summarizeMatchupCoverage } from "../public/assets/matchup-coverage.js";
 import { loadDecisionEvidence, easternKickoffIso } from "./decision-evidence.js";
 import { BYE_WEEKS_2026 } from "../public/assets/league-settings.js";
@@ -565,12 +565,24 @@ export async function getFreeAgents({
     modelRowOf: id => marketById.has(id) ? withWaiver(marketById.get(id)) : null
   });
 
+  // Same candidates whatever the caller's display limit: every export shares one plan.
+  const planCandidates = fitContext ? selectPlanCandidates(market).map(row => withWaiver(row)) : [];
   const acquisitionPlan = fitContext ? buildAcquisitionPlan({
-    candidates: Object.values(byPosition).flat(), myPlayers: fitContext.myPlayers,
+    candidates: planCandidates, myPlayers: fitContext.myPlayers,
     faabRemaining: fitContext.faabRemaining,
     rosterCapacity: STARTER_SLOT_ORDER.length + ROSTER_SETTINGS_2026.benchSlots + fitContext.protectedIds.size,
     evaluateCandidate: withWaiver
   }) : null;
+  // A player the plan names is shown on the board even beyond the display limit.
+  const boardIds = new Set(board.map(row => String(row.sleeperId)));
+  for (const id of planPlayerIds(acquisitionPlan)) {
+    const row = planCandidates.find(candidate => String(candidate.sleeperId) === id);
+    if (!row || boardIds.has(id) || (normalizedPosition && row.position !== normalizedPosition)) continue;
+    (byPosition[row.position] ??= []).push(row);
+    board.push(row);
+    boardIds.add(id);
+  }
+  boardCoverage.returned = board.length;
   // Sanity checks before publication: computed on what is actually returned.
   const coherence = buildCoherenceWarnings({ boardRows: board, marketRows: market, myPlayers: fitContext?.myPlayers ?? [], modelDegraded: degraded,
     rosterState: { emptyStarterSlotCount: countEmptyStarterSlots(fitContext, STARTER_SLOT_ORDER.length), planStepCount: acquisitionPlan?.steps.length ?? null } });
@@ -677,7 +689,7 @@ export function formatWaiverReport({ byPosition, week, faabRemaining = null, deg
           (Number.isFinite(player.waiver.usageScore) ? ` · Usage ${player.waiver.usageScore}${player.waiver.usageSignal ? ` ${player.waiver.usageSignal}` : ""}` : "") +
           (player.waiver.fit ? ` · Priorité ${player.waiver.fit.priorityScore} · Capture ${player.waiver.fit.fitScore}% · Delta S${week} ${player.waiver.fit.targetWeekDelta ?? "n/d"} · Gain brut ${player.waiver.fit.grossGainTotal ?? "n/d"} sur ${player.waiver.fit.horizonWeeks} sem · Gain net total ${player.waiver.fit.netGainTotal ?? "n/d"} · Gain net moyen ROS ${player.waiver.fit.netGainPerWeek ?? "n/d"} pts/sem · Coupe ${player.waiver.fit.dropCandidate?.name || "n/d"} (${player.waiver.fit.dropCostPerWeek ?? "n/d"} pts/sem) · Max ${player.waiver.fit.faabMaxForMe} $${player.waiver.fit.cutSelection ? ` · Sélection coupe ${player.waiver.fit.cutSelection}` : ""}${formatDropCost(player.waiver.fit.dropCostComponents)}` : "") +
           formatEntry(player) + formatNextUnlock(player.nextUnlockScenario) + (player.teRosterUtility ? ` · ${formatTeRosterUtility(player.teRosterUtility)}` : '') +
-          ` · ${formatMaxBid(player.waiver)} · ${player.waiver.bidStatus === "NOT_DETERMINED" ? `Enchère non déterminée (${player.waiver.bidUndeterminedReason})` : `Enchère proposée ${player.waiver.suggestedBid ?? "n/d"} $`} · % initial ${player.waiver.bidPctInitial ?? "n/d"} · % restant ${player.waiver.bidPctRemaining ?? "n/d"}` +
+          ` · ${formatMaxBid(player.waiver)} · ${player.waiver.bidStatus === "NOT_DETERMINED" ? `Enchère non déterminée (${player.waiver.bidUndeterminedReason})` : `Enchère proposée ${player.waiver.suggestedBid ?? "n/d"} $${player.waiver.bidNote === "ZERO_MARKET_ESTIMATE_NOT_A_GUARANTEE" ? ` (marché estimé à 0 $, sans garantie : marge jusqu'au plafond de ${player.waiver.personalMaxBid} $)` : ""}`} · % initial ${player.waiver.bidPctInitial ?? "n/d"} · % restant ${player.waiver.bidPctRemaining ?? "n/d"}` +
           (player.waiver.duration ? ` · Durée ${player.waiver.duration}` : "") +
           (player.waiver.newsOverride ? ` · ⚡ ${player.waiver.reasons.join(" ; ")}` : "")
         : "";

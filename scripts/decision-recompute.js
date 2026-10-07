@@ -9,7 +9,7 @@ import { calculateFaabRemaining } from '../public/assets/team-metrics.js';
 import { findRosterByTeam } from '../public/assets/roster-view.js';
 import { normalizeRosterPreferences } from '../public/assets/roster-preferences.js';
 import { buildStarterSlotOrder } from '../public/assets/roster-view.js';
-import { buildAcquisitionPlan } from '../public/assets/waiver-plan.js';
+import { buildAcquisitionPlan, selectPlanCandidates, planPlayerIds } from '../public/assets/waiver-plan.js';
 import { createWaiverEvaluator } from './waiver-evaluator.js';
 import { buildCoherenceWarnings, countEmptyStarterSlots } from '../public/assets/decision-coherence.js';
 
@@ -80,9 +80,17 @@ export function recomputeDecisionInputs(inputs) {
     byPosition[row.position] ??= [];
     if (byPosition[row.position].length < inputs.limitPerPosition || row.poolEntry?.pinned) byPosition[row.position].push(evaluate(row));
   }
-  const acquisitionPlan = fitContext ? buildAcquisitionPlan({ candidates:Object.values(byPosition).flat(), myPlayers:fitContext.myPlayers,
+  const planCandidates = fitContext ? selectPlanCandidates(market).map(row=>evaluate(row)) : [];
+  const acquisitionPlan = fitContext ? buildAcquisitionPlan({ candidates:planCandidates, myPlayers:fitContext.myPlayers,
     faabRemaining:fitContext.faabRemaining, rosterCapacity:buildStarterSlotOrder(ROSTER_SETTINGS_2026).length + ROSTER_SETTINGS_2026.benchSlots + fitContext.protectedIds.size,
     evaluateCandidate:evaluate }) : null;
+  const shown = new Set(Object.values(byPosition).flat().map(row=>String(row.sleeperId)));
+  for (const id of planPlayerIds(acquisitionPlan)) {
+    const row = planCandidates.find(candidate=>String(candidate.sleeperId) === id);
+    if (!row || shown.has(id) || (inputs.position && row.position !== inputs.position.toUpperCase())) continue;
+    (byPosition[row.position] ??= []).push(row);
+    shown.add(id);
+  }
   const coherence = buildCoherenceWarnings({ boardRows:Object.values(byPosition).flat(), marketRows:market, myPlayers:fitContext?.myPlayers ?? [], modelDegraded:Boolean(inputs.degraded),
     rosterState:{ emptyStarterSlotCount:countEmptyStarterSlots(fitContext, buildStarterSlotOrder(ROSTER_SETTINGS_2026).length), planStepCount:acquisitionPlan?.steps.length ?? null } });
   const projectionComparison = Object.hasOwn(inputs.raw ?? {}, 'projectionCapture') ? buildProjectionComparison({

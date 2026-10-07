@@ -4,7 +4,7 @@
  *
  * Croise le lineup d'une équipe avec le statut blessure Sleeper et les bye weeks
  * pour flaguer chaque titulaire à risque, puis propose le meilleur remplaçant
- * (banc en priorité, sinon un free agent du marché).
+ * (banc en priorité, sinon une cible à acquérir, avec sa disponibilité et l'action du plan).
  *
  * Usage :
  *   node scripts/lineup-advisor.js --team=t0z
@@ -87,12 +87,40 @@ function bestFreeAgentReplacement(slot, freeAgentsByPosition) {
   })[0];
 }
 
-function findReplacement(slot, bench, playerStatuses, freeAgentsByPosition) {
+// A player outside the roster is a target to acquire, never a "free agent" by default: his
+// availability, the action and the bid come from the same evaluation as the waiver report.
+const acquisitionView = row => ({ availability: row.availability?.availability ?? "UNKNOWN", availabilitySource: row.availability?.availabilitySource ?? "NONE",
+  waiverProcessesAt: row.availability?.waiverProcessesAt ?? null, recommendedAction: row.waiver?.decision?.recommendedAction ?? row.recommendedAction ?? null,
+  confirmation: row.waiver?.decision?.confirmation ?? null, suggestedBid: row.waiver?.suggestedBid ?? row.suggestedBid ?? null,
+  personalMaxBid: row.waiver?.personalMaxBid ?? row.personalMaxBid ?? null });
+
+function findReplacement(slot, bench, playerStatuses, freeAgentsByPosition, acquisitionPlan = null) {
   const fromBench = bestBenchReplacement(slot, bench, playerStatuses);
   if (fromBench) return { source: "bench", player: fromBench };
+  // The plan's own step for that slot first: Start/Sit and the waiver plan name the same player.
+  const positions = slot === "FLEX" ? FLEX_ELIGIBLE : [slot];
+  const step = (acquisitionPlan?.steps || []).find(row => positions.includes(row.position));
+  if (step) return { source: "acquisition_plan", player: { sleeperId: step.playerId, name: step.name, position: step.position, nflTeam: step.availability?.nflTeam ?? null },
+    acquisition: acquisitionView(step) };
   const fromMarket = bestFreeAgentReplacement(slot, freeAgentsByPosition);
-  if (fromMarket) return { source: "free_agent", player: fromMarket };
+  if (fromMarket) return { source: "acquisition_target", player: fromMarket, acquisition: acquisitionView(fromMarket) };
   return null;
+}
+
+/** One sentence for every output: what to do about an alert, and how sure the model is. */
+export function formatReplacement(alert) {
+  const replacement = alert?.replacement;
+  if (!replacement) return null;
+  const name = replacement.player?.name || "n/d";
+  if (replacement.source === "bench") {
+    return alert.replacementRole === "FALLBACK_IF_INACTIVE"
+      ? `surveiller ${alert.player?.name || "le titulaire"} ; ${name} en secours s'il est indisponible`
+      : `remplaçant du banc : ${name}`;
+  }
+  const a = replacement.acquisition || {};
+  const state = a.availabilitySource === "LEAGUE_RULES_INFERRED" ? `${a.availability} déduite — à confirmer dans Sleeper` : a.availability || "UNKNOWN";
+  const action = ({ ADD_NOW: "ajout libre", CLAIM_IF_CHEAP: `claim${Number.isFinite(a.suggestedBid) ? ` ${a.suggestedBid} $` : ""}${Number.isFinite(a.personalMaxBid) ? ` (plafond ${a.personalMaxBid} $)` : ""}` })[a.recommendedAction] || "aucune action exécutable";
+  return `cible à acquérir : ${name} — disponibilité ${state} ; ${action}${replacement.source === "acquisition_plan" ? " (étape du plan)" : ""}`;
 }
 
 /**
@@ -109,7 +137,8 @@ export function diagnoseLineup({
   playerStatuses = new Map(),
   freeAgentsByPosition = {},
   byeWeeks = {},
-  currentWeek = null
+  currentWeek = null,
+  acquisitionPlan = null
 }) {
   const bench = myTeam.bench || [];
   const alerts = [];
@@ -123,7 +152,8 @@ export function diagnoseLineup({
         player: null,
         severity: "ALERT",
         reason: "Slot vide",
-        replacement: findReplacement(starter.slot, bench, playerStatuses, freeAgentsByPosition)
+        replacementRole: "REPLACE",
+        replacement: findReplacement(starter.slot, bench, playerStatuses, freeAgentsByPosition, acquisitionPlan)
       });
       continue;
     }
@@ -138,10 +168,13 @@ export function diagnoseLineup({
       player,
       severity: onBye ? "ALERT" : statusSeverity,
       reason: onBye ? `Bye Week (semaine ${currentWeek})` : status,
-      replacement: findReplacement(starter.slot, bench, playerStatuses, freeAgentsByPosition)
+      // Questionable alone justifies no swap: the bench player is a fallback, not a replacement.
+      replacementRole: !onBye && statusSeverity === "WATCH" ? "FALLBACK_IF_INACTIVE" : "REPLACE",
+      replacement: findReplacement(starter.slot, bench, playerStatuses, freeAgentsByPosition, acquisitionPlan)
     });
   }
 
+  for (const alert of alerts) alert.advice = formatReplacement(alert);
   return { alerts };
 }
 
@@ -289,8 +322,8 @@ export function formatLineupAdvisory({ alerts }) {
     const icon = alert.severity === "ALERT" ? "🔴" : "🟡";
     lines.push("", `${icon} ${alert.slot} — ${describePlayer(alert.player)}`, `   Raison : ${alert.reason}`);
     if (alert.replacement) {
-      const sourceLabel = alert.replacement.source === "bench" ? "banc" : "free agent";
-      lines.push(`   Remplaçant conseillé (${sourceLabel}) : ${describePlayer(alert.replacement.player)}`);
+      // Same sentence as every other output: fallback vs swap, target to acquire vs bench.
+      lines.push(`   ${alert.advice ? `Conseil : ${alert.advice}` : `Remplaçant conseillé (${alert.replacement.source === "bench" ? "banc" : "cible à acquérir"}) : ${describePlayer(alert.replacement.player)}`}`);
     } else {
       lines.push("   Aucun remplaçant évident trouvé.");
     }
