@@ -13,7 +13,7 @@ import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { diagnoseRoster, findTradeProposals } from "../public/assets/trade-recommender.js";
 import { resolveOperationalWeek } from "../public/assets/nfl-week.js";
-import { usageAdjustedRosPpg } from "../public/assets/rest-of-season.js";
+import { usageAdjustedRosPpg, projectedRosOnly } from "../public/assets/rest-of-season.js";
 import { GENERAL_SETTINGS_2026 } from "../public/assets/league-settings.js";
 import { getInjuryStatuses, getUsageReport, getWeeklyProjections } from "./league-context.js";
 
@@ -73,7 +73,9 @@ export async function loadPlayerValues({ leagueId = DEFAULT_SLEEPER_LEAGUE_ID, f
   for (const playerId of ids) {
     const info = catalog.get(playerId) || {};
     const usage = usageById.get(playerId);
-    const ros = usageAdjustedRosPpg({ playerId, position: info.position, nflTeam: info.nflTeam, projectionsByWeek, week, xfp: usage?.xfp });
+    // Same rule as the waiver engine: a player Sleeper does not project keeps the catalog-based
+    // estimate (with its injury discount) instead of a value built from past volume alone.
+    const ros = projectedRosOnly(usageAdjustedRosPpg({ playerId, position: info.position, nflTeam: info.nflTeam, projectionsByWeek, week, xfp: usage?.xfp }));
     const values = {};
     if (ros) { values.rosPpg = ros.ppg; values.rosSource = ros.source; }
     if (usage) {

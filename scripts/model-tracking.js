@@ -163,6 +163,24 @@ async function insertChunks(supabase, table, rows, size = 500) {
   }
 }
 
+/** One waiver-market row of the weekly snapshot. The role profile and its trend are archived in
+ * the existing `events` JSON (no schema change) so they can later be compared with real outcomes,
+ * WATCH/IGNORE candidates included: that is the dataset the role thresholds are waiting for. */
+export function marketSnapshotRow(row) {
+  const emerging = row.emergingRole;
+  const role = row.roleProfile?.profile ? { roleProfile: row.roleProfile.profile, roleBasis: row.roleProfile.basis ?? [] } : null;
+  const trend = emerging?.comparable ? { progression: emerging.progression, progressionSource: emerging.progressionSource ?? null,
+    xfpDelta: emerging.xfpDelta ?? null, opportunitiesDelta: emerging.opportunitiesDelta ?? null, weeksCompared: emerging.weeksCompared } : null;
+  const flags = row.waiver.flags?.length ? { flags: row.waiver.flags, reasons: row.waiver.reasons, duration: row.waiver.duration } : null;
+  return {
+    sleeper_player_id: row.sleeperId, name: row.name, position: row.position, nfl_team: row.nflTeam,
+    category: row.waiver.category, market_score: row.waiver.score, faab_low: row.waiver.faabMarket?.[0] ?? null, faab_high: row.waiver.faabMarket?.[1] ?? null,
+    surplus_points: row.surplusPoints, effective_ppg: row.effectivePpg, ros_ppg: row.rosPpg,
+    news_override: Boolean(row.waiver.newsOverride),
+    events: flags || role || trend ? { ...(flags ?? {}), ...(role ?? {}), ...(trend ?? {}) } : null
+  };
+}
+
 export async function takeSnapshot({ supabase, fetchImpl = fetch, season, week, dryRun = false, force = false }) {
   // First write wins: the snapshot must describe the market BEFORE Wednesday's waivers. A re-run
   // later in the week (manual test, retry) would replace it with a post-waiver state where the
@@ -175,12 +193,7 @@ export async function takeSnapshot({ supabase, fetchImpl = fetch, season, week, 
     getFreeAgents({ limitPerPosition: 40, fetchImpl }),
     getUsageReport({ fetchImpl })
   ]);
-  const marketRows = Object.values(market.byPosition).flat().map(row => ({
-    sleeper_player_id: row.sleeperId, name: row.name, position: row.position, nfl_team: row.nflTeam,
-    category: row.waiver.category, market_score: row.waiver.score, faab_low: row.waiver.faabMarket?.[0] ?? null, faab_high: row.waiver.faabMarket?.[1] ?? null,
-    surplus_points: row.surplusPoints, effective_ppg: row.effectivePpg, ros_ppg: row.rosPpg,
-    news_override: Boolean(row.waiver.newsOverride), events: row.waiver.flags?.length ? { flags: row.waiver.flags, reasons: row.waiver.reasons, duration: row.waiver.duration } : null
-  }));
+  const marketRows = Object.values(market.byPosition).flat().map(marketSnapshotRow);
   const projectionRows = [];
   for (let target = week; target <= LAST_REGULAR_WEEK; target++) {
     const projections = await getWeeklyProjections({ week: target, season: String(season), fetchImpl }).catch(() => ({}));

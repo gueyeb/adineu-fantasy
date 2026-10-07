@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { usageAdjustedRosPpg } from "../public/assets/rest-of-season.js";
+import { projectedRosOnly, usageAdjustedRosPpg } from "../public/assets/rest-of-season.js";
 
 test("keeps the next two Sleeper weeks and blends later weeks 80/20 with xFP (backtested weight)", () => {
   const result = usageAdjustedRosPpg({
@@ -28,4 +28,9 @@ test("a value built from xFP alone is labelled as such, never as a Sleeper proje
   const result = usageAdjustedRosPpg({ playerId: "p1", position: "WR", nflTeam: "FA", week: 4, xfp: 9, projectionsByWeek });
   assert.equal(result.source, "USAGE_XFP_ONLY");
   assert.equal(result.projectedWeeks, 0);
+  // Waiver engine and Trade Finder both discard it and fall back to their own estimate.
+  assert.equal(projectedRosOnly(result), null);
+  assert.equal(projectedRosOnly(null), null);
+  const projected = usageAdjustedRosPpg({ playerId: "p1", position: "WR", nflTeam: "FA", week: 4, xfp: 9, projectionsByWeek: { ...projectionsByWeek, 4: { p1: { pts_ppr: 7 } } } });
+  assert.equal(projectedRosOnly(projected), projected);
 });

@@ -1,6 +1,6 @@
 import { buildPlayerWeeks, calculateUsageScores, expectedPoints } from '../public/assets/usage-score.js';
 import { buildEmergingRole, classifyRoleProfile } from '../public/assets/role-profile.js';
-import { usageAdjustedRosPpg } from '../public/assets/rest-of-season.js';
+import { usageAdjustedRosPpg, projectedRosOnly } from '../public/assets/rest-of-season.js';
 import { estimateBaselineProjectedPpg } from '../public/assets/trade-value.js';
 import { FANTASY_POSITIONS, computeRosPpg, buildOpportunitySignals, detectEvents, effectivePpg } from '../public/assets/waiver-model.js';
 import { resolveRoleEvidence, findRecentDrops } from '../public/assets/acquisition-availability.js';
@@ -42,8 +42,7 @@ export function extractDecisionFeatures({ index, catalog, rosters, nflState, pro
   const meta = id => index.get(id) || (catalogById.has(id) ? { id, name: catalogById.get(id).name, position: catalogById.get(id).position, nflTeam: catalogById.get(id).nflTeam, active: true } : null);
   // The decision engine never prices a player Sleeper does not project: a value built from
   // recent volume alone is not a projection, so it is dropped here (rank fallback or null).
-  const projectedOnly = detail => detail && detail.projectedWeeks > 0 ? detail : null;
-  const rosDetailFor = (id, player) => projectedOnly(usageAdjustedRosPpg({
+  const rosDetailFor = (id, player) => projectedRosOnly(usageAdjustedRosPpg({
     playerId: id,
     position: player?.position,
     nflTeam: player?.nflTeam,

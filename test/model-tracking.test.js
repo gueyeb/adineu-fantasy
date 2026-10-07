@@ -80,3 +80,19 @@ test('missing FAAB ranges are uncovered and feedback cannot claim calibration', 
   assert.match(text, /MAE/);
   assert.match(text, /ne certifie pas une capture avant kickoff/);
 });
+
+test("weekly market snapshot archives the role profile and trend in events, without a schema change", async () => {
+  const { marketSnapshotRow } = await import("../scripts/model-tracking.js");
+  const base = { sleeperId: "p", name: "Fixture", position: "WR", nflTeam: "AAA", surplusPoints: 4, effectivePpg: 8, rosPpg: 7,
+    waiver: { category: "STASH", score: 30, faabMarket: [3, 5], flags: [], reasons: [], duration: null, newsOverride: false } };
+  assert.equal(marketSnapshotRow(base).events, null);
+  const profiled = marketSnapshotRow({ ...base, roleProfile: { profile: "ROLE_EXPANSION", basis: ["XFP_RISING_2_WEEKS"] },
+    emergingRole: { comparable: true, progression: "RISING", progressionSource: "ORGANIC", xfpDelta: 3.2, opportunitiesDelta: 2, weeksCompared: [2, 3, 4] } });
+  assert.deepEqual(profiled.events, { roleProfile: "ROLE_EXPANSION", roleBasis: ["XFP_RISING_2_WEEKS"], progression: "RISING", progressionSource: "ORGANIC", xfpDelta: 3.2, opportunitiesDelta: 2, weeksCompared: [2, 3, 4] });
+  const flagged = marketSnapshotRow({ ...base, waiver: { ...base.waiver, flags: ["PROMOTION"], reasons: ["fixture"], duration: "RENTAL_1W", newsOverride: true }, roleProfile: { profile: "PURE_RENTAL", basis: ["NO_ROLE_BEFORE_ABSENCE"] } });
+  assert.deepEqual(Object.keys(flagged.events), ["flags", "reasons", "duration", "roleProfile", "roleBasis"]);
+  assert.equal(flagged.news_override, true);
+  // Joueur non valorisé : les colonnes numériques restent nulles, la ligne reste archivable.
+  const unvalued = marketSnapshotRow({ ...base, surplusPoints: null, effectivePpg: null, rosPpg: null, waiver: { ...base.waiver, score: null, faabMarket: null } });
+  assert.deepEqual([unvalued.market_score, unvalued.faab_low, unvalued.faab_high, unvalued.ros_ppg], [null, null, null, null]);
+});

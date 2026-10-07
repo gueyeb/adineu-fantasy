@@ -14,6 +14,10 @@ export const FAR_WEEK_USAGE_WEIGHT_BY_POSITION = { QB: 0.5, RB: FAR_WEEK_USAGE_W
 const LAST_REGULAR_WEEK = GENERAL_SETTINGS_2026.playoffWeekStart - 1;
 const round = value => Number(value.toFixed(1));
 
+/** A rest-of-season value counts only when Sleeper projects the player at least once: recent
+ * volume alone is not a projection (callers then use their own fallback, or no value). */
+export const projectedRosOnly = detail => detail && detail.projectedWeeks > 0 ? detail : null;
+
 export function usageAdjustedRosPpg({
   playerId,
   position,
