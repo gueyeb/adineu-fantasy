@@ -1,6 +1,50 @@
 import { BYE_WEEKS_2026 } from '../public/assets/league-settings.js';
 import { LAST_REGULAR_WEEK } from '../public/assets/waiver-model.js';
 
+/** Keep source/week detail in JSON; text reports share one bounded coverage summary. */
+export function summarizeDecisionProvenance({ roster = [], candidates = [] } = {}) {
+  const summarize = rows => {
+    const counts = {}, usageWeekCounts = {}, rosSources = {}, sources = new Set(), timestamps = [], gaps = [];
+    let missingProvenance = 0, missingUsageProvenance = 0;
+    for (const row of rows) {
+      const weeks = row.provenance?.projections?.weeks;
+      if (!weeks?.length) missingProvenance++;
+      const usageWeeks = row.provenance?.usage?.weeks;
+      if (!usageWeeks?.length) missingUsageProvenance++;
+      const rosSource = row.provenance?.projections?.rosSource || 'UNKNOWN';
+      rosSources[rosSource] = (rosSources[rosSource] || 0) + 1;
+      for (const item of usageWeeks || []) {
+        usageWeekCounts[item.status] = (usageWeekCounts[item.status] || 0) + 1;
+        if (item.source) sources.add(item.source);
+        if (item.fetchedAt) timestamps.push(item.fetchedAt);
+      }
+      for (const item of weeks || []) {
+        counts[item.status] = (counts[item.status] || 0) + 1;
+        if (item.source) sources.add(item.source);
+        if (item.fetchedAt) timestamps.push(item.fetchedAt);
+        if (['PLAYER_MISSING', 'LOAD_FAILED'].includes(item.status)) gaps.push({
+          playerId: row.playerId, name: row.name || `Joueur #${row.playerId}`, week: item.week,
+          cause: item.status, source: item.source, fetchedAt: item.fetchedAt ?? null
+        });
+      }
+    }
+    timestamps.sort();
+    return { players: rows.length, missingProvenance, missingUsageProvenance, projectionWeekCounts: counts,
+      usageWeekCounts, rosSources, gameCompletion: 'UNVERIFIED', routes: 'UNAVAILABLE',
+      sourceCount: sources.size, fetchedAtRange: timestamps.length ? [timestamps[0], timestamps.at(-1)] : null, gaps };
+  };
+  return { roster: summarize(roster), candidates: summarize(candidates) };
+}
+
+export function formatProvenanceSummary(summary) {
+  return ['roster', 'candidates'].map(scope => {
+    const { gaps, ...coverage } = summary[scope];
+    const players = [...new Set(gaps.map(row => row.name))];
+    return `Source coverage ${scope}: ${JSON.stringify(coverage)}; projection gaps ${gaps.length}` +
+      `${players.length ? ` (${players.slice(0, 12).join(', ')}${players.length > 12 ? `; +${players.length - 12} players` : ''})` : ''}; full dated provenance in JSON.`;
+  });
+}
+
 /** Coverage describes source fields, not confidence in role or projection accuracy. */
 export function buildDecisionProvenance({ playerId, nflTeam, position, week, lastCompletedWeek, season, projectionsByWeek, statsByWeek, fetchedAtByPath = {}, rosSource }) {
   const projections = [];
