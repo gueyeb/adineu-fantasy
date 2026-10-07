@@ -1,5 +1,13 @@
 # Approved in-season roadmap
 
+## Nice-to-haves: weekly awards et notes de draft après saison
+
+Ajout demandé le 07/10 : awards hebdomadaires et bilan de draft après saison, inspirés des captures Sleeper et des exports FantasyPros. Ajouter également une vue publique simple pour les visiteurs hors ligue, sans ouvrir le Coach privé ni transformer ADINEU en produit multi-ligues.
+
+**État : backlog, non implémenté.** V1 : étendre le récap existant avec des awards objectifs et all-play ; les présenter dans « Cette semaine dans ADINEU » avec résultats, classement et explications courtes. Ensuite MVP/joueurs de banc et efficacité de lineup si la couverture permet le calcul. Notes de draft après fin de saison uniquement ; sur/sous-performance contre projection seulement avec snapshots réellement pré-match.
+
+[Périmètre, formules, séparation public/privé et critères d'acceptation](prd-public-weekly-awards.md).
+
 ## Playoff probabilities — Power page
 
 Activate only after two completed regular-season weeks with coverage for all 12 teams, reusing the Power Rankings activation gate. Keep the arithmetic Playoff Race separate and unchanged. Add a clearly labeled Adineu simulation estimate for each team's chance to finish in the eight playoff spots.
