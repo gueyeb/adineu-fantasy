@@ -4,7 +4,7 @@
 
 Ajout demandé le 07/10 : awards hebdomadaires et bilan de draft après saison, inspirés des captures Sleeper et des exports FantasyPros. Ajouter également une vue publique simple pour les visiteurs hors ligue, sans ouvrir le Coach privé ni transformer ADINEU en produit multi-ligues.
 
-**État : backlog, non implémenté.** V1 : étendre le récap existant avec des awards objectifs et all-play ; les présenter dans « Cette semaine dans ADINEU » avec résultats, classement et explications courtes. Ensuite MVP/joueurs de banc et efficacité de lineup si la couverture permet le calcul. Notes de draft après fin de saison uniquement ; sur/sous-performance contre projection seulement avec snapshots réellement pré-match.
+**État : V1 implémentée sur branche, non déployée.** Awards objectifs et all-play dans le récap ; accueil « Cette semaine dans ADINEU » avec résultats, bilan de saison et explications courtes. Tests et lecture live S4 validés ; validation visuelle desktop/mobile bloquée par accès localhost. Ensuite MVP/joueurs de banc et efficacité de lineup si la couverture permet le calcul. Notes de draft après fin de saison uniquement ; sur/sous-performance contre projection seulement avec snapshots réellement pré-match.
 
 [Périmètre, formules, séparation public/privé et critères d'acceptation](prd-public-weekly-awards.md).
 

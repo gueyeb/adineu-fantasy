@@ -1,5 +1,6 @@
 import { sleeperManager } from "./rivalry-week.js?v=714a861458";
-import { buildWeeklyRecap } from "./weekly-recap.js?v=af383f093c";
+import { buildWeeklyAwards, resolveCompletedAwardsWeek } from "./weekly-awards.js?v=af66f49349";
+import { renderWeeklyAwards } from "./weekly-awards-view.js?v=ec6cd710f4";
 import { resolveOperationalWeek } from "./nfl-week.js?v=8f9fa3f5b2";
 import { estimateBaselineProjectedPpg } from "./trade-value.js?v=c385666df3";
 import { estimatePregameWinProbability } from "./win-probability.js?v=78dcaa4abd";
@@ -281,7 +282,10 @@ export async function renderMatchupsHub(container, {
     .map(week => `<option value="${week}"${week === currentWeek ? " selected" : ""}>Semaine ${week}${week === currentWeek ? " · actuelle" : ""}</option>`).join("");
 
   const recapSelect = document.getElementById("recap-week");
-  const defaultRecapWeek = currentWeek > 1 ? currentWeek - 1 : currentWeek;
+  const completedThroughWeek = resolveCompletedAwardsWeek({ league, state: nflState });
+  const requestedWeek = Number(new URLSearchParams(window.location.search).get("week"));
+  const defaultRecapWeek = Number.isInteger(requestedWeek) && requestedWeek >= 1 && requestedWeek <= regularWeekCount
+    ? requestedWeek : completedThroughWeek || 1;
   recapSelect.innerHTML = Array.from({ length: regularWeekCount }, (_, index) => index + 1)
     .map(week => `<option value="${week}"${week === defaultRecapWeek ? " selected" : ""}>Semaine ${week}</option>`).join("");
 
@@ -313,47 +317,19 @@ export async function renderMatchupsHub(container, {
     }
   }
 
-  function renderRecapContent(recap) {
-    if (!recap.highestScore) {
-      return `<div class="matchup-empty"><strong>Semaine pas encore jouée</strong><p>Revenez une fois les scores publiés par Sleeper.</p></div>`;
-    }
-
-    const upsetCard = recap.biggestUpset
-      ? { label: "Plus gros upset", value: `${recap.biggestUpset.winnerChance}% de chances pré-match`, detail: `${recap.biggestUpset.winner.manager} bat ${recap.biggestUpset.loser.manager}` }
-      : { label: "Plus gros upset", value: "Aucun", detail: "Le favori l’a emporté partout (ou projections indisponibles)." };
-
-    const cards = [
-      { label: "Meilleur score", value: `${formatPoints(recap.highestScore.actualScore)} pts`, detail: `${recap.highestScore.manager} · ${recap.highestScore.teamName}` },
-      recap.closestMatchup
-        ? { label: "Match le plus serré", value: `${formatPoints(recap.closestMatchup.margin)} pts d’écart`, detail: `${recap.closestMatchup.teams[0].manager} vs ${recap.closestMatchup.teams[1].manager}` }
-        : null,
-      upsetCard
-    ].filter(Boolean);
-
-    const benchRows = recap.benchPointsLeaders
-      .map(team => `<li><strong>${escapeHtml(team.manager)}</strong> <small>${escapeHtml(team.teamName)}</small><span>${formatPoints(team.benchPointsLeft)} pts laissés au banc</span></li>`)
-      .join("");
-
-    return `
-      <div class="recap-grid">${cards.map(card => `<article class="recap-stat"><span>${escapeHtml(card.label)}</span><strong>${escapeHtml(card.value)}</strong><small>${escapeHtml(card.detail)}</small></article>`).join("")}</div>
-      <div class="recap-bench"><h3>Points laissés sur le banc</h3><ul>${benchRows || "<li>Aucune donnée pour cette semaine.</li>"}</ul></div>
-    `;
-  }
-
   async function loadRecap(week) {
     const status = document.getElementById("recap-status");
     const content = document.getElementById("recap-content");
     content.innerHTML = `<div class="state">Lecture de la semaine ${week}…</div>`;
     try {
-      const [rows, projections, catalog] = await Promise.all([
-        fetchJson(`${SLEEPER_API}/league/${leagueId}/matchups/${week}`),
-        fetchJson(`${SLEEPER_API}/projections/nfl/regular/${season}/${week}`, { optional: true }),
-        fetchJson("/data/players-catalog.json", { optional: true })
-      ]);
-      const playerCatalog = new Map((catalog?.players || []).map(player => [player.sleeperId, player]));
-      const recap = buildWeeklyRecap({ rows, rosters, users, playerCatalog, projections: projections || {}, week });
-      content.innerHTML = renderRecapContent(recap);
-      status.textContent = recap.highestScore ? `Semaine ${week} · ${recap.matchups.length} matchs` : `Semaine ${week}`;
+      const rows = week <= completedThroughWeek ? await sleeperGet(`/league/${leagueId}/matchups/${week}`, { fresh: true }) : [];
+      const recap = buildWeeklyAwards({ rows, rosters, users, week, completedThroughWeek,
+        expectedTeamCount: Number(league.total_rosters) });
+      content.innerHTML = renderWeeklyAwards(recap);
+      status.textContent = recap.ready ? `Semaine ${week} terminée · ${recap.matchups.length} matchs` : `Semaine ${week} · récap en attente`;
+      const query = new URLSearchParams(window.location.search);
+      query.set("week", String(week));
+      window.history.replaceState(null, "", `${window.location.pathname}?${query}#recap`);
     } catch (error) {
       content.innerHTML = `<div class="matchup-empty"><strong>Impossible de joindre Sleeper</strong><p>${escapeHtml(error.message)}. Réessayez dans quelques instants.</p></div>`;
     }
@@ -373,7 +349,7 @@ export async function renderMatchupsHub(container, {
     });
     if (updateUrl) {
       const hash = view === "live" ? "#live" : view === "schedule" ? "#schedule" : view === "recap" ? "#recap" : "#archives";
-      window.history.replaceState(null, "", `${window.location.pathname}${hash}`);
+      window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}${hash}`);
     }
     if (view === "schedule" && !scheduleLoaded) {
       scheduleLoaded = true;

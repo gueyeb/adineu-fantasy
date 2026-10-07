@@ -1,6 +1,6 @@
 # Vue publique, weekly awards et bilan de draft
 
-Date : 7 octobre 2026. État : **backlog accepté, aucune fonctionnalité livrée par ce document**.
+Date : 7 octobre 2026. État : **V1 codée et testée sur branche, non déployée**. Le bilan de draft et la V1.1 restent au backlog.
 
 ## Objectif et références
 
@@ -62,3 +62,13 @@ Deux bilans distincts : rendement des joueurs sélectionnés sur la saison et co
 4. Bilan de draft : backlog après saison, dépendant de la reconstruction des picks et de la période exacte. Garder la fiabilité du moteur de décision prioritaire pendant la saison.
 
 Tests futurs : 12 équipes ⇒ 11 comparaisons all-play par équipe ; nombre total de victoires égal aux défaites ; égalités comptées symétriquement ; tous les ex aequo conservés ; absence de match décidé ⇒ pas de carte victoire ; couverture manquante ⇒ award indisponible ; maximum nul ⇒ ratio n/d ; aucune projection post-match présentée comme snapshot pré-match.
+
+## Livraison V1 locale
+
+`weekly-awards.js` calcule les huit catégories objectives et l'all-play hebdomadaire. Les scores nuls et négatifs sont inclus ; données absentes, équipes dupliquées, paires incomplètes ou semaine non terminée suspendent tous les awards. Les ex aequo sont tous affichés. Le rendu est partagé entre accueil et Matchups/Récap ; la semaine du récap est encodée dans `?week=N#recap` pour le partage.
+
+`public-week.js` lit uniquement league/rosters/users/state/matchups dans l'API publique Sleeper. Le bilan de saison reprend W/L/T et points marqués, avec ordre de lecture explicite victoires/points, sans inventer un rang officiel. Les données Coach et enchères privées ne sont ni chargées ni affichées. L'accueil existant conserve ses archives et navigation ; son nouveau bloc charge indépendamment et peut échouer sans masquer le reste.
+
+Le récap publié ne reprend plus l'ancien upset calculé à partir de projections relues après match ni le panneau de points de banc dont la couverture historique n'était pas contrôlée. Le module historique `weekly-recap.js` est conservé ; l'efficacité et le banc restent pour la V1.1 avec données vérifiées. Ce changement retire des métriques insuffisamment justifiées, pas une mesure certifiée.
+
+Validation : 406 tests passent, contrôles statiques et versions d'assets réussis. Les six tests dédiés couvrent les 11 comparaisons, symétrie W/L, égalités, vrais zéros, valeurs absentes, semaine live, saisons/périodes et absence de ressources Coach. Lecture live S4 : 12 équipes et huit catégories couvertes ; Gridiron gang meilleur score, Estocade victoire sur le fil et calendrier favorable, Binaries meilleur score en défaite et défaite malgré un bon score. Le navigateur cloud refuse localhost (`ERR_BLOCKED_BY_CLIENT`) : vérification visuelle desktop/mobile encore ouverte, aucun screenshot validé.
