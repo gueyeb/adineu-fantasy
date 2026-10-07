@@ -178,6 +178,15 @@ test("without a market signal the proposed bid follows the league's real winning
   // Jamais au-dessus de ce que le gain vaut pour le roster.
   const small = evaluate(defense("small", [0, 0]));
   assert.ok(small.waiver.suggestedBid <= small.waiver.personalMaxBid && small.waiver.personalMaxBid < 20);
+  // Hors postes de streaming, la médiane de la ligue reflète les joueurs disputés : elle n'est pas utilisée.
+  const qbReference = { QB: { ...reference.DEF, median: 76, usable: true } };
+  const quarterback = { ...defense("best", [0, 0]), position: "QB" };
+  const qbContext = { ...fitContext, myPlayers: [{ sleeperId: "q", name: "Starter", position: "QB", nflTeam: "ZZZ", projectedPpg: 2 }], hasOpenRosterSlot: true,
+    paceOf: x => ({ q: 2, best: 8.6 })[x.sleeperId] ?? 0, weeklyPaceOf: x => ({ q: 2, best: 8.6 })[x.sleeperId] ?? null, projectionCovered: x => ["q", "best"].includes(x.sleeperId) };
+  const qb = createWaiverEvaluator({ fitContext: qbContext, week: 5, availabilityFor: () => resolve("2026-10-07T06:00:00Z"), ownershipRechecked: true, transactionsComplete: true,
+    bidReferenceByPosition: qbReference })(quarterback);
+  assert.equal(qb.waiver.decision.recommendedAction, "CLAIM_IF_CHEAP");
+  assert.deepEqual([qb.waiver.suggestedBid, qb.waiver.bidBasis, qb.waiver.bidNote], [0, "MARKET_HIGH_ESTIMATE_CAPPED_BY_PERSONAL_CEILING", "ZERO_MARKET_ESTIMATE_NOT_A_GUARANTEE"]);
   // Échantillon insuffisant : retour à l'estimation du modèle, avec la note.
   const noSample = evaluate(defense("best", [0, 0]), { DEF: { ...reference.DEF, usable: false } });
   assert.deepEqual([noSample.waiver.suggestedBid, noSample.waiver.bidNote], [0, "ZERO_MARKET_ESTIMATE_NOT_A_GUARANTEE"]);

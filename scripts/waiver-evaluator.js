@@ -59,6 +59,8 @@ export function evaluateNextUnlockScenario({ row, availability, rosterContext, w
     indicativeMaxBid: fit.horizonCovered && fit.legalTransaction ? fit.faabMaxForMe : null };
 }
 
+export const LEAGUE_REFERENCE_POSITIONS = ["K", "DEF"];
+
 /** Shared by live reports and offline recalculation; no I/O. */
 export function createWaiverEvaluator({ fitContext, week, availabilityFor, ownershipRechecked, transactionsComplete, horizonFor = () => null, bidReferenceByPosition = {} }) {
   return (row, state = null) => {
@@ -136,7 +138,10 @@ export function createWaiverEvaluator({ fitContext, week, availabilityFor, owner
     // have actually cost in this league at that position: the median winning bid of the season.
     const leagueReference = bidReferenceByPosition?.[row.position] ?? null;
     const noMarketSignal = marketHigh === null || marketHigh === 0;
-    const useLeague = noMarketSignal && leagueReference?.usable === true;
+    // Only for weekly streaming positions: their winning bids describe ordinary claims. At QB/RB/
+    // WR/TE the season's winning bids are the contested breakouts — a median that says nothing
+    // about a player the model's market prices at 0 $ (a QB was proposed at 76 $ on that basis).
+    const useLeague = noMarketSignal && leagueReference?.usable === true && LEAGUE_REFERENCE_POSITIONS.includes(row.position);
     const likelyCost = useLeague ? Math.ceil(leagueReference.median) : marketHigh;
     const suggestedBid = action === "CLAIM_IF_CHEAP" ? (likelyCost === null ? personalMaxBid : Math.min(personalMaxBid, likelyCost)) : action === "ADD_NOW" ? 0 : null;
     const bidBasis = action !== "CLAIM_IF_CHEAP" ? null : useLeague ? "LEAGUE_MEDIAN_WINNING_BID_CAPPED_BY_PERSONAL_CEILING"
