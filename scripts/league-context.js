@@ -632,6 +632,8 @@ const formatMaxBid = waiver => waiver.maxBidStatus && waiver.maxBidStatus !== "D
 const formatAvailability = availability => !availability ? "UNKNOWN" : availability.availabilitySource === "LEAGUE_RULES_INFERRED"
   ? `${availability.availability} (déduite — à confirmer dans Sleeper${availability.waiverProcessesAt ? ` ; passage estimé ${availability.waiverProcessesAt.slice(0, 16)}Z` : ""})`
   : `${availability.availability}${availability.waiverProcessesAt ? ` (passage ${availability.waiverProcessesAt.slice(0, 16)}Z)` : ""}`;
+const ACQUISITION_MODE_LABEL = { FREE_ADD: "ajout libre, sans FAAB, immédiat", WAIVER_CLAIM: "claim waivers, enchère FAAB", LOCKED_UNTIL_NEXT_RUN: "verrouillé jusqu'au prochain passage", NOT_AVAILABLE: "déjà détenu", UNKNOWN: "inconnu" };
+export const formatAcquisitionMode = (mode, availability = null) => `${ACQUISITION_MODE_LABEL[mode] || ACQUISITION_MODE_LABEL.UNKNOWN}${mode === "WAIVER_CLAIM" && availability?.waiverProcessesAt ? `, attribué vers ${availability.waiverProcessesAt.slice(0, 16)}Z` : ""}`;
 const formatDropCost = components => components ? ` · Coût de coupe : usage ${components.usagePremiumPerWeek} + buy-low ${components.buyLowPremiumPerWeek} + upside proj. ${components.projectionUpsidePerWeek} ; option ${components.optionTotal} sur ${components.horizonWeeks} sem ; perte après rôle ${components.postRoleLineupLossTotal ?? "n/d"}${components.missingInputs.length ? ` ; manquant ${components.missingInputs.join(",")}` : ""}` : "";
 const formatEntry = player => {
   const entry = player.poolEntry;
@@ -676,7 +678,7 @@ export function formatWaiverReport({ byPosition, week, faabRemaining = null, deg
   if (acquisitionPlan) {
     lines.push(`Plan conditionnel : ${acquisitionPlan.steps.length} étape(s), ${acquisitionPlan.reservedFaab} $ réservés. Vérifier après chaque résultat ; suppose les succès précédents.`);
     lines.push(...formatClaimPortfolio(acquisitionPlan));
-    for (const step of acquisitionPlan.steps) lines.push(`${step.name} · coupe ${step.dropCandidate?.name || "place libre"} · ${step.suggestedBid} $ · budget après ${step.budgetAfter} $ · gain marginal ${step.netGainTotal} pts`);
+    for (const step of acquisitionPlan.steps) lines.push(`${step.name} · ${step.recommendedAction === "ADD_NOW" ? "AJOUT LIBRE (sans FAAB, immédiat)" : `CLAIM WAIVERS (enchère ${step.suggestedBid} $${step.availability?.waiverProcessesAt ? `, attribué vers ${step.availability.waiverProcessesAt.slice(0, 16)}Z` : ""})`} · coupe ${step.dropCandidate?.name || "place libre"} · budget après ${step.budgetAfter} $ · gain marginal ${step.netGainTotal} pts`);
   }
 
   for (const pos of POSITION_ORDER) {
@@ -689,7 +691,7 @@ export function formatWaiverReport({ byPosition, week, faabRemaining = null, deg
       const note = player.adineu?.thesis ? ` — ${player.adineu.thesis}` : "";
       const waiver = player.waiver
         ? ` · ${player.waiver.category} · S${week} ${player.weekProjection ?? player.waiver.projectedPpg ?? "n/d"} · ROS ${player.waiver.rosPpg ?? "n/d"} · FAAB marché ${player.waiver.faabMarket?.join("–") || "n/d"} $` +
-          (player.waiver.decision ? ` · Disponibilité ${formatAvailability(player.availability)} · Action ${player.waiver.decision.recommendedAction} · Classe ${player.waiver.decision.decisionClass} · Immédiat ${player.waiver.decision.immediateValue} · Stratégique ${player.waiver.decision.strategicUpside}` : "") +
+          (player.waiver.decision ? ` · Disponibilité ${formatAvailability(player.availability)} · Mode ${formatAcquisitionMode(player.waiver.acquisitionMode, player.availability)} · Action ${player.waiver.decision.recommendedAction}${player.waiver.decision.optionalFreeAdd ? " (ajout libre optionnel : gain modeste, aucun FAAB)" : ""} · Classe ${player.waiver.decision.decisionClass} · Immédiat ${player.waiver.decision.immediateValue} · Stratégique ${player.waiver.decision.strategicUpside}` : "") +
           (Number.isFinite(player.waiver.usageScore) ? ` · Usage ${player.waiver.usageScore}${player.waiver.usageSignal ? ` ${player.waiver.usageSignal}` : ""}` : "") +
           (player.waiver.fit ? ` · Priorité ${player.waiver.fit.priorityScore} · Capture ${player.waiver.fit.fitScore}% · Delta S${week} ${player.waiver.fit.targetWeekDelta ?? "n/d"} · Gain brut ${player.waiver.fit.grossGainTotal ?? "n/d"} sur ${player.waiver.fit.horizonWeeks} sem · Gain net total ${player.waiver.fit.netGainTotal ?? "n/d"} · Gain net moyen ROS ${player.waiver.fit.netGainPerWeek ?? "n/d"} pts/sem · Coupe ${player.waiver.fit.dropCandidate?.name || "n/d"} (${player.waiver.fit.dropCostPerWeek ?? "n/d"} pts/sem) · Max ${player.waiver.fit.faabMaxForMe} $${player.waiver.fit.cutSelection ? ` · Sélection coupe ${player.waiver.fit.cutSelection}` : ""}${formatDropCost(player.waiver.fit.dropCostComponents)}` : "") +
           formatEntry(player) + formatNextUnlock(player.nextUnlockScenario) + (player.teRosterUtility ? ` · ${formatTeRosterUtility(player.teRosterUtility)}` : '') +

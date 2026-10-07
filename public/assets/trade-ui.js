@@ -529,6 +529,8 @@ export async function renderTradesPage(container) {
       if (p.emergingRole?.progression === "RISING") notes.push(`Rôle en hausse (xFP ${p.emergingRole.xfpDelta >= 0 ? "+" : ""}${p.emergingRole.xfpDelta}/sem, ${p.emergingRole.progressionSource === "ORGANIC" ? "organique" : "coïncide avec une absence"})`);
       if (["NOT_JUSTIFIED", "UNPRICED"].includes(p.waiver?.fit?.progressionGuard)) notes.push("Couperait une progression organique sans gain net documenté");
       if (p.ripple?.length) notes.push(`À réévaluer : ${p.ripple.map(row => `${row.triggerName || row.triggerPlayerId} ${row.triggerStatus || row.type}`).join(", ")} (aucune part attribuée)`);
+      if (p.waiver?.acquisitionMode === "FREE_ADD") notes.push(p.waiver.decision?.optionalFreeAdd ? "Ajout libre optionnel (sans FAAB)" : "Ajout libre (sans FAAB)");
+      if (p.waiver?.acquisitionMode === "WAIVER_CLAIM") notes.push("En waivers : claim avec enchère FAAB");
       const next = p.nextUnlockScenario;
       if (next) notes.push(next.status === "EVALUATED"
         ? `Scénario S${next.startWeek} (non exécutable, déblocage ${next.unlockVerified ? "vérifié" : "non vérifié"}) : net ${next.netGainTotal ?? "n/d"} pts · coupe ${next.dropCandidate?.name || "n/d"} · plafond indicatif ${next.indicativeMaxBid ?? "n/d"} $`

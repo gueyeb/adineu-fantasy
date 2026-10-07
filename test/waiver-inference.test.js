@@ -191,3 +191,33 @@ test("without a market signal the proposed bid follows the league's real winning
   const noSample = evaluate(defense("best", [0, 0]), { DEF: { ...reference.DEF, usable: false } });
   assert.deepEqual([noSample.waiver.suggestedBid, noSample.waiver.bidNote], [0, "ZERO_MARKET_ESTIMATE_NOT_A_GUARANTEE"]);
 });
+
+test("a streamer with no gain in the target week is not claimed now; a free agent and a waiver player are different moves", () => {
+  const myPlayers = [{ sleeperId: "jets", name: "Own Defense", position: "DEF", nflTeam: "ZZZ", projectedPpg: 7 }];
+  const fitContext = week5 => ({ myPlayers, faabRemaining: 449, hasOpenRosterSlot: true, starterIds: new Set(["jets"]),
+    paceOf: x => ({ jets: 6, cand: 7.8 })[x.sleeperId] ?? 0,
+    weeklyPaceOf: (x, w) => x.sleeperId === "jets" ? (w === 5 ? 7 : 6) : (w === 5 ? week5 : 8), projectionCovered: () => true });
+  const candidate = { sleeperId: "cand", name: "Other Defense", position: "DEF", nflTeam: "AAA", surplusPoints: 5, faabMarket: [0, 0], marketScore: 10, signals: {}, events: { flags: [] } };
+  const reference = { DEF: { median: 20, usable: true, winningCount: 9, min: 0, max: 55 } };
+  const evaluate = (week5, asOf, extra = {}) => createWaiverEvaluator({ fitContext: fitContext(week5), week: 5, availabilityFor: () => resolve(asOf, extra),
+    ownershipRechecked: true, transactionsComplete: true, bidReferenceByPosition: reference })(candidate);
+  const drop = { droppedAt: "2026-10-07T07:20:00.000Z" };
+
+  // En waivers, moins bon cette semaine, meilleur ensuite : pas de claim maintenant.
+  const later = evaluate(5.3, "2026-10-07T08:00:00Z", { recentDrop: drop });
+  assert.equal(later.waiver.acquisitionMode, "WAIVER_CLAIM");
+  assert.ok(later.waiver.fit.targetWeekDelta <= 0 && later.waiver.fit.netGainTotal > 0);
+  assert.deepEqual([later.waiver.decision.recommendedAction, later.waiver.suggestedBid], ["WATCH", null]);
+  assert.ok(later.waiver.decision.actionBlockers.includes("NO_TARGET_WEEK_GAIN"));
+  // Même joueur, gain dès cette semaine : claim avec enchère FAAB.
+  const now = evaluate(9, "2026-10-07T08:00:00Z", { recentDrop: drop });
+  assert.deepEqual([now.waiver.acquisitionMode, now.waiver.decision.recommendedAction, now.waiver.bidStatus], ["WAIVER_CLAIM", "CLAIM_IF_CHEAP", "PROPOSED"]);
+  assert.ok(now.waiver.suggestedBid > 0);
+  // Même joueur libre : ajout sans FAAB, jamais une enchère.
+  const free = evaluate(9, "2026-10-07T08:00:00Z");
+  assert.deepEqual([free.waiver.acquisitionMode, free.waiver.decision.recommendedAction, free.waiver.bidStatus, free.waiver.suggestedBid], ["FREE_ADD", "ADD_NOW", "FREE_ADD", 0]);
+  // Libre, gain modeste : option gratuite signalée, pas une priorité.
+  const modest = evaluate(7.4, "2026-10-07T08:00:00Z");
+  assert.equal(modest.waiver.acquisitionMode, "FREE_ADD");
+  assert.deepEqual([modest.waiver.decision.recommendedAction, modest.waiver.decision.optionalFreeAdd, modest.waiver.suggestedBid], ["WATCH", true, null]);
+});

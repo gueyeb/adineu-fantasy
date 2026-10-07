@@ -101,6 +101,12 @@ Constats du contrôle des exports locaux, vérifiés puis corrigés.
   - Enchères proposées à 07:01 comparées aux enchères gagnantes réelles : Dallas proposée 20 $, gagnée à 9 $ ; Jacksonville proposée 20 $, gagnée à 31 $ ; Denver proposée 11 $, gagnée à 11 $ par un autre manager. Un cas sur trois aurait été gagné à coup sûr : la médiane par poste est un repère, pas un prix.
   - Plan restant : roster plein (16 joueurs), slot DEF toujours vide ; étape unique « ajout libre Atlanta, coupe MarShawn Lloyd, +7,9 pts en S5, net +5,6 ». Avertissement `CUT_CONCENTRATION` : Lloyd est la coupe de la plupart des scénarios.
 
+### Claims sans gain la semaine cible, et mode d’acquisition (7 octobre 2026)
+
+- **Un streamer se réclame la semaine où il sert.** Constat en production : le plan proposait Green Bay DEF à 20 $ (gain S5 nul) et Detroit DEF (gain S5 négatif) pour un avantage reste-de-saison, alors que le slot DEF était déjà rempli. Un candidat de classe `STREAMER` (QB, K, DEF) dont le gain de la semaine cible est nul ou négatif n’est plus un claim : `WATCH`, blocage `NO_TARGET_WEEK_GAIN`, enchère non déterminée. Les autres postes exigeaient déjà un gain immédiat pour un claim.
+- **Agent libre et joueur en waivers sont deux mouvements distincts.** `waiver.acquisitionMode` : `FREE_ADD` (ajout immédiat, aucun FAAB, enchère 0 $ réelle), `WAIVER_CLAIM` (enchère FAAB, attribué au prochain passage ou à la fin du blocage après coupe), `LOCKED_UNTIL_NEXT_RUN`, `NOT_AVAILABLE`, `UNKNOWN`. Le bulletin, l’AI Context, l’interface et les étapes du plan l’écrivent en clair (« AJOUT LIBRE (sans FAAB, immédiat) » / « CLAIM WAIVERS (enchère X $, attribué vers …) »).
+- **Ajout libre optionnel.** Un agent libre au gain positif mais modeste reste `WATCH` (pas une priorité), avec `decision.optionalFreeAdd=true` : l’option gratuite est signalée au lieu d’être masquée.
+
 ## P2 — validation des durées
 
 - [ ] Évaluer les profils de rôle contre snapshots pré-match et résultats 2/4 semaines, incluant WATCH/IGNORE. Définir ensuite les pondérations et seuils à partir de cette évaluation.
@@ -118,7 +124,7 @@ Constats du contrôle des exports locaux, vérifiés puis corrigés.
 6. GAME_LOCKED : action bloquée, marché conservé ; scénario futur daté et couvert seulement si le prochain horizon est connu.
 7. Invariant : même joueur, roster, snapshot et horizon donnent les mêmes métriques pour Coach, Waiver et AI Context ; les explications doivent rendre les objectifs différents lisibles.
 
-Validation au 6 octobre : 389 tests Node, `npm run check`, parité live / recalcul hors-ligne (métriques et cohérence identiques) sur le roster t0z en S4 puis S5. Onglet Waiver vérifié dans un navigateur en live S5 (desktop 1710 px et mobile 390 px, aucune erreur console, aucune valeur `undefined`) : les notes du moteur débordaient de la colonne joueur, corrigé par un retour à la ligne dans `styles.css`. Non vérifié à l’écran : la note de scénario `GAME_LOCKED`, aucune ligne n’étant verrouillée au moment du contrôle. Aucun déploiement. Les sept régressions sont couvertes ; 1 à 5 par rejeu du snapshot réel du 5 octobre.
+Validation au 6 octobre : 390 tests Node, `npm run check`, parité live / recalcul hors-ligne (métriques et cohérence identiques) sur le roster t0z en S4 puis S5. Onglet Waiver vérifié dans un navigateur en live S5 (desktop 1710 px et mobile 390 px, aucune erreur console, aucune valeur `undefined`) : les notes du moteur débordaient de la colonne joueur, corrigé par un retour à la ligne dans `styles.css`. Non vérifié à l’écran : la note de scénario `GAME_LOCKED`, aucune ligne n’étant verrouillée au moment du contrôle. Aucun déploiement. Les sept régressions sont couvertes ; 1 à 5 par rejeu du snapshot réel du 5 octobre.
 
 ### Complément Boukki / DvP du 6 octobre
 

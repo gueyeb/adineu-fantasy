@@ -128,6 +128,10 @@ export function createWaiverEvaluator({ fitContext, week, availabilityFor, owner
     const inferredAvailability = availability?.availabilitySource === "LEAGUE_RULES_INFERRED";
     decision.confirmation = inferredAvailability && ["ADD_NOW", "CLAIM_IF_CHEAP"].includes(decision.recommendedAction) ? "CONFIRM_IN_SLEEPER" : null;
     if (decision.confirmation) decision.interpretation = `${decision.interpretation} Availability deduced from league waiver rules: confirm in Sleeper before acting.`;
+    // How the player would be acquired: a free agent is picked up at once for no FAAB, a player on
+    // waivers is claimed with a bid and awarded at the next run. The two are never the same move.
+    const acquisitionMode = availability?.availability === "FREE_AGENT" ? "FREE_ADD" : availability?.availability === "WAIVER_LOCKED" ? "WAIVER_CLAIM"
+      : availability?.availability === "GAME_LOCKED" ? "LOCKED_UNTIL_NEXT_RUN" : availability?.availability === "ROSTERED" ? "NOT_AVAILABLE" : "UNKNOWN";
     // 0 $ is a real bid in this league: without an executable action the bid is not determined.
     const action = decision.recommendedAction;
     const bidStatus = action === "CLAIM_IF_CHEAP" ? "PROPOSED" : action === "ADD_NOW" ? "FREE_ADD" : "NOT_DETERMINED";
@@ -184,7 +188,7 @@ export function createWaiverEvaluator({ fitContext, week, availabilityFor, owner
         personalMaxBid: shownMaxBid,
         maxBidStatus,
         bidPctInitial: Number.isFinite(suggestedBid) ? Number((suggestedBid / GENERAL_SETTINGS_2026.waiver.budget * 100).toFixed(1)) : null,
-        bidStatus, bidUndeterminedReason, bidBasis, bidNote, leagueBidReference: leagueReference, unpricedPotential,
+        acquisitionMode, bidStatus, bidUndeterminedReason, bidBasis, bidNote, leagueBidReference: leagueReference, unpricedPotential,
         bidPctRemaining: rosterContext?.faabRemaining > 0 && Number.isFinite(suggestedBid) ? Number((suggestedBid / rosterContext.faabRemaining * 100).toFixed(1)) : null,
         marketMethod: "Projection window (ROS or labeled rank fallback), surplus over replacement × PRICE_PER_POINT; not observed rival bids",
         marketEstimate: row.marketEstimate,

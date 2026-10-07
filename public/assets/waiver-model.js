@@ -377,16 +377,23 @@ export function classifyWaiverDecision({ position, marketScore = 0, flags = [], 
     : netGain >= 1.5 ? "STARTER_UPGRADE"
     : skillPosition && strategicUpside >= 40 ? "UPSIDE_STASH"
     : "NO_ACTION";
+  // A streamer is claimed for the week it starts: a rest-of-season edge with no gain (or a loss)
+  // in the target week does not justify spending FAAB now.
+  // A free agent costs no FAAB: a modest positive gain is not a priority, but it is a free option.
+  let optionalFreeAdd = false;
+  const streamerWithoutTargetGain = decisionClass === "STREAMER" && netGain > 0 && Number.isFinite(targetWeekDelta) && targetWeekDelta <= 0;
   let recommendedAction = netGain >= 1.5 && immediateValue >= 38 ? "ADD_NOW"
-    : netGain > 0 && (immediateValue >= 15 || decisionClass === "STREAMER") ? "CLAIM_IF_CHEAP"
-    : strategicUpside >= 40 || incompleteStreamingOpportunity ? "WATCH"
+    : netGain > 0 && (immediateValue >= 15 || (decisionClass === "STREAMER" && !streamerWithoutTargetGain)) ? "CLAIM_IF_CHEAP"
+    : strategicUpside >= 40 || incompleteStreamingOpportunity || streamerWithoutTargetGain ? "WATCH"
     : "IGNORE";
   if (["ADD_NOW", "CLAIM_IF_CHEAP"].includes(recommendedAction)) {
     if (!legalTransaction || !horizonCovered || !availability || availability.availability === "ROSTERED" || availability.canStartTargetWeek !== true || (flags.includes("PROMOTION") && roleConfirmation !== "CONFIRMED")) recommendedAction = "WATCH";
     else if (!availability.canAddNow) recommendedAction = availability.availability === "WAIVER_LOCKED" ? "CLAIM_IF_CHEAP" : "WATCH";
-    else if (recommendedAction === "CLAIM_IF_CHEAP") recommendedAction = "WATCH";
+    else if (recommendedAction === "CLAIM_IF_CHEAP") { recommendedAction = "WATCH"; optionalFreeAdd = true; }
   }
-  const interpretation = recommendedAction === "WATCH" && netGain <= 0
+  const interpretation = optionalFreeAdd ? "Free agent: a modest gain at no FAAB cost — an optional free add, not a priority."
+    : streamerWithoutTargetGain ? "Rest-of-season edge only: no lineup gain this week, so no claim now."
+    : recommendedAction === "WATCH" && netGain <= 0
     ? "High league-market upside, but not worth cutting a current bench asset today."
     : recommendedAction === "CLAIM_IF_CHEAP"
       ? "Positive roster value, but not enough edge for an aggressive bid."
@@ -397,8 +404,9 @@ export function classifyWaiverDecision({ position, marketScore = 0, flags = [], 
     ...(!legalTransaction ? ["NO_LEGAL_TRANSACTION"] : []),
     ...(!horizonCovered ? ["INCOMPLETE_HORIZON"] : []),
     ...(!availability || availability.canStartTargetWeek !== true ? ["TARGET_WEEK_ELIGIBILITY_UNVERIFIED"] : []),
-    ...(flags.includes("PROMOTION") && roleConfirmation !== "CONFIRMED" ? ["ROLE_UNCONFIRMED"] : [])
+    ...(flags.includes("PROMOTION") && roleConfirmation !== "CONFIRMED" ? ["ROLE_UNCONFIRMED"] : []),
+    ...(streamerWithoutTargetGain ? ["NO_TARGET_WEEK_GAIN"] : [])
   ];
-  return { immediateValue, strategicUpside, decisionClass, recommendedAction,
+  return { optionalFreeAdd, immediateValue, strategicUpside, decisionClass, recommendedAction,
     interpretation: actionBlockers.length ? `Conditional scenario: ${actionBlockers.join(", ")}.` : interpretation, actionBlockers };
 }
