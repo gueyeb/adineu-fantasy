@@ -412,6 +412,7 @@ export async function getFreeAgents({
   roleEvidenceById = null,
   eventsById = null,
   rosterPreferences = null,
+  watchIds = [],
   evidencePath = process.env.DECISION_EVIDENCE_FILE,
   asOf = null,
   onDecisionInputs = null,
@@ -567,6 +568,16 @@ export async function getFreeAgents({
     modelRowOf: id => marketById.has(id) ? withWaiver(marketById.get(id)) : null
   });
 
+  // War Room: players the user follows are evaluated even beyond the display limit. They never
+  // join the board or the plan, so following a player changes neither the plan nor its coherence.
+  const watchRows = [];
+  const watchMissing = [];
+  for (const id of new Set((watchIds || []).map(String))) {
+    if (marketById.has(id)) watchRows.push(withWaiver(marketById.get(id)));
+    else watchMissing.push({ playerId: id, name: meta(id)?.name ?? null, position: meta(id)?.position ?? null,
+      status: rosteredIds.has(id) ? "ROSTERED" : "NOT_IN_POOL", teamName: rosterOfPlayer.get(id) ?? null });
+  }
+
   // Same candidates whatever the caller's display limit: every export shares one plan.
   const planCandidates = fitContext ? selectPlanCandidates(market).map(row => withWaiver(row)) : [];
   const acquisitionPlan = fitContext ? buildAcquisitionPlan({
@@ -622,6 +633,7 @@ export async function getFreeAgents({
     snapshotIssues,
     generatedAt: new Date().toISOString(), week, lastCompletedWeek, rankingModel: "WAIVER_V2", degraded, coverage,
     pricePerPoint: PRICE_PER_POINT, team: team || null, faabRemaining: fitContext?.faabRemaining ?? null, byPosition,
+    watchRows, watchMissing,
     faabHistory: faabHistory.slice(0, 30), faabByPosition: summarizeFaabByPosition(faabHistory), leagueBidReference, trending
   };
 }

@@ -86,3 +86,45 @@ test("an unpublishable report is refused to bearer automation but still shown to
   current = undefined;
   assert.equal((await fetch(`${base}/api/coach?team=t0z`, { headers: bearer })).status, 200);
 });
+
+test("the War Room header forwards validated ids only and the plan returns their evaluation", async t => {
+  const seen = [];
+  const waiver = { fit: { weeklyLineupDeltas: [{ week: 2, delta: 1.5 }], netGainTotal: 3, horizonWeeks: 2, dropCandidate: { sleeperId: "b1", name: "Banc" } },
+    decision: { recommendedAction: "WATCH", decisionClass: "STASH" }, suggestedBid: null, personalMaxBid: 4, reasons: [] };
+  const server = createAppServer({
+    coachPassword: "test-only", coachToken: "test-api", secureCookies: false,
+    getContext: async () => ({
+      week: 2, league: { teams: 12, playoffTeams: 8, rosterSettings: { starters: {}, benchSlots: 6, reserveSlots: 1 } },
+      myTeam: { rosterId: 1, teamName: "Boukki", owner: "t0z", starters: [], bench: [], ir: [], record: { wins: 1, losses: 0 }, standingsRank: 3, faab: { remaining: 497, budget: 1000 } }
+    }),
+    getInjuryStatuses: async () => new Map(),
+    getPlayerValues: async () => ({ byId: new Map(), weeklyProjections: {} }),
+    getFreeAgents: async ({ watchIds }) => {
+      seen.push(watchIds);
+      return { lastCompletedWeek: 1, byPosition: {}, watchRows: watchIds.includes("77") ? [{ sleeperId: "77", name: "Suivi", position: "RB", nflTeam: "KC", waiver }] : [],
+        watchMissing: watchIds.includes("88") ? [{ playerId: "88", name: "Pris", position: "WR", status: "ROSTERED", teamName: "Kuro" }] : [] };
+    },
+    getMatchupContext: async () => null,
+    analyze: async () => ({ results: [{ proposals: [] }] })
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(() => server.close());
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const bearer = { authorization: "Bearer test-api" };
+  const plain = await (await fetch(`${base}/api/coach`, { headers: bearer })).json();
+  assert.deepEqual(plain.warRoom, { rows: [], missing: [] });
+  const plan = await (await fetch(`${base}/api/coach`, { headers: { ...bearer, "x-coach-watchlist": "77, 88,<script>,77" } })).json();
+  assert.deepEqual(seen, [[], ["77", "88"]]);
+  assert.equal(plan.warRoom.rows.length, 1);
+  const [row] = plan.warRoom.rows;
+  assert.equal(row.sleeperId, "77");
+  assert.equal(row.recommendedAction, "WATCH");
+  assert.equal(row.suggestedBid, null);
+  assert.equal(row.dropCandidate.name, "Banc");
+  assert.deepEqual(row.weeklyLineupDeltas, [{ week: 2, delta: 1.5 }]);
+  assert.deepEqual(plan.warRoom.missing, [{ playerId: "88", name: "Pris", position: "WR", status: "ROSTERED", teamName: "Kuro" }]);
+  // A followed player is not a recommendation: the engine lists and the n8n message ignore it.
+  assert.deepEqual(plan.watchlist, plain.watchlist);
+  assert.equal(plan.message, plain.message);
+});

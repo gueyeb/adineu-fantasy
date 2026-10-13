@@ -29,8 +29,8 @@ function playerDecisionView(player, valuesById, projections, statuses) {
   };
 }
 
-function waiverRows(report) {
-  return Object.values(report?.byPosition || {}).flat()
+function waiverRows(report, source = Object.values(report?.byPosition || {}).flat()) {
+  return source
     .filter(player => player?.waiver)
     .sort((a, b) => {
       const aFit = a.waiver.fit || {};
@@ -183,7 +183,7 @@ export function buildDecisionContext({ context, playerValues = {}, statuses = ne
     bench: context.myTeam.bench.map(enrich),
     ir: context.myTeam.ir.map(enrich)
   };
-  const available = waiverRows(waivers).map(player => ({ ...player, ...(player.decision || classifyWaiverDecision({
+  const withDecision = player => ({ ...player, ...(player.decision || classifyWaiverDecision({
     availability: player.availability,
     horizonCovered: player.horizonCovered,
     targetWeekDelta: player.targetWeekDelta,
@@ -194,7 +194,8 @@ export function buildDecisionContext({ context, playerValues = {}, statuses = ne
     flags: player.flags,
     usageSignal: player.usageSignal,
     netGain: player.netGain || 0
-  })) }));
+  })) });
+  const available = waiverRows(waivers).map(withDecision);
   const immediateUpgrades = available.filter(player => player.recommendedAction === "ADD_NOW" && player.targetWeekDelta > 0)
     .sort((a, b) => (b.priorityScore || 0) - (a.priorityScore || 0) || (b.netGain || 0) - (a.netGain || 0)).slice(0, 6);
   const immediateIds = new Set(immediateUpgrades.map(player => player.sleeperId));
@@ -217,6 +218,8 @@ export function buildDecisionContext({ context, playerValues = {}, statuses = ne
     availabilityAsOf: waivers?.availabilityAsOf ?? null,
     snapshotIssues: waivers?.snapshotIssues ?? [],
     dataThroughWeek: waivers?.lastCompletedWeek ?? null,
+    // War Room: the user's followed players, same evaluation as the board, outside every ranking.
+    watched: { rows: waiverRows(waivers, waivers?.watchRows ?? []).map(withDecision), missing: waivers?.watchMissing ?? [] },
     candidateProvenance: available.map(player => ({ playerId: player.sleeperId, provenance: player.provenance, usageDiagnostic: player.usageDiagnostic })),
     rosterProvenance: waivers?.rosterProvenance ?? [],
     playerIndexProvenance: waivers?.playerIndexProvenance ?? null,

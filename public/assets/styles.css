@@ -912,6 +912,37 @@ tr.compare-best td { background: rgba(184, 255, 61, .08); }
 .coach-trade-body > strong { display: block; margin-bottom: 22px; }
 .coach-trade-body a { color: var(--grass); font-weight: 800; text-decoration: none; }
 .coach-empty { padding: 26px 0; color: var(--muted); }
+.coach-war-room { grid-column: span 12; }
+.war-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding-top: 18px; gap: 24px; }
+.war-grid h3 { margin: 0 0 10px; color: var(--muted); font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; }
+.war-grid h3:not(:first-child) { margin-top: 26px; }
+.war-watch, .war-group { padding: 14px 0; border-bottom: 1px solid var(--line); }
+.war-watch p, .war-group small, .war-note, .war-revisions span { margin: 5px 0 0; color: var(--muted); font-size: .8rem; }
+.war-watch-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.war-watch-head span { margin-left: auto; color: var(--gold); font-size: .64rem; font-weight: 800; text-transform: uppercase; }
+.war-in_plan .war-watch-head span, .war-fallback .war-watch-head span { color: var(--grass); }
+.war-rostered .war-watch-head span, .war-not_in_pool .war-watch-head span { color: var(--red); }
+.war-watch .war-reason { color: var(--ink); }
+.war-watch .coach-quiet { padding: 6px 0 0; }
+.war-weeks { display: flex; flex-wrap: wrap; gap: 6px; }
+.war-weeks span { padding: 2px 6px; border: 1px solid var(--line); font-size: .7rem; }
+.war-weeks b { color: var(--ink); }
+.war-group h4 { margin: 0; font-size: .95rem; }
+.war-group h4 small { display: block; font-weight: 400; }
+.war-competing h4 small { color: var(--gold); }
+.war-group ol, .war-revisions { margin: 8px 0 0; padding: 0; list-style: none; }
+.war-group li, .war-revisions li { display: grid; grid-template-columns: 1fr auto auto; align-items: center; padding: 8px 0; gap: 10px; }
+.war-group li strong small { display: block; font-weight: 400; text-align: right; }
+.war-revisions li { grid-template-columns: 1fr auto; }
+.war-revisions span { grid-column: 1 / -1; grid-row: 2; margin: 0; }
+.war-revisions strong { color: var(--gold); }
+.war-follow, .war-followed { padding: 4px 8px; border: 1px solid var(--line); background: transparent; color: var(--grass); font: 800 .62rem var(--body); letter-spacing: .08em; text-transform: uppercase; cursor: pointer; }
+.war-followed { color: var(--muted); }
+span.war-followed { cursor: default; }
+.war-follow-form { display: flex; margin-top: 8px; gap: 6px; }
+.war-follow-form input { flex: 1; min-width: 0; padding: 8px; border: 1px solid var(--line); background: transparent; color: var(--ink); font: .8rem var(--body); }
+.war-follow-form button { padding: 8px 10px; }
+.war-order pre { margin: 0 0 12px; overflow-x: auto; white-space: pre-wrap; color: var(--ink); font: .8rem/1.6 var(--body); }
 .coach-raw { margin-top: 18px; padding: 18px 22px; border: 1px solid var(--line); color: var(--muted); }
 .coach-raw summary { cursor: pointer; font-size: .72rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
 .coach-raw pre { overflow-x: auto; white-space: pre-wrap; color: var(--ink); font: .84rem/1.65 var(--body); }
@@ -922,6 +953,7 @@ tr.compare-best td { background: rgba(184, 255, 61, .08); }
   .coach-priority { min-height: 145px; }
   .coach-priority h2 { margin-top: 28px; }
   .coach-panel { grid-column: span 12; }
+  .war-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 580px) {
   .coach-shell { width: min(100% - 28px, 1240px); }

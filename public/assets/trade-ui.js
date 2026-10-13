@@ -6,6 +6,8 @@
 
 import { calculatePlayerTradeValue, calculatePlayerTradeProfile, evaluateTrade } from "./trade-value.js?v=c385666df3";
 import { diagnoseRoster, findTradeProposals, findCounterOffers } from "./trade-recommender.js?v=d2789d533e";
+import { addToWatchlist, removeFromWatchlist, REASON_MAX } from "./war-room.js?v=8e9a1e2448";
+import { loadWatchlist, saveWatchlist } from "./war-room-store.js?v=10220c8a37";
 import { PLAYER_STATUSES, playerKey, playerStatus } from "./trade-preferences.js?v=c5fec5ce56";
 import {
   GENERAL_SETTINGS_2026,
@@ -540,6 +542,10 @@ export async function renderTradesPage(container) {
     const availabilityText = p => [`${p.availability?.availability || "UNKNOWN"}${p.availability?.availabilitySource === "LEAGUE_RULES_INFERRED" ? " (déduite — à confirmer dans Sleeper)" : ""} · ${p.waiver?.decision?.recommendedAction || "WATCH"}`, engineNotes(p)].filter(Boolean).join(" · ");
     const money = range => range && range[1] > 0 ? `${range[0]}–${range[1]} $` : "—";
     const usageCell = w => Number.isFinite(w.usageScore) ? `${w.usageScore}${w.usageSignal === "BUY_LOW" ? " 🟢" : w.usageSignal === "SELL_HIGH" ? " 🔥" : ""}` : "—";
+    // War Room watchlist of the analysed roster (shared with /coach/, browser only).
+    const followedIds = new Set(loadWatchlist(waiverRosterId).map(entry => entry.playerId));
+    const followButton = (id, name, position, followed) => `<button class="war-follow${followed ? " war-followed" : ""}" type="button" data-player="${escapeHtml(id)}" data-name="${escapeHtml(name)}" data-position="${escapeHtml(position)}"${followed ? ` data-followed="1" title="Retirer de la watchlist">Suivi ✕` : `>+ Suivre`}</button>`;
+    const followControl = p => followButton(p.sleeperId, p.name, p.position, followedIds.has(String(p.sleeperId)));
     const positionCards = positionOrder
       .map(pos => {
         const players = report.byPosition?.[pos] || [];
@@ -550,7 +556,7 @@ export async function renderTradesPage(container) {
             <colgroup><col class="fa-col-player"><col class="fa-col-cat"><col><col><col class="fa-col-money"><col><col class="fa-col-money"></colgroup>
             <thead><tr><th>Joueur</th><th>Catégorie</th><th class="num" title="Points par semaine attendus d'ici la S14 (rôle actuel inclus)">Pts/sem</th><th class="num">Usage</th><th class="num">FAAB marché</th><th class="num" title="Part du surplus marché captée par ta lineup">Capture</th><th class="num">Max pour toi</th></tr></thead>
             <tbody>${players.map(p => `<tr>
-              <td><strong>${escapeHtml(p.name)}</strong> <small>${escapeHtml(p.nflTeam || "FA")}${p.injuryStatus ? ` · ${escapeHtml(p.injuryStatus)}` : ""}</small><br><small>${escapeHtml(availabilityText(p))}</small>${p.waiver?.newsOverride ? `<br><small class="fa-news">⚡ ${escapeHtml(p.waiver.reasons.join(" · "))}</small>` : ""}</td>
+              <td><strong>${escapeHtml(p.name)}</strong> <small>${escapeHtml(p.nflTeam || "FA")}${p.injuryStatus ? ` · ${escapeHtml(p.injuryStatus)}` : ""}</small> ${followControl(p)}<br><small>${escapeHtml(availabilityText(p))}</small>${p.waiver?.newsOverride ? `<br><small class="fa-news">⚡ ${escapeHtml(p.waiver.reasons.join(" · "))}</small>` : ""}</td>
               <td>${escapeHtml(p.waiver?.category || "—")}</td>
               <td class="num" title="${escapeHtml({ SLEEPER_USAGE_BLEND: "Base : projections Sleeper + usage", RANK_ESTIMATE: "Base : estimation par rang", SLEEPER_PROJECTIONS: "Base : projections Sleeper" }[p.waiver?.rosSource] || "")}">${Number.isFinite(p.effectivePpg) ? p.effectivePpg : p.waiver?.rosPpg ?? "—"}${p.waiver?.rosSource === "RANK_ESTIMATE" ? "*" : ""}${Number.isFinite(p.effectivePpg) && Number.isFinite(p.waiver?.rosPpg) && Math.abs(p.effectivePpg - p.waiver.rosPpg) >= 0.5 ? `<br><small>ROS ${p.waiver.rosPpg}</small>` : ""}</td>
               <td class="num">${p.waiver ? usageCell(p.waiver) : "—"}</td>
@@ -655,6 +661,34 @@ export async function renderTradesPage(container) {
     document.getElementById("waiver-roster-select")?.addEventListener("change", (e) => {
       selectedRosterId = e.target.value;
       renderWaiverView();
+    });
+
+    // Follow a player with a dated reason; the War Room on /coach/ revises its bid from then on.
+    content.querySelectorAll(".fa-table").forEach(table => {
+      table.addEventListener("click", event => {
+        const button = event.target.closest("button.war-follow[data-player]");
+        if (!button) return;
+        const { player: playerId, name, position } = button.dataset;
+        const swap = (node, followed) => { node.outerHTML = followButton(playerId, name, position, followed); };
+        if (button.dataset.followed) {
+          saveWatchlist(waiverRosterId, removeFromWatchlist(loadWatchlist(waiverRosterId), playerId));
+          swap(button, false);
+          return;
+        }
+        const form = document.createElement("form");
+        form.className = "war-follow-form";
+        form.innerHTML = `<input type="text" required maxlength="${REASON_MAX}" placeholder="Motif (ex. 9 cibles en S6)" aria-label="Motif du suivi"><button class="war-follow" type="submit">Suivre</button>`;
+        form.addEventListener("submit", submitEvent => {
+          submitEvent.preventDefault();
+          const reason = form.querySelector("input").value.trim();
+          if (!reason) return;
+          const saved = saveWatchlist(waiverRosterId, addToWatchlist(loadWatchlist(waiverRosterId), { playerId, name, position },
+            { reason, now: new Date().toISOString(), week: report.week ?? null }));
+          swap(form, saved);
+        });
+        button.replaceWith(form);
+        form.querySelector("input").focus();
+      });
     });
 
     document.getElementById("copy-waiver-btn")?.addEventListener("click", event => {

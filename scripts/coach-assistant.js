@@ -54,6 +54,10 @@ function prioritizeVacancies(rows) {
   return [...primary, ...other, ...alternatives];
 }
 
+const blockerNote = player => player.actionBlockers?.length
+  ? `action bloquée : ${player.actionBlockers.map(code => blockerLabels[code] || code.replaceAll('_', ' ')).join(' ; ')}`
+  : player.interpretation ?? null;
+
 export function buildCoachPlan({ decisionContext, trades, preferences = {} }) {
   const context = decisionContext;
   const team = context.myTeam;
@@ -106,6 +110,8 @@ export function buildCoachPlan({ decisionContext, trades, preferences = {} }) {
     recentTransactions: context.recentTransactions ?? [],
     snapshotIssues: [...(context.snapshotIssues ?? []), ...(tradeConflict ? ['TRADE_RECEIVE_ALREADY_OWNED'] : [])],
     watchlist: waiverActions.WATCH,
+    // Engine WATCH above; the user's own dated watchlist lives in the browser and joins these rows there.
+    warRoom: { rows: (context.watched?.rows ?? []).map(row => ({ ...compactWaiver(row), maxBidStatus: row.maxBidStatus ?? null, note: blockerNote(compactWaiver(row)) })), missing: context.watched?.missing ?? [] },
     cutCandidates: context.teamDiagnosis?.dropCandidates || [],
     tradeTarget: trade,
     nextMatchup: context.nextMatchup || null,
@@ -151,9 +157,7 @@ export function formatCoachPlan(plan) {
   if (!plan.acquisitionPlan && plan.waiverActions.ADD_NOW.length + plan.waiverActions.CLAIM_IF_CHEAP.length > 1) lines.push("Scénarios alternatifs : deux claims avec la même coupe ne peuvent pas être exécutés ensemble.");
   if (plan.watchlist.length) {
     lines.push("", "👀 WATCHLIST");
-    plan.watchlist.forEach(player => lines.push(`• ${player.name} (${player.position})${player.starterVacancyScenario ? ` · compléter ${player.starterVacancyScenario.slot} en S${plan.week} (${player.targetWeekDelta ?? "n/d"} pts projetés) · ROS évalué séparément` : ""} · ${player.actionBlockers?.length
-      ? `à surveiller, action bloquée : ${player.actionBlockers.map(code => blockerLabels[code] || code.replaceAll('_', ' ')).join(' ; ')}`
-      : player.interpretation}`));
+    plan.watchlist.forEach(player => lines.push(`• ${player.name} (${player.position})${player.starterVacancyScenario ? ` · compléter ${player.starterVacancyScenario.slot} en S${plan.week} (${player.targetWeekDelta ?? "n/d"} pts projetés) · ROS évalué séparément` : ""} · ${player.actionBlockers?.length ? `à surveiller, ${blockerNote(player)}` : player.interpretation}`));
   }
   const teRowsById = new Map();
   const standaloneActions = plan.acquisitionPlan ? [] : [...plan.waiverActions.ADD_NOW, ...plan.waiverActions.CLAIM_IF_CHEAP];

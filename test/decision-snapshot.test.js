@@ -96,6 +96,23 @@ test("report plans two acquisitions with separate cuts instead of reusing the fi
   assert.ok(report.acquisitionPlan.reservedFaab <= report.faabRemaining);
 });
 
+test("following players evaluates them beyond the display limit without touching the board or the plan", async () => {
+  const base = { ...options, position: "WR", limitPerPosition: 1, availabilityEvidenceById: { wrA: evidence, wrB: evidence } };
+  const plain = await getFreeAgents({ ...base, fetchImpl: fixture({ wrAdds: true }) });
+  const followed = await getFreeAgents({ ...base, fetchImpl: fixture({ wrAdds: true }), watchIds: ["q", "r3", "unknown", "q"] });
+  assert.deepEqual(plain.watchRows, []);
+  // Outside the WR filter and the 1-per-position limit, yet evaluated with the same fit.
+  assert.deepEqual(followed.watchRows.map(row => row.sleeperId), ["q"]);
+  assert.ok(followed.watchRows[0].waiver.fit);
+  assert.deepEqual(followed.watchMissing, [
+    { playerId: "r3", name: "Roster 3", position: "WR", status: "ROSTERED", teamName: "t0z" },
+    { playerId: "unknown", name: null, position: null, status: "NOT_IN_POOL", teamName: null }]);
+  assert.deepEqual(followed.acquisitionPlan, plain.acquisitionPlan);
+  const board = report => Object.values(report.byPosition).flat().map(row => [row.sleeperId, row.waiver]);
+  assert.deepEqual(board(followed), board(plain));
+  assert.deepEqual(followed.coherence, plain.coherence);
+});
+
 
 test("captured inputs reproduce market, cuts, actions and multi-acquisition plan offline", async () => {
   const { recomputeDecisionInputs } = await import('../scripts/decision-recompute.js');

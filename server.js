@@ -33,6 +33,7 @@ import { getPlayoffDecisionContext } from "./scripts/playoff-context.js";
 import { buildCoachPlan, formatCoachPlan, normalizeCoachPreferences } from "./scripts/coach-assistant.js";
 import { buildDecisionContext, formatDecisionContext } from "./scripts/ai-context.js";
 import { createCoachAuth } from "./scripts/coach-auth.js";
+import { parseWatchIds } from "./public/assets/war-room.js";
 import { createSupabaseFromEnv, getLatestFeedback, runWeeklyJob } from "./scripts/model-tracking.js";
 import { timingSafeEqual } from "node:crypto";
 
@@ -353,7 +354,7 @@ export function createAppServer({
         const [playerStatuses, playerValues, freeAgents, trades, matchup, playoffContext] = await Promise.all([
           getInjuryStatuses().catch(() => new Map()),
           getPlayerValues().catch(() => ({ byId: new Map(), weeklyProjections: {} })),
-          getFreeAgents({ limitPerPosition: 8, team }),
+          getFreeAgents({ limitPerPosition: 8, team, watchIds: parseWatchIds(request.headers["x-coach-watchlist"]) }),
           analyze({ team, playerPreferences: preferences }),
           getMatchupContext({ team, week: context.week }).catch(() => null),
           getPlayoffContext({ week: context.week, rosterId: context.myTeam.rosterId, leagueId: context.league.id }).catch(() => ({ ready: false, reason: "SOURCE_UNAVAILABLE" }))
