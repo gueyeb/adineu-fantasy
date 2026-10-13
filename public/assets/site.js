@@ -9,7 +9,7 @@ import {
   buildSleeperSeasonMeetings
 } from "./rivalry-week.js?v=714a861458";
 import { renderTradesPage } from "./trade-ui.js?v=25a4e524de";
-import { renderMatchupsHub } from "./matchups-live.js?v=5c1a0cd6d4";
+import { renderMatchupsHub } from "./matchups-live.js?v=a49f5d6e63";
 import { calculatePlayoffRace } from "./playoff-race.js?v=52283bf11a";
 import { calculateLuck, calculateRankHistory } from "./standings-luck.js?v=7363afbb9e";
 import { resolveOperationalWeek } from "./nfl-week.js?v=8f9fa3f5b2";

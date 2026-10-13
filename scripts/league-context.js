@@ -30,6 +30,7 @@ import { resolveOperationalWeek, resolveLastCompletedWeek } from "../public/asse
 import { findRosterByTeam, buildStarterSlotOrder, buildRosterSlots, listRosterIdentities } from "../public/assets/roster-view.js";
 import { buildFaabHistory, buildTrendingAdds, summarizeFaabByPosition, buildLeagueBidReference } from "../public/assets/league-market.js";
 import { buildPlayerWeeks, calculateUsageScores } from "../public/assets/usage-score.js";
+import { buildWeeklyLeaders } from "../public/assets/weekly-leaders.js";
 import { calculateFaabRemaining } from "../public/assets/team-metrics.js";
 import { restOfSeasonEstimate } from "../public/assets/trade-score.js";
 import {
@@ -305,11 +306,11 @@ export function formatContextText(context) {
 // Par fetchImpl : un fetch injecté (tests) ne partage jamais le cache du vrai Sleeper.
 const weeklyCaches = new WeakMap();
 /** Stats/projections Sleeper d'une semaine, en cache 1 h (une semaine terminée ne bouge presque plus). */
-async function cachedWeekly(path, fetchImpl) {
+async function cachedWeekly(path, fetchImpl, ttlMs = 60 * 60 * 1000) {
   if (!weeklyCaches.has(fetchImpl)) weeklyCaches.set(fetchImpl, new Map());
   const cache = weeklyCaches.get(fetchImpl);
   const hit = cache.get(path);
-  if (hit && Date.now() - hit.at < 60 * 60 * 1000) return hit.data;
+  if (hit && Date.now() - hit.at < ttlMs) return hit.data;
   const data = await sleeperGet(path, { fetchImpl });
   cache.set(path, { at: Date.now(), data });
   return data;
@@ -360,6 +361,59 @@ export async function getUsageReport({ leagueId = DEFAULT_SLEEPER_LEAGUE_ID, fet
       const owner = ownerOf.get(player.playerId) || null;
       return { ...player, name: meta.name || `Player #${player.playerId}`, injuryStatus: meta.injuryStatus || null, owner: owner?.teamName || null, mine: mine !== null && owner?.rosterId === mine };
     })
+  };
+}
+
+const LIVE_STATS_TTL_MS = 5 * 60 * 1000;
+/**
+ * Leaders de la semaine (docs/prd-weekly-leaders.md) : top 10 par poste au barème de la ligue,
+ * détenteur actuel ou agent libre, projection d'avant-match et usage. Sans `week` : la semaine en
+ * cours dès qu'un match y est joué, sinon la dernière terminée.
+ */
+export async function getWeeklyLeaders({ leagueId = DEFAULT_SLEEPER_LEAGUE_ID, fetchImpl = fetch, week = null, getUsage = getUsageReport } = {}) {
+  const [league, rosters, users, nflState] = await Promise.all([
+    sleeperGet(`/league/${leagueId}`, { fetchImpl }),
+    sleeperGet(`/league/${leagueId}/rosters`, { fetchImpl }),
+    sleeperGet(`/league/${leagueId}/users`, { fetchImpl }),
+    sleeperGet("/state/nfl", { fetchImpl }).catch(() => ({}))
+  ]);
+  const season = nflState?.season || league.season || "2026";
+  const currentWeek = resolveOperationalWeek(nflState);
+  const statsOf = w => cachedWeekly(`/stats/nfl/regular/${season}/${w}`, fetchImpl, w >= currentWeek ? LIVE_STATS_TTL_MS : undefined);
+  const hasGames = stats => Object.values(stats || {}).some(row => Number(row?.gp) > 0);
+
+  let target = week;
+  let stats;
+  if (target === null) {
+    stats = await statsOf(currentWeek).catch(() => ({}));
+    target = hasGames(stats) ? currentWeek : Math.max(1, resolveLastCompletedWeek(nflState));
+    if (target !== currentWeek) stats = await statsOf(target);
+  } else {
+    stats = await statsOf(target);
+  }
+
+  const [index, projections, matchups, usageReport] = await Promise.all([
+    getPlayersIndex({ fetchImpl }),
+    cachedWeekly(`/projections/nfl/regular/${season}/${target}`, fetchImpl).catch(() => ({})),
+    sleeperGet(`/league/${leagueId}/matchups/${target}`, { fetchImpl }).catch(() => []),
+    getUsage({ leagueId, fetchImpl }).catch(() => null)
+  ]);
+  const owners = new Map(listRosterIdentities(rosters, users).flatMap(({ roster, teamName }) =>
+    (roster.players || []).map(id => [id, { rosterId: roster.roster_id, teamName }])));
+  const lineups = new Map((matchups || []).flatMap(row => {
+    const starters = new Set(row.starters || []);
+    return (row.players || []).map(id => [id, { rosterId: row.roster_id, started: starters.has(id) }]);
+  }));
+  const usage = new Map((usageReport?.players || []).map(player => [player.playerId, player]));
+
+  return {
+    generatedAt: new Date().toISOString(),
+    season: String(season),
+    week: target,
+    currentWeek,
+    live: target === currentWeek,
+    usageWeeks: usageReport?.weeks || [],
+    ...buildWeeklyLeaders({ stats, projections, scoring: league.scoring_settings, playerOf: id => index.get(id), owners, lineups, usage })
   };
 }
 

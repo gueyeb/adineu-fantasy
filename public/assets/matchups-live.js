@@ -5,6 +5,11 @@ import { estimateBaselineProjectedPpg } from "./trade-value.js?v=c385666df3";
 import { estimatePregameWinProbability } from "./win-probability.js?v=78dcaa4abd";
 
 import { SLEEPER_API, SLEEPER_LEAGUE_ID as DEFAULT_LEAGUE_ID, sleeperGet } from "./sleeper-client.js?v=3f75d48ec5";
+import { addToWatchlist, removeFromWatchlist, REASON_MAX } from "./war-room.js?v=8e9a1e2448";
+import { loadWatchlist, saveWatchlist } from "./war-room-store.js?v=10220c8a37";
+
+const LEADER_POSITION_LABELS = { QB: "Quarterbacks", RB: "Running backs", WR: "Receveurs", TE: "Tight ends", K: "Kickers", DEF: "Défenses" };
+const USAGE_SIGNAL_LABELS = { BUY_LOW: "Buy low", SELL_HIGH: "Sell high" };
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, character => ({
@@ -191,9 +196,9 @@ function renderMatchupCards(matchups, status) {
   }).join("");
 }
 
-async function fetchJson(url, { optional = false } = {}) {
+async function fetchJson(url, { optional = false, timeoutMs = 10_000 } = {}) {
   try {
-    const response = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(10_000) });
+    const response = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(timeoutMs) });
     if (!response.ok) {
       if (optional) return null;
       throw new Error(`HTTP ${response.status}`);
@@ -203,6 +208,58 @@ async function fetchJson(url, { optional = false } = {}) {
     if (optional) return null;
     throw error;
   }
+}
+
+/** Roster du War Room dans ce navigateur : posé par /coach/, absent pour les autres visiteurs. */
+function coachRosterHint() {
+  try { return localStorage.getItem("adineu:coach-roster"); } catch { return null; }
+}
+
+function followButton(row, followed) {
+  return `<button class="war-follow${followed ? " war-followed" : ""}" type="button" data-player="${escapeHtml(row.playerId)}" data-name="${escapeHtml(row.name)}" data-position="${escapeHtml(row.position)}"${followed ? ` data-followed="1" title="Retirer de la watchlist">Suivi ✕` : `>+ Suivre`}</button>`;
+}
+
+function signedPoints(value) {
+  if (value === null || value === undefined) return "—";
+  return `${value > 0 ? "+" : value < 0 ? "−" : ""}${formatPoints(Math.abs(value))}`;
+}
+
+function renderLeaderRow(row, { rosterId, followedIds }) {
+  const holder = row.freeAgent
+    ? `<span class="leader-free">Agent libre</span>${rosterId ? ` ${followButton(row, followedIds.has(row.playerId))}` : ""}`
+    : `${escapeHtml(row.owner)}${row.benched ? ` <span class="leader-bench">Banc</span>` : ""}`;
+  const signal = USAGE_SIGNAL_LABELS[row.usageSignal];
+  return `<tr>
+    <td>${row.rank}</td>
+    <td><strong>${escapeHtml(row.name)}</strong> <small>${escapeHtml([row.nflTeam, row.injuryStatus].filter(Boolean).join(" · "))}</small></td>
+    <td class="leader-holder">${holder}</td>
+    <td class="num"><strong>${formatPoints(row.points)}</strong></td>
+    <td class="num">${row.projected === null ? "—" : formatPoints(row.projected)}</td>
+    <td class="num${row.delta > 0 ? " positive" : row.delta < 0 ? " negative" : ""}">${signedPoints(row.delta)}</td>
+    <td class="num">${row.usageScore ?? "—"}${signal ? ` <span class="leader-signal leader-${row.usageSignal.toLowerCase()}">${signal}</span>` : ""}</td>
+  </tr>`;
+}
+
+function renderLeaders(report, context) {
+  if (!report.summary?.played) {
+    return `<div class="matchup-empty"><strong>Semaine pas encore jouée</strong><p>Le classement apparaît dès le premier match terminé.</p></div>`;
+  }
+  const sections = Object.entries(report.positions).map(([position, group]) => {
+    const free = group.freeAgents.map(row => `${position}${row.rank} ${escapeHtml(row.name)} · ${formatPoints(row.points)} pts`).join(" — ");
+    return `<article class="leader-card">
+      <h3>${LEADER_POSITION_LABELS[position] || position}</h3>
+      <div class="table-wrap leader-table"><table>
+        <thead><tr><th>#</th><th>Joueur</th><th>Détenu par</th><th class="num">Pts</th><th class="num">Proj.</th><th class="num">Écart</th><th class="num">Usage</th></tr></thead>
+        <tbody>${group.leaders.map(row => renderLeaderRow(row, context)).join("")}</tbody>
+      </table></div>
+      <p class="leader-free-line"><b>Meilleurs agents libres :</b> ${free || "aucun n’a marqué."}</p>
+    </article>`;
+  }).join("");
+  return `<div class="recap-grid">
+      <article class="recap-stat"><span>Agents libres dans un top 10</span><strong>${report.summary.freeAgentsInTop}</strong><small>Tous postes confondus, disponibles aujourd’hui.</small></article>
+      <article class="recap-stat"><span>Top 10 laissés au banc</span><strong>${report.summary.benchedInTop}</strong><small>Par le manager qui les détient encore.</small></article>
+    </div>
+    <div class="leader-grid">${sections}</div>`;
 }
 
 function weekStatus(week, currentWeek, hasScores) {
@@ -231,6 +288,7 @@ export async function renderMatchupsHub(container, {
     <button type="button" class="matchups-view active" data-view="live" role="tab">Live</button>
     <button type="button" class="matchups-view" data-view="schedule" role="tab">Calendrier 2026</button>
     <button type="button" class="matchups-view" data-view="recap" role="tab">Récap Hebdo</button>
+    <button type="button" class="matchups-view" data-view="leaders" role="tab">Leaders</button>
     <button type="button" class="matchups-view" data-view="archives" role="tab">Archives 2019—2025</button>
   </div></div>
   <div id="matchups-panel-live" class="matchups-panel" role="tabpanel">
@@ -255,6 +313,15 @@ export async function renderMatchupsHub(container, {
         <div class="schedule-toolbar"><label for="recap-week">Semaine <select id="recap-week"></select></label><span id="recap-status">Chargement…</span></div>
       </div>
       <div id="recap-content" aria-live="polite"><div class="state">Chargement du récap…</div></div>
+    </div></section>
+  </div>
+  <div id="matchups-panel-leaders" class="matchups-panel" role="tabpanel" hidden>
+    <section class="section"><div class="shell">
+      <div class="section-head"><div><p class="eyebrow">Top 10 par poste</p><h2>Qui a marqué, et qui l’a.</h2></div>
+        <div class="schedule-toolbar"><label for="leaders-week">Semaine <select id="leaders-week"></select></label><span id="leaders-status">Chargement…</span></div>
+      </div>
+      <div id="leaders-content" aria-live="polite"><div class="state">Chargement des leaders…</div></div>
+      <p class="note"><strong>Lecture :</strong> points au barème de la ligue. La projection est celle de Sleeper avant le match, rescorée au même barème. Le détenteur est celui d’aujourd’hui ; l’Usage Score couvre les trois dernières semaines terminées. Un gros écart avec un usage faible tient souvent à un touchdown.</p>
     </div></section>
   </div>
   <div id="matchups-panel-archives" class="matchups-panel" role="tabpanel" hidden><div class="shell state">Les archives seront chargées à l’ouverture.</div></div>`;
@@ -359,9 +426,58 @@ export async function renderMatchupsHub(container, {
     }
   }
 
+  const leadersSelect = document.getElementById("leaders-week");
+  const leadersContent = document.getElementById("leaders-content");
+  let leadersWeek = null;
+  async function loadLeaders(week = null) {
+    const status = document.getElementById("leaders-status");
+    leadersContent.innerHTML = `<div class="state">Lecture des leaders…</div>`;
+    try {
+      const report = await fetchJson(`/api/leaders${week ? `?week=${week}` : ""}`, { timeoutMs: 40_000 });
+      leadersWeek = report.week;
+      const lastWeek = Math.min(18, Math.max(report.currentWeek, report.week));
+      leadersSelect.innerHTML = Array.from({ length: lastWeek }, (_, index) => index + 1)
+        .map(value => `<option value="${value}"${value === report.week ? " selected" : ""}>Semaine ${value}</option>`).join("");
+      const rosterId = coachRosterHint();
+      leadersContent.innerHTML = renderLeaders(report, { rosterId, followedIds: new Set(rosterId ? loadWatchlist(rosterId).map(entry => entry.playerId) : []) });
+      status.textContent = `Semaine ${report.week} · ${report.live ? "en cours" : "terminée"}`;
+    } catch (error) {
+      leadersContent.innerHTML = `<div class="matchup-empty"><strong>Leaders indisponibles</strong><p>${escapeHtml(error.message)}. Réessayez dans quelques instants.</p></div>`;
+      status.textContent = "Erreur";
+    }
+  }
+
+  // Suivre un agent libre avec un motif daté : même watchlist que le War Room de /coach/.
+  leadersContent.addEventListener("click", event => {
+    const button = event.target.closest("button.war-follow[data-player]");
+    const rosterId = coachRosterHint();
+    if (!button || !rosterId) return;
+    const { player: playerId, name, position } = button.dataset;
+    const swap = (node, followed) => { node.outerHTML = followButton({ playerId, name, position }, followed); };
+    if (button.dataset.followed) {
+      saveWatchlist(rosterId, removeFromWatchlist(loadWatchlist(rosterId), playerId));
+      swap(button, false);
+      return;
+    }
+    const form = document.createElement("form");
+    form.className = "war-follow-form";
+    form.innerHTML = `<input type="text" required maxlength="${REASON_MAX}" placeholder="Motif (ex. WR9 en S5)" aria-label="Motif du suivi"><button class="war-follow" type="submit">Suivre</button>`;
+    form.addEventListener("submit", submitEvent => {
+      submitEvent.preventDefault();
+      const reason = form.querySelector("input").value.trim();
+      if (!reason) return;
+      const saved = saveWatchlist(rosterId, addToWatchlist(loadWatchlist(rosterId), { playerId, name, position },
+        { reason, now: new Date().toISOString(), week: leadersWeek }));
+      swap(form, saved);
+    });
+    button.replaceWith(form);
+    form.querySelector("input").focus();
+  });
+
   let archiveLoaded = false;
   let scheduleLoaded = false;
   let recapLoaded = false;
+  let leadersLoaded = false;
   async function selectView(view, { updateUrl = true } = {}) {
     document.querySelectorAll(".matchups-view").forEach(button => {
       const selected = button.dataset.view === view;
@@ -372,8 +488,7 @@ export async function renderMatchupsHub(container, {
       panel.hidden = panel.id !== `matchups-panel-${view}`;
     });
     if (updateUrl) {
-      const hash = view === "live" ? "#live" : view === "schedule" ? "#schedule" : view === "recap" ? "#recap" : "#archives";
-      window.history.replaceState(null, "", `${window.location.pathname}${hash}`);
+      window.history.replaceState(null, "", `${window.location.pathname}#${view}`);
     }
     if (view === "schedule" && !scheduleLoaded) {
       scheduleLoaded = true;
@@ -382,6 +497,10 @@ export async function renderMatchupsHub(container, {
     if (view === "recap" && !recapLoaded) {
       recapLoaded = true;
       await loadRecap(Number(recapSelect.value));
+    }
+    if (view === "leaders" && !leadersLoaded) {
+      leadersLoaded = true;
+      await loadLeaders();
     }
     if (view === "archives" && !archiveLoaded) {
       archiveLoaded = true;
@@ -398,6 +517,9 @@ export async function renderMatchupsHub(container, {
   recapSelect.addEventListener("change", () => {
     loadRecap(Number(recapSelect.value));
   });
+  leadersSelect.addEventListener("change", () => {
+    loadLeaders(Number(leadersSelect.value));
+  });
   document.getElementById("refresh-matchups").addEventListener("click", () => {
     loadWeek(currentWeek, "live-matchup-grid", { live: true });
   });
@@ -405,6 +527,7 @@ export async function renderMatchupsHub(container, {
     const hash = window.location.hash;
     if (hash === "#schedule") return "schedule";
     if (hash === "#recap") return "recap";
+    if (hash === "#leaders") return "leaders";
     if (hash === "#archives") return "archives";
     return "live";
   }

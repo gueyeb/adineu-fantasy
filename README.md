@@ -51,6 +51,8 @@ The footer links to `/coach/`, a password login shell with no private recommenda
 
 The Coach page's **War Room** panel keeps a dated watchlist and a bid history in the browser (`localStorage`); only followed player ids are sent, in `x-coach-watchlist`. See `docs/prd-waiver-war-room.md`.
 
+The Game Center's **Leaders** tab (`/matchups/#leaders`, `GET /api/leaders?week=`) lists each week's top 10 per position at the league's exact scoring, with the current holder or free-agent status, the pre-game projection and the usage score. See `docs/prd-weekly-leaders.md`.
+
 The n8n integration remains independent: configure a long random `COACH_API_TOKEN`, then call `GET /api/coach?team=t0z` with `Authorization: Bearer <COACH_API_TOKEN>`. Forward its `message` field only to the manager's private channel. When the report fails its coherence checks the bearer call answers `409 REPORT_NOT_PUBLISHABLE` with `message: null` and a `notice` explaining why: the n8n workflow forwards `notice` instead of the bulletin (HTTP node set to never error, then an If on `message`). The signed-in `/coach/` page still shows the plan with the warning. `/api/free-agents` and `/api/context` apply the same refusal only with `?requirePublishable=1`. Anonymous requests return `404`. Never put either secret in browser assets or build-time variables.
 
 TradeRecommendationScore separates market values from optimal weekly lineup deltas for both rosters, confidence, and heuristic tradeability (not acceptance odds). Missing lineup projections suppress deltas and win-win claims. The first Finder card expands into before/after lineups for both teams. Market adjustments are anchored to ECR/ADP and capped to avoid one-week crashes; absent projections cannot drive dynamic market adjustments.

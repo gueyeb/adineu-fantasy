@@ -38,6 +38,7 @@ const requiredAssets = [
   "assets/standings-luck.js",
   "assets/league-market.js",
   "assets/usage-score.js",
+  "assets/weekly-leaders.js",
   "assets/win-probability.js",
   "assets/sleeper-client.js",
   "assets/defense-vs-position.js",
