@@ -1,7 +1,7 @@
 {
  "source": "Yahoo Fantasy Sports archives — pages Transactions, filtre Trades",
  "extractedAt": "2026-10-14",
- "note": "Un trade = deux côtés ; `received` liste les joueurs reçus par ce manager. Heure telle qu’affichée par Yahoo (fuseau du compte).",
+ "note": "Un trade = deux côtés ; `received` liste les joueurs reçus par ce manager (identifiant joueur Yahoo). Heure telle qu’affichée par Yahoo (fuseau du compte). `outcome` et les points sont calculés par scripts/build-trade-outcomes.js.",
  "totalTrades": 95,
  "seasons": [
   {
@@ -18,19 +18,66 @@
        "manager": "Olivier",
        "team": "The energy's team",
        "received": [
-        "Hunter Henry",
-        "Allen Robinson"
-       ]
+        {
+         "name": "Hunter Henry",
+         "yahooId": "29269",
+         "position": "TE",
+         "sleeperId": "3214",
+         "matchedBy": "yahoo_id",
+         "points": 134,
+         "value": 34.6,
+         "games": 11
+        },
+        {
+         "name": "Allen Robinson",
+         "yahooId": "27589",
+         "position": "WR",
+         "sleeperId": "1992",
+         "matchedBy": "yahoo_id",
+         "points": 238.6,
+         "value": 73.3,
+         "games": 15
+        }
+       ],
+       "points": 372.6,
+       "value": 107.9
       },
       {
        "manager": "babttz",
        "team": "Fun Guy Team",
        "received": [
-        "Kyle Rudolph",
-        "Duke Johnson"
-       ]
+        {
+         "name": "Kyle Rudolph",
+         "yahooId": "24830",
+         "position": "TE",
+         "sleeperId": "943",
+         "matchedBy": "yahoo_id",
+         "points": 113.7,
+         "value": 23,
+         "games": 15
+        },
+        {
+         "name": "Duke Johnson",
+         "yahooId": "28465",
+         "position": "RB",
+         "sleeperId": "2382",
+         "matchedBy": "yahoo_id",
+         "points": 136.3,
+         "value": 28.8,
+         "games": 15
+        }
+       ],
+       "points": 250,
+       "value": 51.8
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 1,
+      "throughWeek": 16,
+      "winner": "Olivier",
+      "margin": 56.1,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2019-09-11",
@@ -40,17 +87,46 @@
        "manager": "Mountaga",
        "team": "Banana Kings",
        "received": [
-        "Devin Singletary"
-       ]
+        {
+         "name": "Devin Singletary",
+         "yahooId": "31906",
+         "position": "RB",
+         "sleeperId": "6130",
+         "matchedBy": "yahoo_id",
+         "points": 129.1,
+         "value": 42.5,
+         "games": 11
+        }
+       ],
+       "points": 129.1,
+       "value": 42.5
       },
       {
        "manager": "Birama",
        "team": "El Fenomeno",
        "received": [
-        "T.J. Hockenson"
-       ]
+        {
+         "name": "T.J. Hockenson",
+         "yahooId": "31840",
+         "position": "TE",
+         "sleeperId": "5844",
+         "matchedBy": "yahoo_id",
+         "points": 55.6,
+         "value": 0,
+         "games": 11
+        }
+       ],
+       "points": 55.6,
+       "value": 0
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 2,
+      "throughWeek": 16,
+      "winner": "Mountaga",
+      "margin": 42.5,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2019-09-22",
@@ -60,17 +136,46 @@
        "manager": "Louis François",
        "team": "Ruff Ryders",
        "received": [
-        "Raheem Mostert"
-       ]
+        {
+         "name": "Raheem Mostert",
+         "yahooId": "28654",
+         "position": "RB",
+         "sleeperId": "2749",
+         "matchedBy": "yahoo_id",
+         "points": 111.9,
+         "value": 38.7,
+         "games": 12
+        }
+       ],
+       "points": 111.9,
+       "value": 38.7
       },
       {
        "manager": "babttz",
        "team": "Fun Guy Team",
        "received": [
-        "Drew Brees"
-       ]
+        {
+         "name": "Drew Brees",
+         "yahooId": "5479",
+         "position": "QB",
+         "sleeperId": "289",
+         "matchedBy": "yahoo_id",
+         "points": 184.4,
+         "value": 50.9,
+         "games": 8
+        }
+       ],
+       "points": 184.4,
+       "value": 50.9
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 4,
+      "throughWeek": 16,
+      "winner": null,
+      "margin": 12.2,
+      "verdict": "EVEN"
+     }
     },
     {
      "date": "2019-09-24",
@@ -80,18 +185,56 @@
        "manager": "Jonnel",
        "team": "Power Bearers",
        "received": [
-        "JuJu Smith-Schuster",
-        "Chris Thompson"
-       ]
+        {
+         "name": "JuJu Smith-Schuster",
+         "yahooId": "30175",
+         "position": "WR",
+         "sleeperId": "4040",
+         "matchedBy": "yahoo_id",
+         "points": 65.3,
+         "value": 14.8,
+         "games": 8
+        },
+        {
+         "name": "Chris Thompson",
+         "yahooId": "26777",
+         "position": "RB",
+         "sleeperId": "1502",
+         "matchedBy": "yahoo_id",
+         "points": 50.8,
+         "value": 0,
+         "games": 7
+        }
+       ],
+       "points": 116.1,
+       "value": 14.8
       },
       {
        "manager": "Birama",
        "team": "El Fenomeno",
        "received": [
-        "Odell Beckham Jr."
-       ]
+        {
+         "name": "Odell Beckham Jr.",
+         "yahooId": "27540",
+         "position": "WR",
+         "sleeperId": "2078",
+         "matchedBy": "yahoo_id",
+         "points": 129.4,
+         "value": 16.5,
+         "games": 12
+        }
+       ],
+       "points": 129.4,
+       "value": 16.5
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 4,
+      "throughWeek": 16,
+      "winner": null,
+      "margin": 1.7,
+      "verdict": "EVEN"
+     }
     },
     {
      "date": "2019-09-25",
@@ -101,18 +244,56 @@
        "manager": "Magatte",
        "team": "Sneaky slayer's",
        "received": [
-        "Tyler Boyd",
-        "Tarik Cohen"
-       ]
+        {
+         "name": "Tyler Boyd",
+         "yahooId": "29288",
+         "position": "WR",
+         "sleeperId": "3225",
+         "matchedBy": "yahoo_id",
+         "points": 160.7,
+         "value": 46.8,
+         "games": 12
+        },
+        {
+         "name": "Tarik Cohen",
+         "yahooId": "30232",
+         "position": "RB",
+         "sleeperId": "4157",
+         "matchedBy": "yahoo_id",
+         "points": 124.7,
+         "value": 30.3,
+         "games": 12
+        }
+       ],
+       "points": 285.4,
+       "value": 77.1
       },
       {
        "manager": "Marius",
        "team": "Elephant de Gbamph",
        "received": [
-        "Joe Mixon"
-       ]
+        {
+         "name": "Joe Mixon",
+         "yahooId": "30161",
+         "position": "RB",
+         "sleeperId": "4018",
+         "matchedBy": "yahoo_id",
+         "points": 168,
+         "value": 61,
+         "games": 12
+        }
+       ],
+       "points": 168,
+       "value": 61
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 4,
+      "throughWeek": 16,
+      "winner": "Magatte",
+      "margin": 16.1,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2019-10-01",
@@ -122,19 +303,66 @@
        "manager": "Louis François",
        "team": "Ruff Ryders",
        "received": [
-        "T.J. Hockenson",
-        "O.J. Howard",
-        "Robert Woods"
-       ]
+        {
+         "name": "T.J. Hockenson",
+         "yahooId": "31840",
+         "position": "TE",
+         "sleeperId": "5844",
+         "matchedBy": "yahoo_id",
+         "points": 41.1,
+         "value": 0,
+         "games": 8
+        },
+        {
+         "name": "O.J. Howard",
+         "yahooId": "30132",
+         "position": "TE",
+         "sleeperId": "4055",
+         "matchedBy": "yahoo_id",
+         "points": 62.8,
+         "value": 2.9,
+         "games": 9
+        },
+        {
+         "name": "Robert Woods",
+         "yahooId": "26664",
+         "position": "WR",
+         "sleeperId": "1352",
+         "matchedBy": "yahoo_id",
+         "points": 151.3,
+         "value": 45.2,
+         "games": 10
+        }
+       ],
+       "points": 255.2,
+       "value": 48.1
       },
       {
        "manager": "Birama",
        "team": "El Fenomeno",
        "received": [
-        "Zach Ertz"
-       ]
+        {
+         "name": "Zach Ertz",
+         "yahooId": "26658",
+         "position": "TE",
+         "sleeperId": "1339",
+         "matchedBy": "yahoo_id",
+         "points": 163.1,
+         "value": 74,
+         "games": 11
+        }
+       ],
+       "points": 163.1,
+       "value": 74
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 5,
+      "throughWeek": 16,
+      "winner": "Birama",
+      "margin": 25.9,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2019-10-03",
@@ -144,18 +372,56 @@
        "manager": "babttz",
        "team": "Fun Guy Team",
        "received": [
-        "Royce Freeman"
-       ]
+        {
+         "name": "Royce Freeman",
+         "yahooId": "31041",
+         "position": "RB",
+         "sleeperId": "5046",
+         "matchedBy": "yahoo_id",
+         "points": 98.2,
+         "value": 16.1,
+         "games": 11
+        }
+       ],
+       "points": 98.2,
+       "value": 16.1
       },
       {
        "manager": "Louis François",
        "team": "Ruff Ryders",
        "received": [
-        "Jordan Howard",
-        "Mecole Hardman Jr."
-       ]
+        {
+         "name": "Jordan Howard",
+         "yahooId": "29384",
+         "position": "RB",
+         "sleeperId": "3306",
+         "matchedBy": "yahoo_id",
+         "points": 58.1,
+         "value": 15.6,
+         "games": 5
+        },
+        {
+         "name": "Mecole Hardman Jr.",
+         "yahooId": "31888",
+         "position": "WR",
+         "sleeperId": "5917",
+         "matchedBy": "yahoo_id",
+         "points": 73.1,
+         "value": 2.1,
+         "games": 11
+        }
+       ],
+       "points": 131.2,
+       "value": 17.7
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 5,
+      "throughWeek": 16,
+      "winner": null,
+      "margin": 1.6,
+      "verdict": "EVEN"
+     }
     },
     {
      "date": "2019-10-10",
@@ -165,17 +431,46 @@
        "manager": "Louis François",
        "team": "Ruff Ryders",
        "received": [
-        "Marquez Valdes-Scantling"
-       ]
+        {
+         "name": "Marquez Valdes-Scantling",
+         "yahooId": "31144",
+         "position": "WR",
+         "sleeperId": "5086",
+         "matchedBy": "yahoo_id",
+         "points": 33.7,
+         "value": 10.1,
+         "games": 10
+        }
+       ],
+       "points": 33.7,
+       "value": 10.1
       },
       {
        "manager": "babttz",
        "team": "Fun Guy Team",
        "received": [
-        "Jordan Howard"
-       ]
+        {
+         "name": "Jordan Howard",
+         "yahooId": "29384",
+         "position": "RB",
+         "sleeperId": "3306",
+         "matchedBy": "yahoo_id",
+         "points": 45.9,
+         "value": 14.4,
+         "games": 4
+        }
+       ],
+       "points": 45.9,
+       "value": 14.4
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 6,
+      "throughWeek": 16,
+      "winner": null,
+      "margin": 4.3,
+      "verdict": "EVEN"
+     }
     },
     {
      "date": "2019-10-15",
@@ -185,19 +480,66 @@
        "manager": "Birama",
        "team": "El Fenomeno",
        "received": [
-        "Keenan Allen",
-        "Delanie Walker"
-       ]
+        {
+         "name": "Keenan Allen",
+         "yahooId": "26699",
+         "position": "WR",
+         "sleeperId": "1479",
+         "matchedBy": "yahoo_id",
+         "points": 129.7,
+         "value": 23.5,
+         "games": 9
+        },
+        {
+         "name": "Delanie Walker",
+         "yahooId": "7924",
+         "position": "TE",
+         "sleeperId": "284",
+         "matchedBy": "yahoo_id",
+         "points": 0,
+         "value": 0,
+         "games": 1
+        }
+       ],
+       "points": 129.7,
+       "value": 23.5
       },
       {
        "manager": "YeezyJr",
        "team": "YeezyJr's Team",
        "received": [
-        "Derrick Henry",
-        "Hunter Henry"
-       ]
+        {
+         "name": "Derrick Henry",
+         "yahooId": "29279",
+         "position": "RB",
+         "sleeperId": "3198",
+         "matchedBy": "yahoo_id",
+         "points": 164.7,
+         "value": 96.6,
+         "games": 8
+        },
+        {
+         "name": "Hunter Henry",
+         "yahooId": "29269",
+         "position": "TE",
+         "sleeperId": "3214",
+         "matchedBy": "yahoo_id",
+         "points": 94,
+         "value": 14.4,
+         "games": 9
+        }
+       ],
+       "points": 258.7,
+       "value": 111
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 7,
+      "throughWeek": 16,
+      "winner": "YeezyJr",
+      "margin": 87.5,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2019-10-17",
@@ -207,18 +549,56 @@
        "manager": "Birama",
        "team": "El Fenomeno",
        "received": [
-        "Mohamed Sanu"
-       ]
+        {
+         "name": "Mohamed Sanu",
+         "yahooId": "25793",
+         "position": "WR",
+         "sleeperId": "1071",
+         "matchedBy": "yahoo_id",
+         "points": 48.3,
+         "value": 12.5,
+         "games": 8
+        }
+       ],
+       "points": 48.3,
+       "value": 12.5
       },
       {
        "manager": "Toughness",
        "team": "Toughness's Team",
        "received": [
-        "Robbie Chosen",
-        "Delanie Walker"
-       ]
+        {
+         "name": "Robbie Chosen",
+         "yahooId": "29785",
+         "position": "WR",
+         "sleeperId": "3423",
+         "matchedBy": "yahoo_id",
+         "points": 108.9,
+         "value": 20.3,
+         "games": 10
+        },
+        {
+         "name": "Delanie Walker",
+         "yahooId": "7924",
+         "position": "TE",
+         "sleeperId": "284",
+         "matchedBy": "yahoo_id",
+         "points": 0,
+         "value": 0,
+         "games": 1
+        }
+       ],
+       "points": 108.9,
+       "value": 20.3
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 7,
+      "throughWeek": 16,
+      "winner": null,
+      "margin": 7.8,
+      "verdict": "EVEN"
+     }
     },
     {
      "date": "2019-10-21",
@@ -228,18 +608,56 @@
        "manager": "babttz",
        "team": "Fun Guy Team",
        "received": [
-        "Emmanuel Sanders"
-       ]
+        {
+         "name": "Emmanuel Sanders",
+         "yahooId": "24057",
+         "position": "WR",
+         "sleeperId": "538",
+         "matchedBy": "yahoo_id",
+         "points": 104.1,
+         "value": 32.4,
+         "games": 9
+        }
+       ],
+       "points": 104.1,
+       "value": 32.4
       },
       {
        "manager": "Louis François",
        "team": "Ruff Ryders",
        "received": [
-        "Jamaal Williams",
-        "Cole Beasley"
-       ]
+        {
+         "name": "Jamaal Williams",
+         "yahooId": "30247",
+         "position": "RB",
+         "sleeperId": "4149",
+         "matchedBy": "yahoo_id",
+         "points": 81.4,
+         "value": 24.6,
+         "games": 8
+        },
+        {
+         "name": "Cole Beasley",
+         "yahooId": "26060",
+         "position": "WR",
+         "sleeperId": "1144",
+         "matchedBy": "yahoo_id",
+         "points": 118.5,
+         "value": 22.5,
+         "games": 9
+        }
+       ],
+       "points": 199.9,
+       "value": 47.1
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 8,
+      "throughWeek": 16,
+      "winner": null,
+      "margin": 14.7,
+      "verdict": "EVEN"
+     }
     },
     {
      "date": "2019-10-23",
@@ -249,17 +667,46 @@
        "manager": "Abdoulaye",
        "team": "Binaries",
        "received": [
-        "Mohamed Sanu"
-       ]
+        {
+         "name": "Mohamed Sanu",
+         "yahooId": "25793",
+         "position": "WR",
+         "sleeperId": "1071",
+         "matchedBy": "yahoo_id",
+         "points": 47,
+         "value": 12.5,
+         "games": 7
+        }
+       ],
+       "points": 47,
+       "value": 12.5
       },
       {
        "manager": "Birama",
        "team": "El Fenomeno",
        "received": [
-        "Matthew Stafford"
-       ]
+        {
+         "name": "Matthew Stafford",
+         "yahooId": "9265",
+         "position": "QB",
+         "sleeperId": "421",
+         "matchedBy": "yahoo_id",
+         "points": 49.2,
+         "value": 11.7,
+         "games": 2
+        }
+       ],
+       "points": 49.2,
+       "value": 11.7
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 8,
+      "throughWeek": 16,
+      "winner": null,
+      "margin": 0.8,
+      "verdict": "EVEN"
+     }
     },
     {
      "date": "2019-10-24",
@@ -269,17 +716,46 @@
        "manager": "Jonnel",
        "team": "Power Bearers",
        "received": [
-        "Golden Tate"
-       ]
+        {
+         "name": "Golden Tate",
+         "yahooId": "24035",
+         "position": "WR",
+         "sleeperId": "642",
+         "matchedBy": "yahoo_id",
+         "points": 92.9,
+         "value": 16.9,
+         "games": 7
+        }
+       ],
+       "points": 92.9,
+       "value": 16.9
       },
       {
        "manager": "babttz",
        "team": "Fun Guy Team",
        "received": [
-        "Jamison Crowder"
-       ]
+        {
+         "name": "Jamison Crowder",
+         "yahooId": "28493",
+         "position": "WR",
+         "sleeperId": "2410",
+         "matchedBy": "yahoo_id",
+         "points": 114.9,
+         "value": 37.1,
+         "games": 9
+        }
+       ],
+       "points": 114.9,
+       "value": 37.1
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 8,
+      "throughWeek": 16,
+      "winner": "babttz",
+      "margin": 20.2,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2019-10-29",
@@ -289,17 +765,46 @@
        "manager": "Olivier",
        "team": "The energy's team",
        "received": [
-        "Jordan Howard"
-       ]
+        {
+         "name": "Jordan Howard",
+         "yahooId": "29384",
+         "position": "RB",
+         "sleeperId": "3306",
+         "matchedBy": "yahoo_id",
+         "points": 15.3,
+         "value": 5,
+         "games": 1
+        }
+       ],
+       "points": 15.3,
+       "value": 5
       },
       {
        "manager": "babttz",
        "team": "Fun Guy Team",
        "received": [
-        "Matt Breida"
-       ]
+        {
+         "name": "Matt Breida",
+         "yahooId": "30552",
+         "position": "RB",
+         "sleeperId": "4455",
+         "matchedBy": "yahoo_id",
+         "points": 22.2,
+         "value": 0.9,
+         "games": 5
+        }
+       ],
+       "points": 22.2,
+       "value": 0.9
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 9,
+      "throughWeek": 16,
+      "winner": null,
+      "margin": 4.1,
+      "verdict": "EVEN"
+     }
     },
     {
      "date": "2019-10-30",
@@ -309,17 +814,46 @@
        "manager": "Toughness",
        "team": "Toughness's Team",
        "received": [
-        "Robert Woods"
-       ]
+        {
+         "name": "Robert Woods",
+         "yahooId": "26664",
+         "position": "WR",
+         "sleeperId": "1352",
+         "matchedBy": "yahoo_id",
+         "points": 114.1,
+         "value": 42.8,
+         "games": 6
+        }
+       ],
+       "points": 114.1,
+       "value": 42.8
       },
       {
        "manager": "Louis François",
        "team": "Ruff Ryders",
        "received": [
-        "Mike Williams"
-       ]
+        {
+         "name": "Mike Williams",
+         "yahooId": "30120",
+         "position": "WR",
+         "sleeperId": "4068",
+         "matchedBy": "yahoo_id",
+         "points": 87.6,
+         "value": 8.4,
+         "games": 7
+        }
+       ],
+       "points": 87.6,
+       "value": 8.4
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 9,
+      "throughWeek": 16,
+      "winner": "Toughness",
+      "margin": 34.4,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2019-10-30",
@@ -329,18 +863,56 @@
        "manager": "Mountaga",
        "team": "Banana Kings",
        "received": [
-        "Odell Beckham Jr.",
-        "Derrius Guice"
-       ]
+        {
+         "name": "Odell Beckham Jr.",
+         "yahooId": "27540",
+         "position": "WR",
+         "sleeperId": "2078",
+         "matchedBy": "yahoo_id",
+         "points": 95.1,
+         "value": 11,
+         "games": 8
+        },
+        {
+         "name": "Derrius Guice",
+         "yahooId": "31029",
+         "position": "RB",
+         "sleeperId": "4949",
+         "matchedBy": "yahoo_id",
+         "points": 50.6,
+         "value": 21.4,
+         "games": 4
+        }
+       ],
+       "points": 145.7,
+       "value": 32.4
       },
       {
        "manager": "Birama",
        "team": "El Fenomeno",
        "received": [
-        "Le'Veon Bell"
-       ]
+        {
+         "name": "Le'Veon Bell",
+         "yahooId": "26671",
+         "position": "RB",
+         "sleeperId": "1408",
+         "matchedBy": "yahoo_id",
+         "points": 104.7,
+         "value": 39.8,
+         "games": 7
+        }
+       ],
+       "points": 104.7,
+       "value": 39.8
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 9,
+      "throughWeek": 16,
+      "winner": null,
+      "margin": 7.4,
+      "verdict": "EVEN"
+     }
     },
     {
      "date": "2019-11-02",
@@ -350,18 +922,56 @@
        "manager": "Mountaga",
        "team": "Banana Kings",
        "received": [
-        "Royce Freeman",
-        "Sterling Shepard"
-       ]
+        {
+         "name": "Royce Freeman",
+         "yahooId": "31041",
+         "position": "RB",
+         "sleeperId": "5046",
+         "matchedBy": "yahoo_id",
+         "points": 46.3,
+         "value": 1.9,
+         "games": 6
+        },
+        {
+         "name": "Sterling Shepard",
+         "yahooId": "29274",
+         "position": "WR",
+         "sleeperId": "3200",
+         "matchedBy": "yahoo_id",
+         "points": 69,
+         "value": 11.3,
+         "games": 5
+        }
+       ],
+       "points": 115.3,
+       "value": 13.2
       },
       {
        "manager": "Mat",
        "team": "Hunters",
        "received": [
-        "Stefon Diggs"
-       ]
+        {
+         "name": "Stefon Diggs",
+         "yahooId": "28534",
+         "position": "WR",
+         "sleeperId": "2449",
+         "matchedBy": "yahoo_id",
+         "points": 82.1,
+         "value": 13.2,
+         "games": 6
+        }
+       ],
+       "points": 82.1,
+       "value": 13.2
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 10,
+      "throughWeek": 16,
+      "winner": null,
+      "margin": 0,
+      "verdict": "EVEN"
+     }
     },
     {
      "date": "2019-11-05",
@@ -371,17 +981,46 @@
        "manager": "Abdoulaye",
        "team": "Binaries",
        "received": [
-        "Matthew Stafford"
-       ]
+        {
+         "name": "Matthew Stafford",
+         "yahooId": "9265",
+         "position": "QB",
+         "sleeperId": "421",
+         "matchedBy": "yahoo_id",
+         "points": 0,
+         "value": 0,
+         "games": 0
+        }
+       ],
+       "points": 0,
+       "value": 0
       },
       {
        "manager": "Birama",
        "team": "El Fenomeno",
        "received": [
-        "Mohamed Sanu"
-       ]
+        {
+         "name": "Mohamed Sanu",
+         "yahooId": "25793",
+         "position": "WR",
+         "sleeperId": "1071",
+         "matchedBy": "yahoo_id",
+         "points": 18.6,
+         "value": 0,
+         "games": 5
+        }
+       ],
+       "points": 18.6,
+       "value": 0
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 10,
+      "throughWeek": 16,
+      "winner": null,
+      "margin": 0,
+      "verdict": "EVEN"
+     }
     },
     {
      "date": "2019-11-08",
@@ -391,18 +1030,56 @@
        "manager": "babttz",
        "team": "Fun Guy Team",
        "received": [
-        "T.Y. Hilton"
-       ]
+        {
+         "name": "T.Y. Hilton",
+         "yahooId": "25802",
+         "position": "WR",
+         "sleeperId": "1110",
+         "matchedBy": "yahoo_id",
+         "points": 16.9,
+         "value": 0,
+         "games": 3
+        }
+       ],
+       "points": 16.9,
+       "value": 0
       },
       {
        "manager": "Mountaga",
        "team": "Banana Kings",
        "received": [
-        "Kenyan Drake",
-        "Wil Lutz"
-       ]
+        {
+         "name": "Kenyan Drake",
+         "yahooId": "29307",
+         "position": "RB",
+         "sleeperId": "3242",
+         "matchedBy": "yahoo_id",
+         "points": 103.8,
+         "value": 57.6,
+         "games": 5
+        },
+        {
+         "name": "Wil Lutz",
+         "yahooId": "29754",
+         "position": "K",
+         "sleeperId": "3678",
+         "matchedBy": "yahoo_id",
+         "points": 71,
+         "value": 21,
+         "games": 6
+        }
+       ],
+       "points": 174.8,
+       "value": 78.6
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 11,
+      "throughWeek": 16,
+      "winner": "Mountaga",
+      "margin": 78.6,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2019-11-10",
@@ -412,20 +1089,76 @@
        "manager": "Magatte",
        "team": "Sneaky slayer's",
        "received": [
-        "Aaron Jones Sr.",
-        "Jarvis Landry",
-        "Robbie Chosen"
-       ]
+        {
+         "name": "Aaron Jones Sr.",
+         "yahooId": "30295",
+         "position": "RB",
+         "sleeperId": "4199",
+         "matchedBy": "yahoo_id",
+         "points": 86.2,
+         "value": 45.1,
+         "games": 5
+        },
+        {
+         "name": "Jarvis Landry",
+         "yahooId": "27591",
+         "position": "WR",
+         "sleeperId": "1825",
+         "matchedBy": "yahoo_id",
+         "points": 98,
+         "value": 28.4,
+         "games": 6
+        },
+        {
+         "name": "Robbie Chosen",
+         "yahooId": "29785",
+         "position": "WR",
+         "sleeperId": "3423",
+         "matchedBy": "yahoo_id",
+         "points": 91.2,
+         "value": 20.3,
+         "games": 6
+        }
+       ],
+       "points": 275.4,
+       "value": 93.8
       },
       {
        "manager": "Toughness",
        "team": "Toughness's Team",
        "received": [
-        "Tyler Boyd",
-        "David Johnson"
-       ]
+        {
+         "name": "Tyler Boyd",
+         "yahooId": "29288",
+         "position": "WR",
+         "sleeperId": "3225",
+         "matchedBy": "yahoo_id",
+         "points": 89.6,
+         "value": 29.7,
+         "games": 6
+        },
+        {
+         "name": "David Johnson",
+         "yahooId": "28474",
+         "position": "RB",
+         "sleeperId": "2391",
+         "matchedBy": "yahoo_id",
+         "points": 20,
+         "value": 3,
+         "games": 5
+        }
+       ],
+       "points": 109.6,
+       "value": 32.7
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 11,
+      "throughWeek": 16,
+      "winner": "Magatte",
+      "margin": 61.1,
+      "verdict": "WON"
+     }
     }
    ]
   },
@@ -443,18 +1176,56 @@
        "manager": "Abdoulaye",
        "team": "Binaries",
        "received": [
-        "Joshua Kelley",
-        "Laviska Shenault Jr."
-       ]
+        {
+         "name": "Joshua Kelley",
+         "yahooId": "32782",
+         "position": "RB",
+         "sleeperId": "7045",
+         "matchedBy": "yahoo_id",
+         "points": 53.9,
+         "value": 9.9,
+         "games": 11
+        },
+        {
+         "name": "Laviska Shenault Jr.",
+         "yahooId": "32712",
+         "position": "WR",
+         "sleeperId": "6814",
+         "matchedBy": "yahoo_id",
+         "points": 108.6,
+         "value": 10,
+         "games": 11
+        }
+       ],
+       "points": 162.5,
+       "value": 19.9
       },
       {
        "manager": "Birama",
        "team": "Ethan Hunt",
        "received": [
-        "Parris Campbell"
-       ]
+        {
+         "name": "Parris Campbell",
+         "yahooId": "31891",
+         "position": "WR",
+         "sleeperId": "5880",
+         "matchedBy": "yahoo_id",
+         "points": 0,
+         "value": 0,
+         "games": 0
+        }
+       ],
+       "points": 0,
+       "value": 0
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 3,
+      "throughWeek": 16,
+      "winner": "Abdoulaye",
+      "margin": 19.9,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2020-09-22",
@@ -464,18 +1235,56 @@
        "manager": "babttz",
        "team": ".",
        "received": [
-        "Le'Veon Bell",
-        "Kerryon Johnson"
-       ]
+        {
+         "name": "Le'Veon Bell",
+         "yahooId": "26671",
+         "position": "RB",
+         "sleeperId": "1408",
+         "matchedBy": "yahoo_id",
+         "points": 67,
+         "value": 9,
+         "games": 10
+        },
+        {
+         "name": "Kerryon Johnson",
+         "yahooId": "31013",
+         "position": "RB",
+         "sleeperId": "5068",
+         "matchedBy": "yahoo_id",
+         "points": 60.2,
+         "value": 8.8,
+         "games": 13
+        }
+       ],
+       "points": 127.2,
+       "value": 17.8
       },
       {
        "manager": "Louis François",
        "team": "Big Pimping",
        "received": [
-        "James Robinson"
-       ]
+        {
+         "name": "James Robinson",
+         "yahooId": "33138",
+         "position": "RB",
+         "sleeperId": "6955",
+         "matchedBy": "yahoo_id",
+         "points": 216.4,
+         "value": 127.6,
+         "games": 12
+        }
+       ],
+       "points": 216.4,
+       "value": 127.6
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 3,
+      "throughWeek": 16,
+      "winner": "Louis François",
+      "margin": 109.8,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2020-09-27",
@@ -485,17 +1294,46 @@
        "manager": "Erwan",
        "team": "ERWAN",
        "received": [
-        "DeSean Jackson"
-       ]
+        {
+         "name": "DeSean Jackson",
+         "yahooId": "8826",
+         "position": "WR",
+         "sleeperId": "147",
+         "matchedBy": "yahoo_id",
+         "points": 22.7,
+         "value": 3.2,
+         "games": 2
+        }
+       ],
+       "points": 22.7,
+       "value": 3.2
       },
       {
        "manager": "babttz",
        "team": ".",
        "received": [
-        "Carson Wentz"
-       ]
+        {
+         "name": "Carson Wentz",
+         "yahooId": "29236",
+         "position": "QB",
+         "sleeperId": "3161",
+         "matchedBy": "yahoo_id",
+         "points": 153.5,
+         "value": 25.3,
+         "games": 9
+        }
+       ],
+       "points": 153.5,
+       "value": 25.3
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 4,
+      "throughWeek": 16,
+      "winner": "babttz",
+      "margin": 22.1,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2020-09-29",
@@ -505,19 +1343,66 @@
        "manager": "Olivier",
        "team": "The energy's team",
        "received": [
-        "Austin Ekeler",
-        "Will Fuller V"
-       ]
+        {
+         "name": "Austin Ekeler",
+         "yahooId": "30423",
+         "position": "RB",
+         "sleeperId": "4663",
+         "matchedBy": "yahoo_id",
+         "points": 87.4,
+         "value": 48.1,
+         "games": 6
+        },
+        {
+         "name": "Will Fuller V",
+         "yahooId": "29255",
+         "position": "WR",
+         "sleeperId": "3157",
+         "matchedBy": "yahoo_id",
+         "points": 154.3,
+         "value": 59.8,
+         "games": 8
+        }
+       ],
+       "points": 241.7,
+       "value": 107.9
       },
       {
        "manager": "babttz",
        "team": ".",
        "received": [
-        "John Brown",
-        "Christian McCaffrey"
-       ]
+        {
+         "name": "John Brown",
+         "yahooId": "27619",
+         "position": "WR",
+         "sleeperId": "2238",
+         "matchedBy": "yahoo_id",
+         "points": 42.4,
+         "value": 7.5,
+         "games": 5
+        },
+        {
+         "name": "Christian McCaffrey",
+         "yahooId": "30121",
+         "position": "RB",
+         "sleeperId": "4034",
+         "matchedBy": "yahoo_id",
+         "points": 37.1,
+         "value": 29.2,
+         "games": 1
+        }
+       ],
+       "points": 79.5,
+       "value": 36.7
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 4,
+      "throughWeek": 16,
+      "winner": "Olivier",
+      "margin": 71.2,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2020-10-07",
@@ -527,18 +1412,56 @@
        "manager": "Erwan",
        "team": "ERWAN",
        "received": [
-        "Devonta Freeman",
-        "Anthony Miller"
-       ]
+        {
+         "name": "Devonta Freeman",
+         "yahooId": "27631",
+         "position": "RB",
+         "sleeperId": "2168",
+         "matchedBy": "yahoo_id",
+         "points": 24.2,
+         "value": 10.4,
+         "games": 3
+        },
+        {
+         "name": "Anthony Miller",
+         "yahooId": "31021",
+         "position": "WR",
+         "sleeperId": "5013",
+         "matchedBy": "yahoo_id",
+         "points": 69.2,
+         "value": 2.9,
+         "games": 11
+        }
+       ],
+       "points": 93.4,
+       "value": 13.3
       },
       {
        "manager": "Olivier",
        "team": "The energy's team",
        "received": [
-        "Odell Beckham Jr."
-       ]
+        {
+         "name": "Odell Beckham Jr.",
+         "yahooId": "27540",
+         "position": "WR",
+         "sleeperId": "2078",
+         "matchedBy": "yahoo_id",
+         "points": 15.9,
+         "value": 0,
+         "games": 3
+        }
+       ],
+       "points": 15.9,
+       "value": 0
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 5,
+      "throughWeek": 16,
+      "winner": null,
+      "margin": 13.3,
+      "verdict": "EVEN"
+     }
     },
     {
      "date": "2020-10-07",
@@ -548,20 +1471,76 @@
        "manager": "Erwan",
        "team": "ERWAN",
        "received": [
-        "John Brown",
-        "Rex Burkhead",
-        "Rob Gronkowski"
-       ]
+        {
+         "name": "John Brown",
+         "yahooId": "27619",
+         "position": "WR",
+         "sleeperId": "2238",
+         "matchedBy": "yahoo_id",
+         "points": 34.2,
+         "value": 7.5,
+         "games": 4
+        },
+        {
+         "name": "Rex Burkhead",
+         "yahooId": "26813",
+         "position": "RB",
+         "sleeperId": "1387",
+         "matchedBy": "yahoo_id",
+         "points": 54.7,
+         "value": 24.9,
+         "games": 6
+        },
+        {
+         "name": "Rob Gronkowski",
+         "yahooId": "24017",
+         "position": "TE",
+         "sleeperId": "515",
+         "matchedBy": "yahoo_id",
+         "points": 125.6,
+         "value": 38.6,
+         "games": 11
+        }
+       ],
+       "points": 214.5,
+       "value": 71
       },
       {
        "manager": "babttz",
        "team": ".",
        "received": [
-        "Kenyan Drake",
-        "Tyler Eifert"
-       ]
+        {
+         "name": "Kenyan Drake",
+         "yahooId": "29307",
+         "position": "RB",
+         "sleeperId": "3242",
+         "matchedBy": "yahoo_id",
+         "points": 142.7,
+         "value": 75.9,
+         "games": 10
+        },
+        {
+         "name": "Tyler Eifert",
+         "yahooId": "26644",
+         "position": "TE",
+         "sleeperId": "1388",
+         "matchedBy": "yahoo_id",
+         "points": 59.2,
+         "value": 0,
+         "games": 10
+        }
+       ],
+       "points": 201.9,
+       "value": 75.9
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 5,
+      "throughWeek": 16,
+      "winner": null,
+      "margin": 4.9,
+      "verdict": "EVEN"
+     }
     },
     {
      "date": "2020-10-17",
@@ -571,17 +1550,46 @@
        "manager": "Birama",
        "team": "Ethan Hunt",
        "received": [
-        "Noah Fant"
-       ]
+        {
+         "name": "Noah Fant",
+         "yahooId": "31852",
+         "position": "TE",
+         "sleeperId": "5857",
+         "matchedBy": "yahoo_id",
+         "points": 85.6,
+         "value": 13.9,
+         "games": 10
+        }
+       ],
+       "points": 85.6,
+       "value": 13.9
       },
       {
        "manager": "Louis François",
        "team": "Big Pimping",
        "received": [
-        "Hayden Hurst"
-       ]
+        {
+         "name": "Hayden Hurst",
+         "yahooId": "30995",
+         "position": "TE",
+         "sleeperId": "4973",
+         "matchedBy": "yahoo_id",
+         "points": 76.6,
+         "value": 13.6,
+         "games": 9
+        }
+       ],
+       "points": 76.6,
+       "value": 13.6
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 7,
+      "throughWeek": 16,
+      "winner": null,
+      "margin": 0.3,
+      "verdict": "EVEN"
+     }
     },
     {
      "date": "2020-10-21",
@@ -591,19 +1599,66 @@
        "manager": "Olivier",
        "team": "The energy's team",
        "received": [
-        "J.D. McKissic",
-        "Carson Wentz"
-       ]
+        {
+         "name": "J.D. McKissic",
+         "yahooId": "29650",
+         "position": "RB",
+         "sleeperId": "3664",
+         "matchedBy": "yahoo_id",
+         "points": 132.1,
+         "value": 67.4,
+         "games": 9
+        },
+        {
+         "name": "Carson Wentz",
+         "yahooId": "29236",
+         "position": "QB",
+         "sleeperId": "3161",
+         "matchedBy": "yahoo_id",
+         "points": 84.3,
+         "value": 14.1,
+         "games": 6
+        }
+       ],
+       "points": 216.4,
+       "value": 81.5
       },
       {
        "manager": "babttz",
        "team": ".",
        "received": [
-        "Robert Tonyan",
-        "Brian Hill"
-       ]
+        {
+         "name": "Robert Tonyan",
+         "yahooId": "30777",
+         "position": "TE",
+         "sleeperId": "4602",
+         "matchedBy": "yahoo_id",
+         "points": 101,
+         "value": 21.8,
+         "games": 10
+        },
+        {
+         "name": "Brian Hill",
+         "yahooId": "30269",
+         "position": "RB",
+         "sleeperId": "4187",
+         "matchedBy": "yahoo_id",
+         "points": 40.2,
+         "value": 1.2,
+         "games": 9
+        }
+       ],
+       "points": 141.2,
+       "value": 23
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 7,
+      "throughWeek": 16,
+      "winner": "Olivier",
+      "margin": 58.5,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2020-10-22",
@@ -613,18 +1668,56 @@
        "manager": "Erwan",
        "team": "ERWAN",
        "received": [
-        "Boston Scott",
-        "DJ Moore"
-       ]
+        {
+         "name": "Boston Scott",
+         "yahooId": "31171",
+         "position": "RB",
+         "sleeperId": "5122",
+         "matchedBy": "yahoo_id",
+         "points": 65.2,
+         "value": 23.5,
+         "games": 9
+        },
+        {
+         "name": "DJ Moore",
+         "yahooId": "30994",
+         "position": "WR",
+         "sleeperId": "4983",
+         "matchedBy": "yahoo_id",
+         "points": 116,
+         "value": 36.7,
+         "games": 8
+        }
+       ],
+       "points": 181.2,
+       "value": 60.2
       },
       {
        "manager": "Birama",
        "team": "Ethan Hunt",
        "received": [
-        "Terry McLaurin"
-       ]
+        {
+         "name": "Terry McLaurin",
+         "yahooId": "31908",
+         "position": "WR",
+         "sleeperId": "5927",
+         "matchedBy": "yahoo_id",
+         "points": 114.8,
+         "value": 33.3,
+         "games": 8
+        }
+       ],
+       "points": 114.8,
+       "value": 33.3
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 7,
+      "throughWeek": 16,
+      "winner": "Erwan",
+      "margin": 26.9,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2020-10-28",
@@ -634,18 +1727,56 @@
        "manager": "Erwan",
        "team": "ERWAN",
        "received": [
-        "Cam Newton",
-        "Brandin Cooks"
-       ]
+        {
+         "name": "Cam Newton",
+         "yahooId": "24788",
+         "position": "QB",
+         "sleeperId": "954",
+         "matchedBy": "yahoo_id",
+         "points": 131.7,
+         "value": 8.7,
+         "games": 9
+        },
+        {
+         "name": "Brandin Cooks",
+         "yahooId": "27548",
+         "position": "WR",
+         "sleeperId": "2197",
+         "matchedBy": "yahoo_id",
+         "points": 103.7,
+         "value": 21.5,
+         "games": 7
+        }
+       ],
+       "points": 235.4,
+       "value": 30.2
       },
       {
        "manager": "Mat",
        "team": "The Overachievers",
        "received": [
-        "Tom Brady"
-       ]
+        {
+         "name": "Tom Brady",
+         "yahooId": "5228",
+         "position": "QB",
+         "sleeperId": "167",
+         "matchedBy": "yahoo_id",
+         "points": 163.6,
+         "value": 40,
+         "games": 8
+        }
+       ],
+       "points": 163.6,
+       "value": 40
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 8,
+      "throughWeek": 16,
+      "winner": null,
+      "margin": 9.8,
+      "verdict": "EVEN"
+     }
     },
     {
      "date": "2020-11-01",
@@ -655,18 +1786,56 @@
        "manager": "Erwan",
        "team": "ERWAN",
        "received": [
-        "Sterling Shepard",
-        "Jerick McKinnon"
-       ]
+        {
+         "name": "Sterling Shepard",
+         "yahooId": "29274",
+         "position": "WR",
+         "sleeperId": "3200",
+         "matchedBy": "yahoo_id",
+         "points": 79.4,
+         "value": 13.8,
+         "games": 7
+        },
+        {
+         "name": "Jerick McKinnon",
+         "yahooId": "27624",
+         "position": "RB",
+         "sleeperId": "2161",
+         "matchedBy": "yahoo_id",
+         "points": 37,
+         "value": 7.9,
+         "games": 7
+        }
+       ],
+       "points": 116.4,
+       "value": 21.7
       },
       {
        "manager": "babttz",
        "team": ".",
        "received": [
-        "Nick Chubb"
-       ]
+        {
+         "name": "Nick Chubb",
+         "yahooId": "31005",
+         "position": "RB",
+         "sleeperId": "4988",
+         "matchedBy": "yahoo_id",
+         "points": 130.7,
+         "value": 79.1,
+         "games": 7
+        }
+       ],
+       "points": 130.7,
+       "value": 79.1
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 9,
+      "throughWeek": 16,
+      "winner": "babttz",
+      "margin": 57.4,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2020-11-01",
@@ -676,18 +1845,56 @@
        "manager": "Erwan",
        "team": "ERWAN",
        "received": [
-        "Giovani Bernard",
-        "Sterling Shepard"
-       ]
+        {
+         "name": "Giovani Bernard",
+         "yahooId": "26660",
+         "position": "RB",
+         "sleeperId": "1386",
+         "matchedBy": "yahoo_id",
+         "points": 75.1,
+         "value": 30.1,
+         "games": 7
+        },
+        {
+         "name": "Sterling Shepard",
+         "yahooId": "29274",
+         "position": "WR",
+         "sleeperId": "3200",
+         "matchedBy": "yahoo_id",
+         "points": 79.4,
+         "value": 13.8,
+         "games": 7
+        }
+       ],
+       "points": 154.5,
+       "value": 43.9
       },
       {
        "manager": "babttz",
        "team": ".",
        "received": [
-        "Nick Chubb"
-       ]
+        {
+         "name": "Nick Chubb",
+         "yahooId": "31005",
+         "position": "RB",
+         "sleeperId": "4988",
+         "matchedBy": "yahoo_id",
+         "points": 130.7,
+         "value": 79.1,
+         "games": 7
+        }
+       ],
+       "points": 130.7,
+       "value": 79.1
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 9,
+      "throughWeek": 16,
+      "winner": "babttz",
+      "margin": 35.2,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2020-11-01",
@@ -697,20 +1904,76 @@
        "manager": "Erwan",
        "team": "ERWAN",
        "received": [
-        "Malcolm Brown",
-        "Antonio Gibson",
-        "CeeDee Lamb"
-       ]
+        {
+         "name": "Malcolm Brown",
+         "yahooId": "28990",
+         "position": "RB",
+         "sleeperId": "2588",
+         "matchedBy": "yahoo_id",
+         "points": 34,
+         "value": 12.6,
+         "games": 7
+        },
+        {
+         "name": "Antonio Gibson",
+         "yahooId": "32736",
+         "position": "RB",
+         "sleeperId": "6945",
+         "matchedBy": "yahoo_id",
+         "points": 99.3,
+         "value": 61.1,
+         "games": 6
+        },
+        {
+         "name": "CeeDee Lamb",
+         "yahooId": "32687",
+         "position": "WR",
+         "sleeperId": "6786",
+         "matchedBy": "yahoo_id",
+         "points": 99.4,
+         "value": 23.7,
+         "games": 7
+        }
+       ],
+       "points": 232.7,
+       "value": 97.4
       },
       {
        "manager": "Toughness",
        "team": "Saitaaaama 🤜🏾",
        "received": [
-        "Nick Chubb",
-        "Robert Woods"
-       ]
+        {
+         "name": "Nick Chubb",
+         "yahooId": "31005",
+         "position": "RB",
+         "sleeperId": "4988",
+         "matchedBy": "yahoo_id",
+         "points": 130.7,
+         "value": 79.1,
+         "games": 7
+        },
+        {
+         "name": "Robert Woods",
+         "yahooId": "26664",
+         "position": "WR",
+         "sleeperId": "1352",
+         "matchedBy": "yahoo_id",
+         "points": 112.1,
+         "value": 36.3,
+         "games": 7
+        }
+       ],
+       "points": 242.8,
+       "value": 115.4
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 9,
+      "throughWeek": 16,
+      "winner": "Toughness",
+      "margin": 18,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2020-11-11",
@@ -720,19 +1983,66 @@
        "manager": "Mountaga",
        "team": "Banana Kings",
        "received": [
-        "James White",
-        "Raheem Mostert"
-       ]
+        {
+         "name": "James White",
+         "yahooId": "27658",
+         "position": "RB",
+         "sleeperId": "1848",
+         "matchedBy": "yahoo_id",
+         "points": 53.9,
+         "value": 15.2,
+         "games": 7
+        },
+        {
+         "name": "Raheem Mostert",
+         "yahooId": "28654",
+         "position": "RB",
+         "sleeperId": "2749",
+         "matchedBy": "yahoo_id",
+         "points": 30.4,
+         "value": 5.2,
+         "games": 4
+        }
+       ],
+       "points": 84.3,
+       "value": 20.4
       },
       {
        "manager": "Magatte",
        "team": "Sneaky slayer's",
        "received": [
-        "Jamaal Williams",
-        "Sony Michel"
-       ]
+        {
+         "name": "Jamaal Williams",
+         "yahooId": "30247",
+         "position": "RB",
+         "sleeperId": "4149",
+         "matchedBy": "yahoo_id",
+         "points": 43.8,
+         "value": 9.5,
+         "games": 6
+        },
+        {
+         "name": "Sony Michel",
+         "yahooId": "31001",
+         "position": "RB",
+         "sleeperId": "4962",
+         "matchedBy": "yahoo_id",
+         "points": 25.1,
+         "value": 0.3,
+         "games": 5
+        }
+       ],
+       "points": 68.9,
+       "value": 9.8
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 10,
+      "throughWeek": 16,
+      "winner": null,
+      "margin": 10.6,
+      "verdict": "EVEN"
+     }
     },
     {
      "date": "2020-11-14",
@@ -742,18 +2052,56 @@
        "manager": "Abdoulaye",
        "team": "Binaries",
        "received": [
-        "Zack Moss",
-        "John Brown"
-       ]
+        {
+         "name": "Zack Moss",
+         "yahooId": "32756",
+         "position": "RB",
+         "sleeperId": "6845",
+         "matchedBy": "yahoo_id",
+         "points": 36.3,
+         "value": 7.3,
+         "games": 5
+        },
+        {
+         "name": "John Brown",
+         "yahooId": "27619",
+         "position": "WR",
+         "sleeperId": "2238",
+         "matchedBy": "yahoo_id",
+         "points": 0,
+         "value": 0,
+         "games": 0
+        }
+       ],
+       "points": 36.3,
+       "value": 7.3
       },
       {
        "manager": "Birama",
        "team": "Ethan Hunt",
        "received": [
-        "David Montgomery"
-       ]
+        {
+         "name": "David Montgomery",
+         "yahooId": "31905",
+         "position": "RB",
+         "sleeperId": "5892",
+         "matchedBy": "yahoo_id",
+         "points": 126.2,
+         "value": 89.3,
+         "games": 5
+        }
+       ],
+       "points": 126.2,
+       "value": 89.3
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 11,
+      "throughWeek": 16,
+      "winner": "Birama",
+      "margin": 82,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2020-11-14",
@@ -763,19 +2111,66 @@
        "manager": "Abdoulaye",
        "team": "Binaries",
        "received": [
-        "David Johnson",
-        "Jerry Jeudy"
-       ]
+        {
+         "name": "David Johnson",
+         "yahooId": "28474",
+         "position": "RB",
+         "sleeperId": "2391",
+         "matchedBy": "yahoo_id",
+         "points": 62.6,
+         "value": 38.8,
+         "games": 3
+        },
+        {
+         "name": "Jerry Jeudy",
+         "yahooId": "32685",
+         "position": "WR",
+         "sleeperId": "6783",
+         "matchedBy": "yahoo_id",
+         "points": 29.4,
+         "value": 0.2,
+         "games": 6
+        }
+       ],
+       "points": 92,
+       "value": 39
       },
       {
        "manager": "YeezyJr",
        "team": "Quack Attack",
        "received": [
-        "Zack Moss",
-        "Jamison Crowder"
-       ]
+        {
+         "name": "Zack Moss",
+         "yahooId": "32756",
+         "position": "RB",
+         "sleeperId": "6845",
+         "matchedBy": "yahoo_id",
+         "points": 36.3,
+         "value": 7.3,
+         "games": 5
+        },
+        {
+         "name": "Jamison Crowder",
+         "yahooId": "28493",
+         "position": "WR",
+         "sleeperId": "2410",
+         "matchedBy": "yahoo_id",
+         "points": 75,
+         "value": 25.5,
+         "games": 6
+        }
+       ],
+       "points": 111.3,
+       "value": 32.8
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 11,
+      "throughWeek": 16,
+      "winner": null,
+      "margin": 6.2,
+      "verdict": "EVEN"
+     }
     }
    ]
   },
@@ -793,17 +2188,46 @@
        "manager": "Tamsir",
        "team": "Flemme",
        "received": [
-        "Jack Doyle"
-       ]
+        {
+         "name": "Jack Doyle",
+         "yahooId": "27299",
+         "position": "TE",
+         "sleeperId": "1706",
+         "matchedBy": "yahoo_id",
+         "points": 58.6,
+         "value": 11,
+         "games": 14
+        }
+       ],
+       "points": 58.6,
+       "value": 11
       },
       {
        "manager": "Birama",
        "team": "The Bad Man",
        "received": [
-        "Trey Sermon"
-       ]
+        {
+         "name": "Trey Sermon",
+         "yahooId": "33476",
+         "position": "RB",
+         "sleeperId": "7593",
+         "matchedBy": "name+position",
+         "points": 27.5,
+         "value": 3.2,
+         "games": 8
+        }
+       ],
+       "points": 27.5,
+       "value": 3.2
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 3,
+      "throughWeek": 17,
+      "winner": null,
+      "margin": 7.8,
+      "verdict": "EVEN"
+     }
     },
     {
      "date": "2021-09-23",
@@ -813,22 +2237,96 @@
        "manager": "babttz",
        "team": "G.O.A.T.",
        "received": [
-        "Calvin Ridley",
-        "Terrace Marshall Jr.",
-        "Tyler Bass"
-       ]
+        {
+         "name": "Calvin Ridley",
+         "yahooId": "30996",
+         "position": "WR",
+         "sleeperId": "4981",
+         "matchedBy": "yahoo_id",
+         "points": 41.7,
+         "value": 6.8,
+         "games": 3
+        },
+        {
+         "name": "Terrace Marshall Jr.",
+         "yahooId": "33447",
+         "position": "WR",
+         "sleeperId": "7565",
+         "matchedBy": "name+position",
+         "points": 22.5,
+         "value": 0,
+         "games": 11
+        },
+        {
+         "name": "Tyler Bass",
+         "yahooId": "32858",
+         "position": "K",
+         "sleeperId": "7042",
+         "matchedBy": "yahoo_id",
+         "points": 114,
+         "value": 30,
+         "games": 14
+        }
+       ],
+       "points": 178.2,
+       "value": 36.8
       },
       {
        "manager": "Erwan",
        "team": "ERWAN",
        "received": [
-        "Antonio Gibson",
-        "Kenny Golladay",
-        "Ty'Son Williams",
-        "Brandon McManus"
-       ]
+        {
+         "name": "Antonio Gibson",
+         "yahooId": "32736",
+         "position": "RB",
+         "sleeperId": "6945",
+         "matchedBy": "yahoo_id",
+         "points": 181.9,
+         "value": 89.2,
+         "games": 13
+        },
+        {
+         "name": "Kenny Golladay",
+         "yahooId": "30209",
+         "position": "WR",
+         "sleeperId": "4131",
+         "matchedBy": "yahoo_id",
+         "points": 66.7,
+         "value": 5.2,
+         "games": 11
+        },
+        {
+         "name": "Ty'Son Williams",
+         "yahooId": "33006",
+         "position": "RB",
+         "sleeperId": "7098",
+         "matchedBy": "yahoo_id",
+         "points": 11.8,
+         "value": 0,
+         "games": 10
+        },
+        {
+         "name": "Brandon McManus",
+         "yahooId": "27120",
+         "position": "K",
+         "sleeperId": "1433",
+         "matchedBy": "yahoo_id",
+         "points": 95,
+         "value": 14,
+         "games": 14
+        }
+       ],
+       "points": 355.4,
+       "value": 108.4
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 3,
+      "throughWeek": 17,
+      "winner": "Erwan",
+      "margin": 71.6,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2021-10-06",
@@ -838,17 +2336,46 @@
        "manager": "babttz",
        "team": "G.O.A.T.",
        "received": [
-        "Emmanuel Sanders"
-       ]
+        {
+         "name": "Emmanuel Sanders",
+         "yahooId": "24057",
+         "position": "WR",
+         "sleeperId": "538",
+         "matchedBy": "yahoo_id",
+         "points": 76.2,
+         "value": 12.2,
+         "games": 10
+        }
+       ],
+       "points": 76.2,
+       "value": 12.2
       },
       {
        "manager": "Abdoulaye",
        "team": "Binaries",
        "received": [
-        "Jamison Crowder"
-       ]
+        {
+         "name": "Jamison Crowder",
+         "yahooId": "28493",
+         "position": "WR",
+         "sleeperId": "2410",
+         "matchedBy": "yahoo_id",
+         "points": 87,
+         "value": 10.6,
+         "games": 10
+        }
+       ],
+       "points": 87,
+       "value": 10.6
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 5,
+      "throughWeek": 17,
+      "winner": null,
+      "margin": 1.6,
+      "verdict": "EVEN"
+     }
     },
     {
      "date": "2021-11-16",
@@ -858,20 +2385,76 @@
        "manager": "Toughness",
        "team": "Saitaaaama 🤜🏾",
        "received": [
-        "Cam Newton",
-        "Chuba Hubbard",
-        "Devonta Freeman"
-       ]
+        {
+         "name": "Cam Newton",
+         "yahooId": "24788",
+         "position": "QB",
+         "sleeperId": "954",
+         "matchedBy": "yahoo_id",
+         "points": 75.6,
+         "value": 18.8,
+         "games": 6
+        },
+        {
+         "name": "Chuba Hubbard",
+         "yahooId": "33514",
+         "position": "RB",
+         "sleeperId": "7594",
+         "matchedBy": "name+position",
+         "points": 31.7,
+         "value": 9.5,
+         "games": 6
+        },
+        {
+         "name": "Devonta Freeman",
+         "yahooId": "27631",
+         "position": "RB",
+         "sleeperId": "2168",
+         "matchedBy": "yahoo_id",
+         "points": 82,
+         "value": 35.2,
+         "games": 7
+        }
+       ],
+       "points": 189.3,
+       "value": 63.5
       },
       {
        "manager": "Birama",
        "team": "The Bad Man",
        "received": [
-        "Javonte Williams",
-        "Alexander Mattison"
-       ]
+        {
+         "name": "Javonte Williams",
+         "yahooId": "33423",
+         "position": "RB",
+         "sleeperId": "7588",
+         "matchedBy": "name+position",
+         "points": 96.5,
+         "value": 56.2,
+         "games": 6
+        },
+        {
+         "name": "Alexander Mattison",
+         "yahooId": "31934",
+         "position": "RB",
+         "sleeperId": "5987",
+         "matchedBy": "yahoo_id",
+         "points": 56.7,
+         "value": 26.2,
+         "games": 6
+        }
+       ],
+       "points": 153.2,
+       "value": 82.4
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 11,
+      "throughWeek": 17,
+      "winner": "Birama",
+      "margin": 18.9,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2021-11-16",
@@ -881,18 +2464,56 @@
        "manager": "Olivier",
        "team": "The energy's team",
        "received": [
-        "Darrel Williams",
-        "Courtland Sutton"
-       ]
+        {
+         "name": "Darrel Williams",
+         "yahooId": "31500",
+         "position": "RB",
+         "sleeperId": "5549",
+         "matchedBy": "yahoo_id",
+         "points": 65.9,
+         "value": 31,
+         "games": 6
+        },
+        {
+         "name": "Courtland Sutton",
+         "yahooId": "31010",
+         "position": "WR",
+         "sleeperId": "5045",
+         "matchedBy": "yahoo_id",
+         "points": 28.6,
+         "value": 0,
+         "games": 6
+        }
+       ],
+       "points": 94.5,
+       "value": 31
       },
       {
        "manager": "Marius",
        "team": "Elephant de Gbamph",
        "received": [
-        "Terry McLaurin"
-       ]
+        {
+         "name": "Terry McLaurin",
+         "yahooId": "31908",
+         "position": "WR",
+         "sleeperId": "5927",
+         "matchedBy": "yahoo_id",
+         "points": 62.8,
+         "value": 12.7,
+         "games": 7
+        }
+       ],
+       "points": 62.8,
+       "value": 12.7
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 11,
+      "throughWeek": 17,
+      "winner": "Olivier",
+      "margin": 18.3,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2021-11-20",
@@ -902,17 +2523,46 @@
        "manager": "Tamsir",
        "team": "Flemme",
        "received": [
-        "Emmanuel Sanders"
-       ]
+        {
+         "name": "Emmanuel Sanders",
+         "yahooId": "24057",
+         "position": "WR",
+         "sleeperId": "538",
+         "matchedBy": "yahoo_id",
+         "points": 18.5,
+         "value": 0,
+         "games": 4
+        }
+       ],
+       "points": 18.5,
+       "value": 0
       },
       {
        "manager": "babttz",
        "team": "G.O.A.T.",
        "received": [
-        "Tony Pollard"
-       ]
+        {
+         "name": "Tony Pollard",
+         "yahooId": "31960",
+         "position": "RB",
+         "sleeperId": "5967",
+         "matchedBy": "yahoo_id",
+         "points": 58.7,
+         "value": 22.1,
+         "games": 5
+        }
+       ],
+       "points": 58.7,
+       "value": 22.1
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 12,
+      "throughWeek": 17,
+      "winner": "babttz",
+      "margin": 22.1,
+      "verdict": "WON"
+     }
     }
    ]
   },
@@ -930,17 +2580,46 @@
        "manager": "YeezyJr",
        "team": "Entaillade",
        "received": [
-        "AJ Dillon"
-       ]
+        {
+         "name": "AJ Dillon",
+         "yahooId": "32732",
+         "position": "RB",
+         "sleeperId": "6828",
+         "matchedBy": "yahoo_id",
+         "points": 136.5,
+         "value": 35.3,
+         "games": 14
+        }
+       ],
+       "points": 136.5,
+       "value": 35.3
       },
       {
        "manager": "babttz",
        "team": "See you Again 🎶",
        "received": [
-        "Courtland Sutton"
-       ]
+        {
+         "name": "Courtland Sutton",
+         "yahooId": "31010",
+         "position": "WR",
+         "sleeperId": "5045",
+         "matchedBy": "yahoo_id",
+         "points": 116.2,
+         "value": 8.2,
+         "games": 12
+        }
+       ],
+       "points": 116.2,
+       "value": 8.2
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 3,
+      "throughWeek": 17,
+      "winner": "YeezyJr",
+      "margin": 27.1,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2022-09-18",
@@ -950,17 +2629,46 @@
        "manager": "Birama",
        "team": "Yallah mooy méyé 💀⭐️",
        "received": [
-        "Damien Harris"
-       ]
+        {
+         "name": "Damien Harris",
+         "yahooId": "31919",
+         "position": "RB",
+         "sleeperId": "5890",
+         "matchedBy": "yahoo_id",
+         "points": 60.2,
+         "value": 11.8,
+         "games": 8
+        }
+       ],
+       "points": 60.2,
+       "value": 11.8
       },
       {
        "manager": "YeezyJr",
        "team": "Entaillade",
        "received": [
-        "Sterling Shepard"
-       ]
+        {
+         "name": "Sterling Shepard",
+         "yahooId": "29274",
+         "position": "WR",
+         "sleeperId": "3200",
+         "matchedBy": "yahoo_id",
+         "points": 9.9,
+         "value": 0,
+         "games": 1
+        }
+       ],
+       "points": 9.9,
+       "value": 0
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 3,
+      "throughWeek": 17,
+      "winner": null,
+      "margin": 11.8,
+      "verdict": "EVEN"
+     }
     },
     {
      "date": "2022-09-20",
@@ -970,17 +2678,46 @@
        "manager": "Birama",
        "team": "Yallah mooy méyé 💀⭐️",
        "received": [
-        "Drake London"
-       ]
+        {
+         "name": "Drake London",
+         "yahooId": "33963",
+         "position": "WR",
+         "sleeperId": "8112",
+         "matchedBy": "name+position",
+         "points": 123.6,
+         "value": 6,
+         "games": 14
+        }
+       ],
+       "points": 123.6,
+       "value": 6
       },
       {
        "manager": "Toughness",
        "team": "Saitandaré 😵‍💫",
        "received": [
-        "DeAndre Hopkins"
-       ]
+        {
+         "name": "DeAndre Hopkins",
+         "yahooId": "26650",
+         "position": "WR",
+         "sleeperId": "1426",
+         "matchedBy": "yahoo_id",
+         "points": 151.7,
+         "value": 51.5,
+         "games": 9
+        }
+       ],
+       "points": 151.7,
+       "value": 51.5
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 3,
+      "throughWeek": 17,
+      "winner": "Toughness",
+      "margin": 45.5,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2022-09-21",
@@ -990,19 +2727,66 @@
        "manager": "Louis François",
        "team": "Big Pimping ⭐️",
        "received": [
-        "Tom Brady",
-        "Tyler Higbee"
-       ]
+        {
+         "name": "Tom Brady",
+         "yahooId": "5228",
+         "position": "QB",
+         "sleeperId": "167",
+         "matchedBy": "yahoo_id",
+         "points": 252.5,
+         "value": 31.1,
+         "games": 14
+        },
+        {
+         "name": "Tyler Higbee",
+         "yahooId": "29344",
+         "position": "TE",
+         "sleeperId": "3271",
+         "matchedBy": "yahoo_id",
+         "points": 121.7,
+         "value": 35.9,
+         "games": 14
+        }
+       ],
+       "points": 374.2,
+       "value": 67
       },
       {
        "manager": "Olivier",
        "team": "The energy's team",
        "received": [
-        "Dalton Schultz",
-        "James Robinson"
-       ]
+        {
+         "name": "Dalton Schultz",
+         "yahooId": "31107",
+         "position": "TE",
+         "sleeperId": "5001",
+         "matchedBy": "yahoo_id",
+         "points": 120.4,
+         "value": 38,
+         "games": 12
+        },
+        {
+         "name": "James Robinson",
+         "yahooId": "33138",
+         "position": "RB",
+         "sleeperId": "6955",
+         "matchedBy": "yahoo_id",
+         "points": 52.9,
+         "value": 17.4,
+         "games": 9
+        }
+       ],
+       "points": 173.3,
+       "value": 55.4
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 3,
+      "throughWeek": 17,
+      "winner": null,
+      "margin": 11.6,
+      "verdict": "EVEN"
+     }
     },
     {
      "date": "2022-09-26",
@@ -1012,17 +2796,46 @@
        "manager": "Tamsir",
        "team": "Flemme",
        "received": [
-        "Chris Olave"
-       ]
+        {
+         "name": "Chris Olave",
+         "yahooId": "33966",
+         "position": "WR",
+         "sleeperId": "8144",
+         "matchedBy": "name+position",
+         "points": 140.4,
+         "value": 27.2,
+         "games": 11
+        }
+       ],
+       "points": 140.4,
+       "value": 27.2
       },
       {
        "manager": "babttz",
        "team": "See you Again 🎶",
        "received": [
-        "Travis Etienne Jr."
-       ]
+        {
+         "name": "Travis Etienne Jr.",
+         "yahooId": "33413",
+         "position": "RB",
+         "sleeperId": "7543",
+         "matchedBy": "name+position",
+         "points": 172.4,
+         "value": 75.5,
+         "games": 13
+        }
+       ],
+       "points": 172.4,
+       "value": 75.5
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 4,
+      "throughWeek": 17,
+      "winner": "babttz",
+      "margin": 48.3,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2022-09-27",
@@ -1032,17 +2845,46 @@
        "manager": "Birama",
        "team": "Yallah mooy méyé 💀⭐️",
        "received": [
-        "Khalil Herbert"
-       ]
+        {
+         "name": "Khalil Herbert",
+         "yahooId": "33605",
+         "position": "RB",
+         "sleeperId": "7608",
+         "matchedBy": "name+position",
+         "points": 64.6,
+         "value": 12.4,
+         "games": 9
+        }
+       ],
+       "points": 64.6,
+       "value": 12.4
       },
       {
        "manager": "Abdoulaye",
        "team": "Binaries",
        "received": [
-        "Zach Ertz"
-       ]
+        {
+         "name": "Zach Ertz",
+         "yahooId": "26658",
+         "position": "TE",
+         "sleeperId": "1339",
+         "matchedBy": "yahoo_id",
+         "points": 78.2,
+         "value": 19.3,
+         "games": 7
+        }
+       ],
+       "points": 78.2,
+       "value": 19.3
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 4,
+      "throughWeek": 17,
+      "winner": null,
+      "margin": 6.9,
+      "verdict": "EVEN"
+     }
     },
     {
      "date": "2022-10-01",
@@ -1052,17 +2894,46 @@
        "manager": "Olivier",
        "team": "The energy's team",
        "received": [
-        "Terry McLaurin"
-       ]
+        {
+         "name": "Terry McLaurin",
+         "yahooId": "31908",
+         "position": "WR",
+         "sleeperId": "5927",
+         "matchedBy": "yahoo_id",
+         "points": 166.9,
+         "value": 36.1,
+         "games": 12
+        }
+       ],
+       "points": 166.9,
+       "value": 36.1
       },
       {
        "manager": "Marius",
        "team": "MahomesKelceGang",
        "received": [
-        "Keenan Allen"
-       ]
+        {
+         "name": "Keenan Allen",
+         "yahooId": "26699",
+         "position": "WR",
+         "sleeperId": "1479",
+         "matchedBy": "yahoo_id",
+         "points": 123.2,
+         "value": 32.9,
+         "games": 8
+        }
+       ],
+       "points": 123.2,
+       "value": 32.9
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 5,
+      "throughWeek": 17,
+      "winner": null,
+      "margin": 3.2,
+      "verdict": "EVEN"
+     }
     },
     {
      "date": "2022-10-05",
@@ -1072,17 +2943,46 @@
        "manager": "Marius",
        "team": "MahomesKelceGang",
        "received": [
-        "Dalton Schultz"
-       ]
+        {
+         "name": "Dalton Schultz",
+         "yahooId": "31107",
+         "position": "TE",
+         "sleeperId": "5001",
+         "matchedBy": "yahoo_id",
+         "points": 120.4,
+         "value": 38,
+         "games": 11
+        }
+       ],
+       "points": 120.4,
+       "value": 38
       },
       {
        "manager": "Olivier",
        "team": "The energy's team",
        "received": [
-        "Hayden Hurst"
-       ]
+        {
+         "name": "Hayden Hurst",
+         "yahooId": "30995",
+         "position": "TE",
+         "sleeperId": "4973",
+         "matchedBy": "yahoo_id",
+         "points": 74.1,
+         "value": 8.6,
+         "games": 9
+        }
+       ],
+       "points": 74.1,
+       "value": 8.6
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 5,
+      "throughWeek": 17,
+      "winner": "Marius",
+      "margin": 29.4,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2022-10-18",
@@ -1092,17 +2992,46 @@
        "manager": "Birama",
        "team": "Yallah mooy méyé 💀⭐️",
        "received": [
-        "Taysom Hill"
-       ]
+        {
+         "name": "Taysom Hill",
+         "yahooId": "30614",
+         "position": "QB",
+         "sleeperId": "4381",
+         "matchedBy": "yahoo_id",
+         "points": 78.9,
+         "value": 0,
+         "games": 10
+        }
+       ],
+       "points": 78.9,
+       "value": 0
       },
       {
        "manager": "Abdoulaye",
        "team": "Binaries",
        "received": [
-        "Russell Wilson"
-       ]
+        {
+         "name": "Russell Wilson",
+         "yahooId": "25785",
+         "position": "QB",
+         "sleeperId": "1234",
+         "matchedBy": "yahoo_id",
+         "points": 121.3,
+         "value": 15.7,
+         "games": 8
+        }
+       ],
+       "points": 121.3,
+       "value": 15.7
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 7,
+      "throughWeek": 17,
+      "winner": "Abdoulaye",
+      "margin": 15.7,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2022-10-19",
@@ -1112,17 +3041,46 @@
        "manager": "Birama",
        "team": "Yallah mooy méyé 💀⭐️",
        "received": [
-        "Jerry Jeudy"
-       ]
+        {
+         "name": "Jerry Jeudy",
+         "yahooId": "32685",
+         "position": "WR",
+         "sleeperId": "6783",
+         "matchedBy": "yahoo_id",
+         "points": 121.8,
+         "value": 38.2,
+         "games": 8
+        }
+       ],
+       "points": 121.8,
+       "value": 38.2
       },
       {
        "manager": "Tamsir",
        "team": "Flemme",
        "received": [
-        "Damien Harris"
-       ]
+        {
+         "name": "Damien Harris",
+         "yahooId": "31919",
+         "position": "RB",
+         "sleeperId": "5890",
+         "matchedBy": "yahoo_id",
+         "points": 30,
+         "value": 3.9,
+         "games": 5
+        }
+       ],
+       "points": 30,
+       "value": 3.9
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 7,
+      "throughWeek": 17,
+      "winner": "Birama",
+      "margin": 34.3,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2022-10-21",
@@ -1132,17 +3090,46 @@
        "manager": "Birama",
        "team": "Yallah mooy méyé 💀⭐️",
        "received": [
-        "Michael Thomas"
-       ]
+        {
+         "name": "Michael Thomas",
+         "yahooId": "29281",
+         "position": "WR",
+         "sleeperId": "3199",
+         "matchedBy": "yahoo_id",
+         "points": 0,
+         "value": 0,
+         "games": 0
+        }
+       ],
+       "points": 0,
+       "value": 0
       },
       {
        "manager": "Louis François",
        "team": "Big Pimping ⭐️",
        "received": [
-        "David Montgomery"
-       ]
+        {
+         "name": "David Montgomery",
+         "yahooId": "31905",
+         "position": "RB",
+         "sleeperId": "5892",
+         "matchedBy": "yahoo_id",
+         "points": 111.5,
+         "value": 37.5,
+         "games": 9
+        }
+       ],
+       "points": 111.5,
+       "value": 37.5
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 8,
+      "throughWeek": 17,
+      "winner": "Louis François",
+      "margin": 37.5,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2022-10-25",
@@ -1152,18 +3139,56 @@
        "manager": "Tamsir",
        "team": "Flemme",
        "received": [
-        "JuJu Smith-Schuster"
-       ]
+        {
+         "name": "JuJu Smith-Schuster",
+         "yahooId": "30175",
+         "position": "WR",
+         "sleeperId": "4040",
+         "matchedBy": "yahoo_id",
+         "points": 86.4,
+         "value": 22.3,
+         "games": 8
+        }
+       ],
+       "points": 86.4,
+       "value": 22.3
       },
       {
        "manager": "babttz",
        "team": "See you Again 🎶",
        "received": [
-        "Gus Edwards",
-        "Damien Harris"
-       ]
+        {
+         "name": "Gus Edwards",
+         "yahooId": "31424",
+         "position": "RB",
+         "sleeperId": "5248",
+         "matchedBy": "yahoo_id",
+         "points": 39.1,
+         "value": 0,
+         "games": 7
+        },
+        {
+         "name": "Damien Harris",
+         "yahooId": "31919",
+         "position": "RB",
+         "sleeperId": "5890",
+         "matchedBy": "yahoo_id",
+         "points": 28,
+         "value": 3.9,
+         "games": 4
+        }
+       ],
+       "points": 67.1,
+       "value": 3.9
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 8,
+      "throughWeek": 17,
+      "winner": "Tamsir",
+      "margin": 18.4,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2022-10-28",
@@ -1173,17 +3198,46 @@
        "manager": "Birama",
        "team": "Yallah mooy méyé 💀⭐️",
        "received": [
-        "David Montgomery"
-       ]
+        {
+         "name": "David Montgomery",
+         "yahooId": "31905",
+         "position": "RB",
+         "sleeperId": "5892",
+         "matchedBy": "yahoo_id",
+         "points": 103,
+         "value": 37.5,
+         "games": 8
+        }
+       ],
+       "points": 103,
+       "value": 37.5
       },
       {
        "manager": "Louis François",
        "team": "Big Pimping ⭐️",
        "received": [
-        "Michael Thomas"
-       ]
+        {
+         "name": "Michael Thomas",
+         "yahooId": "29281",
+         "position": "WR",
+         "sleeperId": "3199",
+         "matchedBy": "yahoo_id",
+         "points": 0,
+         "value": 0,
+         "games": 0
+        }
+       ],
+       "points": 0,
+       "value": 0
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 9,
+      "throughWeek": 17,
+      "winner": "Birama",
+      "margin": 37.5,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2022-11-01",
@@ -1193,19 +3247,66 @@
        "manager": "babttz",
        "team": "See you Again 🎶",
        "received": [
-        "Jonathan Taylor",
-        "Amon-Ra St. Brown"
-       ]
+        {
+         "name": "Jonathan Taylor",
+         "yahooId": "32711",
+         "position": "RB",
+         "sleeperId": "6813",
+         "matchedBy": "yahoo_id",
+         "points": 75.1,
+         "value": 36.8,
+         "games": 5
+        },
+        {
+         "name": "Amon-Ra St. Brown",
+         "yahooId": "33500",
+         "position": "WR",
+         "sleeperId": "7547",
+         "matchedBy": "name+position",
+         "points": 162.5,
+         "value": 52.6,
+         "games": 9
+        }
+       ],
+       "points": 237.6,
+       "value": 89.4
       },
       {
        "manager": "Olivier",
        "team": "The energy's team",
        "received": [
-        "Christian Kirk",
-        "D'Andre Swift"
-       ]
+        {
+         "name": "Christian Kirk",
+         "yahooId": "31017",
+         "position": "WR",
+         "sleeperId": "4950",
+         "matchedBy": "yahoo_id",
+         "points": 112,
+         "value": 36.2,
+         "games": 8
+        },
+        {
+         "name": "D'Andre Swift",
+         "yahooId": "32705",
+         "position": "RB",
+         "sleeperId": "6790",
+         "matchedBy": "yahoo_id",
+         "points": 110.4,
+         "value": 37.7,
+         "games": 9
+        }
+       ],
+       "points": 222.4,
+       "value": 73.9
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 9,
+      "throughWeek": 17,
+      "winner": "babttz",
+      "margin": 15.5,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2022-11-02",
@@ -1215,17 +3316,46 @@
        "manager": "Birama",
        "team": "Yallah mooy méyé 💀⭐️",
        "received": [
-        "Amon-Ra St. Brown"
-       ]
+        {
+         "name": "Amon-Ra St. Brown",
+         "yahooId": "33500",
+         "position": "WR",
+         "sleeperId": "7547",
+         "matchedBy": "name+position",
+         "points": 162.5,
+         "value": 52.6,
+         "games": 9
+        }
+       ],
+       "points": 162.5,
+       "value": 52.6
       },
       {
        "manager": "babttz",
        "team": "See you Again 🎶",
        "received": [
-        "CeeDee Lamb"
-       ]
+        {
+         "name": "CeeDee Lamb",
+         "yahooId": "32687",
+         "position": "WR",
+         "sleeperId": "6786",
+         "matchedBy": "yahoo_id",
+         "points": 168.6,
+         "value": 75.6,
+         "games": 8
+        }
+       ],
+       "points": 168.6,
+       "value": 75.6
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 9,
+      "throughWeek": 17,
+      "winner": "babttz",
+      "margin": 23,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2022-11-05",
@@ -1235,20 +3365,76 @@
        "manager": "Marius",
        "team": "MahomesKelceGang",
        "received": [
-        "Jerry Jeudy",
-        "David Montgomery",
-        "Kenyan Drake"
-       ]
+        {
+         "name": "Jerry Jeudy",
+         "yahooId": "32685",
+         "position": "WR",
+         "sleeperId": "6783",
+         "matchedBy": "yahoo_id",
+         "points": 86.9,
+         "value": 27.5,
+         "games": 6
+        },
+        {
+         "name": "David Montgomery",
+         "yahooId": "31905",
+         "position": "RB",
+         "sleeperId": "5892",
+         "matchedBy": "yahoo_id",
+         "points": 97.6,
+         "value": 37.5,
+         "games": 7
+        },
+        {
+         "name": "Kenyan Drake",
+         "yahooId": "29307",
+         "position": "RB",
+         "sleeperId": "3242",
+         "matchedBy": "yahoo_id",
+         "points": 16.3,
+         "value": 0,
+         "games": 4
+        }
+       ],
+       "points": 200.8,
+       "value": 65
       },
       {
        "manager": "Birama",
        "team": "Yallah mooy méyé 💀⭐️",
        "received": [
-        "Dalton Schultz",
-        "Keenan Allen"
-       ]
+        {
+         "name": "Dalton Schultz",
+         "yahooId": "31107",
+         "position": "TE",
+         "sleeperId": "5001",
+         "matchedBy": "yahoo_id",
+         "points": 97.1,
+         "value": 35,
+         "games": 8
+        },
+        {
+         "name": "Keenan Allen",
+         "yahooId": "26699",
+         "position": "WR",
+         "sleeperId": "1479",
+         "matchedBy": "yahoo_id",
+         "points": 120.1,
+         "value": 32.9,
+         "games": 7
+        }
+       ],
+       "points": 217.2,
+       "value": 67.9
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 10,
+      "throughWeek": 17,
+      "winner": null,
+      "margin": 2.9,
+      "verdict": "EVEN"
+     }
     },
     {
      "date": "2022-11-09",
@@ -1258,17 +3444,46 @@
        "manager": "Birama",
        "team": "Yallah mooy méyé 💀⭐️",
        "received": [
-        "Jeff Wilson Jr."
-       ]
+        {
+         "name": "Jeff Wilson Jr.",
+         "yahooId": "31394",
+         "position": "RB",
+         "sleeperId": "5284",
+         "matchedBy": "yahoo_id",
+         "points": 59,
+         "value": 18.7,
+         "games": 6
+        }
+       ],
+       "points": 59,
+       "value": 18.7
       },
       {
        "manager": "Tamsir",
        "team": "Flemme",
        "received": [
-        "Dalton Schultz"
-       ]
+        {
+         "name": "Dalton Schultz",
+         "yahooId": "31107",
+         "position": "TE",
+         "sleeperId": "5001",
+         "matchedBy": "yahoo_id",
+         "points": 97.1,
+         "value": 35,
+         "games": 8
+        }
+       ],
+       "points": 97.1,
+       "value": 35
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 10,
+      "throughWeek": 17,
+      "winner": "Tamsir",
+      "margin": 16.3,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2022-11-17",
@@ -1278,19 +3493,66 @@
        "manager": "Abdoulaye",
        "team": "Binaries",
        "received": [
-        "Allen Robinson",
-        "Jamaal Williams"
-       ]
+        {
+         "name": "Allen Robinson",
+         "yahooId": "27589",
+         "position": "WR",
+         "sleeperId": "1992",
+         "matchedBy": "yahoo_id",
+         "points": 14.7,
+         "value": 2.4,
+         "games": 1
+        },
+        {
+         "name": "Jamaal Williams",
+         "yahooId": "30247",
+         "position": "RB",
+         "sleeperId": "4149",
+         "matchedBy": "yahoo_id",
+         "points": 77.6,
+         "value": 31,
+         "games": 7
+        }
+       ],
+       "points": 92.3,
+       "value": 33.4
       },
       {
        "manager": "Magatte",
        "team": "Odds slayer",
        "received": [
-        "Garrett Wilson",
-        "Tyler Allgeier"
-       ]
+        {
+         "name": "Garrett Wilson",
+         "yahooId": "33965",
+         "position": "WR",
+         "sleeperId": "8146",
+         "matchedBy": "name+position",
+         "points": 91.2,
+         "value": 26.2,
+         "games": 7
+        },
+        {
+         "name": "Tyler Allgeier",
+         "yahooId": "34107",
+         "position": "RB",
+         "sleeperId": "8132",
+         "matchedBy": "name+position",
+         "points": 72.8,
+         "value": 24.8,
+         "games": 6
+        }
+       ],
+       "points": 164,
+       "value": 51
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 11,
+      "throughWeek": 17,
+      "winner": "Magatte",
+      "margin": 17.6,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2022-11-18",
@@ -1300,19 +3562,66 @@
        "manager": "Tamsir",
        "team": "Flemme",
        "received": [
-        "Parris Campbell",
-        "Hollywood Brown"
-       ]
+        {
+         "name": "Parris Campbell",
+         "yahooId": "31891",
+         "position": "WR",
+         "sleeperId": "5880",
+         "matchedBy": "yahoo_id",
+         "points": 27.4,
+         "value": 0,
+         "games": 5
+        },
+        {
+         "name": "Hollywood Brown",
+         "yahooId": "31857",
+         "position": "WR",
+         "sleeperId": "5848",
+         "matchedBy": "yahoo_id",
+         "points": 44.8,
+         "value": 2.4,
+         "games": 5
+        }
+       ],
+       "points": 72.2,
+       "value": 2.4
       },
       {
        "manager": "Mat",
        "team": "Hunters",
        "received": [
-        "Odell Beckham Jr.",
-        "D'Onta Foreman"
-       ]
+        {
+         "name": "Odell Beckham Jr.",
+         "yahooId": "27540",
+         "position": "WR",
+         "sleeperId": "2078",
+         "matchedBy": "yahoo_id",
+         "points": 0,
+         "value": 0,
+         "games": 0
+        },
+        {
+         "name": "D'Onta Foreman",
+         "yahooId": "30202",
+         "position": "RB",
+         "sleeperId": "4111",
+         "matchedBy": "yahoo_id",
+         "points": 46.7,
+         "value": 14.9,
+         "games": 5
+        }
+       ],
+       "points": 46.7,
+       "value": 14.9
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 12,
+      "throughWeek": 17,
+      "winner": null,
+      "margin": 12.5,
+      "verdict": "EVEN"
+     }
     },
     {
      "date": "2022-11-19",
@@ -1322,17 +3631,46 @@
        "manager": "YeezyJr",
        "team": "Entaillade",
        "received": [
-        "George Pickens"
-       ]
+        {
+         "name": "George Pickens",
+         "yahooId": "34007",
+         "position": "WR",
+         "sleeperId": "8137",
+         "matchedBy": "name+position",
+         "points": 51.6,
+         "value": 3.5,
+         "games": 6
+        }
+       ],
+       "points": 51.6,
+       "value": 3.5
       },
       {
        "manager": "Birama",
        "team": "Yallah mooy méyé 💀⭐️",
        "received": [
-        "Kyle Pitts Sr."
-       ]
+        {
+         "name": "Kyle Pitts Sr.",
+         "yahooId": "33392",
+         "position": "TE",
+         "sleeperId": "7553",
+         "matchedBy": "name+position",
+         "points": 0,
+         "value": 0,
+         "games": 0
+        }
+       ],
+       "points": 0,
+       "value": 0
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 12,
+      "throughWeek": 17,
+      "winner": null,
+      "margin": 3.5,
+      "verdict": "EVEN"
+     }
     },
     {
      "date": "2022-11-23",
@@ -1342,18 +3680,56 @@
        "manager": "Toughness",
        "team": "Saitandaré 😵‍💫",
        "received": [
-        "Jaylen Waddle"
-       ]
+        {
+         "name": "Jaylen Waddle",
+         "yahooId": "33394",
+         "position": "WR",
+         "sleeperId": "7526",
+         "matchedBy": "name+position",
+         "points": 74.4,
+         "value": 19.4,
+         "games": 6
+        }
+       ],
+       "points": 74.4,
+       "value": 19.4
       },
       {
        "manager": "Louis François",
        "team": "Big Pimping ⭐️",
        "received": [
-        "Tee Higgins",
-        "Latavius Murray"
-       ]
+        {
+         "name": "Tee Higgins",
+         "yahooId": "32703",
+         "position": "WR",
+         "sleeperId": "6801",
+         "matchedBy": "yahoo_id",
+         "points": 82.3,
+         "value": 27.7,
+         "games": 6
+        },
+        {
+         "name": "Latavius Murray",
+         "yahooId": "26804",
+         "position": "RB",
+         "sleeperId": "1476",
+         "matchedBy": "yahoo_id",
+         "points": 66.4,
+         "value": 12.8,
+         "games": 6
+        }
+       ],
+       "points": 148.7,
+       "value": 40.5
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 12,
+      "throughWeek": 17,
+      "winner": "Louis François",
+      "margin": 21.1,
+      "verdict": "WON"
+     }
     }
    ]
   },
@@ -1371,17 +3747,46 @@
        "manager": "babttz",
        "team": "BaKeneBauer",
        "received": [
-        "DK Metcalf"
-       ]
+        {
+         "name": "DK Metcalf",
+         "yahooId": "31896",
+         "position": "WR",
+         "sleeperId": "5846",
+         "matchedBy": "yahoo_id",
+         "points": 196.2,
+         "value": 49.2,
+         "games": 13
+        }
+       ],
+       "points": 196.2,
+       "value": 49.2
       },
       {
        "manager": "Marius",
        "team": "AbraKamara",
        "received": [
-        "Alvin Kamara"
-       ]
+        {
+         "name": "Alvin Kamara",
+         "yahooId": "30180",
+         "position": "RB",
+         "sleeperId": "4035",
+         "matchedBy": "yahoo_id",
+         "points": 233,
+         "value": 125.6,
+         "games": 13
+        }
+       ],
+       "points": 233,
+       "value": 125.6
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 3,
+      "throughWeek": 17,
+      "winner": "Marius",
+      "margin": 76.4,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2023-09-16",
@@ -1391,18 +3796,56 @@
        "manager": "babttz",
        "team": "BaKeneBauer",
        "received": [
-        "Travis Etienne Jr."
-       ]
+        {
+         "name": "Travis Etienne Jr.",
+         "yahooId": "33413",
+         "position": "RB",
+         "sleeperId": "7543",
+         "matchedBy": "name+position",
+         "points": 241.1,
+         "value": 129.3,
+         "games": 14
+        }
+       ],
+       "points": 241.1,
+       "value": 129.3
       },
       {
        "manager": "Louis François",
        "team": "No more pimping",
        "received": [
-        "Rachaad White",
-        "DK Metcalf"
-       ]
+        {
+         "name": "Rachaad White",
+         "yahooId": "34047",
+         "position": "RB",
+         "sleeperId": "8136",
+         "matchedBy": "name+position",
+         "points": 226.4,
+         "value": 109.3,
+         "games": 14
+        },
+        {
+         "name": "DK Metcalf",
+         "yahooId": "31896",
+         "position": "WR",
+         "sleeperId": "5846",
+         "matchedBy": "yahoo_id",
+         "points": 196.2,
+         "value": 49.2,
+         "games": 13
+        }
+       ],
+       "points": 422.6,
+       "value": 158.5
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 3,
+      "throughWeek": 17,
+      "winner": "Louis François",
+      "margin": 29.2,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2023-09-21",
@@ -1412,19 +3855,66 @@
        "manager": "Olivier",
        "team": "The energy's team",
        "received": [
-        "DJ Moore",
-        "Travis Etienne Jr."
-       ]
+        {
+         "name": "DJ Moore",
+         "yahooId": "30994",
+         "position": "WR",
+         "sleeperId": "4983",
+         "matchedBy": "yahoo_id",
+         "points": 256.2,
+         "value": 109.1,
+         "games": 14
+        },
+        {
+         "name": "Travis Etienne Jr.",
+         "yahooId": "33413",
+         "position": "RB",
+         "sleeperId": "7543",
+         "matchedBy": "name+position",
+         "points": 241.1,
+         "value": 129.3,
+         "games": 14
+        }
+       ],
+       "points": 497.3,
+       "value": 238.4
       },
       {
        "manager": "babttz",
        "team": "BaKeneBauer",
        "received": [
-        "A.J. Brown",
-        "Mike Williams"
-       ]
+        {
+         "name": "A.J. Brown",
+         "yahooId": "31883",
+         "position": "WR",
+         "sleeperId": "5859",
+         "matchedBy": "yahoo_id",
+         "points": 267.9,
+         "value": 109.1,
+         "games": 14
+        },
+        {
+         "name": "Mike Williams",
+         "yahooId": "30120",
+         "position": "WR",
+         "sleeperId": "4068",
+         "matchedBy": "yahoo_id",
+         "points": 25.1,
+         "value": 11.3,
+         "games": 1
+        }
+       ],
+       "points": 293,
+       "value": 120.4
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 3,
+      "throughWeek": 17,
+      "winner": "Olivier",
+      "margin": 118,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2023-09-26",
@@ -1434,17 +3924,46 @@
        "manager": "Ado",
        "team": "Estocade ⚔️😤",
        "received": [
-        "Tank Dell"
-       ]
+        {
+         "name": "Tank Dell",
+         "yahooId": "40097",
+         "position": "WR",
+         "sleeperId": "9502",
+         "matchedBy": "name+position",
+         "points": 112.9,
+         "value": 48.6,
+         "games": 8
+        }
+       ],
+       "points": 112.9,
+       "value": 48.6
       },
       {
        "manager": "babttz",
        "team": "BaKeneBauer",
        "received": [
-        "Javonte Williams"
-       ]
+        {
+         "name": "Javonte Williams",
+         "yahooId": "33423",
+         "position": "RB",
+         "sleeperId": "7588",
+         "matchedBy": "name+position",
+         "points": 132.7,
+         "value": 40,
+         "games": 12
+        }
+       ],
+       "points": 132.7,
+       "value": 40
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 4,
+      "throughWeek": 17,
+      "winner": null,
+      "margin": 8.6,
+      "verdict": "EVEN"
+     }
     },
     {
      "date": "2023-10-04",
@@ -1454,17 +3973,46 @@
        "manager": "Birama",
        "team": "The Bad Man",
        "received": [
-        "DK Metcalf"
-       ]
+        {
+         "name": "DK Metcalf",
+         "yahooId": "31896",
+         "position": "WR",
+         "sleeperId": "5846",
+         "matchedBy": "yahoo_id",
+         "points": 166.6,
+         "value": 45.6,
+         "games": 11
+        }
+       ],
+       "points": 166.6,
+       "value": 45.6
       },
       {
        "manager": "Louis François",
        "team": "No more pimping",
        "received": [
-        "Alexander Mattison"
-       ]
+        {
+         "name": "Alexander Mattison",
+         "yahooId": "31934",
+         "position": "RB",
+         "sleeperId": "5987",
+         "matchedBy": "yahoo_id",
+         "points": 82.7,
+         "value": 17.7,
+         "games": 11
+        }
+       ],
+       "points": 82.7,
+       "value": 17.7
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 5,
+      "throughWeek": 17,
+      "winner": "Birama",
+      "margin": 27.9,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2023-10-05",
@@ -1474,18 +4022,56 @@
        "manager": "Olivier",
        "team": "The energy's team",
        "received": [
-        "Jahmyr Gibbs",
-        "DK Metcalf"
-       ]
+        {
+         "name": "Jahmyr Gibbs",
+         "yahooId": "40059",
+         "position": "RB",
+         "sleeperId": "9221",
+         "matchedBy": "name+position",
+         "points": 194.2,
+         "value": 111.3,
+         "games": 10
+        },
+        {
+         "name": "DK Metcalf",
+         "yahooId": "31896",
+         "position": "WR",
+         "sleeperId": "5846",
+         "matchedBy": "yahoo_id",
+         "points": 166.6,
+         "value": 45.6,
+         "games": 11
+        }
+       ],
+       "points": 360.8,
+       "value": 156.9
       },
       {
        "manager": "Birama",
        "team": "The Bad Man",
        "received": [
-        "Travis Etienne Jr."
-       ]
+        {
+         "name": "Travis Etienne Jr.",
+         "yahooId": "33413",
+         "position": "RB",
+         "sleeperId": "7543",
+         "matchedBy": "name+position",
+         "points": 213.1,
+         "value": 117.4,
+         "games": 12
+        }
+       ],
+       "points": 213.1,
+       "value": 117.4
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 5,
+      "throughWeek": 17,
+      "winner": "Olivier",
+      "margin": 39.5,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2023-10-25",
@@ -1495,19 +4081,66 @@
        "manager": "Olivier",
        "team": "The energy's team",
        "received": [
-        "Hollywood Brown",
-        "Isiah Pacheco"
-       ]
+        {
+         "name": "Hollywood Brown",
+         "yahooId": "31857",
+         "position": "WR",
+         "sleeperId": "5848",
+         "matchedBy": "yahoo_id",
+         "points": 43.5,
+         "value": 2.9,
+         "games": 7
+        },
+        {
+         "name": "Isiah Pacheco",
+         "yahooId": "34207",
+         "position": "RB",
+         "sleeperId": "8205",
+         "matchedBy": "name+position",
+         "points": 110.7,
+         "value": 53.5,
+         "games": 7
+        }
+       ],
+       "points": 154.2,
+       "value": 56.4
       },
       {
        "manager": "Abdoulaye",
        "team": "Binaries",
        "received": [
-        "DJ Moore",
-        "Miles Sanders"
-       ]
+        {
+         "name": "DJ Moore",
+         "yahooId": "30994",
+         "position": "WR",
+         "sleeperId": "4983",
+         "matchedBy": "yahoo_id",
+         "points": 142.5,
+         "value": 53.8,
+         "games": 9
+        },
+        {
+         "name": "Miles Sanders",
+         "yahooId": "31885",
+         "position": "RB",
+         "sleeperId": "6151",
+         "matchedBy": "yahoo_id",
+         "points": 41.7,
+         "value": 0.8,
+         "games": 10
+        }
+       ],
+       "points": 184.2,
+       "value": 54.6
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 8,
+      "throughWeek": 17,
+      "winner": null,
+      "margin": 1.8,
+      "verdict": "EVEN"
+     }
     },
     {
      "date": "2023-10-26",
@@ -1517,19 +4150,66 @@
        "manager": "Toughness",
        "team": "Saitaamaaa",
        "received": [
-        "James Cook III",
-        "Jordan Addison"
-       ]
+        {
+         "name": "James Cook III",
+         "yahooId": "34019",
+         "position": "RB",
+         "sleeperId": "8138",
+         "matchedBy": "name+position",
+         "points": 135,
+         "value": 63.3,
+         "games": 9
+        },
+        {
+         "name": "Jordan Addison",
+         "yahooId": "40042",
+         "position": "WR",
+         "sleeperId": "9756",
+         "matchedBy": "name+position",
+         "points": 100.6,
+         "value": 24.6,
+         "games": 9
+        }
+       ],
+       "points": 235.6,
+       "value": 87.9
       },
       {
        "manager": "babttz",
        "team": "BaKeneBauer",
        "received": [
-        "Joe Mixon",
-        "Courtland Sutton"
-       ]
+        {
+         "name": "Joe Mixon",
+         "yahooId": "30161",
+         "position": "RB",
+         "sleeperId": "4018",
+         "matchedBy": "yahoo_id",
+         "points": 173.3,
+         "value": 86.9,
+         "games": 10
+        },
+        {
+         "name": "Courtland Sutton",
+         "yahooId": "31010",
+         "position": "WR",
+         "sleeperId": "5045",
+         "matchedBy": "yahoo_id",
+         "points": 96.9,
+         "value": 17.3,
+         "games": 8
+        }
+       ],
+       "points": 270.2,
+       "value": 104.2
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 8,
+      "throughWeek": 17,
+      "winner": "babttz",
+      "margin": 16.3,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2023-10-26",
@@ -1539,17 +4219,46 @@
        "manager": "Louis François",
        "team": "No more pimping",
        "received": [
-        "Jaxon Smith-Njigba"
-       ]
+        {
+         "name": "Jaxon Smith-Njigba",
+         "yahooId": "40041",
+         "position": "WR",
+         "sleeperId": "9488",
+         "matchedBy": "name+position",
+         "points": 102.1,
+         "value": 5.8,
+         "games": 10
+        }
+       ],
+       "points": 102.1,
+       "value": 5.8
       },
       {
        "manager": "Tamsir",
        "team": "Flemme",
        "received": [
-        "Emari Demercado"
-       ]
+        {
+         "name": "Emari Demercado",
+         "yahooId": "40430",
+         "position": "RB",
+         "sleeperId": "11199",
+         "matchedBy": "name+position",
+         "points": 38.3,
+         "value": 6.9,
+         "games": 6
+        }
+       ],
+       "points": 38.3,
+       "value": 6.9
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 8,
+      "throughWeek": 17,
+      "winner": null,
+      "margin": 1.1,
+      "verdict": "EVEN"
+     }
     },
     {
      "date": "2023-11-01",
@@ -1559,17 +4268,46 @@
        "manager": "Birama",
        "team": "The Bad Man",
        "received": [
-        "Will Levis"
-       ]
+        {
+         "name": "Will Levis",
+         "yahooId": "40068",
+         "position": "QB",
+         "sleeperId": "9999",
+         "matchedBy": "name+position",
+         "points": 81.4,
+         "value": 0,
+         "games": 8
+        }
+       ],
+       "points": 81.4,
+       "value": 0
       },
       {
        "manager": "Magatte",
        "team": "Odds slayer",
        "received": [
-        "Logan Thomas"
-       ]
+        {
+         "name": "Logan Thomas",
+         "yahooId": "27648",
+         "position": "TE",
+         "sleeperId": "2251",
+         "matchedBy": "yahoo_id",
+         "points": 51.7,
+         "value": 3.4,
+         "games": 8
+        }
+       ],
+       "points": 51.7,
+       "value": 3.4
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 9,
+      "throughWeek": 17,
+      "winner": null,
+      "margin": 3.4,
+      "verdict": "EVEN"
+     }
     },
     {
      "date": "2023-11-07",
@@ -1579,17 +4317,46 @@
        "manager": "Louis François",
        "team": "No more pimping",
        "received": [
-        "Hollywood Brown"
-       ]
+        {
+         "name": "Hollywood Brown",
+         "yahooId": "31857",
+         "position": "WR",
+         "sleeperId": "5848",
+         "matchedBy": "yahoo_id",
+         "points": 21.8,
+         "value": 1.8,
+         "games": 5
+        }
+       ],
+       "points": 21.8,
+       "value": 1.8
       },
       {
        "manager": "Olivier",
        "team": "The energy's team",
        "received": [
-        "Alexander Mattison"
-       ]
+        {
+         "name": "Alexander Mattison",
+         "yahooId": "31934",
+         "position": "RB",
+         "sleeperId": "5987",
+         "matchedBy": "yahoo_id",
+         "points": 31.1,
+         "value": 0,
+         "games": 6
+        }
+       ],
+       "points": 31.1,
+       "value": 0
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 10,
+      "throughWeek": 17,
+      "winner": null,
+      "margin": 1.8,
+      "verdict": "EVEN"
+     }
     },
     {
      "date": "2023-11-07",
@@ -1599,17 +4366,46 @@
        "manager": "Birama",
        "team": "The Bad Man",
        "received": [
-        "Hollywood Brown"
-       ]
+        {
+         "name": "Hollywood Brown",
+         "yahooId": "31857",
+         "position": "WR",
+         "sleeperId": "5848",
+         "matchedBy": "yahoo_id",
+         "points": 21.8,
+         "value": 1.8,
+         "games": 5
+        }
+       ],
+       "points": 21.8,
+       "value": 1.8
       },
       {
        "manager": "Louis François",
        "team": "No more pimping",
        "received": [
-        "Christian Kirk"
-       ]
+        {
+         "name": "Christian Kirk",
+         "yahooId": "31017",
+         "position": "WR",
+         "sleeperId": "4950",
+         "matchedBy": "yahoo_id",
+         "points": 38.7,
+         "value": 2.3,
+         "games": 4
+        }
+       ],
+       "points": 38.7,
+       "value": 2.3
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 10,
+      "throughWeek": 17,
+      "winner": null,
+      "margin": 0.5,
+      "verdict": "EVEN"
+     }
     },
     {
      "date": "2023-11-14",
@@ -1619,17 +4415,46 @@
        "manager": "Louis François",
        "team": "No more pimping",
        "received": [
-        "Trevor Lawrence"
-       ]
+        {
+         "name": "Trevor Lawrence",
+         "yahooId": "33389",
+         "position": "QB",
+         "sleeperId": "7523",
+         "matchedBy": "name+position",
+         "points": 129.2,
+         "value": 29.1,
+         "games": 6
+        }
+       ],
+       "points": 129.2,
+       "value": 29.1
       },
       {
        "manager": "Olivier",
        "team": "The energy's team",
        "received": [
-        "Brock Purdy"
-       ]
+        {
+         "name": "Brock Purdy",
+         "yahooId": "34218",
+         "position": "QB",
+         "sleeperId": "8183",
+         "matchedBy": "name+position",
+         "points": 139.7,
+         "value": 28.4,
+         "games": 7
+        }
+       ],
+       "points": 139.7,
+       "value": 28.4
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 11,
+      "throughWeek": 17,
+      "winner": null,
+      "margin": 0.7,
+      "verdict": "EVEN"
+     }
     },
     {
      "date": "2023-11-14",
@@ -1639,20 +4464,76 @@
        "manager": "babttz",
        "team": "BaKeneBauer",
        "received": [
-        "DeAndre Hopkins",
-        "Tony Pollard"
-       ]
+        {
+         "name": "DeAndre Hopkins",
+         "yahooId": "26650",
+         "position": "WR",
+         "sleeperId": "1426",
+         "matchedBy": "yahoo_id",
+         "points": 90.4,
+         "value": 25.9,
+         "games": 7
+        },
+        {
+         "name": "Tony Pollard",
+         "yahooId": "31960",
+         "position": "RB",
+         "sleeperId": "5967",
+         "matchedBy": "yahoo_id",
+         "points": 93.1,
+         "value": 41.6,
+         "games": 7
+        }
+       ],
+       "points": 183.5,
+       "value": 67.5
       },
       {
        "manager": "Abdoulaye",
        "team": "Binaries",
        "received": [
-        "Joe Mixon",
-        "Jake Ferguson",
-        "Jerome Ford"
-       ]
+        {
+         "name": "Joe Mixon",
+         "yahooId": "30161",
+         "position": "RB",
+         "sleeperId": "4018",
+         "matchedBy": "yahoo_id",
+         "points": 123,
+         "value": 63.6,
+         "games": 7
+        },
+        {
+         "name": "Jake Ferguson",
+         "yahooId": "34085",
+         "position": "TE",
+         "sleeperId": "8110",
+         "matchedBy": "name+position",
+         "points": 68.8,
+         "value": 12.4,
+         "games": 7
+        },
+        {
+         "name": "Jerome Ford",
+         "yahooId": "34112",
+         "position": "RB",
+         "sleeperId": "8143",
+         "matchedBy": "name+position",
+         "points": 93.7,
+         "value": 34.1,
+         "games": 7
+        }
+       ],
+       "points": 285.5,
+       "value": 110.1
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 11,
+      "throughWeek": 17,
+      "winner": "Abdoulaye",
+      "margin": 42.6,
+      "verdict": "WON"
+     }
     }
    ]
   },
@@ -1670,21 +4551,86 @@
        "manager": "Marius",
        "team": "Fill my Kupp",
        "received": [
-        "Patrick Mahomes",
-        "Jonathan Taylor",
-        "Andrei Iosivas"
-       ]
+        {
+         "name": "Patrick Mahomes",
+         "yahooId": "30123",
+         "position": "QB",
+         "sleeperId": "4046",
+         "matchedBy": "yahoo_id",
+         "points": 245.6,
+         "value": 21.9,
+         "games": 13
+        },
+        {
+         "name": "Jonathan Taylor",
+         "yahooId": "32711",
+         "position": "RB",
+         "sleeperId": "6813",
+         "matchedBy": "yahoo_id",
+         "points": 166.9,
+         "value": 80.2,
+         "games": 10
+        },
+        {
+         "name": "Andrei Iosivas",
+         "yahooId": "40211",
+         "position": "WR",
+         "sleeperId": "10226",
+         "matchedBy": "name+position",
+         "points": 80.2,
+         "value": 0.7,
+         "games": 13
+        }
+       ],
+       "points": 492.7,
+       "value": 102.8
       },
       {
        "manager": "Abdoulaye",
        "team": "Binaries",
        "received": [
-        "Joe Burrow",
-        "James Conner",
-        "Diontae Johnson"
-       ]
+        {
+         "name": "Joe Burrow",
+         "yahooId": "32671",
+         "position": "QB",
+         "sleeperId": "6770",
+         "matchedBy": "yahoo_id",
+         "points": 317.2,
+         "value": 76.9,
+         "games": 13
+        },
+        {
+         "name": "James Conner",
+         "yahooId": "30218",
+         "position": "RB",
+         "sleeperId": "4137",
+         "matchedBy": "yahoo_id",
+         "points": 212.6,
+         "value": 98.6,
+         "games": 13
+        },
+        {
+         "name": "Diontae Johnson",
+         "yahooId": "31898",
+         "position": "WR",
+         "sleeperId": "5937",
+         "matchedBy": "yahoo_id",
+         "points": 51.3,
+         "value": 14.8,
+         "games": 8
+        }
+       ],
+       "points": 581.1,
+       "value": 190.3
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 4,
+      "throughWeek": 17,
+      "winner": "Abdoulaye",
+      "margin": 87.5,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2024-09-26",
@@ -1694,17 +4640,46 @@
        "manager": "Louis François",
        "team": "OG PIMPS",
        "received": [
-        "Zack Moss"
-       ]
+        {
+         "name": "Zack Moss",
+         "yahooId": "32756",
+         "position": "RB",
+         "sleeperId": "6845",
+         "matchedBy": "yahoo_id",
+         "points": 41.4,
+         "value": 7.4,
+         "games": 5
+        }
+       ],
+       "points": 41.4,
+       "value": 7.4
       },
       {
        "manager": "babttz",
        "team": "FC Backup 🎃",
        "received": [
-        "Brian Robinson"
-       ]
+        {
+         "name": "Brian Robinson",
+         "yahooId": "34054",
+         "position": "RB",
+         "sleeperId": "8154",
+         "matchedBy": "name+position",
+         "points": 114,
+         "value": 36.7,
+         "games": 10
+        }
+       ],
+       "points": 114,
+       "value": 36.7
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 4,
+      "throughWeek": 17,
+      "winner": "babttz",
+      "margin": 29.3,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2024-10-05",
@@ -1714,17 +4689,46 @@
        "manager": "babttz",
        "team": "FC Backup 🎃",
        "received": [
-        "Travis Etienne Jr."
-       ]
+        {
+         "name": "Travis Etienne Jr.",
+         "yahooId": "33413",
+         "position": "RB",
+         "sleeperId": "7543",
+         "matchedBy": "name+position",
+         "points": 63,
+         "value": 6.1,
+         "games": 9
+        }
+       ],
+       "points": 63,
+       "value": 6.1
       },
       {
        "manager": "Ado",
        "team": "Estocade ⚔️😤💪🏾",
        "received": [
-        "Jordan Addison"
-       ]
+        {
+         "name": "Jordan Addison",
+         "yahooId": "40042",
+         "position": "WR",
+         "sleeperId": "9756",
+         "matchedBy": "name+position",
+         "points": 175.5,
+         "value": 55.2,
+         "games": 11
+        }
+       ],
+       "points": 175.5,
+       "value": 55.2
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 6,
+      "throughWeek": 17,
+      "winner": "Ado",
+      "margin": 49.1,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2024-10-05",
@@ -1734,17 +4738,46 @@
        "manager": "Tamsir",
        "team": "Flemme",
        "received": [
-        "Tank Bigsby"
-       ]
+        {
+         "name": "Tank Bigsby",
+         "yahooId": "40095",
+         "position": "RB",
+         "sleeperId": "9225",
+         "matchedBy": "name+position",
+         "points": 74.7,
+         "value": 19.6,
+         "games": 10
+        }
+       ],
+       "points": 74.7,
+       "value": 19.6
       },
       {
        "manager": "Birama",
        "team": "The Bad Man",
        "received": [
-        "Tyrone Tracy Jr."
-       ]
+        {
+         "name": "Tyrone Tracy Jr.",
+         "yahooId": "41048",
+         "position": "RB",
+         "sleeperId": "11655",
+         "matchedBy": "name+position",
+         "points": 148.7,
+         "value": 57.5,
+         "games": 11
+        }
+       ],
+       "points": 148.7,
+       "value": 57.5
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 6,
+      "throughWeek": 17,
+      "winner": "Birama",
+      "margin": 37.9,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2024-10-05",
@@ -1754,19 +4787,66 @@
        "manager": "Birama",
        "team": "The Bad Man",
        "received": [
-        "Javonte Williams",
-        "Puka Nacua"
-       ]
+        {
+         "name": "Javonte Williams",
+         "yahooId": "33423",
+         "position": "RB",
+         "sleeperId": "7588",
+         "matchedBy": "name+position",
+         "points": 100.1,
+         "value": 30.4,
+         "games": 11
+        },
+        {
+         "name": "Puka Nacua",
+         "yahooId": "40168",
+         "position": "WR",
+         "sleeperId": "9493",
+         "matchedBy": "name+position",
+         "points": 198.4,
+         "value": 79.2,
+         "games": 10
+        }
+       ],
+       "points": 298.5,
+       "value": 109.6
       },
       {
        "manager": "Abdoulaye",
        "team": "Binaries",
        "received": [
-        "Tony Pollard",
-        "Jayden Daniels"
-       ]
+        {
+         "name": "Tony Pollard",
+         "yahooId": "31960",
+         "position": "RB",
+         "sleeperId": "5967",
+         "matchedBy": "yahoo_id",
+         "points": 136.2,
+         "value": 42.7,
+         "games": 11
+        },
+        {
+         "name": "Jayden Daniels",
+         "yahooId": "40896",
+         "position": "QB",
+         "sleeperId": "11566",
+         "matchedBy": "name+position",
+         "points": 245.2,
+         "value": 55.7,
+         "games": 11
+        }
+       ],
+       "points": 381.4,
+       "value": 98.4
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 6,
+      "throughWeek": 17,
+      "winner": null,
+      "margin": 11.2,
+      "verdict": "EVEN"
+     }
     },
     {
      "date": "2024-10-29",
@@ -1776,17 +4856,46 @@
        "manager": "Mat",
        "team": "Hunters",
        "received": [
-        "Kareem Hunt"
-       ]
+        {
+         "name": "Kareem Hunt",
+         "yahooId": "30199",
+         "position": "RB",
+         "sleeperId": "4098",
+         "matchedBy": "yahoo_id",
+         "points": 90.6,
+         "value": 26.2,
+         "games": 9
+        }
+       ],
+       "points": 90.6,
+       "value": 26.2
       },
       {
        "manager": "babttz",
        "team": "FC Backup 🎃",
        "received": [
-        "Chris Olave"
-       ]
+        {
+         "name": "Chris Olave",
+         "yahooId": "33966",
+         "position": "WR",
+         "sleeperId": "8144",
+         "matchedBy": "name+position",
+         "points": 2.3,
+         "value": 0,
+         "games": 1
+        }
+       ],
+       "points": 2.3,
+       "value": 0
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 9,
+      "throughWeek": 17,
+      "winner": "Mat",
+      "margin": 26.2,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2024-11-14",
@@ -1796,17 +4905,46 @@
        "manager": "Louis François",
        "team": "OG PIMPS",
        "received": [
-        "Travis Etienne Jr."
-       ]
+        {
+         "name": "Travis Etienne Jr.",
+         "yahooId": "33413",
+         "position": "RB",
+         "sleeperId": "7543",
+         "matchedBy": "name+position",
+         "points": 52.8,
+         "value": 6.1,
+         "games": 6
+        }
+       ],
+       "points": 52.8,
+       "value": 6.1
       },
       {
        "manager": "babttz",
        "team": "FC Backup 🎃",
        "received": [
-        "Bucky Irving"
-       ]
+        {
+         "name": "Bucky Irving",
+         "yahooId": "40993",
+         "position": "RB",
+         "sleeperId": "11584",
+         "matchedBy": "name+position",
+         "points": 112,
+         "value": 64.2,
+         "games": 6
+        }
+       ],
+       "points": 112,
+       "value": 64.2
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 11,
+      "throughWeek": 17,
+      "winner": "babttz",
+      "margin": 58.1,
+      "verdict": "WON"
+     }
     }
    ]
   },
@@ -1824,17 +4962,46 @@
        "manager": "Tamsir",
        "team": "Flemme",
        "received": [
-        "Bucky Irving"
-       ]
+        {
+         "name": "Bucky Irving",
+         "yahooId": "40993",
+         "position": "RB",
+         "sleeperId": "11584",
+         "matchedBy": "name+position",
+         "points": 81.2,
+         "value": 27.1,
+         "games": 6
+        }
+       ],
+       "points": 81.2,
+       "value": 27.1
       },
       {
        "manager": "babttz",
        "team": "Boukki 🦅",
        "received": [
-        "CeeDee Lamb"
-       ]
+        {
+         "name": "CeeDee Lamb",
+         "yahooId": "32687",
+         "position": "WR",
+         "sleeperId": "6786",
+         "matchedBy": "yahoo_id",
+         "points": 161.3,
+         "value": 51,
+         "games": 10
+        }
+       ],
+       "points": 161.3,
+       "value": 51
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 4,
+      "throughWeek": 17,
+      "winner": "babttz",
+      "margin": 23.9,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2025-09-24",
@@ -1844,17 +5011,46 @@
        "manager": "Birama",
        "team": "The Bad Man",
        "received": [
-        "Tucker Kraft"
-       ]
+        {
+         "name": "Tucker Kraft",
+         "yahooId": "40102",
+         "position": "TE",
+         "sleeperId": "9484",
+         "matchedBy": "name+position",
+         "points": 77,
+         "value": 28.1,
+         "games": 5
+        }
+       ],
+       "points": 77,
+       "value": 28.1
       },
       {
        "manager": "Louis François",
        "team": "Roc boyz",
        "received": [
-        "D'Andre Swift"
-       ]
+        {
+         "name": "D'Andre Swift",
+         "yahooId": "32705",
+         "position": "RB",
+         "sleeperId": "6790",
+         "matchedBy": "yahoo_id",
+         "points": 188.6,
+         "value": 87.2,
+         "games": 12
+        }
+       ],
+       "points": 188.6,
+       "value": 87.2
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 4,
+      "throughWeek": 17,
+      "winner": "Louis François",
+      "margin": 59.1,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2025-10-04",
@@ -1864,18 +5060,56 @@
        "manager": "Olivier",
        "team": "The energy's team",
        "received": [
-        "J.K. Dobbins",
-        "Mark Andrews"
-       ]
+        {
+         "name": "J.K. Dobbins",
+         "yahooId": "32725",
+         "position": "RB",
+         "sleeperId": "6806",
+         "matchedBy": "yahoo_id",
+         "points": 43.4,
+         "value": 7.8,
+         "games": 5
+        },
+        {
+         "name": "Mark Andrews",
+         "yahooId": "31056",
+         "position": "TE",
+         "sleeperId": "5012",
+         "matchedBy": "yahoo_id",
+         "points": 83.4,
+         "value": 12.8,
+         "games": 11
+        }
+       ],
+       "points": 126.8,
+       "value": 20.6
       },
       {
        "manager": "babttz",
        "team": "Boukki 🦅",
        "received": [
-        "Brock Bowers"
-       ]
+        {
+         "name": "Brock Bowers",
+         "yahooId": "40878",
+         "position": "TE",
+         "sleeperId": "11604",
+         "matchedBy": "name+position",
+         "points": 132.7,
+         "value": 52.9,
+         "games": 8
+        }
+       ],
+       "points": 132.7,
+       "value": 52.9
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 6,
+      "throughWeek": 17,
+      "winner": "babttz",
+      "margin": 32.3,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2025-10-05",
@@ -1885,17 +5119,46 @@
        "manager": "Birama",
        "team": "The Bad Man",
        "received": [
-        "Keenan Allen"
-       ]
+        {
+         "name": "Keenan Allen",
+         "yahooId": "26699",
+         "position": "WR",
+         "sleeperId": "1479",
+         "matchedBy": "yahoo_id",
+         "points": 96.2,
+         "value": 18.7,
+         "games": 11
+        }
+       ],
+       "points": 96.2,
+       "value": 18.7
       },
       {
        "manager": "Tamsir",
        "team": "Flemme",
        "received": [
-        "Rachaad White"
-       ]
+        {
+         "name": "Rachaad White",
+         "yahooId": "34047",
+         "position": "RB",
+         "sleeperId": "8136",
+         "matchedBy": "name+position",
+         "points": 85.6,
+         "value": 11.7,
+         "games": 11
+        }
+       ],
+       "points": 85.6,
+       "value": 11.7
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 6,
+      "throughWeek": 17,
+      "winner": null,
+      "margin": 7,
+      "verdict": "EVEN"
+     }
     },
     {
      "date": "2025-10-07",
@@ -1905,17 +5168,46 @@
        "manager": "Ado",
        "team": "Estocade ⚔️😤💪🏾",
        "received": [
-        "Keon Coleman"
-       ]
+        {
+         "name": "Keon Coleman",
+         "yahooId": "40911",
+         "position": "WR",
+         "sleeperId": "11637",
+         "matchedBy": "name+position",
+         "points": 39.9,
+         "value": 1.4,
+         "games": 7
+        }
+       ],
+       "points": 39.9,
+       "value": 1.4
       },
       {
        "manager": "babttz",
        "team": "Boukki 🦅",
        "received": [
-        "Ollie Gordon II"
-       ]
+        {
+         "name": "Ollie Gordon II",
+         "yahooId": "41969",
+         "position": "RB",
+         "sleeperId": "12495",
+         "matchedBy": "name+position",
+         "points": 37.8,
+         "value": 6.6,
+         "games": 11
+        }
+       ],
+       "points": 37.8,
+       "value": 6.6
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 6,
+      "throughWeek": 17,
+      "winner": null,
+      "margin": 5.2,
+      "verdict": "EVEN"
+     }
     },
     {
      "date": "2025-10-15",
@@ -1925,17 +5217,46 @@
        "manager": "Louis François",
        "team": "Roc boyz",
        "received": [
-        "Romeo Doubs"
-       ]
+        {
+         "name": "Romeo Doubs",
+         "yahooId": "34088",
+         "position": "WR",
+         "sleeperId": "8121",
+         "matchedBy": "name+position",
+         "points": 100,
+         "value": 14.6,
+         "games": 11
+        }
+       ],
+       "points": 100,
+       "value": 14.6
       },
       {
        "manager": "Birama",
        "team": "The Bad Man",
        "received": [
-        "Kenneth Walker III"
-       ]
+        {
+         "name": "Kenneth Walker III",
+         "yahooId": "33996",
+         "position": "RB",
+         "sleeperId": "8151",
+         "matchedBy": "name+position",
+         "points": 106.1,
+         "value": 31.6,
+         "games": 10
+        }
+       ],
+       "points": 106.1,
+       "value": 31.6
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 7,
+      "throughWeek": 17,
+      "winner": "Birama",
+      "margin": 17,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2025-10-28",
@@ -1945,18 +5266,56 @@
        "manager": "Abdoulaye",
        "team": "Binaries",
        "received": [
-        "Rhamondre Stevenson"
-       ]
+        {
+         "name": "Rhamondre Stevenson",
+         "yahooId": "33508",
+         "position": "RB",
+         "sleeperId": "7611",
+         "matchedBy": "name+position",
+         "points": 68.7,
+         "value": 28,
+         "games": 5
+        }
+       ],
+       "points": 68.7,
+       "value": 28
       },
       {
        "manager": "Marius",
        "team": "The JeantyMan",
        "received": [
-        "Trey Benson",
-        "Chris Godwin Jr."
-       ]
+        {
+         "name": "Trey Benson",
+         "yahooId": "40958",
+         "position": "RB",
+         "sleeperId": "11589",
+         "matchedBy": "name+position",
+         "points": 0,
+         "value": 0,
+         "games": 0
+        },
+        {
+         "name": "Chris Godwin Jr.",
+         "yahooId": "30197",
+         "position": "WR",
+         "sleeperId": "4037",
+         "matchedBy": "yahoo_id",
+         "points": 70,
+         "value": 14.2,
+         "games": 6
+        }
+       ],
+       "points": 70,
+       "value": 14.2
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 9,
+      "throughWeek": 17,
+      "winner": null,
+      "margin": 13.8,
+      "verdict": "EVEN"
+     }
     },
     {
      "date": "2025-10-31",
@@ -1966,19 +5325,66 @@
        "manager": "Birama",
        "team": "The Bad Man",
        "received": [
-        "Rome Odunze",
-        "Jahmyr Gibbs"
-       ]
+        {
+         "name": "Rome Odunze",
+         "yahooId": "40901",
+         "position": "WR",
+         "sleeperId": "11620",
+         "matchedBy": "name+position",
+         "points": 37.8,
+         "value": 8.4,
+         "games": 4
+        },
+        {
+         "name": "Jahmyr Gibbs",
+         "yahooId": "40059",
+         "position": "RB",
+         "sleeperId": "9221",
+         "matchedBy": "name+position",
+         "points": 200.8,
+         "value": 127.5,
+         "games": 8
+        }
+       ],
+       "points": 238.6,
+       "value": 135.9
       },
       {
        "manager": "Olivier",
        "team": "The energy's team",
        "received": [
-        "Amon-Ra St. Brown",
-        "Keenan Allen"
-       ]
+        {
+         "name": "Amon-Ra St. Brown",
+         "yahooId": "33500",
+         "position": "WR",
+         "sleeperId": "7547",
+         "matchedBy": "name+position",
+         "points": 133.7,
+         "value": 60.9,
+         "games": 8
+        },
+        {
+         "name": "Keenan Allen",
+         "yahooId": "26699",
+         "position": "WR",
+         "sleeperId": "1479",
+         "matchedBy": "yahoo_id",
+         "points": 46.1,
+         "value": 0,
+         "games": 7
+        }
+       ],
+       "points": 179.8,
+       "value": 60.9
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 10,
+      "throughWeek": 17,
+      "winner": "Birama",
+      "margin": 75,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2025-10-31",
@@ -1988,17 +5394,46 @@
        "manager": "Birama",
        "team": "The Bad Man",
        "received": [
-        "Chris Godwin Jr."
-       ]
+        {
+         "name": "Chris Godwin Jr.",
+         "yahooId": "30197",
+         "position": "WR",
+         "sleeperId": "4037",
+         "matchedBy": "yahoo_id",
+         "points": 70,
+         "value": 14.2,
+         "games": 6
+        }
+       ],
+       "points": 70,
+       "value": 14.2
       },
       {
        "manager": "Marius",
        "team": "The JeantyMan",
        "received": [
-        "Alvin Kamara"
-       ]
+        {
+         "name": "Alvin Kamara",
+         "yahooId": "30180",
+         "position": "RB",
+         "sleeperId": "4035",
+         "matchedBy": "yahoo_id",
+         "points": 18,
+         "value": 5.1,
+         "games": 2
+        }
+       ],
+       "points": 18,
+       "value": 5.1
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 10,
+      "throughWeek": 17,
+      "winner": null,
+      "margin": 9.1,
+      "verdict": "EVEN"
+     }
     },
     {
      "date": "2025-11-16",
@@ -2008,17 +5443,46 @@
        "manager": "Birama",
        "team": "The Bad Man",
        "received": [
-        "Alvin Kamara"
-       ]
+        {
+         "name": "Alvin Kamara",
+         "yahooId": "30180",
+         "position": "RB",
+         "sleeperId": "4035",
+         "matchedBy": "yahoo_id",
+         "points": 3.5,
+         "value": 0,
+         "games": 1
+        }
+       ],
+       "points": 3.5,
+       "value": 0
       },
       {
        "manager": "Marius",
        "team": "The JeantyMan",
        "received": [
-        "Parker Washington"
-       ]
+        {
+         "name": "Parker Washington",
+         "yahooId": "40234",
+         "position": "WR",
+         "sleeperId": "9487",
+         "matchedBy": "name+position",
+         "points": 75.5,
+         "value": 29.1,
+         "games": 5
+        }
+       ],
+       "points": 75.5,
+       "value": 29.1
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 12,
+      "throughWeek": 17,
+      "winner": "Marius",
+      "margin": 29.1,
+      "verdict": "WON"
+     }
     },
     {
      "date": "2025-11-18",
@@ -2028,19 +5492,53 @@
        "manager": "Mat",
        "team": "Hunters",
        "received": [
-        "Kenneth Walker III"
-       ]
+        {
+         "name": "Kenneth Walker III",
+         "yahooId": "33996",
+         "position": "RB",
+         "sleeperId": "8151",
+         "matchedBy": "name+position",
+         "points": 63.3,
+         "value": 20.2,
+         "games": 6
+        }
+       ],
+       "points": 63.3,
+       "value": 20.2
       },
       {
        "manager": "Birama",
        "team": "The Bad Man",
        "received": [
-        "RJ Harvey"
-       ]
+        {
+         "name": "RJ Harvey",
+         "yahooId": "41845",
+         "position": "RB",
+         "sleeperId": "12489",
+         "matchedBy": "name+position",
+         "points": 94.4,
+         "value": 46.7,
+         "games": 5
+        }
+       ],
+       "points": 94.4,
+       "value": 46.7
       }
-     ]
+     ],
+     "outcome": {
+      "fromWeek": 12,
+      "throughWeek": 17,
+      "winner": "Birama",
+      "margin": 26.5,
+      "verdict": "WON"
+     }
     }
    ]
   }
- ]
+ ],
+ "outcomes": {
+  "computedAt": "2026-10-13",
+  "scoring": "Sleeper pts_ppr",
+  "rule": "Valeur = points au-dessus du niveau de remplacement hebdomadaire du poste (dernier titulaire : équipes × QB 1, RB 2,5, WR 2,5, TE 1, K 1), de la première semaine NFL suivant le trade à la dernière semaine des playoffs de la ligue. Chaque trade est jugé seul."
+ }
 }

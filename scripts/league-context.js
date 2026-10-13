@@ -31,7 +31,7 @@ import { resolveOperationalWeek, resolveLastCompletedWeek } from "../public/asse
 import { findRosterByTeam, buildStarterSlotOrder, buildRosterSlots, listRosterIdentities } from "../public/assets/roster-view.js";
 import { buildFaabHistory, buildTrendingAdds, summarizeFaabByPosition, buildLeagueBidReference } from "../public/assets/league-market.js";
 import { buildPlayerWeeks, calculateUsageScores } from "../public/assets/usage-score.js";
-import { buildWeeklyLeaders } from "../public/assets/weekly-leaders.js";
+import { buildWeeklyLeaders, buildSeasonLeaders, buildBestPickups } from "../public/assets/weekly-leaders.js";
 import { calculateFaabRemaining } from "../public/assets/team-metrics.js";
 import { restOfSeasonEstimate } from "../public/assets/trade-score.js";
 import {
@@ -415,6 +415,40 @@ export async function getWeeklyLeaders({ leagueId = DEFAULT_SLEEPER_LEAGUE_ID, f
     live: target === currentWeek,
     usageWeeks: usageReport?.weeks || [],
     ...buildWeeklyLeaders({ stats, projections, scoring: league.scoring_settings, playerOf: id => index.get(id), owners, lineups, usage })
+  };
+}
+
+/**
+ * Leaders de la saison : cumul des semaines terminées au barème de la ligue, par poste, et
+ * meilleurs ajouts waiver / agent libre encore détenus (points marqués depuis l'ajout).
+ */
+export async function getSeasonLeaders({ leagueId = DEFAULT_SLEEPER_LEAGUE_ID, fetchImpl = fetch } = {}) {
+  const [league, rosters, users, nflState] = await Promise.all([
+    sleeperGet(`/league/${leagueId}`, { fetchImpl }),
+    sleeperGet(`/league/${leagueId}/rosters`, { fetchImpl }),
+    sleeperGet(`/league/${leagueId}/users`, { fetchImpl }),
+    sleeperGet("/state/nfl", { fetchImpl }).catch(() => ({}))
+  ]);
+  const season = nflState?.season || league.season || "2026";
+  const currentWeek = resolveOperationalWeek(nflState);
+  const lastCompletedWeek = resolveLastCompletedWeek(nflState);
+  const weeks = Array.from({ length: lastCompletedWeek }, (_, index) => index + 1);
+  const [index, statsByWeek, transactionLegs] = await Promise.all([
+    getPlayersIndex({ fetchImpl }),
+    Promise.all(weeks.map(async week => ({ week, stats: await cachedWeekly(`/stats/nfl/regular/${season}/${week}`, fetchImpl) }))),
+    Promise.all(Array.from({ length: currentWeek }, (_, leg) => sleeperGet(`/league/${leagueId}/transactions/${leg + 1}`, { fetchImpl }).catch(() => [])))
+  ]);
+  const owners = new Map(listRosterIdentities(rosters, users).flatMap(({ roster, teamName }) =>
+    (roster.players || []).map(id => [id, { rosterId: roster.roster_id, teamName }])));
+  const shared = { statsByWeek, scoring: league.scoring_settings, playerOf: id => index.get(id), owners };
+  return {
+    generatedAt: new Date().toISOString(),
+    scope: "season",
+    season: String(season),
+    currentWeek,
+    weeks,
+    ...buildSeasonLeaders(shared),
+    pickups: buildBestPickups({ ...shared, transactions: transactionLegs.flat() })
   };
 }
 

@@ -6,8 +6,8 @@ import { estimateBaselineProjectedPpg } from "./trade-value.js?v=c385666df3";
 import { estimatePregameWinProbability } from "./win-probability.js?v=78dcaa4abd";
 
 import { SLEEPER_API, SLEEPER_LEAGUE_ID as DEFAULT_LEAGUE_ID, sleeperGet } from "./sleeper-client.js?v=3f75d48ec5";
-import { addToWatchlist, removeFromWatchlist, REASON_MAX } from "./war-room.js?v=8e9a1e2448";
-import { loadWatchlist, saveWatchlist } from "./war-room-store.js?v=10220c8a37";
+import { addToWatchlist, removeFromWatchlist, REASON_MAX } from "./war-room.js?v=e9eae48675";
+import { loadWatchlist, saveWatchlist } from "./war-room-store.js?v=7fbca3341a";
 
 const LEADER_POSITION_LABELS = { QB: "Quarterbacks", RB: "Running backs", WR: "Receveurs", TE: "Tight ends", K: "Kickers", DEF: "Défenses" };
 const USAGE_SIGNAL_LABELS = { BUY_LOW: "Buy low", SELL_HIGH: "Sell high" };
@@ -241,6 +241,46 @@ function renderLeaderRow(row, { rosterId, followedIds }) {
   </tr>`;
 }
 
+function renderSeasonLeaders(report, context) {
+  if (!report.weeks?.length) {
+    return `<div class="matchup-empty"><strong>Saison pas encore commencée</strong><p>Le cumul apparaît après la première semaine terminée.</p></div>`;
+  }
+  const sections = Object.entries(report.positions).map(([position, group]) => `<article class="leader-card">
+      <h3>${LEADER_POSITION_LABELS[position] || position}</h3>
+      <div class="table-wrap leader-table"><table>
+        <thead><tr><th>#</th><th>Joueur</th><th>Détenu par</th><th class="num">Pts</th><th class="num" title="Matchs joués">M.</th><th class="num">Moy.</th><th class="num" title="Semaines dans le top 10 du poste">Top 10</th></tr></thead>
+        <tbody>${group.leaders.map(row => `<tr>
+          <td>${row.rank}</td>
+          <td><strong>${escapeHtml(row.name)}</strong> <small>${escapeHtml([row.nflTeam, row.injuryStatus].filter(Boolean).join(" · "))}</small></td>
+          <td class="leader-holder">${row.freeAgent ? `<span class="leader-free">Agent libre</span>${context.rosterId ? ` ${followButton(row, context.followedIds.has(row.playerId))}` : ""}` : escapeHtml(row.owner)}</td>
+          <td class="num"><strong>${formatPoints(row.points)}</strong></td>
+          <td class="num">${row.games}</td>
+          <td class="num">${formatPoints(row.average)}</td>
+          <td class="num">${row.topTenWeeks}</td>
+        </tr>`).join("")}</tbody>
+      </table></div>
+    </article>`).join("");
+  const pickups = report.pickups.map(row => `<tr>
+      <td>${row.rank}</td>
+      <td><strong>${escapeHtml(row.name)}</strong> <small>${escapeHtml([row.position, row.nflTeam].filter(Boolean).join(" · "))}</small></td>
+      <td>${escapeHtml(row.owner)}</td>
+      <td class="num">S${row.addedWeek}</td>
+      <td class="num">${row.faab === null ? "libre" : `${row.faab} $`}</td>
+      <td class="num"><strong>${formatPoints(row.points)}</strong></td>
+      <td class="num">${row.games}</td>
+      <td class="num">${formatPoints(row.average)}</td>
+    </tr>`).join("");
+  return `<div class="leader-grid">${sections}</div>
+    <article class="leader-card leader-pickups">
+      <h3>Meilleurs ajouts de la saison</h3>
+      <div class="table-wrap leader-table"><table>
+        <thead><tr><th>#</th><th>Joueur</th><th>Ajouté par</th><th class="num">Depuis</th><th class="num">FAAB</th><th class="num">Pts depuis</th><th class="num">M.</th><th class="num">Moy.</th></tr></thead>
+        <tbody>${pickups || `<tr><td colspan="8">Aucun ajout n’a encore joué.</td></tr>`}</tbody>
+      </table></div>
+      <p class="leader-free-line">Waivers et agents libres encore détenus par l’équipe qui les a ajoutés ; points comptés à partir de la semaine de l’ajout.</p>
+    </article>`;
+}
+
 function renderLeaders(report, context) {
   if (!report.summary?.played) {
     return `<div class="matchup-empty"><strong>Semaine pas encore jouée</strong><p>Le classement apparaît dès le premier match terminé.</p></div>`;
@@ -410,13 +450,15 @@ export async function renderMatchupsHub(container, {
     leadersContent.innerHTML = `<div class="state">Lecture des leaders…</div>`;
     try {
       const report = await fetchJson(`/api/leaders${week ? `?week=${week}` : ""}`, { timeoutMs: 40_000 });
-      leadersWeek = report.week;
-      const lastWeek = Math.min(18, Math.max(report.currentWeek, report.week));
-      leadersSelect.innerHTML = Array.from({ length: lastWeek }, (_, index) => index + 1)
-        .map(value => `<option value="${value}"${value === report.week ? " selected" : ""}>Semaine ${value}</option>`).join("");
+      const seasonView = report.scope === "season";
+      leadersWeek = seasonView ? report.currentWeek : report.week;
+      const lastWeek = Math.min(18, Math.max(report.currentWeek, seasonView ? 1 : report.week));
+      leadersSelect.innerHTML = `<option value="season"${seasonView ? " selected" : ""}>Saison ${escapeHtml(report.season)}</option>` + Array.from({ length: lastWeek }, (_, index) => index + 1)
+        .map(value => `<option value="${value}"${!seasonView && value === report.week ? " selected" : ""}>Semaine ${value}</option>`).join("");
       const rosterId = coachRosterHint();
-      leadersContent.innerHTML = renderLeaders(report, { rosterId, followedIds: new Set(rosterId ? loadWatchlist(rosterId).map(entry => entry.playerId) : []) });
-      status.textContent = `Semaine ${report.week} · ${report.live ? "en cours" : "terminée"}`;
+      const context = { rosterId, followedIds: new Set(rosterId ? loadWatchlist(rosterId).map(entry => entry.playerId) : []) };
+      leadersContent.innerHTML = seasonView ? renderSeasonLeaders(report, context) : renderLeaders(report, context);
+      status.textContent = seasonView ? `Saison · ${report.weeks.length} semaine${report.weeks.length > 1 ? "s" : ""} terminée${report.weeks.length > 1 ? "s" : ""}` : `Semaine ${report.week} · ${report.live ? "en cours" : "terminée"}`;
     } catch (error) {
       leadersContent.innerHTML = `<div class="matchup-empty"><strong>Leaders indisponibles</strong><p>${escapeHtml(error.message)}. Réessayez dans quelques instants.</p></div>`;
       status.textContent = "Erreur";
@@ -494,7 +536,7 @@ export async function renderMatchupsHub(container, {
     loadRecap(Number(recapSelect.value));
   });
   leadersSelect.addEventListener("change", () => {
-    loadLeaders(Number(leadersSelect.value));
+    loadLeaders(leadersSelect.value === "season" ? "season" : Number(leadersSelect.value));
   });
   document.getElementById("refresh-matchups").addEventListener("click", () => {
     loadWeek(currentWeek, "live-matchup-grid", { live: true });

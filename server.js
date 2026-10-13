@@ -6,6 +6,7 @@ import { createServer } from "node:http";
 import { extname, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { analyzeTrades, formatTradeBulletin, loadPlayerValues } from "./scripts/analyze-trades.js";
+import { createWarRoomStore } from "./scripts/war-room-sync.js";
 import {
   getLeagueContext,
   getMatchupContext as getMatchupContextDefault,
@@ -14,6 +15,7 @@ import {
   getWeeklyProjections as getWeeklyProjectionsDefault,
   getUsageReport as getUsageReportDefault,
   getWeeklyLeaders as getWeeklyLeadersDefault,
+  getSeasonLeaders as getSeasonLeadersDefault,
   formatWaiverReport
 } from "./scripts/league-context.js";
 import {
@@ -90,12 +92,14 @@ export function createAppServer({
   getProjections = getWeeklyProjectionsDefault,
   getUsage = getUsageReportDefault,
   getLeaders = getWeeklyLeadersDefault,
+  getSeasonLeaders = getSeasonLeadersDefault,
   getPlayerValues = loadPlayerValues,
   getStartSit = getStartSitDefault,
   getMatchupContext = getMatchupContextDefault,
   modelJobToken = process.env.MODEL_JOB_TOKEN || "",
   runModelJob = async () => runWeeklyJob({ supabase: await createSupabaseFromEnv() }),
   getModelFeedback = () => getLatestFeedback(),
+  warRoomStore = createWarRoomStore(),
   coachToken = process.env.COACH_API_TOKEN || "",
   coachPassword = process.env.COACH_WEB_PASSWORD || "",
   secureCookies = process.env.NODE_ENV !== "development"
@@ -146,6 +150,34 @@ export function createAppServer({
         return sendJson(response, misconfigured ? 503 : 500, { error: error.message });
       }
     }
+    // War Room sync: the Coach's own watchlist and bid readings, behind the same access as the plan.
+    if (url.pathname === "/api/coach/war-room") {
+      const apiAuthorized = coachToken && request.headers.authorization === `Bearer ${coachToken}`;
+      if (!apiAuthorized && !coachAuth.authenticated(request.headers.cookie)) return sendJson(response, 404, { error: "Not found" });
+      const validRoster = value => Number.isInteger(value) && value >= 1 && value <= 32;
+      try {
+        if (request.method === "GET") {
+          const rosterId = Number(url.searchParams.get("roster"));
+          if (!validRoster(rosterId)) return sendJson(response, 400, { error: "roster invalide" });
+          return sendJson(response, 200, { state: await warRoomStore.load(rosterId) });
+        }
+        if (request.method !== "PUT") return sendJson(response, 405, { error: "Method not allowed" });
+        const origin = request.headers.origin;
+        if (!apiAuthorized && (!origin || !URL.canParse(origin) || new URL(origin).host !== request.headers.host)) return sendJson(response, 403, { error: "Forbidden" });
+        let body = "";
+        for await (const chunk of request) {
+          body += chunk;
+          if (Buffer.byteLength(body) > 64 * 1024) return sendJson(response, 413, { error: "Payload too large" });
+        }
+        let payload;
+        try { payload = JSON.parse(body); } catch { return sendJson(response, 400, { error: "Invalid request" }); }
+        if (!validRoster(payload?.rosterId)) return sendJson(response, 400, { error: "roster invalide" });
+        return sendJson(response, 200, { state: await warRoomStore.save(payload.rosterId, { watchlist: payload.watchlist, bidHistory: payload.bidHistory }) });
+      } catch (error) {
+        return sendJson(response, 503, { error: "SYNC_UNAVAILABLE" });
+      }
+    }
+
     if (request.method !== "GET" && request.method !== "HEAD") {
       response.writeHead(405, { allow: "GET, HEAD" });
       response.end();
@@ -306,9 +338,17 @@ export function createAppServer({
 
     if (url.pathname === "/api/leaders") {
       const requested = url.searchParams.get("week");
+      if (requested === "season") {
+        try {
+          sendJson(response, 200, await getSeasonLeaders());
+        } catch (error) {
+          sendJson(response, 502, { error: error.message });
+        }
+        return;
+      }
       const week = requested === null ? null : Number(requested);
       if (week !== null && !(Number.isInteger(week) && week >= 1 && week <= 18)) {
-        sendJson(response, 400, { error: "week doit être un entier entre 1 et 18" });
+        sendJson(response, 400, { error: "week doit être un entier entre 1 et 18, ou season" });
         return;
       }
       try {

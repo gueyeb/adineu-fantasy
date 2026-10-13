@@ -89,6 +89,33 @@ function reviseBid(line, points, dataThroughWeek) {
     changed: money(before.bid) !== line.bid || money(before.max) !== line.maxBid };
 }
 
+/** Bounded, well-formed bid history: what may be stored or accepted from another device. */
+export function normalizeBidHistory(input) {
+  const next = {};
+  for (const [id, points] of Object.entries(input && typeof input === "object" && !Array.isArray(input) ? input : {})) {
+    if (!PLAYER_ID.test(id) || !Array.isArray(points)) continue;
+    const byTime = new Map();
+    for (const point of points) {
+      const at = Date.parse(point?.at);
+      if (!Number.isFinite(at)) continue;
+      byTime.set(at, { at: new Date(at).toISOString(), dataThroughWeek: Number.isInteger(point.dataThroughWeek) ? point.dataThroughWeek : null, bid: money(point.bid), max: money(point.max) });
+    }
+    const kept = [...byTime.entries()].sort((a, b) => a[0] - b[0]).map(([, point]) => point).slice(-HISTORY_POINTS);
+    if (kept.length) next[id] = kept;
+    if (Object.keys(next).length >= WATCHLIST_LIMIT * 3) break;
+  }
+  return next;
+}
+
+/** Readings taken on two devices: the union, oldest first, same bound per player. */
+export function mergeBidHistory(a, b) {
+  const left = normalizeBidHistory(a);
+  const right = normalizeBidHistory(b);
+  const merged = {};
+  for (const id of new Set([...Object.keys(left), ...Object.keys(right)])) merged[id] = [...(left[id] || []), ...(right[id] || [])];
+  return normalizeBidHistory(merged);
+}
+
 /** Appends a reading when a line's bid, ceiling or data week changed. Returns a new history. */
 export function recordBids(history, lines, { now, dataThroughWeek = null }) {
   const at = Date.parse(now);

@@ -6,8 +6,8 @@
 
 import { calculatePlayerTradeValue, calculatePlayerTradeProfile, evaluateTrade } from "./trade-value.js?v=c385666df3";
 import { diagnoseRoster, findTradeProposals, findCounterOffers } from "./trade-recommender.js?v=d2789d533e";
-import { addToWatchlist, removeFromWatchlist, REASON_MAX } from "./war-room.js?v=8e9a1e2448";
-import { loadWatchlist, saveWatchlist } from "./war-room-store.js?v=10220c8a37";
+import { addToWatchlist, removeFromWatchlist, REASON_MAX } from "./war-room.js?v=e9eae48675";
+import { loadWatchlist, saveWatchlist } from "./war-room-store.js?v=7fbca3341a";
 import { PLAYER_STATUSES, playerKey, playerStatus } from "./trade-preferences.js?v=c5fec5ce56";
 import {
   GENERAL_SETTINGS_2026,

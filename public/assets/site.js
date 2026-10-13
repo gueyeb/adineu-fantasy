@@ -10,8 +10,8 @@ import {
   buildSleeperSeasonMeetings,
   sleeperManager
 } from "./rivalry-week.js?v=714a861458";
-import { renderTradesPage } from "./trade-ui.js?v=25a4e524de";
-import { renderMatchupsHub } from "./matchups-live.js?v=3e9469ad7e";
+import { renderTradesPage } from "./trade-ui.js?v=97a469432e";
+import { renderMatchupsHub } from "./matchups-live.js?v=f570d2ec63";
 import { calculatePlayoffRace } from "./playoff-race.js?v=52283bf11a";
 import { calculateLuck, calculateRankHistory } from "./standings-luck.js?v=7363afbb9e";
 import { resolveOperationalWeek } from "./nfl-week.js?v=8f9fa3f5b2";
@@ -30,7 +30,7 @@ import {
 const SUPABASE_URL = "https://juosrzsffvjprqhdyado.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_7Bu9q2dKz0WEol94OGVhHw_xjSwHeHu";
 const CURRENT_SEASON = 2026;
-import { buildSleeperTrades, buildTradeRanking } from "./trade-ledger.js?v=e71c0b0c38";
+import { buildSleeperTrades, buildTradeRanking, buildTradeRecords } from "./trade-ledger.js?v=4178df92fb";
 import { SLEEPER_API, SLEEPER_LEAGUE_ID, sleeperGet } from "./sleeper-client.js?v=3f75d48ec5";
 
 const routes = [
@@ -499,13 +499,32 @@ async function loadLiveTrades() {
 async function renderTradeRanking(data) {
   const target = document.getElementById("trade-ranking");
   try {
-    const response = await fetch("/data/yahoo-trades.json?v=1", { cache: "no-store" });
+    const response = await fetch("/data/yahoo-trades.json?v=2", { cache: "no-store" });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const archive = await response.json();
     const live = await loadLiveTrades();
     const seasons = live ? [...archive.seasons, live] : archive.seasons;
     const seasonsPlayed = new Map(data.managerHistory.map(entry => [entry.manager, Object.keys(entry.seasons).length + (live && ACTIVE_MANAGERS_2026.includes(entry.manager) ? 1 : 0)]));
     const ranking = buildTradeRanking(seasons, { seasonsPlayed });
+    const recordOf = new Map(buildTradeRecords(archive.seasons).map(record => [record.manager, record]));
+    const signedValue = value => `${value > 0 ? "+" : value < 0 ? "−" : ""}${Math.abs(value).toLocaleString("fr-FR", { maximumFractionDigits: 0 })}`;
+    const sideHtml = (side, winner) => `<div class="trade-side${winner === side.manager ? " trade-winner" : ""}">
+        <strong>${escapeHtml(side.manager)}</strong> <small>reçoit</small>
+        <ul>${side.received.map(player => `<li>${escapeHtml(player.name)} <small>${escapeHtml(player.position || "")} · ${player.value === null ? "n/d" : `${player.value.toLocaleString("fr-FR")} val. · ${player.points.toLocaleString("fr-FR")} pts · ${player.games} m.`}</small></li>`).join("")}</ul>
+        <span>${side.value === null ? "—" : `${side.value.toLocaleString("fr-FR")} de valeur`}</span>
+      </div>`;
+    const verdictHtml = outcome => outcome.verdict === "WON" ? `Avantage ${escapeHtml(outcome.winner)} <small>+${outcome.margin.toLocaleString("fr-FR")}</small>`
+      : outcome.verdict === "EVEN" ? "Équilibré" : outcome.verdict === "NO_GAMES" ? "Trop tard pour compter" : "Incomplet";
+    const ledgerHtml = [...archive.seasons].reverse().map((season, index) => `<details class="season"${index === 0 ? " open" : ""}>
+      <summary><span class="season-year">${season.year}</span><span class="season-title"><strong>${season.tradeCount} trade${season.tradeCount > 1 ? "s" : ""}</strong><span>${season.trades.filter(trade => trade.outcome?.verdict === "WON").length} avec un gagnant net</span></span><span class="season-toggle" aria-hidden="true"></span></summary>
+      <div class="season-body">
+        <div class="toolbar"><span class="source-link">Du plus récent au plus ancien</span><a class="source-link" href="${escapeHtml(season.sourceUrl)}" target="_blank" rel="noreferrer">Ouvrir les transactions Yahoo ↗</a></div>
+        ${[...season.trades].reverse().map(trade => `<article class="trade-row">
+          <header><span>${escapeHtml(trade.date.split("-").reverse().join("/"))}${trade.outcome ? ` · compté dès S${trade.outcome.fromWeek}` : ""}</span><b class="trade-verdict trade-${(trade.outcome?.verdict || "incomplete").toLowerCase()}">${trade.outcome ? verdictHtml(trade.outcome) : "—"}</b></header>
+          <div class="trade-sides">${trade.sides.map(side => sideHtml(side, trade.outcome?.winner)).join("")}</div>
+        </article>`).join("")}
+      </div>
+    </details>`).join("");
     const leader = ranking.managers[0];
     const pair = ranking.pairs[0];
     const rows = ranking.managers.map(row => `<tr>
@@ -515,6 +534,8 @@ async function renderTradeRanking(data) {
       <td class="num">${row.perSeason === null ? "—" : row.perSeason.toLocaleString("fr-FR")}</td>
       ${ranking.years.map(year => `<td class="num">${row.bySeason[year] || "·"}</td>`).join("")}
       <td>${row.topPartner ? `${escapeHtml(row.topPartner.manager)} <small>× ${row.topPartner.trades}</small>` : "—"}</td>
+      <td class="num">${recordOf.has(row.manager) ? `${recordOf.get(row.manager).won}-${recordOf.get(row.manager).lost}-${recordOf.get(row.manager).even}` : "—"}</td>
+      <td class="num${recordOf.get(row.manager)?.net > 0 ? " positive" : recordOf.get(row.manager)?.net < 0 ? " negative" : ""}">${recordOf.has(row.manager) ? signedValue(recordOf.get(row.manager).net) : "—"}</td>
     </tr>`).join("");
     const liveNote = live
       ? `${live.year} : ${live.trades.length} trade${live.trades.length > 1 ? "s" : ""} Sleeper à ce jour${live.unmapped ? `, ${live.unmapped} non attribué${live.unmapped > 1 ? "s" : ""} et exclu${live.unmapped > 1 ? "s" : ""}` : ""}.`
@@ -525,10 +546,13 @@ async function renderTradeRanking(data) {
         <article class="movement"><span>Duo le plus actif</span><strong>${pair.trades} trades</strong><p>${escapeHtml(pair.managers.join(" et "))}.</p></article>
       </div>
       <div class="table-wrap trade-ranking"><table>
-        <thead><tr><th>#</th><th>Manager</th><th class="num">Trades</th><th class="num" title="Trades par saison jouée, saison en cours comprise">/ saison</th>${ranking.years.map(year => `<th class="num">${String(year).slice(2)}</th>`).join("")}<th>Partenaire favori</th></tr></thead>
+        <thead><tr><th>#</th><th>Manager</th><th class="num">Trades</th><th class="num" title="Trades par saison jouée, saison en cours comprise">/ saison</th>${ranking.years.map(year => `<th class="num">${String(year).slice(2)}</th>`).join("")}<th>Partenaire favori</th><th class="num" title="Gagnés - perdus - équilibrés, trades Yahoo 2019–2025">Bilan</th><th class="num" title="Valeur reçue moins valeur cédée, cumulée">Valeur nette</th></tr></thead>
         <tbody>${rows}</tbody>
       </table></div>
-      <p class="note"><strong>Lecture :</strong> un trade compte une fois pour chacun des deux managers. 2019–2025 : pages Transactions de Yahoo, relevées le ${escapeHtml(archive.extractedAt.split("-").reverse().join("/"))}. ${liveNote}</p>`;
+      <p class="note"><strong>Lecture :</strong> un trade compte une fois pour chacun des deux managers. 2019–2025 : pages Transactions de Yahoo, relevées le ${escapeHtml(archive.extractedAt.split("-").reverse().join("/"))}. ${liveNote}</p>
+      <div class="section-head trade-ledger-head"><div><p class="eyebrow">Trade par trade</p><h2>Qui a gagné l’échange.</h2></div><p>Ce que les joueurs reçus ont produit ensuite. Une lecture Adineu, pas un jugement sur la décision du moment.</p></div>
+      <div class="timeline">${ledgerHtml}</div>
+      <p class="note"><strong>Méthode :</strong> la valeur d’un joueur est ce qu’il a marqué (PPR) au-dessus du dernier titulaire de son poste cette semaine-là, de la première semaine suivant le trade à la fin des playoffs de la ligue. Un avantage n’est déclaré qu’au-delà de 15 points de valeur et de 15 % d’écart. Chaque trade est jugé seul : un joueur revendu ensuite compte quand même. Les blessures survenues après l’échange pèsent dans le résultat. Le bilan ne couvre pas la saison en cours.</p>`;
   } catch (error) {
     target.innerHTML = `<p class="note">Classement des trades indisponible (${escapeHtml(error.message)}).</p>`;
   }

@@ -56,3 +56,17 @@ Waiver Wire, le Trade Finder et le Coach.
 - L'Usage Score est celui des trois dernières semaines terminées, pas celui de la semaine consultée.
 - Joueur échangé ou coupé depuis : le détenteur affiché est l'actuel, sans mention « banc ».
 - Usage indisponible : le classement s'affiche sans la colonne renseignée.
+
+## Extension du 14/10/2026 — vue Saison
+
+Le sélecteur de semaine propose « Saison » (`GET /api/leaders?week=season`, `getSeasonLeaders`) :
+
+- top 10 par poste sur les semaines terminées : total, matchs, moyenne, nombre de semaines dans le
+  top 10 hebdomadaire du poste (`buildSeasonLeaders`) ;
+- **meilleurs ajouts de la saison** (`buildBestPickups`) : joueurs ajoutés par waiver ou en agent
+  libre et encore détenus par l'équipe qui les a ajoutés, classés par points marqués depuis la
+  semaine de l'ajout, avec le FAAB dépensé.
+
+Limites : un ajout coupé ou échangé depuis disparaît du classement ; un agent libre ajouté après
+son match de la semaine se voit quand même créditer cette semaine ; les points comptent qu'il ait
+été aligné ou non.

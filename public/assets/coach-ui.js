@@ -1,5 +1,5 @@
-import { addToWatchlist, buildWarRoom, formatClaimOrder, recordBids, removeFromWatchlist, watchIdsHeader, REASON_MAX } from "./war-room.js?v=8e9a1e2448";
-import { loadBidHistory, loadWatchlist, saveBidHistory, saveWatchlist } from "./war-room-store.js?v=10220c8a37";
+import { addToWatchlist, buildWarRoom, formatClaimOrder, recordBids, removeFromWatchlist, watchIdsHeader, REASON_MAX } from "./war-room.js?v=e9eae48675";
+import { loadBidHistory, loadWatchlist, saveBidHistory, saveWatchlist, syncWarRoom } from "./war-room-store.js?v=7fbca3341a";
 import { renderWeeklyRoster, renderWeeklyMoves } from "./coach-week-view.js?v=67b2ba9a14";
 import { LEAGUE_METADATA_2026 } from "./league-settings.js?v=f6d1bf5212";
 
@@ -146,6 +146,8 @@ async function loadCoach() {
       return;
     }
     try { localStorage.setItem(ROSTER_HINT_KEY, String(plan.rosterId)); } catch {}
+    // Signed in: bring this browser in line with the watchlist kept on the server (other devices).
+    await syncWarRoom(plan.rosterId);
     const preferences = savedPreferences(plan.rosterId);
     const watchIds = watchIdsHeader(loadWatchlist(plan.rosterId));
     if (JSON.stringify(preferences) !== JSON.stringify(sent.preferences) || watchIds !== sent.watchIds) plan = await fetchCoach(preferences, watchIds);

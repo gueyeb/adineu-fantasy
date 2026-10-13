@@ -1,6 +1,6 @@
 # PRD — Waiver War Room
 
-Statut : implémenté localement, 13/10/2026. Origine : retour d'usage de Sleeper — la découverte
+Statut : implémenté le 13/10/2026 ; synchronisation entre appareils ajoutée le 14/10/2026. Origine : retour d'usage de Sleeper — la découverte
 des joueurs se fait au fil des matchs, le portefeuille de claims ne se fige qu'après le lundi.
 
 ## Problème
@@ -28,7 +28,7 @@ Un panneau « War Room » sur `/coach/` (accès privé Boukki), en cinq blocs :
    suivent leur claim principal ; ajouts libres listés à part.
 
 Hors périmètre : toute soumission, annulation ou écriture vers Sleeper ; probabilité de gagner une
-enchère ; synchronisation de la watchlist entre appareils ; envoi n8n de la watchlist.
+enchère ; envoi n8n de la watchlist.
 
 ## Approche technique
 
@@ -61,3 +61,24 @@ enchère ; synchronisation de la watchlist entre appareils ; envoi n8n de la wat
   (`platformCancellationVerified: false`) : l'ordre se revalide après chaque résultat.
 - 40 joueurs suivis au plus, motif ≤ 200 caractères, 6 relevés par joueur, 21 jours de rétention.
 - `localStorage` indisponible (navigation privée) : le panneau reste lisible, sans watchlist.
+
+## Extension du 14/10/2026 — synchronisation entre appareils
+
+Un joueur repéré sur le téléphone pendant les matchs doit être là sur l'ordinateur le mardi.
+
+- Table `coach_war_room` (`supabase/migrations/20261014_coach_war_room.sql`) : une ligne par
+  saison / ligue / roster (watchlist + relevés d'enchères). RLS activé, aucune policy : seule la clé
+  secrète du serveur lit et écrit.
+- `GET` / `PUT /api/coach/war-room` : même accès que le plan (session Coach ou jeton). Une écriture
+  par session navigateur exige une origine identique ; tout est renormalisé côté serveur
+  (`scripts/war-room-sync.js`), 64 Ko maximum.
+- `localStorage` reste la première écriture : hors connexion ou sans session, rien ne change.
+  À l'ouverture de `/coach/`, `syncWarRoom` aligne le navigateur : des modifications locales non
+  envoyées l'emportent, sinon la copie serveur remplace la watchlist ; les relevés d'enchères sont
+  toujours fusionnés (`mergeBidHistory`).
+- Le plan, la cohérence et le message n8n restent indépendants de la watchlist.
+
+Limites : dernier écrivain gagnant sur la watchlist — deux appareils modifiés hors connexion ne sont
+pas fusionnés entrée par entrée ; un suivi ajouté depuis une page publique sans session Coach n'est
+envoyé qu'à la prochaine ouverture de `/coach/` ; sans `SUPABASE_URL` / `SUPABASE_SECRET_KEY` côté
+serveur, la route répond 503 et tout reste local.

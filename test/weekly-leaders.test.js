@@ -2,8 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { once } from "node:events";
 import { createAppServer } from "../server.js";
-import { getWeeklyLeaders } from "../scripts/league-context.js";
-import { buildWeeklyLeaders, leaguePoints } from "../public/assets/weekly-leaders.js";
+import { getWeeklyLeaders, getSeasonLeaders } from "../scripts/league-context.js";
+import { buildBestPickups, buildSeasonLeaders, buildWeeklyLeaders, leaguePoints } from "../public/assets/weekly-leaders.js";
 
 const scoring = { pass_yd: 0.04, pass_td: 4, pass_int: -2, rush_yd: 0.1, rec: 1, rec_yd: 0.1, rec_td: 6, fgm_40_49: 4, fgm_50_59: 5, fgm_50p: 0, xpm: 1, sack: 1, bonus_rec_te: 0 };
 const players = new Map([
@@ -107,4 +107,52 @@ test("leaders API passes the week through and rejects an invalid one", async t =
   assert.equal((await (await fetch(`${base}?week=3`)).json()).week, 3);
   assert.deepEqual(seen, [null, 3]);
   for (const bad of ["0", "19", "2.5", "abc", ""]) assert.equal((await fetch(`${base}?week=${bad}`)).status, 400);
+});
+
+const statsByWeek = [
+  { week: 1, stats: { 2: { gp: 1, rec: 5, rec_yd: 50 }, 3: { gp: 1, rec: 10, rec_yd: 100 }, 4: { gp: 0 } } },
+  { week: 2, stats },
+  { week: 3, stats: { 3: { gp: 1, rec: 2, rec_yd: 20 }, 4: { gp: 1, rec: 1, rec_yd: 10 } } }
+];
+
+test("buildSeasonLeaders totals completed weeks with games, average and weekly top-10 finishes", () => {
+  const report = buildSeasonLeaders({ statsByWeek, scoring, playerOf: id => players.get(id), owners, limit: 2 });
+  assert.deepEqual(report.positions.WR.leaders.map(row => [row.rank, row.name, row.points, row.games, row.average, row.topTenWeeks, row.owner, row.freeAgent]), [
+    [1, "Free Catcher", 39, 3, 13, 3, null, true],
+    [2, "Wide Out", 36, 2, 18, 2, "Boukki", false]
+  ]);
+  assert.equal(report.positions.QB.leaders[0].points, 18);
+  assert.equal(report.summary.played, 5);
+});
+
+test("buildBestPickups counts points since the latest add by the roster that still holds the player", () => {
+  const transactions = [
+    { type: "waiver", status: "complete", leg: 1, created: 1, adds: { 4: 2 }, settings: { waiver_bid: 5 } },
+    { type: "waiver", status: "complete", leg: 3, created: 3, adds: { 4: 2 }, settings: { waiver_bid: 12 } },
+    { type: "free_agent", status: "complete", leg: 2, created: 2, adds: { 2: 2 } },
+    { type: "waiver", status: "failed", leg: 1, created: 1, adds: { 1: 1 }, settings: { waiver_bid: 9 } },
+    { type: "free_agent", status: "complete", leg: 1, created: 1, adds: { 3: 7 } },
+    { type: "trade", status: "complete", leg: 1, created: 1, adds: { 1: 1 } }
+  ];
+  const pickups = buildBestPickups({ transactions, statsByWeek, scoring, playerOf: id => players.get(id), owners });
+  assert.deepEqual(pickups.map(row => [row.rank, row.name, row.owner, row.addedWeek, row.faab, row.points, row.games]), [
+    [1, "Wide Out", "Boukki", 2, null, 26, 1],
+    [2, "Bench Catcher", "Boukki", 3, 12, 2, 1]
+  ]);
+});
+
+test("getSeasonLeaders aggregates completed weeks and the leaders API serves it for week=season", async t => {
+  const routes = { ...baseRoutes, "/stats/nfl/regular/2026/1": statsByWeek[0].stats, "/stats/nfl/regular/2026/2": {}, "/stats/nfl/regular/2026/3": {}, "/stats/nfl/regular/2026/4": {},
+    "/league/L/transactions/2": [{ type: "free_agent", status: "complete", leg: 2, created: 2, adds: { 2: 2 } }] };
+  const report = await getSeasonLeaders({ leagueId: "L", fetchImpl: fakeSleeper(routes) });
+  assert.deepEqual([report.scope, report.weeks, report.currentWeek], ["season", [1, 2, 3, 4, 5], 6]);
+  assert.deepEqual(report.positions.WR.leaders.map(row => [row.name, row.points, row.games]), [["Free Catcher", 35, 2], ["Wide Out", 36, 2], ["Bench Catcher", 32, 1]].sort((a, b) => b[1] - a[1]));
+  assert.deepEqual(report.pickups.map(row => [row.name, row.points]), [["Wide Out", 26]]);
+
+  const server = createAppServer({ getSeasonLeaders: async () => ({ scope: "season" }), getLeaders: async () => { throw new Error("not for season"); } });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(() => server.close());
+  const response = await fetch(`http://127.0.0.1:${server.address().port}/api/leaders?week=season`);
+  assert.deepEqual([response.status, (await response.json()).scope], [200, "season"]);
 });
