@@ -6,7 +6,8 @@ import {
   RIVALRY_WEEK,
   buildRivalryRecords,
   buildSleeperWeek,
-  buildSleeperSeasonMeetings
+  buildSleeperSeasonMeetings,
+  sleeperManager
 } from "./rivalry-week.js?v=714a861458";
 import { renderTradesPage } from "./trade-ui.js?v=25a4e524de";
 import { renderMatchupsHub } from "./matchups-live.js?v=a49f5d6e63";
@@ -28,6 +29,7 @@ import {
 const SUPABASE_URL = "https://juosrzsffvjprqhdyado.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_7Bu9q2dKz0WEol94OGVhHw_xjSwHeHu";
 const CURRENT_SEASON = 2026;
+import { buildSleeperTrades, buildTradeRanking } from "./trade-ledger.js?v=e71c0b0c38";
 import { SLEEPER_API, SLEEPER_LEAGUE_ID, sleeperGet } from "./sleeper-client.js?v=3f75d48ec5";
 
 const routes = [
@@ -467,6 +469,64 @@ function bindRankChart(root) {
   }
 }
 
+/** Trades de la saison Sleeper en cours, attribués aux managers canoniques. Null si Sleeper ne répond pas. */
+async function loadLiveTrades() {
+  try {
+    const [league, rosters, users, state] = await Promise.all([
+      sleeperGet(`/league/${SLEEPER_LEAGUE_ID}`),
+      sleeperGet(`/league/${SLEEPER_LEAGUE_ID}/rosters`),
+      sleeperGet(`/league/${SLEEPER_LEAGUE_ID}/users`),
+      sleeperGet("/state/nfl")
+    ]);
+    const userById = new Map(users.map(user => [user.user_id, user]));
+    const managerByRosterId = new Map(rosters.map(roster => [Number(roster.roster_id), sleeperManager(userById.get(roster.owner_id))]));
+    const lastLeg = Math.min(18, Math.max(1, resolveOperationalWeek(state)));
+    const legs = await Promise.all(Array.from({ length: lastLeg }, (_, index) => sleeperGet(`/league/${SLEEPER_LEAGUE_ID}/transactions/${index + 1}`, { optional: true })));
+    if (legs.some(leg => leg === null)) return null;
+    return { year: Number(league.season), ...buildSleeperTrades(legs.flat(), managerByRosterId) };
+  } catch {
+    return null;
+  }
+}
+
+async function renderTradeRanking(data) {
+  const target = document.getElementById("trade-ranking");
+  try {
+    const response = await fetch("/data/yahoo-trades.json?v=1", { cache: "no-store" });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const archive = await response.json();
+    const live = await loadLiveTrades();
+    const seasons = live ? [...archive.seasons, live] : archive.seasons;
+    const seasonsPlayed = new Map(data.managerHistory.map(entry => [entry.manager, Object.keys(entry.seasons).length + (live && ACTIVE_MANAGERS_2026.includes(entry.manager) ? 1 : 0)]));
+    const ranking = buildTradeRanking(seasons, { seasonsPlayed });
+    const leader = ranking.managers[0];
+    const pair = ranking.pairs[0];
+    const rows = ranking.managers.map(row => `<tr>
+      <td>${row.rank}</td>
+      <td><strong>${escapeHtml(row.manager)}</strong></td>
+      <td class="num"><strong>${row.trades}</strong></td>
+      <td class="num">${row.perSeason === null ? "—" : row.perSeason.toLocaleString("fr-FR")}</td>
+      ${ranking.years.map(year => `<td class="num">${row.bySeason[year] || "·"}</td>`).join("")}
+      <td>${row.topPartner ? `${escapeHtml(row.topPartner.manager)} <small>× ${row.topPartner.trades}</small>` : "—"}</td>
+    </tr>`).join("");
+    const liveNote = live
+      ? `${live.year} : ${live.trades.length} trade${live.trades.length > 1 ? "s" : ""} Sleeper à ce jour${live.unmapped ? `, ${live.unmapped} non attribué${live.unmapped > 1 ? "s" : ""} et exclu${live.unmapped > 1 ? "s" : ""}` : ""}.`
+      : "Saison Sleeper en cours indisponible : classement arrêté à 2025.";
+    target.innerHTML = `<div class="movement-grid">
+        <article class="movement"><span>Total ${ranking.years[0]}—${ranking.years.at(-1)}</span><strong>${ranking.totalTrades}</strong><p>Trades conclus dans la ligue. Saison la plus active : ${ranking.busiestSeason.year} (${ranking.busiestSeason.trades}).</p></article>
+        <article class="movement"><span>Plus gros trader</span><strong>${escapeHtml(leader.manager)}</strong><p>${leader.trades} trades${leader.perSeason ? `, soit ${leader.perSeason.toLocaleString("fr-FR")} par saison` : ""}.</p></article>
+        <article class="movement"><span>Duo le plus actif</span><strong>${pair.trades} trades</strong><p>${escapeHtml(pair.managers.join(" et "))}.</p></article>
+      </div>
+      <div class="table-wrap trade-ranking"><table>
+        <thead><tr><th>#</th><th>Manager</th><th class="num">Trades</th><th class="num" title="Trades par saison jouée, saison en cours comprise">/ saison</th>${ranking.years.map(year => `<th class="num">${String(year).slice(2)}</th>`).join("")}<th>Partenaire favori</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+      <p class="note"><strong>Lecture :</strong> un trade compte une fois pour chacun des deux managers. 2019–2025 : pages Transactions de Yahoo, relevées le ${escapeHtml(archive.extractedAt.split("-").reverse().join("/"))}. ${liveNote}</p>`;
+  } catch (error) {
+    target.innerHTML = `<p class="note">Classement des trades indisponible (${escapeHtml(error.message)}).</p>`;
+  }
+}
+
 function renderHistory(data) {
   const coverage = data.identityCoverage || { confirmedParticipations: 0, totalParticipations: 88 };
   const seasonsHtml = data.seasons.map((season, index) => {
@@ -498,7 +558,12 @@ function renderHistory(data) {
       <div class="section-head"><div><p class="eyebrow">2019 — 2025</p><h2>La chronologie</h2></div><p>Ouvrez une saison pour consulter son classement final et sa composition réelle.</p></div>
       <div class="timeline">${seasonsHtml}</div>
       <p class="note"><strong>Règle d'identité :</strong> une participation est attachée à une saison. Un nom d'équipe similaire n'est jamais utilisé seul pour fusionner deux managers.</p>
+    </div></section>
+    <section class="section" id="trades"><div class="shell">
+      <div class="section-head"><div><p class="eyebrow">Marché des transferts</p><h2>Qui trade le plus.</h2></div><p>Tous les échanges conclus entre managers depuis 2019, saison Sleeper en cours comprise.</p></div>
+      <div id="trade-ranking"><div class="state">Chargement des trades…</div></div>
     </div></section>`;
+  renderTradeRanking(data);
 }
 
 async function renderHallOfFame(data) {

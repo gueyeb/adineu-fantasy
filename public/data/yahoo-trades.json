@@ -1,0 +1,2046 @@
+{
+ "source": "Yahoo Fantasy Sports archives — pages Transactions, filtre Trades",
+ "extractedAt": "2026-10-14",
+ "note": "Un trade = deux côtés ; `received` liste les joueurs reçus par ce manager. Heure telle qu’affichée par Yahoo (fuseau du compte).",
+ "totalTrades": 95,
+ "seasons": [
+  {
+   "year": 2019,
+   "leagueId": "103079",
+   "sourceUrl": "https://football.fantasysports.yahoo.com/2019/f1/103079/transactions?transactionsfilter=trade",
+   "tradeCount": 20,
+   "trades": [
+    {
+     "date": "2019-08-27",
+     "time": "9:51 am",
+     "sides": [
+      {
+       "manager": "Olivier",
+       "team": "The energy's team",
+       "received": [
+        "Hunter Henry",
+        "Allen Robinson"
+       ]
+      },
+      {
+       "manager": "babttz",
+       "team": "Fun Guy Team",
+       "received": [
+        "Kyle Rudolph",
+        "Duke Johnson"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2019-09-11",
+     "time": "11:04 am",
+     "sides": [
+      {
+       "manager": "Mountaga",
+       "team": "Banana Kings",
+       "received": [
+        "Devin Singletary"
+       ]
+      },
+      {
+       "manager": "Birama",
+       "team": "El Fenomeno",
+       "received": [
+        "T.J. Hockenson"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2019-09-22",
+     "time": "5:59 pm",
+     "sides": [
+      {
+       "manager": "Louis François",
+       "team": "Ruff Ryders",
+       "received": [
+        "Raheem Mostert"
+       ]
+      },
+      {
+       "manager": "babttz",
+       "team": "Fun Guy Team",
+       "received": [
+        "Drew Brees"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2019-09-24",
+     "time": "11:03 am",
+     "sides": [
+      {
+       "manager": "Jonnel",
+       "team": "Power Bearers",
+       "received": [
+        "JuJu Smith-Schuster",
+        "Chris Thompson"
+       ]
+      },
+      {
+       "manager": "Birama",
+       "team": "El Fenomeno",
+       "received": [
+        "Odell Beckham Jr."
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2019-09-25",
+     "time": "8:16 pm",
+     "sides": [
+      {
+       "manager": "Magatte",
+       "team": "Sneaky slayer's",
+       "received": [
+        "Tyler Boyd",
+        "Tarik Cohen"
+       ]
+      },
+      {
+       "manager": "Marius",
+       "team": "Elephant de Gbamph",
+       "received": [
+        "Joe Mixon"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2019-10-01",
+     "time": "10:01 am",
+     "sides": [
+      {
+       "manager": "Louis François",
+       "team": "Ruff Ryders",
+       "received": [
+        "T.J. Hockenson",
+        "O.J. Howard",
+        "Robert Woods"
+       ]
+      },
+      {
+       "manager": "Birama",
+       "team": "El Fenomeno",
+       "received": [
+        "Zach Ertz"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2019-10-03",
+     "time": "10:33 pm",
+     "sides": [
+      {
+       "manager": "babttz",
+       "team": "Fun Guy Team",
+       "received": [
+        "Royce Freeman"
+       ]
+      },
+      {
+       "manager": "Louis François",
+       "team": "Ruff Ryders",
+       "received": [
+        "Jordan Howard",
+        "Mecole Hardman Jr."
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2019-10-10",
+     "time": "10:35 pm",
+     "sides": [
+      {
+       "manager": "Louis François",
+       "team": "Ruff Ryders",
+       "received": [
+        "Marquez Valdes-Scantling"
+       ]
+      },
+      {
+       "manager": "babttz",
+       "team": "Fun Guy Team",
+       "received": [
+        "Jordan Howard"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2019-10-15",
+     "time": "8:20 pm",
+     "sides": [
+      {
+       "manager": "Birama",
+       "team": "El Fenomeno",
+       "received": [
+        "Keenan Allen",
+        "Delanie Walker"
+       ]
+      },
+      {
+       "manager": "YeezyJr",
+       "team": "YeezyJr's Team",
+       "received": [
+        "Derrick Henry",
+        "Hunter Henry"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2019-10-17",
+     "time": "8:31 pm",
+     "sides": [
+      {
+       "manager": "Birama",
+       "team": "El Fenomeno",
+       "received": [
+        "Mohamed Sanu"
+       ]
+      },
+      {
+       "manager": "Toughness",
+       "team": "Toughness's Team",
+       "received": [
+        "Robbie Chosen",
+        "Delanie Walker"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2019-10-21",
+     "time": "3:21 pm",
+     "sides": [
+      {
+       "manager": "babttz",
+       "team": "Fun Guy Team",
+       "received": [
+        "Emmanuel Sanders"
+       ]
+      },
+      {
+       "manager": "Louis François",
+       "team": "Ruff Ryders",
+       "received": [
+        "Jamaal Williams",
+        "Cole Beasley"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2019-10-23",
+     "time": "12:10 pm",
+     "sides": [
+      {
+       "manager": "Abdoulaye",
+       "team": "Binaries",
+       "received": [
+        "Mohamed Sanu"
+       ]
+      },
+      {
+       "manager": "Birama",
+       "team": "El Fenomeno",
+       "received": [
+        "Matthew Stafford"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2019-10-24",
+     "time": "3:47 pm",
+     "sides": [
+      {
+       "manager": "Jonnel",
+       "team": "Power Bearers",
+       "received": [
+        "Golden Tate"
+       ]
+      },
+      {
+       "manager": "babttz",
+       "team": "Fun Guy Team",
+       "received": [
+        "Jamison Crowder"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2019-10-29",
+     "time": "4:50 pm",
+     "sides": [
+      {
+       "manager": "Olivier",
+       "team": "The energy's team",
+       "received": [
+        "Jordan Howard"
+       ]
+      },
+      {
+       "manager": "babttz",
+       "team": "Fun Guy Team",
+       "received": [
+        "Matt Breida"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2019-10-30",
+     "time": "9:53 am",
+     "sides": [
+      {
+       "manager": "Toughness",
+       "team": "Toughness's Team",
+       "received": [
+        "Robert Woods"
+       ]
+      },
+      {
+       "manager": "Louis François",
+       "team": "Ruff Ryders",
+       "received": [
+        "Mike Williams"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2019-10-30",
+     "time": "11:11 am",
+     "sides": [
+      {
+       "manager": "Mountaga",
+       "team": "Banana Kings",
+       "received": [
+        "Odell Beckham Jr.",
+        "Derrius Guice"
+       ]
+      },
+      {
+       "manager": "Birama",
+       "team": "El Fenomeno",
+       "received": [
+        "Le'Veon Bell"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2019-11-02",
+     "time": "12:52 am",
+     "sides": [
+      {
+       "manager": "Mountaga",
+       "team": "Banana Kings",
+       "received": [
+        "Royce Freeman",
+        "Sterling Shepard"
+       ]
+      },
+      {
+       "manager": "Mat",
+       "team": "Hunters",
+       "received": [
+        "Stefon Diggs"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2019-11-05",
+     "time": "10:43 am",
+     "sides": [
+      {
+       "manager": "Abdoulaye",
+       "team": "Binaries",
+       "received": [
+        "Matthew Stafford"
+       ]
+      },
+      {
+       "manager": "Birama",
+       "team": "El Fenomeno",
+       "received": [
+        "Mohamed Sanu"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2019-11-08",
+     "time": "10:38 am",
+     "sides": [
+      {
+       "manager": "babttz",
+       "team": "Fun Guy Team",
+       "received": [
+        "T.Y. Hilton"
+       ]
+      },
+      {
+       "manager": "Mountaga",
+       "team": "Banana Kings",
+       "received": [
+        "Kenyan Drake",
+        "Wil Lutz"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2019-11-10",
+     "time": "7:54 pm",
+     "sides": [
+      {
+       "manager": "Magatte",
+       "team": "Sneaky slayer's",
+       "received": [
+        "Aaron Jones Sr.",
+        "Jarvis Landry",
+        "Robbie Chosen"
+       ]
+      },
+      {
+       "manager": "Toughness",
+       "team": "Toughness's Team",
+       "received": [
+        "Tyler Boyd",
+        "David Johnson"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "year": 2020,
+   "leagueId": "67190",
+   "sourceUrl": "https://football.fantasysports.yahoo.com/2020/f1/67190/transactions?transactionsfilter=trade",
+   "tradeCount": 16,
+   "trades": [
+    {
+     "date": "2020-09-19",
+     "time": "7:46 pm",
+     "sides": [
+      {
+       "manager": "Abdoulaye",
+       "team": "Binaries",
+       "received": [
+        "Joshua Kelley",
+        "Laviska Shenault Jr."
+       ]
+      },
+      {
+       "manager": "Birama",
+       "team": "Ethan Hunt",
+       "received": [
+        "Parris Campbell"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2020-09-22",
+     "time": "9:45 am",
+     "sides": [
+      {
+       "manager": "babttz",
+       "team": ".",
+       "received": [
+        "Le'Veon Bell",
+        "Kerryon Johnson"
+       ]
+      },
+      {
+       "manager": "Louis François",
+       "team": "Big Pimping",
+       "received": [
+        "James Robinson"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2020-09-27",
+     "time": "3:41 pm",
+     "sides": [
+      {
+       "manager": "Erwan",
+       "team": "ERWAN",
+       "received": [
+        "DeSean Jackson"
+       ]
+      },
+      {
+       "manager": "babttz",
+       "team": ".",
+       "received": [
+        "Carson Wentz"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2020-09-29",
+     "time": "6:06 pm",
+     "sides": [
+      {
+       "manager": "Olivier",
+       "team": "The energy's team",
+       "received": [
+        "Austin Ekeler",
+        "Will Fuller V"
+       ]
+      },
+      {
+       "manager": "babttz",
+       "team": ".",
+       "received": [
+        "John Brown",
+        "Christian McCaffrey"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2020-10-07",
+     "time": "6:51 pm",
+     "sides": [
+      {
+       "manager": "Erwan",
+       "team": "ERWAN",
+       "received": [
+        "Devonta Freeman",
+        "Anthony Miller"
+       ]
+      },
+      {
+       "manager": "Olivier",
+       "team": "The energy's team",
+       "received": [
+        "Odell Beckham Jr."
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2020-10-07",
+     "time": "6:51 pm",
+     "sides": [
+      {
+       "manager": "Erwan",
+       "team": "ERWAN",
+       "received": [
+        "John Brown",
+        "Rex Burkhead",
+        "Rob Gronkowski"
+       ]
+      },
+      {
+       "manager": "babttz",
+       "team": ".",
+       "received": [
+        "Kenyan Drake",
+        "Tyler Eifert"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2020-10-17",
+     "time": "8:43 pm",
+     "sides": [
+      {
+       "manager": "Birama",
+       "team": "Ethan Hunt",
+       "received": [
+        "Noah Fant"
+       ]
+      },
+      {
+       "manager": "Louis François",
+       "team": "Big Pimping",
+       "received": [
+        "Hayden Hurst"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2020-10-21",
+     "time": "4:46 pm",
+     "sides": [
+      {
+       "manager": "Olivier",
+       "team": "The energy's team",
+       "received": [
+        "J.D. McKissic",
+        "Carson Wentz"
+       ]
+      },
+      {
+       "manager": "babttz",
+       "team": ".",
+       "received": [
+        "Robert Tonyan",
+        "Brian Hill"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2020-10-22",
+     "time": "5:41 pm",
+     "sides": [
+      {
+       "manager": "Erwan",
+       "team": "ERWAN",
+       "received": [
+        "Boston Scott",
+        "DJ Moore"
+       ]
+      },
+      {
+       "manager": "Birama",
+       "team": "Ethan Hunt",
+       "received": [
+        "Terry McLaurin"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2020-10-28",
+     "time": "7:46 pm",
+     "sides": [
+      {
+       "manager": "Erwan",
+       "team": "ERWAN",
+       "received": [
+        "Cam Newton",
+        "Brandin Cooks"
+       ]
+      },
+      {
+       "manager": "Mat",
+       "team": "The Overachievers",
+       "received": [
+        "Tom Brady"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2020-11-01",
+     "time": "4:36 pm",
+     "sides": [
+      {
+       "manager": "Erwan",
+       "team": "ERWAN",
+       "received": [
+        "Sterling Shepard",
+        "Jerick McKinnon"
+       ]
+      },
+      {
+       "manager": "babttz",
+       "team": ".",
+       "received": [
+        "Nick Chubb"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2020-11-01",
+     "time": "4:54 pm",
+     "sides": [
+      {
+       "manager": "Erwan",
+       "team": "ERWAN",
+       "received": [
+        "Giovani Bernard",
+        "Sterling Shepard"
+       ]
+      },
+      {
+       "manager": "babttz",
+       "team": ".",
+       "received": [
+        "Nick Chubb"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2020-11-01",
+     "time": "6:24 pm",
+     "sides": [
+      {
+       "manager": "Erwan",
+       "team": "ERWAN",
+       "received": [
+        "Malcolm Brown",
+        "Antonio Gibson",
+        "CeeDee Lamb"
+       ]
+      },
+      {
+       "manager": "Toughness",
+       "team": "Saitaaaama 🤜🏾",
+       "received": [
+        "Nick Chubb",
+        "Robert Woods"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2020-11-11",
+     "time": "11:15 pm",
+     "sides": [
+      {
+       "manager": "Mountaga",
+       "team": "Banana Kings",
+       "received": [
+        "James White",
+        "Raheem Mostert"
+       ]
+      },
+      {
+       "manager": "Magatte",
+       "team": "Sneaky slayer's",
+       "received": [
+        "Jamaal Williams",
+        "Sony Michel"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2020-11-14",
+     "time": "11:22 am",
+     "sides": [
+      {
+       "manager": "Abdoulaye",
+       "team": "Binaries",
+       "received": [
+        "Zack Moss",
+        "John Brown"
+       ]
+      },
+      {
+       "manager": "Birama",
+       "team": "Ethan Hunt",
+       "received": [
+        "David Montgomery"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2020-11-14",
+     "time": "9:23 pm",
+     "sides": [
+      {
+       "manager": "Abdoulaye",
+       "team": "Binaries",
+       "received": [
+        "David Johnson",
+        "Jerry Jeudy"
+       ]
+      },
+      {
+       "manager": "YeezyJr",
+       "team": "Quack Attack",
+       "received": [
+        "Zack Moss",
+        "Jamison Crowder"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "year": 2021,
+   "leagueId": "75892",
+   "sourceUrl": "https://football.fantasysports.yahoo.com/2021/f1/75892/transactions?transactionsfilter=trade",
+   "tradeCount": 6,
+   "trades": [
+    {
+     "date": "2021-09-22",
+     "time": "1:06 pm",
+     "sides": [
+      {
+       "manager": "Tamsir",
+       "team": "Flemme",
+       "received": [
+        "Jack Doyle"
+       ]
+      },
+      {
+       "manager": "Birama",
+       "team": "The Bad Man",
+       "received": [
+        "Trey Sermon"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2021-09-23",
+     "time": "4:49 pm",
+     "sides": [
+      {
+       "manager": "babttz",
+       "team": "G.O.A.T.",
+       "received": [
+        "Calvin Ridley",
+        "Terrace Marshall Jr.",
+        "Tyler Bass"
+       ]
+      },
+      {
+       "manager": "Erwan",
+       "team": "ERWAN",
+       "received": [
+        "Antonio Gibson",
+        "Kenny Golladay",
+        "Ty'Son Williams",
+        "Brandon McManus"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2021-10-06",
+     "time": "11:14 am",
+     "sides": [
+      {
+       "manager": "babttz",
+       "team": "G.O.A.T.",
+       "received": [
+        "Emmanuel Sanders"
+       ]
+      },
+      {
+       "manager": "Abdoulaye",
+       "team": "Binaries",
+       "received": [
+        "Jamison Crowder"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2021-11-16",
+     "time": "11:24 pm",
+     "sides": [
+      {
+       "manager": "Toughness",
+       "team": "Saitaaaama 🤜🏾",
+       "received": [
+        "Cam Newton",
+        "Chuba Hubbard",
+        "Devonta Freeman"
+       ]
+      },
+      {
+       "manager": "Birama",
+       "team": "The Bad Man",
+       "received": [
+        "Javonte Williams",
+        "Alexander Mattison"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2021-11-16",
+     "time": "11:32 pm",
+     "sides": [
+      {
+       "manager": "Olivier",
+       "team": "The energy's team",
+       "received": [
+        "Darrel Williams",
+        "Courtland Sutton"
+       ]
+      },
+      {
+       "manager": "Marius",
+       "team": "Elephant de Gbamph",
+       "received": [
+        "Terry McLaurin"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2021-11-20",
+     "time": "2:56 pm",
+     "sides": [
+      {
+       "manager": "Tamsir",
+       "team": "Flemme",
+       "received": [
+        "Emmanuel Sanders"
+       ]
+      },
+      {
+       "manager": "babttz",
+       "team": "G.O.A.T.",
+       "received": [
+        "Tony Pollard"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "year": 2022,
+   "leagueId": "109259",
+   "sourceUrl": "https://football.fantasysports.yahoo.com/2022/f1/109259/transactions?transactionsfilter=trade",
+   "tradeCount": 21,
+   "trades": [
+    {
+     "date": "2022-09-18",
+     "time": "11:58 am",
+     "sides": [
+      {
+       "manager": "YeezyJr",
+       "team": "Entaillade",
+       "received": [
+        "AJ Dillon"
+       ]
+      },
+      {
+       "manager": "babttz",
+       "team": "See you Again 🎶",
+       "received": [
+        "Courtland Sutton"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2022-09-18",
+     "time": "6:52 pm",
+     "sides": [
+      {
+       "manager": "Birama",
+       "team": "Yallah mooy méyé 💀⭐️",
+       "received": [
+        "Damien Harris"
+       ]
+      },
+      {
+       "manager": "YeezyJr",
+       "team": "Entaillade",
+       "received": [
+        "Sterling Shepard"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2022-09-20",
+     "time": "6:38 pm",
+     "sides": [
+      {
+       "manager": "Birama",
+       "team": "Yallah mooy méyé 💀⭐️",
+       "received": [
+        "Drake London"
+       ]
+      },
+      {
+       "manager": "Toughness",
+       "team": "Saitandaré 😵‍💫",
+       "received": [
+        "DeAndre Hopkins"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2022-09-21",
+     "time": "3:31 pm",
+     "sides": [
+      {
+       "manager": "Louis François",
+       "team": "Big Pimping ⭐️",
+       "received": [
+        "Tom Brady",
+        "Tyler Higbee"
+       ]
+      },
+      {
+       "manager": "Olivier",
+       "team": "The energy's team",
+       "received": [
+        "Dalton Schultz",
+        "James Robinson"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2022-09-26",
+     "time": "5:06 pm",
+     "sides": [
+      {
+       "manager": "Tamsir",
+       "team": "Flemme",
+       "received": [
+        "Chris Olave"
+       ]
+      },
+      {
+       "manager": "babttz",
+       "team": "See you Again 🎶",
+       "received": [
+        "Travis Etienne Jr."
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2022-09-27",
+     "time": "7:14 pm",
+     "sides": [
+      {
+       "manager": "Birama",
+       "team": "Yallah mooy méyé 💀⭐️",
+       "received": [
+        "Khalil Herbert"
+       ]
+      },
+      {
+       "manager": "Abdoulaye",
+       "team": "Binaries",
+       "received": [
+        "Zach Ertz"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2022-10-01",
+     "time": "11:59 pm",
+     "sides": [
+      {
+       "manager": "Olivier",
+       "team": "The energy's team",
+       "received": [
+        "Terry McLaurin"
+       ]
+      },
+      {
+       "manager": "Marius",
+       "team": "MahomesKelceGang",
+       "received": [
+        "Keenan Allen"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2022-10-05",
+     "time": "12:53 pm",
+     "sides": [
+      {
+       "manager": "Marius",
+       "team": "MahomesKelceGang",
+       "received": [
+        "Dalton Schultz"
+       ]
+      },
+      {
+       "manager": "Olivier",
+       "team": "The energy's team",
+       "received": [
+        "Hayden Hurst"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2022-10-18",
+     "time": "1:54 pm",
+     "sides": [
+      {
+       "manager": "Birama",
+       "team": "Yallah mooy méyé 💀⭐️",
+       "received": [
+        "Taysom Hill"
+       ]
+      },
+      {
+       "manager": "Abdoulaye",
+       "team": "Binaries",
+       "received": [
+        "Russell Wilson"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2022-10-19",
+     "time": "3:48 pm",
+     "sides": [
+      {
+       "manager": "Birama",
+       "team": "Yallah mooy méyé 💀⭐️",
+       "received": [
+        "Jerry Jeudy"
+       ]
+      },
+      {
+       "manager": "Tamsir",
+       "team": "Flemme",
+       "received": [
+        "Damien Harris"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2022-10-21",
+     "time": "10:34 am",
+     "sides": [
+      {
+       "manager": "Birama",
+       "team": "Yallah mooy méyé 💀⭐️",
+       "received": [
+        "Michael Thomas"
+       ]
+      },
+      {
+       "manager": "Louis François",
+       "team": "Big Pimping ⭐️",
+       "received": [
+        "David Montgomery"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2022-10-25",
+     "time": "10:44 pm",
+     "sides": [
+      {
+       "manager": "Tamsir",
+       "team": "Flemme",
+       "received": [
+        "JuJu Smith-Schuster"
+       ]
+      },
+      {
+       "manager": "babttz",
+       "team": "See you Again 🎶",
+       "received": [
+        "Gus Edwards",
+        "Damien Harris"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2022-10-28",
+     "time": "9:39 am",
+     "sides": [
+      {
+       "manager": "Birama",
+       "team": "Yallah mooy méyé 💀⭐️",
+       "received": [
+        "David Montgomery"
+       ]
+      },
+      {
+       "manager": "Louis François",
+       "team": "Big Pimping ⭐️",
+       "received": [
+        "Michael Thomas"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2022-11-01",
+     "time": "8:47 am",
+     "sides": [
+      {
+       "manager": "babttz",
+       "team": "See you Again 🎶",
+       "received": [
+        "Jonathan Taylor",
+        "Amon-Ra St. Brown"
+       ]
+      },
+      {
+       "manager": "Olivier",
+       "team": "The energy's team",
+       "received": [
+        "Christian Kirk",
+        "D'Andre Swift"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2022-11-02",
+     "time": "9:55 pm",
+     "sides": [
+      {
+       "manager": "Birama",
+       "team": "Yallah mooy méyé 💀⭐️",
+       "received": [
+        "Amon-Ra St. Brown"
+       ]
+      },
+      {
+       "manager": "babttz",
+       "team": "See you Again 🎶",
+       "received": [
+        "CeeDee Lamb"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2022-11-05",
+     "time": "6:28 pm",
+     "sides": [
+      {
+       "manager": "Marius",
+       "team": "MahomesKelceGang",
+       "received": [
+        "Jerry Jeudy",
+        "David Montgomery",
+        "Kenyan Drake"
+       ]
+      },
+      {
+       "manager": "Birama",
+       "team": "Yallah mooy méyé 💀⭐️",
+       "received": [
+        "Dalton Schultz",
+        "Keenan Allen"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2022-11-09",
+     "time": "1:00 pm",
+     "sides": [
+      {
+       "manager": "Birama",
+       "team": "Yallah mooy méyé 💀⭐️",
+       "received": [
+        "Jeff Wilson Jr."
+       ]
+      },
+      {
+       "manager": "Tamsir",
+       "team": "Flemme",
+       "received": [
+        "Dalton Schultz"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2022-11-17",
+     "time": "8:29 am",
+     "sides": [
+      {
+       "manager": "Abdoulaye",
+       "team": "Binaries",
+       "received": [
+        "Allen Robinson",
+        "Jamaal Williams"
+       ]
+      },
+      {
+       "manager": "Magatte",
+       "team": "Odds slayer",
+       "received": [
+        "Garrett Wilson",
+        "Tyler Allgeier"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2022-11-18",
+     "time": "11:18 pm",
+     "sides": [
+      {
+       "manager": "Tamsir",
+       "team": "Flemme",
+       "received": [
+        "Parris Campbell",
+        "Hollywood Brown"
+       ]
+      },
+      {
+       "manager": "Mat",
+       "team": "Hunters",
+       "received": [
+        "Odell Beckham Jr.",
+        "D'Onta Foreman"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2022-11-19",
+     "time": "9:16 pm",
+     "sides": [
+      {
+       "manager": "YeezyJr",
+       "team": "Entaillade",
+       "received": [
+        "George Pickens"
+       ]
+      },
+      {
+       "manager": "Birama",
+       "team": "Yallah mooy méyé 💀⭐️",
+       "received": [
+        "Kyle Pitts Sr."
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2022-11-23",
+     "time": "4:06 pm",
+     "sides": [
+      {
+       "manager": "Toughness",
+       "team": "Saitandaré 😵‍💫",
+       "received": [
+        "Jaylen Waddle"
+       ]
+      },
+      {
+       "manager": "Louis François",
+       "team": "Big Pimping ⭐️",
+       "received": [
+        "Tee Higgins",
+        "Latavius Murray"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "year": 2023,
+   "leagueId": "767350",
+   "sourceUrl": "https://football.fantasysports.yahoo.com/2023/f1/767350/transactions?transactionsfilter=trade",
+   "tradeCount": 14,
+   "trades": [
+    {
+     "date": "2023-09-15",
+     "time": "3:53 pm",
+     "sides": [
+      {
+       "manager": "babttz",
+       "team": "BaKeneBauer",
+       "received": [
+        "DK Metcalf"
+       ]
+      },
+      {
+       "manager": "Marius",
+       "team": "AbraKamara",
+       "received": [
+        "Alvin Kamara"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2023-09-16",
+     "time": "12:42 pm",
+     "sides": [
+      {
+       "manager": "babttz",
+       "team": "BaKeneBauer",
+       "received": [
+        "Travis Etienne Jr."
+       ]
+      },
+      {
+       "manager": "Louis François",
+       "team": "No more pimping",
+       "received": [
+        "Rachaad White",
+        "DK Metcalf"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2023-09-21",
+     "time": "2:16 am",
+     "sides": [
+      {
+       "manager": "Olivier",
+       "team": "The energy's team",
+       "received": [
+        "DJ Moore",
+        "Travis Etienne Jr."
+       ]
+      },
+      {
+       "manager": "babttz",
+       "team": "BaKeneBauer",
+       "received": [
+        "A.J. Brown",
+        "Mike Williams"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2023-09-26",
+     "time": "5:52 pm",
+     "sides": [
+      {
+       "manager": "Ado",
+       "team": "Estocade ⚔️😤",
+       "received": [
+        "Tank Dell"
+       ]
+      },
+      {
+       "manager": "babttz",
+       "team": "BaKeneBauer",
+       "received": [
+        "Javonte Williams"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2023-10-04",
+     "time": "7:00 pm",
+     "sides": [
+      {
+       "manager": "Birama",
+       "team": "The Bad Man",
+       "received": [
+        "DK Metcalf"
+       ]
+      },
+      {
+       "manager": "Louis François",
+       "team": "No more pimping",
+       "received": [
+        "Alexander Mattison"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2023-10-05",
+     "time": "8:06 am",
+     "sides": [
+      {
+       "manager": "Olivier",
+       "team": "The energy's team",
+       "received": [
+        "Jahmyr Gibbs",
+        "DK Metcalf"
+       ]
+      },
+      {
+       "manager": "Birama",
+       "team": "The Bad Man",
+       "received": [
+        "Travis Etienne Jr."
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2023-10-25",
+     "time": "9:07 am",
+     "sides": [
+      {
+       "manager": "Olivier",
+       "team": "The energy's team",
+       "received": [
+        "Hollywood Brown",
+        "Isiah Pacheco"
+       ]
+      },
+      {
+       "manager": "Abdoulaye",
+       "team": "Binaries",
+       "received": [
+        "DJ Moore",
+        "Miles Sanders"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2023-10-26",
+     "time": "9:17 am",
+     "sides": [
+      {
+       "manager": "Toughness",
+       "team": "Saitaamaaa",
+       "received": [
+        "James Cook III",
+        "Jordan Addison"
+       ]
+      },
+      {
+       "manager": "babttz",
+       "team": "BaKeneBauer",
+       "received": [
+        "Joe Mixon",
+        "Courtland Sutton"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2023-10-26",
+     "time": "8:46 pm",
+     "sides": [
+      {
+       "manager": "Louis François",
+       "team": "No more pimping",
+       "received": [
+        "Jaxon Smith-Njigba"
+       ]
+      },
+      {
+       "manager": "Tamsir",
+       "team": "Flemme",
+       "received": [
+        "Emari Demercado"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2023-11-01",
+     "time": "9:02 am",
+     "sides": [
+      {
+       "manager": "Birama",
+       "team": "The Bad Man",
+       "received": [
+        "Will Levis"
+       ]
+      },
+      {
+       "manager": "Magatte",
+       "team": "Odds slayer",
+       "received": [
+        "Logan Thomas"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2023-11-07",
+     "time": "8:55 pm",
+     "sides": [
+      {
+       "manager": "Louis François",
+       "team": "No more pimping",
+       "received": [
+        "Hollywood Brown"
+       ]
+      },
+      {
+       "manager": "Olivier",
+       "team": "The energy's team",
+       "received": [
+        "Alexander Mattison"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2023-11-07",
+     "time": "11:52 pm",
+     "sides": [
+      {
+       "manager": "Birama",
+       "team": "The Bad Man",
+       "received": [
+        "Hollywood Brown"
+       ]
+      },
+      {
+       "manager": "Louis François",
+       "team": "No more pimping",
+       "received": [
+        "Christian Kirk"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2023-11-14",
+     "time": "7:16 pm",
+     "sides": [
+      {
+       "manager": "Louis François",
+       "team": "No more pimping",
+       "received": [
+        "Trevor Lawrence"
+       ]
+      },
+      {
+       "manager": "Olivier",
+       "team": "The energy's team",
+       "received": [
+        "Brock Purdy"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2023-11-14",
+     "time": "11:25 pm",
+     "sides": [
+      {
+       "manager": "babttz",
+       "team": "BaKeneBauer",
+       "received": [
+        "DeAndre Hopkins",
+        "Tony Pollard"
+       ]
+      },
+      {
+       "manager": "Abdoulaye",
+       "team": "Binaries",
+       "received": [
+        "Joe Mixon",
+        "Jake Ferguson",
+        "Jerome Ford"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "year": 2024,
+   "leagueId": "534755",
+   "sourceUrl": "https://football.fantasysports.yahoo.com/2024/f1/534755/transactions?transactionsfilter=trade",
+   "tradeCount": 7,
+   "trades": [
+    {
+     "date": "2024-09-26",
+     "time": "12:04 am",
+     "sides": [
+      {
+       "manager": "Marius",
+       "team": "Fill my Kupp",
+       "received": [
+        "Patrick Mahomes",
+        "Jonathan Taylor",
+        "Andrei Iosivas"
+       ]
+      },
+      {
+       "manager": "Abdoulaye",
+       "team": "Binaries",
+       "received": [
+        "Joe Burrow",
+        "James Conner",
+        "Diontae Johnson"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2024-09-26",
+     "time": "9:01 pm",
+     "sides": [
+      {
+       "manager": "Louis François",
+       "team": "OG PIMPS",
+       "received": [
+        "Zack Moss"
+       ]
+      },
+      {
+       "manager": "babttz",
+       "team": "FC Backup 🎃",
+       "received": [
+        "Brian Robinson"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2024-10-05",
+     "time": "12:07 am",
+     "sides": [
+      {
+       "manager": "babttz",
+       "team": "FC Backup 🎃",
+       "received": [
+        "Travis Etienne Jr."
+       ]
+      },
+      {
+       "manager": "Ado",
+       "team": "Estocade ⚔️😤💪🏾",
+       "received": [
+        "Jordan Addison"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2024-10-05",
+     "time": "9:27 pm",
+     "sides": [
+      {
+       "manager": "Tamsir",
+       "team": "Flemme",
+       "received": [
+        "Tank Bigsby"
+       ]
+      },
+      {
+       "manager": "Birama",
+       "team": "The Bad Man",
+       "received": [
+        "Tyrone Tracy Jr."
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2024-10-05",
+     "time": "10:52 pm",
+     "sides": [
+      {
+       "manager": "Birama",
+       "team": "The Bad Man",
+       "received": [
+        "Javonte Williams",
+        "Puka Nacua"
+       ]
+      },
+      {
+       "manager": "Abdoulaye",
+       "team": "Binaries",
+       "received": [
+        "Tony Pollard",
+        "Jayden Daniels"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2024-10-29",
+     "time": "9:13 am",
+     "sides": [
+      {
+       "manager": "Mat",
+       "team": "Hunters",
+       "received": [
+        "Kareem Hunt"
+       ]
+      },
+      {
+       "manager": "babttz",
+       "team": "FC Backup 🎃",
+       "received": [
+        "Chris Olave"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2024-11-14",
+     "time": "11:58 am",
+     "sides": [
+      {
+       "manager": "Louis François",
+       "team": "OG PIMPS",
+       "received": [
+        "Travis Etienne Jr."
+       ]
+      },
+      {
+       "manager": "babttz",
+       "team": "FC Backup 🎃",
+       "received": [
+        "Bucky Irving"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "year": 2025,
+   "leagueId": "518783",
+   "sourceUrl": "https://football.fantasysports.yahoo.com/2025/f1/518783/transactions?transactionsfilter=trade",
+   "tradeCount": 11,
+   "trades": [
+    {
+     "date": "2025-09-23",
+     "time": "2:27 pm",
+     "sides": [
+      {
+       "manager": "Tamsir",
+       "team": "Flemme",
+       "received": [
+        "Bucky Irving"
+       ]
+      },
+      {
+       "manager": "babttz",
+       "team": "Boukki 🦅",
+       "received": [
+        "CeeDee Lamb"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2025-09-24",
+     "time": "6:29 pm",
+     "sides": [
+      {
+       "manager": "Birama",
+       "team": "The Bad Man",
+       "received": [
+        "Tucker Kraft"
+       ]
+      },
+      {
+       "manager": "Louis François",
+       "team": "Roc boyz",
+       "received": [
+        "D'Andre Swift"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2025-10-04",
+     "time": "5:05 pm",
+     "sides": [
+      {
+       "manager": "Olivier",
+       "team": "The energy's team",
+       "received": [
+        "J.K. Dobbins",
+        "Mark Andrews"
+       ]
+      },
+      {
+       "manager": "babttz",
+       "team": "Boukki 🦅",
+       "received": [
+        "Brock Bowers"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2025-10-05",
+     "time": "2:54 pm",
+     "sides": [
+      {
+       "manager": "Birama",
+       "team": "The Bad Man",
+       "received": [
+        "Keenan Allen"
+       ]
+      },
+      {
+       "manager": "Tamsir",
+       "team": "Flemme",
+       "received": [
+        "Rachaad White"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2025-10-07",
+     "time": "9:11 pm",
+     "sides": [
+      {
+       "manager": "Ado",
+       "team": "Estocade ⚔️😤💪🏾",
+       "received": [
+        "Keon Coleman"
+       ]
+      },
+      {
+       "manager": "babttz",
+       "team": "Boukki 🦅",
+       "received": [
+        "Ollie Gordon II"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2025-10-15",
+     "time": "7:00 pm",
+     "sides": [
+      {
+       "manager": "Louis François",
+       "team": "Roc boyz",
+       "received": [
+        "Romeo Doubs"
+       ]
+      },
+      {
+       "manager": "Birama",
+       "team": "The Bad Man",
+       "received": [
+        "Kenneth Walker III"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2025-10-28",
+     "time": "11:11 pm",
+     "sides": [
+      {
+       "manager": "Abdoulaye",
+       "team": "Binaries",
+       "received": [
+        "Rhamondre Stevenson"
+       ]
+      },
+      {
+       "manager": "Marius",
+       "team": "The JeantyMan",
+       "received": [
+        "Trey Benson",
+        "Chris Godwin Jr."
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2025-10-31",
+     "time": "6:06 pm",
+     "sides": [
+      {
+       "manager": "Birama",
+       "team": "The Bad Man",
+       "received": [
+        "Rome Odunze",
+        "Jahmyr Gibbs"
+       ]
+      },
+      {
+       "manager": "Olivier",
+       "team": "The energy's team",
+       "received": [
+        "Amon-Ra St. Brown",
+        "Keenan Allen"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2025-10-31",
+     "time": "10:46 pm",
+     "sides": [
+      {
+       "manager": "Birama",
+       "team": "The Bad Man",
+       "received": [
+        "Chris Godwin Jr."
+       ]
+      },
+      {
+       "manager": "Marius",
+       "team": "The JeantyMan",
+       "received": [
+        "Alvin Kamara"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2025-11-16",
+     "time": "12:57 pm",
+     "sides": [
+      {
+       "manager": "Birama",
+       "team": "The Bad Man",
+       "received": [
+        "Alvin Kamara"
+       ]
+      },
+      {
+       "manager": "Marius",
+       "team": "The JeantyMan",
+       "received": [
+        "Parker Washington"
+       ]
+      }
+     ]
+    },
+    {
+     "date": "2025-11-18",
+     "time": "8:38 pm",
+     "sides": [
+      {
+       "manager": "Mat",
+       "team": "Hunters",
+       "received": [
+        "Kenneth Walker III"
+       ]
+      },
+      {
+       "manager": "Birama",
+       "team": "The Bad Man",
+       "received": [
+        "RJ Harvey"
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}
