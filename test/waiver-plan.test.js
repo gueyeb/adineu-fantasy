@@ -107,9 +107,9 @@ test("plan rejects a free-agent action carrying an auction charge", () => {
 test("plan candidates do not depend on a display limit, and every player the plan names can be listed", () => {
   const market = Array.from({ length: 40 }, (_, i) => ({ sleeperId: `d${i}`, position: i % 2 ? "DEF" : "K", poolEntry: { pinned: i === 39 } }));
   const selected = selectPlanCandidates(market);
-  assert.equal(selected.filter(row => row.position === "K").length, PLAN_CANDIDATES_PER_POSITION);
-  // Position DEF : 15 premiers + le joueur maintenu au board.
-  assert.equal(selected.filter(row => row.position === "DEF").length, PLAN_CANDIDATES_PER_POSITION + 1);
+  assert.equal(selected.filter(row => row.position === "K").length, 20);
+  // Tous les streamers restent évalués, indépendamment de la limite du board.
+  assert.equal(selected.filter(row => row.position === "DEF").length, 20);
   assert.deepEqual(selectPlanCandidates(market).map(row => row.sleeperId), selected.map(row => row.sleeperId));
   assert.deepEqual([...planPlayerIds({ steps: [{ playerId: "a" }], claimPortfolio: { groups: [{ claims: [{ playerId: "b" }, { playerId: "a" }] }] } })], ["a", "b"]);
   assert.equal(planPlayerIds(null).size, 0);

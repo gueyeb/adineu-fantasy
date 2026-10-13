@@ -49,6 +49,7 @@ function runGreedyPlan({ candidates, myPlayers, faabRemaining, evaluateCandidate
     const bid = Math.floor(chosen.waiver.suggestedBid);
     const dependsOnPlayerIds = steps.map(step => step.playerId);
     steps.push({ playerId: String(chosen.sleeperId), name: chosen.name, position: chosen.position,
+      dropCostComponents: fit.dropCostComponents ?? null,
       teRosterUtility: chosen.teRosterUtility ?? null,
       roleConfirmation: chosen.waiver.roleConfirmation ?? "NOT_APPLICABLE",
       recommendedAction: chosen.waiver.decision.recommendedAction, dropCandidate: fit.dropCandidate,
@@ -75,7 +76,7 @@ function runGreedyPlan({ candidates, myPlayers, faabRemaining, evaluateCandidate
 const resourceOf = row => String(row.waiver.fit.dropCandidate?.sleeperId ?? 'OPEN_ROSTER_SLOT');
 const processTime = row => Date.parse(row.availability.waiverProcessesAt);
 const groupKey = row => JSON.stringify([resourceOf(row), processTime(row)]);
-const claimView = row => ({ teRosterUtility: row.teRosterUtility ?? null, playerId: String(row.sleeperId), name: row.name, position: row.position,
+const claimView = row => ({ dropCostComponents: row.waiver.fit.dropCostComponents ?? null, teRosterUtility: row.teRosterUtility ?? null, playerId: String(row.sleeperId), name: row.name, position: row.position,
   recommendedAction: row.waiver.decision.recommendedAction, decisionClass: row.waiver.decision.decisionClass ?? null,
   suggestedBid: row.waiver.suggestedBid, personalMaxBid: row.waiver.personalMaxBid,
   targetWeekDelta: row.waiver.fit.targetWeekDelta, netGainTotal: row.waiver.fit.netGainTotal,
@@ -92,7 +93,7 @@ export function selectPlanCandidates(marketRows, perPosition = PLAN_CANDIDATES_P
   const counts = {};
   return marketRows.filter(row => {
     counts[row.position] = (counts[row.position] || 0) + 1;
-    return counts[row.position] <= perPosition || row.poolEntry?.pinned;
+    return ["QB", "K", "DEF"].includes(row.position) || counts[row.position] <= perPosition || row.poolEntry?.pinned;
   });
 }
 /** Every player the plan names, steps and alternative claims included. */

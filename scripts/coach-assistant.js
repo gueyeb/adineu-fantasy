@@ -1,4 +1,5 @@
 import { formatLineupMovements } from "./lineup-movements.js";
+import { summarizeDecisionProvenance, formatProvenanceSummary } from './decision-provenance.js';
 import { formatTeRosterUtility } from './te-roster-utility.js';
 import { formatClaimPortfolio } from '../public/assets/waiver-plan.js';
 import { formatProjectionComparison } from './projection-comparison.js';
@@ -21,6 +22,10 @@ export function normalizeCoachPreferences(input = {}) {
 
 function compactWaiver(player) {
   return {
+    provenance: player.provenance ?? null,
+    weekProjection: player.weekProjection ?? null, rosPpg: player.rosPpg ?? null,
+    usageScore: player.usageScore ?? null,
+    dropCostComponents: player.dropCostComponents ?? player.modelMetrics?.dropCostComponents ?? null,
     modelMetrics: player.modelMetrics ?? null,
     teRosterUtility: player.teRosterUtility ?? null,
     starterVacancyScenario: player.starterVacancyScenario ?? null,
@@ -87,6 +92,13 @@ export function buildCoachPlan({ decisionContext, trades, preferences = {} }) {
   if (trade) priorities.push({ type: "TRADE", level: "OPTION", title: "Explorer un trade", detail: trade.partnerName });
   if (!priorities.length) priorities.push({ type: "HOLD", level: "OK", title: "Conserver le roster", detail: "Aucun gain net identifié" });
 
+  const rosterNames = new Map(['starters', 'bench', 'ir'].flatMap(group => team[group] || [])
+    .map(entry => entry.player || entry).filter(Boolean).map(player => [String(player.sleeperId), player.name]));
+  const projectionCoverage = summarizeDecisionProvenance({
+    roster: (context.rosterProvenance || []).map(row => ({ ...row, name: rosterNames.get(String(row.playerId)) })),
+    candidates: context.candidateProvenance || []
+  });
+
   return {
     decisionScope: context.decisionScope ?? null,
     coherence: context.coherence ?? null,
@@ -100,7 +112,10 @@ export function buildCoachPlan({ decisionContext, trades, preferences = {} }) {
       faabPosture: context.strategyState?.faabPosture || "UNKNOWN",
       benchFlexibility: context.strategyState?.benchFlexibility || "UNKNOWN"
     },
-    priorities,
+    priorities: priorities.slice(0, 3),
+    roster: { starters: team.starters || [], bench: team.bench || [], ir: team.ir || [] },
+    projectionCoverage,
+    projectionDiagnostics: ['roster', 'candidates'].flatMap(scope => projectionCoverage[scope].gaps.map(row => ({ ...row, scope }))),
     lineup: { alerts: context.lineup?.alerts || [], optimal },
     waiverActions,
     acquisitionPlan: context.acquisitionPlan ?? null,
@@ -173,5 +188,10 @@ export function formatCoachPlan(plan) {
     ...(plan.lineup.optimal?.changes ?? []).flatMap(change => [change.in?.sleeperId, change.out?.sleeperId])].filter(Boolean);
   const comparisonLines = formatProjectionComparison(plan.projectionComparison, comparisonIds);
   if (comparisonLines.length) lines.push('', ...comparisonLines);
+  const cutWarnings = [...(plan.acquisitionPlan?.steps || []), ...Object.values(plan.waiverActions).flat()]
+    .filter(row => row.dropCostComponents?.unpricedCutPotential || row.modelMetrics?.dropCostComponents?.unpricedCutPotential);
+  const cutNames = [...new Set(cutWarnings.map(row => row.dropCandidate?.name || 'coupe proposée'))];
+  if (cutNames.length) lines.push('', `⚠ Potentiel de coupe non chiffré : ${cutNames.join(', ')}. Le gain net exclut ce potentiel ; comparer une autre coupe avant décision.`);
+  if (plan.projectionCoverage) lines.push('', ...formatProvenanceSummary(plan.projectionCoverage));
   return lines.join("\n");
 }

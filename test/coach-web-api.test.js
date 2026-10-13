@@ -128,3 +128,13 @@ test("the War Room header forwards validated ids only and the plan returns their
   assert.deepEqual(plan.watchlist, plain.watchlist);
   assert.equal(plan.message, plain.message);
 });
+
+test('version fingerprints key sources while health response remains compatible', async t => {
+  const server=createAppServer();
+  server.listen(0,'127.0.0.1'); await once(server,'listening'); t.after(()=>server.close());
+  const base=`http://127.0.0.1:${server.address().port}`;
+  const version=await (await fetch(`${base}/api/version`)).json();
+  assert.match(version.sourceFingerprint,/^[a-f0-9]{64}$/);
+  assert.match(version.files['public/assets/waiver-board.js'],/^[a-f0-9]{64}$/);
+  assert.deepEqual(await (await fetch(`${base}/api/health`)).json(),{status:'ok'});
+});

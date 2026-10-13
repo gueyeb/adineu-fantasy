@@ -1,3 +1,4 @@
+import { renderPublicWeek } from "./public-week.js?v=fc4f03d802";
 import { buildSharedPlayoffContext } from "./playoff-context.js?v=b02b31def6";
 import { calculatePowerRankings, MINIMUM_COMPLETED_WEEKS, POWER_WEIGHTS } from "./power-rankings.js?v=86d062a9e8";
 import {
@@ -10,7 +11,7 @@ import {
   sleeperManager
 } from "./rivalry-week.js?v=714a861458";
 import { renderTradesPage } from "./trade-ui.js?v=25a4e524de";
-import { renderMatchupsHub } from "./matchups-live.js?v=a49f5d6e63";
+import { renderMatchupsHub } from "./matchups-live.js?v=3e9469ad7e";
 import { calculatePlayoffRace } from "./playoff-race.js?v=52283bf11a";
 import { calculateLuck, calculateRankHistory } from "./standings-luck.js?v=7363afbb9e";
 import { resolveOperationalWeek } from "./nfl-week.js?v=8f9fa3f5b2";
@@ -376,6 +377,11 @@ async function renderHome(data) {
       </aside>
     </div></section>
 
+    <section class="section public-week-section"><div class="shell">
+      <div class="section-head"><div><p class="eyebrow">Le rendez-vous de la ligue</p><h2>Cette semaine dans ADINEU.</h2></div><a class="source-link" href="/matchups/#recap">Récap complet →</a></div>
+      <div id="public-week" aria-live="polite"><p class="state">Chargement de la dernière semaine terminée…</p></div>
+    </div></section>
+
     <section class="section"><div class="shell">
       <div class="stat-grid">
         <div class="stat"><strong>${seasons.length}</strong><span>Saisons archivées</span></div>
@@ -395,6 +401,7 @@ async function renderHome(data) {
         <a class="feature" href="/history/"><span class="feature-kicker">2019 → 2025</span><h3>Saison par saison</h3><p>Les participants réels, les classements complets et les podiums.</p><span class="feature-number">19</span></a>
       </div>
     </div></section>`;
+  void renderPublicWeek(document.getElementById("public-week"));
 }
 
 async function renderStandings(data) {

@@ -18,6 +18,8 @@ francophones). Il répond à trois besoins :
 À terme, l'outil pourrait être ouvert au grand public (toute ligue Sleeper). Ce n'est **pas**
 la priorité actuelle ; les sources commerciales (FantasyPros, etc.) sont reportées.
 
+Ajout du 07/10 : une **vue publique pour les visiteurs hors ligue** est au backlog. Elle résume cette ligue (résultats, classement, awards et explications), sans accès au Coach privé. Elle ne suppose pas une ouverture multi-ligues. Nice-to-haves : weekly awards et notes de draft après saison. [Contrat](prd-public-weekly-awards.md).
+
 Production : https://adineu-fantasy.bakene.tech/
 
 ## 2. Principes non négociables

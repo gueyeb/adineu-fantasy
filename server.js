@@ -36,7 +36,8 @@ import { buildDecisionContext, formatDecisionContext } from "./scripts/ai-contex
 import { createCoachAuth } from "./scripts/coach-auth.js";
 import { parseWatchIds } from "./public/assets/war-room.js";
 import { createSupabaseFromEnv, getLatestFeedback, runWeeklyJob } from "./scripts/model-tracking.js";
-import { timingSafeEqual } from "node:crypto";
+import { timingSafeEqual, createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
 
 const DEFAULT_PUBLIC_ROOT = fileURLToPath(new URL("./public", import.meta.url));
 const MIME_TYPES = {
@@ -151,6 +152,15 @@ export function createAppServer({
       return;
     }
 
+    if (url.pathname === "/api/version") {
+      const paths = ["server.js", "scripts/league-context.js", "scripts/waiver-evaluator.js", "public/assets/waiver-model.js", "public/assets/waiver-board.js", "public/assets/waiver-plan.js", "scripts/coach-assistant.js", "public/assets/coach-ui.js", "public/assets/coach-week-view.js"];
+      const files = Object.fromEntries(await Promise.all(paths.map(async path => {
+        try { return [path, createHash("sha256").update(await readFile(new URL(path, import.meta.url))).digest("hex")]; }
+        catch { return [path, null]; }
+      })));
+      sendJson(response, 200, { sourceFingerprint: createHash("sha256").update(JSON.stringify(files)).digest("hex"), files });
+      return;
+    }
     if (url.pathname === "/api/health") {
       sendJson(response, 200, { status: "ok" });
       return;
