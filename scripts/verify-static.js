@@ -40,6 +40,7 @@ const requiredAssets = [
   "assets/usage-score.js",
   "assets/weekly-leaders.js",
   "assets/trade-ledger.js",
+  "assets/defense-matchup.js",
   "data/yahoo-trades.json",
   "assets/win-probability.js",
   "assets/sleeper-client.js",

@@ -35,7 +35,7 @@ import {
   resolvePlayer
 } from "./roster-view.js?v=120de9d74d";
 import { ROSTER_SETTINGS_2026, GENERAL_SETTINGS_2026 } from "./league-settings.js?v=f6d1bf5212";
-import { calculateLeagueRosterStrength } from "./roster-strength.js?v=bfed9c00a3";
+import { calculateLeagueRosterStrength } from "./roster-strength.js?v=cb7fcc6e3d";
 import { calculatePowerRankings } from "./power-rankings.js?v=86d062a9e8";
 import { calculateAllPlayRecords } from "./all-play.js?v=99514b7ee6";
 import { calculateFaabRemaining, formatStreak, streakWinCount } from "./team-metrics.js?v=e47db97055";

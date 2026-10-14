@@ -14,8 +14,9 @@ import { pathToFileURL } from "node:url";
 import { diagnoseRoster, findTradeProposals } from "../public/assets/trade-recommender.js";
 import { resolveOperationalWeek } from "../public/assets/nfl-week.js";
 import { usageAdjustedRosPpg, projectedRosOnly } from "../public/assets/rest-of-season.js";
-import { GENERAL_SETTINGS_2026 } from "../public/assets/league-settings.js";
-import { getInjuryStatuses, getUsageReport, getWeeklyProjections } from "./league-context.js";
+import { BYE_WEEKS_2026, GENERAL_SETTINGS_2026 } from "../public/assets/league-settings.js";
+import { buildLiveMarketValues } from "../public/assets/trade-value.js";
+import { getInjuryStatuses, getPlayersIndex, getUsageReport, getWeeklyProjections } from "./league-context.js";
 
 export const DEFAULT_SLEEPER_LEAGUE_ID = process.env.SLEEPER_LEAGUE_ID || "1392715510830878721";
 const SLEEPER_API = "https://api.sleeper.app/v1";
@@ -69,9 +70,12 @@ export async function loadPlayerValues({ leagueId = DEFAULT_SLEEPER_LEAGUE_ID, f
     const rosters = await sleeperGet(`/league/${leagueId}/rosters`, { fetchImpl });
     ids = rosters.flatMap(roster => roster.players || []);
   }
+  // Players drafted or signed after the pre-draft catalog still have a position and team in Sleeper.
+  const index = await getPlayersIndex({ fetchImpl }).catch(() => new Map());
+  const infoOf = playerId => catalog.get(playerId) || index.get(playerId) || {};
   const byId = new Map();
   for (const playerId of ids) {
-    const info = catalog.get(playerId) || {};
+    const info = infoOf(playerId);
     const usage = usageById.get(playerId);
     // Same rule as the waiver engine: a player Sleeper does not project keeps the catalog-based
     // estimate (with its injury discount) instead of a value built from past volume alone.
@@ -88,6 +92,16 @@ export async function loadPlayerValues({ leagueId = DEFAULT_SLEEPER_LEAGUE_ID, f
     }
     byId.set(playerId, values);
   }
+  // Live market value (value over replacement on the rostered pool), replacing the pre-draft rank.
+  // A market values a player per game: rosPpg averages a remaining bye in as 0 (right for lineup
+  // gains), so the market reads the rate over the games he actually plays.
+  const remaining = Math.max(1, GENERAL_SETTINGS_2026.playoffWeekStart - week);
+  const perGame = (rosPpg, nflTeam) => {
+    const bye = BYE_WEEKS_2026[nflTeam];
+    return Number.isFinite(rosPpg) && bye >= week && bye < GENERAL_SETTINGS_2026.playoffWeekStart && remaining > 1 ? rosPpg * remaining / (remaining - 1) : rosPpg;
+  };
+  const { values: market } = buildLiveMarketValues([...byId].map(([playerId, values]) => ({ playerId, position: infoOf(playerId).position, rosPpg: perGame(values.rosPpg, infoOf(playerId).nflTeam) })));
+  for (const [playerId, entry] of market) Object.assign(byId.get(playerId), entry, { marketSource: "LIVE_VALUE_OVER_REPLACEMENT" });
   return { week, byId, weeklyProjections: projectionsByWeek[week] || {} };
 }
 

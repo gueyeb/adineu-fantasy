@@ -168,3 +168,16 @@ test("a backup with a stale deep rank but ≥ 50 % of the snaps suggests an unco
   assert.equal(event.duration, "UNCERTAIN");
   assert.equal(event.share, 1);
 });
+
+test("an injured player with a projected return is never offered as a cut", () => {
+  const myPlayers = [
+    { sleeperId: "ir", name: "Star on IR", position: "WR", injuryStatus: "IR", rosPpg: 12.6 },
+    { sleeperId: "gone", name: "Season over", position: "WR", injuryStatus: "IR", rosPpg: 0 },
+    { sleeperId: "bench", name: "Bench WR", position: "WR", rosPpg: 4 }
+  ];
+  const fit = evaluateRosterFit({ marketRow: { sleeperId: "fa", name: "FA", position: "WR", surplusPoints: 10 }, myPlayers,
+    paceOf: p => p.rosPpg ?? 0, week: 6, faabRemaining: 100 });
+  assert.deepEqual(fit.cutExclusions, [{ playerId: "ir", name: "Star on IR", reason: "INJURED_RETURN_EXPECTED" }]);
+  assert.ok(fit.dropCandidates.every(row => row.sleeperId !== "ir"));
+  assert.equal(fit.comparedCutCount, 2);
+});

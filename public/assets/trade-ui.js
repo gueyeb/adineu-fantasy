@@ -4,8 +4,8 @@
  * Gère le Calculateur de Trade interactif et le Moteur de Recommandations.
  */
 
-import { calculatePlayerTradeValue, calculatePlayerTradeProfile, evaluateTrade } from "./trade-value.js?v=c385666df3";
-import { diagnoseRoster, findTradeProposals, findCounterOffers } from "./trade-recommender.js?v=d2789d533e";
+import { calculatePlayerTradeValue, calculatePlayerTradeProfile, evaluateTrade } from "./trade-value.js?v=2c9caa87cf";
+import { diagnoseRoster, findTradeProposals, findCounterOffers } from "./trade-recommender.js?v=9345d0044b";
 import { addToWatchlist, removeFromWatchlist, REASON_MAX } from "./war-room.js?v=e9eae48675";
 import { loadWatchlist, saveWatchlist } from "./war-room-store.js?v=7fbca3341a";
 import { PLAYER_STATUSES, playerKey, playerStatus } from "./trade-preferences.js?v=c5fec5ce56";
@@ -17,7 +17,7 @@ import {
 import { resolveOperationalWeek } from "./nfl-week.js?v=8f9fa3f5b2";
 import { listRosterIdentities } from "./roster-view.js?v=120de9d74d";
 import { calculateFaabRemaining } from "./team-metrics.js?v=e47db97055";
-import { buildProjectedLineup, restOfSeasonEstimate } from "./trade-score.js?v=eae8f8dc83";
+import { buildProjectedLineup, restOfSeasonEstimate } from "./trade-score.js?v=7daaffafe7";
 
 import { SLEEPER_API, SLEEPER_LEAGUE_ID, sleeperGet } from "./sleeper-client.js?v=3f75d48ec5";
 const SUPABASE_URL = "https://juosrzsffvjprqhdyado.supabase.co";
@@ -784,9 +784,12 @@ export async function renderTradesPage(container) {
           </div>
           <div id="compare-chips" class="compare-chips"></div>
           <div id="compare-result" aria-live="polite"></div>` : ""}
+        <h3 style="margin:28px 0 6px; font-size:1.2rem;">Défenses : matchups et streaming</h3>
+        <div id="defense-matchups" aria-live="polite"><div class="state">Lecture des matchups défensifs…</div></div>
       </div>
     `;
     bindComparator();
+    renderDefenseMatchups(document.getElementById("defense-matchups"));
 
     document.getElementById("advisor-roster-select")?.addEventListener("change", e => {
       selectedRosterId = e.target.value;
@@ -801,6 +804,37 @@ export async function renderTradesPage(container) {
         setTimeout(() => { btn.textContent = prev; }, 2000);
       });
     });
+  }
+
+  // Défenses (docs/prd-defense-matchups.md) : pression projetée, points implicites, turnovers, horizon 2 semaines.
+  async function renderDefenseMatchups(target) {
+    if (!target) return;
+    const quadrantLabels = { STRONG_MATCHUP: "Pression + adversaire faible", SOFT_OPPONENT: "Adversaire faible", PASS_RUSH_ONLY: "Pression seule", AVOID: "À éviter", UNKNOWN: "Inconnu" };
+    try {
+      const response = await fetch("/api/defense-matchups");
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const report = await response.json();
+      const ownerOf = new Map(listRosterIdentities(rosters, users).flatMap(({ roster, teamName }) => (roster.players || []).map(id => [String(id), teamName])));
+      const num = value => value === null || value === undefined ? "—" : String(value).replace(".", ",");
+      const rows = report.defenses.map(row => `<tr>
+        <td><strong>${escapeHtml(row.defense)}</strong> <small>${row.home ? "vs" : "@"} ${escapeHtml(row.opponent)}</small></td>
+        <td>${ownerOf.has(row.defense) ? escapeHtml(ownerOf.get(row.defense)) : `<span style="color:var(--grass); font-weight:800;">Libre</span>`}</td>
+        <td class="num">${num(row.impliedOpponentPoints)}</td>
+        <td class="num" title="Adversaire ${num(row.opponentSackRateAllowed)} % concédés · défense ${num(row.defenseSackRate)} %">${num(row.projectedSackRate)} %</td>
+        <td class="num" title="Interceptions par dropback · fumbles perdus par match">${num(row.opponentInterceptionRate)} % · ${num(row.opponentFumblesLostPerGame)}</td>
+        <td class="num"><strong>${num(row.expected.total)}</strong></td>
+        <td class="num">${num(row.sleeperProjection)}</td>
+        <td>${escapeHtml(quadrantLabels[row.quadrant] || row.quadrant)}</td>
+        <td class="num" title="${escapeHtml(row.next.map(next => next.opponent ? `S${next.week} vs ${next.opponent} : ${num(next.expected)}` : `S${next.week} : bye`).join(" · "))}">${num(row.horizonExpected)}<small> / ${row.horizonWeeksPlayed} m.</small></td>
+        <td style="white-space:normal; min-width:220px;"><small>${escapeHtml([row.reliability !== "HIGH" ? `fiabilité ${row.reliability}` : null, ...row.notes].filter(Boolean).join(" · ")) || "—"}</small></td>
+      </tr>`).join("");
+      target.innerHTML = `<div class="table-wrap"><table>
+          <thead><tr><th>Défense</th><th>Détenue par</th><th class="num" title="Points de l'adversaire selon les cotes">Pts adv.</th><th class="num" title="67 % sacks concédés par l'adversaire + 33 % sacks de la défense, 8 derniers matchs">Sacks proj.</th><th class="num">TO adv.</th><th class="num" title="Estimation Adineu au barème de la ligue">Attendu</th><th class="num">Sleeper</th><th>Lecture</th><th class="num" title="Somme des scores attendus sur S${report.weeks.join("–S")}">Horizon</th><th>Contexte</th></tr></thead>
+          <tbody>${rows}</tbody></table></div>
+        <p class="note"><strong>Lecture :</strong> « Attendu » = sacks projetés + interceptions et fumbles de l'adversaire + score « points concédés » autour du total implicite des cotes + TD défensifs moyens, au barème de la ligue. C'est une estimation Adineu non calibrée, affichée à côté de la projection Sleeper, jamais à sa place. Les blessures (QB adverse, pass rush, OL) sont signalées, pas chiffrées. Sources : nflverse (stats d'équipe, cotes), Sleeper.</p>`;
+    } catch (error) {
+      target.innerHTML = `<p class="note">Matchups défensifs indisponibles (${escapeHtml(error.message)}).</p>`;
+    }
   }
 
   // Comparateur Start/Sit (benchmark Fantasy Life, lot 3) : projection, matchup DvP, usage, statut.

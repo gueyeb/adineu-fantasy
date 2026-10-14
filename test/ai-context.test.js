@@ -83,3 +83,11 @@ test("waiver decision separates league upside from an actionable roster move", (
   assert.equal(streamerWithUsageSurge.decisionClass, "STREAMER");
   assert.equal(streamerWithUsageSurge.recommendedAction, "WATCH");
 });
+
+test("an uncovered comparison with the cuts is UNDETERMINED, never IGNORE", () => {
+  const uncovered = classifyWaiverDecision({ position: "WR", marketScore: 10, netGain: 0, horizonCovered: false });
+  assert.equal(uncovered.recommendedAction, "UNDETERMINED");
+  assert.match(uncovered.interpretation, /Not a negative decision/);
+  assert.equal(classifyWaiverDecision({ position: "WR", marketScore: 10, netGain: 0, legalTransaction: false }).recommendedAction, "UNDETERMINED");
+  assert.equal(classifyWaiverDecision({ position: "WR", marketScore: 10, netGain: -1 }).recommendedAction, "IGNORE");
+});

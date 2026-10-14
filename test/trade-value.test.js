@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { calculatePlayerTradeValue, calculatePlayerTradeProfile, evaluateTrade } from "../public/assets/trade-value.js";
+import { calculatePlayerTradeValue, calculatePlayerTradeProfile, evaluateTrade, buildLiveMarketValues } from "../public/assets/trade-value.js";
 
 test("calculatePlayerTradeValue correctly values elite vs mid vs deep players", () => {
   const eliteWR = { name: "Puka Nacua", position: "WR", quality: { expertRank: 3 } };
@@ -137,3 +137,27 @@ test("evaluateTrade calculates weeklyPointsDiff alongside trade equity", () => {
   assert.ok(evaluation.sideA.blendedPpgTotal > evaluation.sideB.blendedPpgTotal);
 });
 
+
+test("buildLiveMarketValues prices weekly value over the position's replacement level", () => {
+  const rows = [
+    ...Array.from({ length: 4 }, (_, i) => ({ playerId: `rb${i}`, position: "RB", rosPpg: 20 - i * 4 })),
+    ...Array.from({ length: 3 }, (_, i) => ({ playerId: `qb${i}`, position: "QB", rosPpg: 24 - i * 2 })),
+    { playerId: "k0", position: "K", rosPpg: 30 }, { playerId: "k1", position: "K", rosPpg: 5 },
+    { playerId: "none", position: "WR", rosPpg: null }, { playerId: "idp", position: "LB", rosPpg: 9 }
+  ];
+  const { values, replacement } = buildLiveMarketValues(rows, { teams: 1 });
+  // One team: RB replacement = 3rd RB (rank round(2.5)=3 -> index 3), QB = 2nd QB.
+  assert.deepEqual(replacement, { RB: 8, QB: 22, K: 5 });
+  assert.equal(values.get("rb0").marketValue, 100);
+  assert.equal(values.get("rb3").marketValue, 1);
+  assert.equal(values.get("qb0").marketValue, Math.round(1 + 99 * 2 / 12));
+  assert.equal(values.get("k0").marketValue, 6);
+  assert.ok(!values.has("none") && !values.has("idp"));
+});
+
+test("a live market value replaces the pre-draft rank in the trade profile", () => {
+  const stale = { name: "Breakout", position: "RB", quality: { expertRank: 150 } };
+  assert.ok(calculatePlayerTradeProfile(stale).tradeValue < 10);
+  assert.equal(calculatePlayerTradeProfile({ ...stale, marketValue: 72 }).tradeValue, 72);
+  assert.equal(calculatePlayerTradeProfile({ name: "Kicker", position: "K", marketValue: 5 }).tradeValue, 5);
+});

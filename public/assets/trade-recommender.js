@@ -7,8 +7,8 @@
  * 3. Les propositions d'échange équitables avec argumentaires bilatéraux
  */
 
-import { calculatePlayerTradeValue, evaluateTrade } from "./trade-value.js?v=c385666df3";
-import { buildProjectedLineup, restOfSeasonEstimate, scoreTradeRecommendation } from "./trade-score.js?v=eae8f8dc83";
+import { calculatePlayerTradeValue, evaluateTrade } from "./trade-value.js?v=2c9caa87cf";
+import { buildProjectedLineup, restOfSeasonEstimate, scoreTradeRecommendation } from "./trade-score.js?v=7daaffafe7";
 import { playerKey, preferenceAdjustment } from "./trade-preferences.js?v=c5fec5ce56";
 
 export const KNOWN_HANDCUFFS = [

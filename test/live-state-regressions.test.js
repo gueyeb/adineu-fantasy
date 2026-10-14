@@ -88,7 +88,8 @@ test("pool: a recent cut and a sourced event enter without projection, unpriced 
     ownershipRechecked: true, transactionsComplete: true })(unpriced);
   assert.equal(evaluated.waiver.fit.netGainTotal, null);
   assert.equal(evaluated.waiver.suggestedBid, null);
-  assert.ok(["WATCH", "IGNORE"].includes(evaluated.waiver.decision.recommendedAction));
+  // Unpriced and uncovered: never a negative verdict.
+  assert.ok(["WATCH", "UNDETERMINED"].includes(evaluated.waiver.decision.recommendedAction));
   assert.ok(evaluated.waiver.decision.actionBlockers.includes("NO_PROJECTION"));
 });
 

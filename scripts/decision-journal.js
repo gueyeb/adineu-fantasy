@@ -22,7 +22,7 @@ export function validateJournalEvent(journal,event,{recordedAt=new Date().toISOS
   const recorded=Date.parse(recordedAt);
   if (!Number.isFinite(recorded) || recorded<Date.parse(recommendation.emittedAt)) throw Error('Event cannot precede recommendation');
   if (event.kind==='CHOICE') {
-    if (!['ADD','CLAIM','SKIP','KEEP','WATCH','IGNORE'].includes(event.decision) || typeof event.reason !== 'string' || !event.reason.trim() || event.reason.length>1000) throw Error('Explicit decision and reason required');
+    if (!['ADD','CLAIM','SKIP','KEEP','WATCH','UNDETERMINED','IGNORE'].includes(event.decision) || typeof event.reason !== 'string' || !event.reason.trim() || event.reason.length>1000) throw Error('Explicit decision and reason required');
     return {version:1,eventId:randomUUID(),decisionId:event.decisionId,kind:'CHOICE',recordedAt,decision:event.decision,reason:event.reason.trim()};
   }
   if (event.kind==='OUTCOME') {

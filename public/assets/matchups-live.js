@@ -2,7 +2,7 @@ import { sleeperManager } from "./rivalry-week.js?v=714a861458";
 import { buildWeeklyAwards, resolveCompletedAwardsWeek } from "./weekly-awards.js?v=af66f49349";
 import { renderWeeklyAwards } from "./weekly-awards-view.js?v=ec6cd710f4";
 import { resolveOperationalWeek } from "./nfl-week.js?v=8f9fa3f5b2";
-import { estimateBaselineProjectedPpg } from "./trade-value.js?v=c385666df3";
+import { estimateBaselineProjectedPpg } from "./trade-value.js?v=2c9caa87cf";
 import { estimatePregameWinProbability } from "./win-probability.js?v=78dcaa4abd";
 
 import { SLEEPER_API, SLEEPER_LEAGUE_ID as DEFAULT_LEAGUE_ID, sleeperGet } from "./sleeper-client.js?v=3f75d48ec5";

@@ -10,12 +10,12 @@ import {
   buildSleeperSeasonMeetings,
   sleeperManager
 } from "./rivalry-week.js?v=714a861458";
-import { renderTradesPage } from "./trade-ui.js?v=97a469432e";
-import { renderMatchupsHub } from "./matchups-live.js?v=f570d2ec63";
+import { renderTradesPage } from "./trade-ui.js?v=76d3baa5f2";
+import { renderMatchupsHub } from "./matchups-live.js?v=a50cb5aaa4";
 import { calculatePlayoffRace } from "./playoff-race.js?v=52283bf11a";
 import { calculateLuck, calculateRankHistory } from "./standings-luck.js?v=7363afbb9e";
 import { resolveOperationalWeek } from "./nfl-week.js?v=8f9fa3f5b2";
-import { renderTeamsHub } from "./teams.js?v=64e1747860";
+import { renderTeamsHub } from "./teams.js?v=74759b10f3";
 import { buildYahooRecordBook } from "./record-book.js?v=0ebb2a4e56";
 import { listRosterIdentities } from "./roster-view.js?v=120de9d74d";
 import { GENERAL_SETTINGS_2026 } from "./league-settings.js?v=f6d1bf5212";

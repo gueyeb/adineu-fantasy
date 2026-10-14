@@ -16,6 +16,7 @@ import {
   getUsageReport as getUsageReportDefault,
   getWeeklyLeaders as getWeeklyLeadersDefault,
   getSeasonLeaders as getSeasonLeadersDefault,
+  getDefenseMatchups as getDefenseMatchupsDefault,
   formatWaiverReport
 } from "./scripts/league-context.js";
 import {
@@ -93,6 +94,7 @@ export function createAppServer({
   getUsage = getUsageReportDefault,
   getLeaders = getWeeklyLeadersDefault,
   getSeasonLeaders = getSeasonLeadersDefault,
+  getDefenseMatchups = getDefenseMatchupsDefault,
   getPlayerValues = loadPlayerValues,
   getStartSit = getStartSitDefault,
   getMatchupContext = getMatchupContextDefault,
@@ -332,6 +334,18 @@ export function createAppServer({
       } catch (error) {
         const isUnknownTeam = error.message.startsWith("Équipe Sleeper inconnue");
         sendJson(response, isUnknownTeam ? 404 : 502, { error: error.message });
+      }
+      return;
+    }
+
+    if (url.pathname === "/api/defense-matchups") {
+      const requested = url.searchParams.get("week");
+      const week = requested === null ? null : Number(requested);
+      if (week !== null && !(Number.isInteger(week) && week >= 1 && week <= 18)) return sendJson(response, 400, { error: "week doit être un entier entre 1 et 18" });
+      try {
+        sendJson(response, 200, await getDefenseMatchups({ week }));
+      } catch (error) {
+        sendJson(response, 502, { error: error.message });
       }
       return;
     }

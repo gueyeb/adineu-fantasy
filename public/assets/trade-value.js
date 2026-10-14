@@ -8,6 +8,10 @@
  * 4. Le lissage bayésien (Bayesian Shrinkage) pondérant projections et production selon l'échantillon
  * 5. La rareté positionnelle (RB > WR > TE élite > QB en 1QB, PPR)
  * 6. La taxe d'effectif (anti-package discount pour les échanges asymétriques 2-pour-1)
+ *
+ * En saison, la valeur de marché vient de `buildLiveMarketValues` (`player.marketValue`) : points
+ * par semaine au-dessus du niveau de remplacement du poste, sur le reste de la saison. L'ECR /
+ * ADP du catalogue pré-draft (06/09) n'est plus qu'un repli pour un joueur sans projection.
  */
 
 export const POSITIONAL_WEIGHTS = {
@@ -25,6 +29,41 @@ export const POSITIONAL_WEIGHTS = {
  * Estime la projection moyenne de points par match (Full PPR) selon la position et le rang d'expert.
  * Utilisé comme ancre si aucune projection Sleeper n'est explicitement fournie.
  */
+// Starters across the league at each position; FLEX goes half to RB, half to WR (PPR usage).
+export const LEAGUE_STARTERS_PER_TEAM = { QB: 1, RB: 2.5, WR: 2.5, TE: 1, K: 1, DEF: 1 };
+const STREAMING_VALUE_CAP = 6;
+
+/**
+ * Live market value 0–100 from rest-of-season weekly value (PFF/Awesemo-style value over
+ * replacement): the replacement level is the rosPpg of the first non-starter at the position
+ * among the given players (teams × starters). K and DEF stay capped like streaming positions.
+ * @param {Array<{playerId:string, position:string, rosPpg:number}>} rows
+ */
+export function buildLiveMarketValues(rows, { teams = 12 } = {}) {
+  const byPosition = new Map();
+  for (const row of rows || []) {
+    if (!Number.isFinite(row?.rosPpg) || !LEAGUE_STARTERS_PER_TEAM[row.position]) continue;
+    if (!byPosition.has(row.position)) byPosition.set(row.position, []);
+    byPosition.get(row.position).push(row);
+  }
+  const replacement = {};
+  const surplus = new Map();
+  for (const [position, list] of byPosition) {
+    const sorted = [...list].sort((a, b) => b.rosPpg - a.rosPpg);
+    const rank = Math.round(teams * LEAGUE_STARTERS_PER_TEAM[position]);
+    replacement[position] = sorted[rank]?.rosPpg ?? sorted.at(-1).rosPpg;
+    for (const row of list) surplus.set(row.playerId, { position, value: Math.max(0, row.rosPpg - replacement[position]) });
+  }
+  const top = Math.max(0, ...[...surplus.values()].filter(row => !["K", "DEF"].includes(row.position)).map(row => row.value));
+  const values = new Map();
+  for (const [playerId, row] of surplus) {
+    const scaled = top > 0 ? 1 + 99 * row.value / top : 1;
+    const capped = ["K", "DEF"].includes(row.position) ? Math.min(STREAMING_VALUE_CAP, scaled) : scaled;
+    values.set(playerId, { marketValue: Math.round(capped), replacementPpg: Number(replacement[row.position].toFixed(1)), surplusPpg: Number(row.value.toFixed(1)) });
+  }
+  return { values, replacement };
+}
+
 export function estimateBaselineProjectedPpg(player) {
   if (!player) return 0;
   if (typeof player.projectedPpg === "number") return player.projectedPpg;
@@ -92,9 +131,11 @@ export function calculatePlayerTradeProfile(player, options = {}) {
     player.sleeperAdp ??
     250;
 
+  const liveValue = Number.isFinite(player.marketValue) ? Math.max(1, Math.min(100, Math.round(player.marketValue))) : null;
+
   // 1. Kickers et Défenses : streaming
   if (position === "K" || position === "DEF") {
-    const kVal = Math.max(1, Math.min(6, Math.round(6 - (rank / 50))));
+    const kVal = liveValue ?? Math.max(1, Math.min(6, Math.round(6 - (rank / 50))));
     const projectedPpg = estimateBaselineProjectedPpg(player);
     const actualPpg = typeof player.actualPpg === "number" ? player.actualPpg : null;
     return {
@@ -176,7 +217,10 @@ export function calculatePlayerTradeProfile(player, options = {}) {
 
   // 7. Ajustement dynamique de la valeur de trade
   let tradeValue = baseValue;
-  if (actualPpg !== null && gamesPlayed > 0 && Number.isFinite(player.projectedPpg ?? player.projection?.pts_ppr)) {
+  // The live value already prices current projections and usage: no second adjustment on top.
+  if (liveValue !== null) {
+    tradeValue = liveValue;
+  } else if (actualPpg !== null && gamesPlayed > 0 && Number.isFinite(player.projectedPpg ?? player.projection?.pts_ppr)) {
     const delta = blendedPpg - projectedPpg;
     const limit = Math.max(1, baseValue * Math.min(0.5, gamesPlayed * 0.15));
     const dynamicAdjustment = Math.round(Math.max(-limit, Math.min(limit, delta * 2.5 * posMultiplier)));

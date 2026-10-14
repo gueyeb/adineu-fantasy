@@ -27,7 +27,7 @@ export const CUT_CONCENTRATION_SHARE = 0.6;
 export const COHERENCE_MAX_LISTED_IDS = 10;
 
 const ACTIONABLE = new Set(["ADD_NOW", "CLAIM_IF_CHEAP"]);
-const PASSIVE = new Set(["WATCH", "IGNORE"]);
+const PASSIVE = new Set(["WATCH", "UNDETERMINED", "IGNORE"]);
 
 const list = value => (Array.isArray(value) ? value.filter(item => item && typeof item === "object") : []);
 const idOf = row => (row?.sleeperId === null || row?.sleeperId === undefined || row.sleeperId === "" ? null : String(row.sleeperId));

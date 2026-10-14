@@ -7,7 +7,7 @@
  * Two separate answers, never merged: marketScore/faabMarket (what the player is worth to the
  * league) and fitScore/faabMaxForMe (what he is worth to one roster). Estimates, labeled as such.
  */
-import { buildProjectedLineup } from "./trade-score.js?v=eae8f8dc83";
+import { buildProjectedLineup } from "./trade-score.js?v=7daaffafe7";
 import { BYE_WEEKS_2026, GENERAL_SETTINGS_2026 } from "./league-settings.js?v=f6d1bf5212";
 
 export const LAST_REGULAR_WEEK = GENERAL_SETTINGS_2026.playoffWeekStart - 1;
@@ -222,12 +222,17 @@ export function evaluateRosterFit({ marketRow, myPlayers, paceOf, week, faabRema
   const startable = players => players.filter(p => !reserveIds.has(String(p.sleeperId)));
   const activePlayers = startable(myPlayers);
   const beforeRos = buildProjectedLineup(activePlayers, { estimate: paceOf });
+  // An absent player with a projected return is not a free cut: his missing week projection and
+  // usage say nothing about his value once back (A.J. Brown on IR was offered at 0 cost).
+  const injuredWithReturn = player => ABSENT.has(player.injuryStatus) && Number.isFinite(player.rosPpg) && player.rosPpg > 0;
   const candidates = myPlayers.filter(player => !lockedIds.has(String(player.sleeperId)) &&
-    !protectedIds.has(String(player.sleeperId)) && (!starterIds.has(String(player.sleeperId)) || player.position === marketRow.position));
+    !protectedIds.has(String(player.sleeperId)) && !injuredWithReturn(player) &&
+    (!starterIds.has(String(player.sleeperId)) || player.position === marketRow.position));
   // Why a roster player was never compared as a cut: a lone eligible cut is a constraint, not a ranking.
   const cutExclusions = myPlayers.filter(player => !candidates.includes(player)).map(player => ({ playerId: String(player.sleeperId), name: player.name ?? null,
     reason: protectedIds.has(String(player.sleeperId)) ? (reserveIds.has(String(player.sleeperId)) ? "RESERVE_SLOT" : "PROTECTED")
-      : lockedIds.has(String(player.sleeperId)) ? "GAME_LOCKED_OR_KICKOFF_UNKNOWN" : "STARTER_AT_ANOTHER_POSITION" }));
+      : lockedIds.has(String(player.sleeperId)) ? "GAME_LOCKED_OR_KICKOFF_UNKNOWN"
+      : injuredWithReturn(player) ? "INJURED_RETURN_EXPECTED" : "STARTER_AT_ANOTHER_POSITION" }));
   const simulate = cut => {
     const pool = [...activePlayers.filter(p => !cut || String(p.sleeperId) !== String(cut.sleeperId)), marketRow];
     const coverageIssues = new Set();
@@ -387,6 +392,8 @@ export function classifyWaiverDecision({ position, marketScore = 0, flags = [], 
   let recommendedAction = netGain >= 1.5 && immediateValue >= 38 ? "ADD_NOW"
     : netGain > 0 && (immediateValue >= 15 || (decisionClass === "STREAMER" && !streamerWithoutTargetGain)) ? "CLAIM_IF_CHEAP"
     : strategicUpside >= 40 || incompleteStreamingOpportunity || streamerWithoutTargetGain ? "WATCH"
+    // Without a covered comparison against the cuts there is no negative verdict to give.
+    : !horizonCovered || !legalTransaction ? "UNDETERMINED"
     : "IGNORE";
   if (["ADD_NOW", "CLAIM_IF_CHEAP"].includes(recommendedAction)) {
     if (!legalTransaction || !horizonCovered || !availability || availability.availability === "ROSTERED" || availability.canStartTargetWeek !== true || (flags.includes("PROMOTION") && roleConfirmation !== "CONFIRMED")) recommendedAction = "WATCH";
@@ -410,5 +417,6 @@ export function classifyWaiverDecision({ position, marketScore = 0, flags = [], 
     ...(streamerWithoutTargetGain ? ["NO_TARGET_WEEK_GAIN"] : [])
   ];
   return { optionalFreeAdd, immediateValue, strategicUpside, decisionClass, recommendedAction,
-    interpretation: actionBlockers.length ? `Conditional scenario: ${actionBlockers.join(", ")}.` : interpretation, actionBlockers };
+    interpretation: recommendedAction === "UNDETERMINED" ? `No verdict: the comparison with the cuts is incomplete (${actionBlockers.join(", ")}). Not a negative decision.`
+      : actionBlockers.length ? `Conditional scenario: ${actionBlockers.join(", ")}.` : interpretation, actionBlockers };
 }

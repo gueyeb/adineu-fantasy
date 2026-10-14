@@ -107,7 +107,7 @@ function renderPlan(plan) {
   saveBidHistory(plan.rosterId, history);
   currentWarRoom = buildWarRoom({ watchlist: followed, rows: plan.warRoom?.rows, missing: plan.warRoom?.missing, acquisitionPlan: plan.acquisitionPlan,
     history, week: plan.week, dataThroughWeek: plan.dataThroughWeek ?? null });
-  const cuts = (plan.cutCandidates || []).map(player => `<li><span><b>${escapeHtml(player.name)}</b><small>Usage ${player.usageScore ?? "—"} · bye S${player.byeWeek ?? "—"}</small></span><strong>${player.totalCostPerWeek ?? "—"}<small> pt/sem</small></strong><em class="risk-${String(player.regretRisk).toLowerCase()}">${escapeHtml(player.regretRisk)}</em></li>`).join("");
+  const cuts = (plan.cutCandidates || []).map(player => `<li><span><b>${escapeHtml(player.name)}</b><small>Usage ${player.usageScore ?? "—"} · bye S${player.byeWeek ?? "—"}</small></span><strong>${player.ranked === false || player.dropCostComponents?.optionCoverage === "NONE" ? "coût inconnu" : `${player.totalCostPerWeek ?? "—"}<small> pt/sem</small>`}</strong><em class="risk-${String(player.regretRisk).toLowerCase()}">${escapeHtml(player.regretRisk)}</em></li>`).join("");
   const trade = plan.tradeTarget;
 
   document.getElementById("coach-grid").innerHTML = `

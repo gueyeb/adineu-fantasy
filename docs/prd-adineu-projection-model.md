@@ -141,3 +141,12 @@ d'Adineu en dur : `SLEEPER_LEAGUE_ID`, `t0z`, `league-settings.js`) ; (3) compte
 1. Hébergement du job Python : même serveur que le site, ou n8n + runner séparé ?
 2. Sources commerciales (FantasyPros, etc.) et ouverture grand public : reportées, à rediscuter
    une fois le modèle validé en backtest.
+
+## Mise à jour du 14/10/2026 — valeur de marché en direct
+
+Le Trade Finder ne lit plus le rang pré-draft pour sa valeur de marché : `buildLiveMarketValues`
+(trade-value.js) la calcule à chaque chargement depuis la valeur reste de saison (projections
+Sleeper + usage) au-dessus du niveau de remplacement du poste, sur les joueurs rostés — la méthode
+décrite par PFF et Awesemo pour leurs trade value charts. Le catalogue du 06/09 reste un repli pour
+un joueur sans projection. La Phase 0 (rafraîchissement hebdomadaire du catalogue) n'est donc plus
+nécessaire pour le Trade Finder ; elle le reste pour les écrans qui affichent l'ECR.

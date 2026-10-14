@@ -31,7 +31,8 @@ import { resolveOperationalWeek, resolveLastCompletedWeek } from "../public/asse
 import { findRosterByTeam, buildStarterSlotOrder, buildRosterSlots, listRosterIdentities } from "../public/assets/roster-view.js";
 import { buildFaabHistory, buildTrendingAdds, summarizeFaabByPosition, buildLeagueBidReference } from "../public/assets/league-market.js";
 import { buildPlayerWeeks, calculateUsageScores } from "../public/assets/usage-score.js";
-import { buildWeeklyLeaders, buildSeasonLeaders, buildBestPickups } from "../public/assets/weekly-leaders.js";
+import { buildDefenseMatchups } from "../public/assets/defense-matchup.js";
+import { buildWeeklyLeaders, buildSeasonLeaders, buildBestPickups, leaguePoints } from "../public/assets/weekly-leaders.js";
 import { calculateFaabRemaining } from "../public/assets/team-metrics.js";
 import { restOfSeasonEstimate } from "../public/assets/trade-score.js";
 import {
@@ -80,6 +81,7 @@ export async function getPlayersIndex({ fetchImpl = fetch, forceRefresh = false 
       injuryStatus: player.injury_status || null,
       injuryBodyPart: player.injury_body_part || null,
       depthOrder: Number.isFinite(player.depth_chart_order) ? player.depth_chart_order : null,
+      depthPosition: player.depth_chart_position || null,
       teamChangedAt: Number.isFinite(player.team_changed_at) ? player.team_changed_at : null,
       searchRank: Number.isFinite(player.search_rank) ? player.search_rank : null,
       active: player.active !== false
@@ -472,9 +474,87 @@ export async function getSchedule({ season = "2026", fetchImpl = fetch } = {}) {
   const team = code => NFLVERSE_TO_SLEEPER_TEAM[code] || code;
   const games = lines.map(line => line.split(","))
     .filter(cells => cells[at("season")] === String(season) && cells[at("game_type")] === "REG")
-    .map(cells => ({ week: Number(cells[at("week")]), away_team: team(cells[at("away_team")]), home_team: team(cells[at("home_team")]), kickoffAt: easternKickoffIso(cells[at("gameday")], cells[at("gametime")]), completed: cells[at("away_score")] !== "" && cells[at("home_score")] !== "" && Number.isFinite(Number(cells[at("away_score")])) && Number.isFinite(Number(cells[at("home_score")])), source: NFLVERSE_GAMES_URL }));
+    .map(cells => ({ week: Number(cells[at("week")]), away_team: team(cells[at("away_team")]), home_team: team(cells[at("home_team")]),
+      spreadLine: cells[at("spread_line")] === "" ? null : Number(cells[at("spread_line")]), totalLine: cells[at("total_line")] === "" ? null : Number(cells[at("total_line")]),
+      awayQb: cells[at("away_qb_name")] || null, homeQb: cells[at("home_qb_name")] || null, kickoffAt: easternKickoffIso(cells[at("gameday")], cells[at("gametime")]), completed: cells[at("away_score")] !== "" && cells[at("home_score")] !== "" && Number.isFinite(Number(cells[at("away_score")])) && Number.isFinite(Number(cells[at("home_score")])), source: NFLVERSE_GAMES_URL }));
   scheduleCaches.set(fetchImpl, { at: Date.now(), season, games });
   return games;
+}
+
+const NFLVERSE_TEAM_STATS_URL = season => `https://github.com/nflverse/nflverse-data/releases/download/stats_team/stats_team_week_${season}.csv`;
+const teamStatsCaches = new WeakMap();
+const splitCsvLine = line => line.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/).map(cell => cell.replace(/^"|"$/g, ""));
+/** Statistiques d'équipe par semaine (nflverse, gratuit) : sacks, dropbacks, turnovers. Cache 12 h. */
+export async function getTeamWeeks({ season = "2026", fetchImpl = fetch } = {}) {
+  if (!teamStatsCaches.has(fetchImpl)) teamStatsCaches.set(fetchImpl, new Map());
+  const cache = teamStatsCaches.get(fetchImpl);
+  const hit = cache.get(String(season));
+  if (hit && Date.now() - hit.at < 12 * 3600 * 1000) return hit.rows;
+  const response = await fetchImpl(NFLVERSE_TEAM_STATS_URL(season), { signal: AbortSignal.timeout(20_000) });
+  if (!response.ok) throw new Error(`nflverse stats_team_week_${season} -> HTTP ${response.status}`);
+  const [header, ...lines] = (await response.text()).trim().split("\n");
+  const columns = splitCsvLine(header);
+  const at = name => columns.indexOf(name);
+  const team = code => NFLVERSE_TO_SLEEPER_TEAM[code] || code;
+  const number = (cells, name) => Number(cells[at(name)]) || 0;
+  const rows = lines.map(splitCsvLine).filter(cells => cells[at("season_type")] === "REG").map(cells => ({
+    season: Number(cells[at("season")]), week: Number(cells[at("week")]), gameId: cells[at("game_id")],
+    team: team(cells[at("team")]), opponent: team(cells[at("opponent_team")]),
+    attempts: number(cells, "attempts"), sacksSuffered: number(cells, "sacks_suffered"), interceptions: number(cells, "passing_interceptions"),
+    fumblesLost: number(cells, "fumbles_lost_total"), carries: number(cells, "carries"), defSacks: number(cells, "def_sacks"),
+    defTds: number(cells, "def_tds"), specialTeamsTds: number(cells, "special_teams_tds")
+  }));
+  cache.set(String(season), { at: Date.now(), rows });
+  return rows;
+}
+
+// "Michael Penix Jr." (nflverse) and "Michael Penix" (Sleeper) are the same person.
+const personKey = name => String(name).toLowerCase().replace(/\b(jr|sr|ii|iii|iv|v)\b\.?/g, "").replace(/[^a-z ]/g, "").trim().split(/\s+/).join(" ");
+const PASS_RUSH_SLOTS = new Set(["LOLB", "ROLB", "LDE", "RDE", "DE", "OLB", "EDGE"]);
+const OL_POSITIONS = new Set(["OL", "OT", "OG", "T", "G", "C"]);
+const ABSENT_STATUSES = new Set(["Out", "Doubtful", "IR", "PUP", "Sus", "NA"]);
+/** Contexte blessures d'un matchup de défense : rapporté, jamais chiffré (non calibré). */
+export function defenseInjuryNotes(index, defense, opponent, game) {
+  const notes = [];
+  const players = [...index.values()].filter(player => player.active !== false);
+  const starterQb = players.find(player => player.nflTeam === opponent && player.position === "QB" && player.depthOrder === 1);
+  const listedQb = game ? (game.home_team === opponent ? game.homeQb : game.awayQb) : null;
+  if (starterQb && ABSENT_STATUSES.has(starterQb.injuryStatus)) notes.push(`QB adverse ${starterQb.name} ${starterQb.injuryStatus}`);
+  else if (starterQb && listedQb && personKey(starterQb.name) !== personKey(listedQb)) notes.push(`QB adverse annoncé : ${listedQb} (titulaire habituel ${starterQb.name})`);
+  const rushers = players.filter(player => player.nflTeam === defense && PASS_RUSH_SLOTS.has(player.depthPosition) && player.depthOrder === 1 && ABSENT_STATUSES.has(player.injuryStatus));
+  if (rushers.length) notes.push(`Pass rush : ${rushers.map(player => `${player.name} ${player.injuryStatus}`).join(", ")}`);
+  const line = players.filter(player => player.nflTeam === opponent && OL_POSITIONS.has(player.position) && ABSENT_STATUSES.has(player.injuryStatus));
+  if (line.length) notes.push(`${line.length} OL adverse${line.length > 1 ? "s" : ""} absent${line.length > 1 ? "s" : ""} (titularité inconnue)`);
+  return notes;
+}
+
+/**
+ * Défenses de la semaine (docs/prd-defense-matchups.md) : taux de sacks projeté, points implicites
+ * de l'adversaire, turnovers, score attendu au barème de la ligue à côté de la projection Sleeper,
+ * contexte blessures et horizon de streaming de 2 semaines.
+ */
+export async function getDefenseMatchups({ leagueId = DEFAULT_SLEEPER_LEAGUE_ID, fetchImpl = fetch, week = null, horizonWeeks = 2 } = {}) {
+  const [league, nflState] = await Promise.all([
+    sleeperGet(`/league/${leagueId}`, { fetchImpl }),
+    sleeperGet("/state/nfl", { fetchImpl }).catch(() => ({}))
+  ]);
+  const season = String(nflState?.season || league.season || "2026");
+  const target = Number.isInteger(week) ? week : resolveOperationalWeek(nflState);
+  const weeks = Array.from({ length: horizonWeeks }, (_, index) => target + index);
+  const [current, previous, schedule, index, projections] = await Promise.all([
+    getTeamWeeks({ season, fetchImpl }).catch(() => []),
+    getTeamWeeks({ season: String(Number(season) - 1), fetchImpl }).catch(() => []),
+    getSchedule({ season, fetchImpl }),
+    getPlayersIndex({ fetchImpl }).catch(() => new Map()),
+    Promise.all(weeks.map(w => cachedWeekly(`/projections/nfl/regular/${season}/${w}`, fetchImpl).catch(() => ({}))))
+  ]);
+  const games = schedule.filter(game => weeks.includes(game.week)).map(game => ({ season: Number(season), week: game.week, home: game.home_team, away: game.away_team,
+    spread: game.spreadLine, total: game.totalLine, kickoff: game.kickoffAt, raw: game }));
+  const projectionsByWeek = Object.fromEntries(weeks.map((w, i) => [w, Object.fromEntries(Object.entries(projections[i] || {})
+    .filter(([id]) => index.get(id)?.position === "DEF").map(([id, row]) => [id, leaguePoints(row, league.scoring_settings)]))]));
+  const report = buildDefenseMatchups({ teamWeeks: [...previous, ...current], games, scoring: league.scoring_settings, season: Number(season), week: target, horizonWeeks, projectionsByWeek,
+    notesFor: (defense, opponent) => defenseInjuryNotes(index, defense, opponent, games.find(game => game.week === target && [game.home, game.away].includes(defense))?.raw) });
+  return { generatedAt: new Date().toISOString(), sources: { teamStats: "nflverse stats_team_week", lines: NFLVERSE_GAMES_URL, projections: "Sleeper" }, ...report };
 }
 
 /** Projections Sleeper d'une semaine (cache 1 h), pour le Start/Sit Advisor. */
