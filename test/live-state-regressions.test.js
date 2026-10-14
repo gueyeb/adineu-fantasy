@@ -119,8 +119,10 @@ const fitFixture = (overrides = {}) => {
 };
 
 test("Kamara: an uncovered horizon designates no cut instead of the smallest player id", () => {
-  // Sans la règle « réserve non titularisable », le joueur IR sans projection bloque tout l'horizon.
-  const blocked = evaluateRosterFit(fitFixture({ fit: { reserveIds: new Set() } }));
+  // Sans la règle « réserve non titularisable », un joueur valide sans projection bloque tout l'horizon
+  // (un joueur absent sans projection compte 0 et ne bloque plus : test acquisition-availability).
+  const base = fitFixture();
+  const blocked = evaluateRosterFit({ ...base, reserveIds: new Set(), myPlayers: base.myPlayers.map(p => ({ ...p, injuryStatus: null })) });
   assert.equal(blocked.horizonCovered, false);
   assert.equal(blocked.dropCandidate, null);
   assert.equal(blocked.cutSelection, "UNRANKED_INCOMPLETE_COVERAGE");

@@ -69,7 +69,8 @@ test("Kamara: on the real roster, the missing IR projections no longer make the 
   const market = evaluateMarket({ rows: result.rows, week: fx.week });
   const marketRow = market.find(candidate => candidate.sleeperId === n.coleman);
   const context = fitContext(result, fx.rosters);
-  const blocked = evaluateRosterFit({ marketRow, ...context, reserveIds: new Set() });
+  // Healthy-looking reserve players: an absent one without projection now counts 0 instead of blocking.
+  const blocked = evaluateRosterFit({ marketRow, ...context, reserveIds: new Set(), myPlayers: context.myPlayers.map(player => ({ ...player, injuryStatus: null })) });
   assert.equal(blocked.cutSelection, "UNRANKED_INCOMPLETE_COVERAGE");
   assert.equal(blocked.dropCandidate, null);
   assert.equal(blocked.coverageBlockers.every(blocker => fx.rosters.find(roster => roster.roster_id === 1).reserve.includes(blocker.playerId)), true);

@@ -233,11 +233,20 @@ export function evaluateRosterFit({ marketRow, myPlayers, paceOf, week, faabRema
     reason: protectedIds.has(String(player.sleeperId)) ? (reserveIds.has(String(player.sleeperId)) ? "RESERVE_SLOT" : "PROTECTED")
       : lockedIds.has(String(player.sleeperId)) ? "GAME_LOCKED_OR_KICKOFF_UNKNOWN"
       : injuredWithReturn(player) ? "INJURED_RETURN_EXPECTED" : "STARTER_AT_ANOTHER_POSITION" }));
+  // A rostered player listed absent with no Sleeper projection that week cannot score that week:
+  // counted as 0 and listed, instead of blocking every comparison (A.J. Brown on IR blocked all
+  // 93 board rows in week 6). A candidate without a projection still blocks.
+  const absentAssumedOut = new Map();
+  const absentUnprojected = (p, w) => p !== marketRow && Boolean(projectionCovered) && ABSENT.has(p.injuryStatus) && !projectionCovered(p, w);
   const simulate = cut => {
     const pool = [...activePlayers.filter(p => !cut || String(p.sleeperId) !== String(cut.sleeperId)), marketRow];
     const coverageIssues = new Set();
     const coverageBlockers = [];
-    const blockersFor = (players, w) => players.filter(p => !projectionCovered(p, w)).map(p => ({ week: w,
+    const blockersFor = (players, w) => players.filter(p => {
+      if (!absentUnprojected(p, w)) return !projectionCovered(p, w);
+      absentAssumedOut.set(String(p.sleeperId), { playerId: String(p.sleeperId), name: p.name ?? null, injuryStatus: p.injuryStatus });
+      return false;
+    }).map(p => ({ week: w,
       playerId: String(p.sleeperId), name: p.name ?? null, role: p === marketRow ? "CANDIDATE" : "ROSTER", injuryStatus: p.injuryStatus ?? null }));
     const priorRolesCovered = w => {
       const covered = myPlayers.every(p => !p.plannedRoleWindow ||
@@ -250,7 +259,7 @@ export function evaluateRosterFit({ marketRow, myPlayers, paceOf, week, faabRema
       const estimate = p => weeklyPaceOf ? weeklyPaceOf(p, w) : paceOf(p);
       const fixedSlots = w === week ? frozenSlots : {};
       // Unknown values are used only to construct a diagnostic lineup, never a publishable gain.
-      const safeEstimate = p => Number.isFinite(estimate(p)) ? estimate(p) : 0;
+      const safeEstimate = p => absentUnprojected(p, w) ? 0 : Number.isFinite(estimate(p)) ? estimate(p) : 0;
       const before = buildProjectedLineup(activePlayers, { estimate: safeEstimate, fixedSlots });
       const after = buildProjectedLineup(pool, { estimate: safeEstimate, fixedSlots });
       const blockers = projectionCovered ? blockersFor([...activePlayers, marketRow], w) : [];
@@ -280,7 +289,7 @@ export function evaluateRosterFit({ marketRow, myPlayers, paceOf, week, faabRema
         const projectionsCovered = !blockers.length;
         const covered = priorRolesCovered(w) && projectionsCovered;
         if (!projectionsCovered) { coverageIssues.add(`MISSING_POST_ROLE_PROJECTIONS_WEEK_${w}`); coverageBlockers.push(...blockers); }
-        const safeEstimate = p => Number.isFinite(estimate(p)) ? estimate(p) : 0;
+        const safeEstimate = p => absentUnprojected(p, w) ? 0 : Number.isFinite(estimate(p)) ? estimate(p) : 0;
         const before = buildProjectedLineup(activePlayers, { estimate: safeEstimate });
         const after = buildProjectedLineup(retained, { estimate: safeEstimate });
         postRoleCutDeltas.push({ week: w, lostPoints: covered ? round(Math.max(0, before.total - after.total)) : null });
@@ -356,7 +365,8 @@ export function evaluateRosterFit({ marketRow, myPlayers, paceOf, week, faabRema
     weeklyLineupDeltas: chosen?.weeklyLineupDeltas ?? [], slot: chosen?.weeklyLineupDeltas.find(row => row.slot)?.slot ?? null,
     scenariosAreAlternatives: true, legalTransaction, horizonCovered, coverageIssues: chosen?.coverageIssues ?? ["NO_LEGAL_CUT"],
     coverageBlockers: [...new Map((chosen?.coverageBlockers ?? []).map(row => [`${row.week}:${row.playerId}`, row])).values()],
-    assumptions: reserveIds.size ? ["RESERVE_PLAYERS_NOT_STARTABLE"] : [],
+    assumptions: [...(reserveIds.size ? ["RESERVE_PLAYERS_NOT_STARTABLE"] : []), ...(absentAssumedOut.size ? ["ABSENT_UNPROJECTED_COUNTED_AS_ZERO"] : [])],
+    absentAssumedOut: [...absentAssumedOut.values()],
     cutSelection: !chosen ? "NO_LEGAL_CUT" : !chosen.sleeperId ? "OPEN_ROSTER_SLOT" : !cutRanked ? "UNRANKED_INCOMPLETE_COVERAGE" : candidates.length === 1 ? "ONLY_ELIGIBLE_CUT" : "RANKED_BY_NET_GAIN",
     cutExclusions,
     comparedCutCount: scenarios.filter(row => row.sleeperId).length, coveredCutCount: coveredCuts.length,

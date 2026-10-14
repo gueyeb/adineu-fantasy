@@ -76,3 +76,19 @@ test('missing projections stay null; open roster slots need no cut; locked start
   assert.equal(frozen.weeklyLineupDeltas[0].beforeTotal, 10);
   assert.equal(frozen.weeklyLineupDeltas[0].afterTotal, 30);
 });
+
+test('an absent rostered player without projection counts as 0 instead of blocking every comparison', () => {
+  const marketRow = { sleeperId: "new", position: "QB", effectivePpg: 18, faabMarket: [5, 10], surplusPoints: 50, events: {} };
+  const myPlayers = [{ sleeperId: "qb", name: "QB1", position: "QB", pace: 15 }, { sleeperId: "ir", name: "A.J. Brown", position: "WR", injuryStatus: "IR", rosPpg: 14 },
+    { sleeperId: "bench", name: "Bench RB", position: "RB", pace: 4 }];
+  const args = { marketRow, myPlayers, paceOf: p => p.pace ?? p.effectivePpg ?? null, weeklyPaceOf: p => p.pace ?? p.effectivePpg ?? null, week: 12,
+    projectionCovered: p => p.sleeperId !== "ir" };
+  const fit = evaluateRosterFit(args);
+  assert.equal(fit.horizonCovered, true);
+  assert.notEqual(fit.netGainTotal, null);
+  assert.deepEqual(fit.absentAssumedOut, [{ playerId: "ir", name: "A.J. Brown", injuryStatus: "IR" }]);
+  assert.ok(fit.assumptions.includes("ABSENT_UNPROJECTED_COUNTED_AS_ZERO"));
+  assert.ok(!fit.cutExclusions.every(row => row.playerId !== "ir"), "still never offered as a cut");
+  const healthy = evaluateRosterFit({ ...args, myPlayers: myPlayers.map(p => p.sleeperId === "ir" ? { ...p, injuryStatus: null } : p) });
+  assert.equal(healthy.horizonCovered, false, "a healthy player without projection still blocks");
+});
