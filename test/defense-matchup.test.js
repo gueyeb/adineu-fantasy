@@ -86,3 +86,11 @@ test("defense matchups API passes the week and rejects an invalid one", async t 
   assert.equal((await fetch(`${base}?week=0`)).status, 400);
   assert.deepEqual(seen, [null, 7]);
 });
+
+test("the defense backtest scores ranking, error and the weekly top picks", async () => {
+  const { scorePredictor } = await import("../scripts/backtest-defense.js");
+  const samples = Array.from({ length: 12 }, (_, i) => ({ key: "w1", predicted: i, actual: i * 2 }));
+  const score = scorePredictor(samples);
+  assert.deepEqual([score.n, score.pearson, score.spearmanByWeek, score.top5Actual, score.top10Actual], [12, 1, 1, 18, 13]);
+  assert.equal(score.mae, 5.5);
+});

@@ -51,6 +51,9 @@ chiffrer les blessures, pondérer la qualité du QB remplaçant.
   BAL en haut ; ARI @ LAR, WAS @ SF en bas).
 - Une défense « libre » à fort score attendu sur 2 semaines est visible en un coup d'œil.
 - Le score attendu est validé hors échantillon avant d'entrer dans le moteur de décision.
+  **Backtest 2021–2025 (`docs/backtest-defense.md`) : non validé.** Seul, il classe moins bien que
+  Sleeper ; un mélange à 25 % n'apporte qu'un gain marginal et irrégulier. Il reste affiché à titre
+  d'explication, hors moteur.
 
 ## Cas limites et contraintes
 
