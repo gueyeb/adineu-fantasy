@@ -91,3 +91,13 @@ test("an uncovered comparison with the cuts is UNDETERMINED, never IGNORE", () =
   assert.equal(classifyWaiverDecision({ position: "WR", marketScore: 10, netGain: 0, legalTransaction: false }).recommendedAction, "UNDETERMINED");
   assert.equal(classifyWaiverDecision({ position: "WR", marketScore: 10, netGain: -1 }).recommendedAction, "IGNORE");
 });
+
+test("playoff urgency: last qualifying spots or a losing record are the bubble", () => {
+  const urgency = (standingsRank, wins, losses) => buildDecisionContext({ context: { ...context, league: { ...context.league, playoffTeams: 8 },
+    myTeam: { ...context.myTeam, standingsRank, record: { wins, losses, ties: 0 } } } }).strategyState.playoffUrgency;
+  assert.equal(urgency(8, 2, 3), "MODERATE");
+  assert.equal(urgency(7, 3, 2), "MODERATE");
+  assert.equal(urgency(4, 3, 2), "LOW");
+  assert.equal(urgency(5, 2, 3), "MODERATE");
+  assert.equal(urgency(9, 1, 4), "HIGH");
+});

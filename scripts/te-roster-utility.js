@@ -25,6 +25,12 @@ export function buildTeRosterUtility({ row, rosterContext, fit, week }) {
   const teWeeks = weeklyUsage.filter(value => value.slot === 'TE').map(value => value.week);
   const flexWeeks = weeklyUsage.filter(value => value.slot === 'FLEX').map(value => value.week);
   const byeUsage = weeklyUsage.find(value => value.week === referenceByeWeek);
+  // A gain that only starts weeks from now can be bought later: until then the player holds a
+  // bench spot that adds nothing to the lineup. That spot's option value is not priced.
+  const useWeeks = [...teWeeks, ...flexWeeks].sort((a, b) => a - b);
+  const benchWeeks = weeklyUsage.filter(value => value.covered && !value.slot).length;
+  const gainTiming = covered && useWeeks.length ? { firstUseWeek: useWeeks[0], useWeeks, benchWeeks,
+    deferrable: useWeeks[0] > week + 1, benchSpotOptionValue: null } : null;
   const byeStatus = !reference ? 'REFERENCE_UNDETERMINED' : String(cutId) === String(reference.sleeperId) ? 'REFERENCE_REPLACED'
     : referenceByeWeek === null ? 'REFERENCE_BYE_UNKNOWN' : referenceByeWeek < week ? 'BYE_PASSED'
       : !byeUsage ? 'OUTSIDE_ROLE_WINDOW' : candidateByeWeek === referenceByeWeek ? 'SAME_BYE'
@@ -37,7 +43,7 @@ export function buildTeRosterUtility({ row, rosterContext, fit, week }) {
       method: declared ? 'DECLARED_TE_SLOT' : starters.length === 1 ? 'DECLARED_STARTER' : 'ONLY_ACTIVE_ROSTERED_TE' } : null,
     assumesPriorAcquisitions: active.filter(player => player.plannedRoleWindow).map(player => String(player.sleeperId)),
     activeOwnedTeCount: owned.length, candidateByeWeek, horizonWeeks: fit.horizonWeeks, startWeek: week,
-    teWeeks, flexWeeks, weeklyUsage, byeCoverage: { status: byeStatus, week: referenceByeWeek,
+    teWeeks, flexWeeks, weeklyUsage, gainTiming, byeCoverage: { status: byeStatus, week: referenceByeWeek,
       lineupDelta: byeStatus === 'PROJECTED_TE_USE_ON_BYE' ? byeUsage.lineupDelta : null },
     grossGainTotal: fit.grossGainTotal, cutOptionCostTotal: fit.dropCostTotal,
     postRoleCutCostTotal: fit.postRoleCutCostTotal, netGainTotal: fit.netGainTotal,
@@ -47,6 +53,10 @@ export function buildTeRosterUtility({ row, rosterContext, fit, week }) {
     alternativeAcquisitionValue: null, insuranceValue: null, insuranceMethod: 'FUTURE_INJURY_NOT_ASSUMED',
     coverageIssues: fit.coverageIssues, changesDecisionModel: false };
 }
+
+const deferralText = timing => timing?.deferrable
+  ? ` Gain limité à ${timing.useWeeks.map(week => `S${week}`).join('/')} : ${timing.benchWeeks} sem. de banc sans entrée dans la lineup ; acquisition différable (un TE ajouté avant S${timing.firstUseWeek} couvre le même besoin), coût de la place de banc non chiffré.`
+  : '';
 
 export function formatTeRosterUtility(utility) {
   if (!utility) return '';
@@ -64,5 +74,5 @@ export function formatTeRosterUtility(utility) {
   const cut = utility.benchSpace === 'USES_FREE_ROSTER_SPOT' ? 'une place de banc utilisée'
     : utility.cutCandidate ? `coupe ${utility.cutCandidate.name}` : 'coupe non déterminée';
   const rotationWeeks = utility.weeklyUsage.filter(row => row.previousTeSlotAfter === 'FLEX').map(row => `S${row.week}`);
-  return `${utility.context === 'ADDITIONAL_TE' ? 'TE supplémentaire' : 'Option TE'}${utility.reference ? ` (référence : ${utility.reference.name})` : ''}${utility.assumesPriorAcquisitions.length ? ' (après les acquisitions précédentes supposées réussies)' : ''} : ${usage}${rotationWeeks.length ? ` ; rotation couplée ancien TE vers FLEX ${rotationWeeks.join('/')}` : ''} ; ${byeLabels[utility.byeCoverage.status]}; ${cut} ; gain brut ${utility.grossGainTotal ?? 'n/d'} pts, option de coupe ${utility.cutOptionCostTotal ?? 'n/d'}, perte après rôle ${utility.postRoleCutCostTotal ?? 'n/d'}, net ${utility.netGainTotal ?? 'n/d'} pts sur ${utility.horizonWeeks} sem. Valeur de secours sur blessure future : n/d.`;
+  return `${utility.context === 'ADDITIONAL_TE' ? 'TE supplémentaire' : 'Option TE'}${utility.reference ? ` (référence : ${utility.reference.name})` : ''}${utility.assumesPriorAcquisitions.length ? ' (après les acquisitions précédentes supposées réussies)' : ''} : ${usage}${rotationWeeks.length ? ` ; rotation couplée ancien TE vers FLEX ${rotationWeeks.join('/')}` : ''} ; ${byeLabels[utility.byeCoverage.status]}; ${cut} ; gain brut ${utility.grossGainTotal ?? 'n/d'} pts, option de coupe ${utility.cutOptionCostTotal ?? 'n/d'}, perte après rôle ${utility.postRoleCutCostTotal ?? 'n/d'}, net ${utility.netGainTotal ?? 'n/d'} pts sur ${utility.horizonWeeks} sem.${deferralText(utility.gainTiming)} Valeur de secours sur blessure future : n/d.`;
 }

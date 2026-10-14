@@ -10,6 +10,8 @@ import { formatCoherenceWarnings } from "../public/assets/decision-coherence.js"
 import { classifyWaiverDecision } from "../public/assets/waiver-model.js";
 import { compactAuction } from "../public/assets/faab-auction.js";
 
+// Last qualifying spots counted as the bubble for playoff urgency (8th of 8 is not safe).
+export const BUBBLE_SPOTS = 2;
 const round = value => value !== null && value !== undefined && Number.isFinite(Number(value)) ? Number(Number(value).toFixed(1)) : null;
 
 function playerDecisionView(player, valuesById, projections, statuses) {
@@ -172,7 +174,9 @@ function buildStrategyState(context, playoffContext) {
   const record = context.myTeam.record || { wins: 0, losses: 0 };
   const playoffTeams = context.league.playoffTeams || 8;
   const outside = Number.isFinite(rank) && rank > playoffTeams;
-  const playoffUrgency = outside && record.losses - record.wins >= 3 ? "HIGH" : outside ? "MODERATE" : "LOW";
+  // The last qualifying spots (or a losing record) are the bubble, not safety.
+  const bubble = Number.isFinite(rank) && rank > playoffTeams - BUBBLE_SPOTS || record.losses > record.wins;
+  const playoffUrgency = outside && record.losses - record.wins >= 3 ? "HIGH" : outside || bubble ? "MODERATE" : "LOW";
   const faabRatio = context.myTeam.faab?.budget > 0 ? context.myTeam.faab.remaining / context.myTeam.faab.budget : null;
   const faabPosture = faabRatio === null ? "UNKNOWN" : faabRatio < 0.25 ? "CONSERVE" : faabRatio <= 0.7 ? "MODERATE" : "FLEXIBLE";
   const benchFlexibility = context.myTeam.bench.length >= context.league.rosterSettings.benchSlots ? "LOW" : "AVAILABLE";

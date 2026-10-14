@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createWaiverEvaluator } from '../scripts/waiver-evaluator.js';
+import { formatTeRosterUtility } from '../scripts/te-roster-utility.js';
 
 const roster = ['QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'WR', 'K', 'DEF'].map((position, index) => ({
   sleeperId: `r${index}`, name: position === 'TE' ? 'Reference TE' : `Roster ${index}`, position,
@@ -146,4 +147,13 @@ test('declared TE slot remains the reference when another owned TE starts in FLE
   assert.equal(row.teRosterUtility.reference.playerId, 'r5');
   assert.equal(row.teRosterUtility.reference.method, 'DECLARED_TE_SLOT');
   assert.equal(row.teRosterUtility.byeCoverage.status, 'NO_PROJECTED_TE_USE_ON_BYE');
+});
+
+test('a TE2 used only on a later bye is flagged deferrable, bench weeks counted', () => {
+  const utility = evaluate({ week: 12, row: { ...candidate, events: { ...candidate.events, roleWeeks: 3 } } }).teRosterUtility;
+  assert.deepEqual(utility.gainTiming, { firstUseWeek: 14, useWeeks: [14], benchWeeks: 2, deferrable: true, benchSpotOptionValue: null });
+  assert.match(formatTeRosterUtility(utility), /Gain limité à S14 : 2 sem\. de banc .*acquisition différable/);
+  const now = evaluate({ row: { ...candidate, effectivePpg: 12, events: { ...candidate.events, roleWeeks: 1 } } }).teRosterUtility;
+  assert.equal(now.gainTiming.deferrable, false);
+  assert.doesNotMatch(formatTeRosterUtility(now), /différable/);
 });

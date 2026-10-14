@@ -34,8 +34,9 @@ export async function buildSharedPlayoffContext(currentWeek, matchupRows = [], e
   ]);
 
   const identities = listRosterIdentities(rosters, users);
-  const requiredStarters = Object.values(ROSTER_SETTINGS_2026.starters).reduce((sum,count)=>sum+count,0);
-  if (identities.some(entry => (entry.roster.starters || []).filter(id=>id && id !== "0").length !== requiredStarters)) throw new Error("Incomplete playoff lineup coverage");
+  // Slot order of Sleeper's starters array (QB,RB,RB,WR,WR,TE,FLEX,K,DEF).
+  const slotOrder = Object.entries(ROSTER_SETTINGS_2026.starters).flatMap(([slot, count]) => Array(count).fill(slot));
+  if (identities.some(entry => (entry.roster.starters || []).length !== slotOrder.length)) throw new Error("Incomplete playoff lineup coverage");
   // Standings/matchup rows name managers by their canonical Supabase owner ("tOz", "MouhammadAT",
   // "Birama"), not their Sleeper display name ("t0z", "Shiro00", "bmb22"). The public link between
   // both is the team name, synced from Sleeper into Supabase. A mismatch here silently removed
@@ -47,8 +48,10 @@ export async function buildSharedPlayoffContext(currentWeek, matchupRows = [], e
     if (!manager) throw new Error(`Équipe Sleeper non rattachée au classement : ${entry.teamName}`);
     return [entry.roster.roster_id, manager];
   }));
+  // An empty slot ("0", e.g. after a drop) keeps its place: it is filled at that position's
+  // replacement level (source "replacement", outside coveragePct) rather than aborting every team's odds.
   const startersByRosterId = new Map(identities.map(entry =>
-    [entry.roster.roster_id, (entry.roster.starters || []).filter(id => id && id !== "0")]));
+    [entry.roster.roster_id, entry.roster.starters.map((id, index) => id && id !== "0" ? id : { emptySlot: slotOrder[index] })]));
 
   // Remaining schedule: Sleeper already assigns matchup_id pairings for future weeks (verified
   // live — see the mini-PRD), so this is read directly rather than simulated or guessed.
@@ -126,12 +129,18 @@ export async function buildSharedPlayoffContext(currentWeek, matchupRows = [], e
     }
   }
 
+  const slotReplacement = (week, slot) => {
+    const positions = slot === "FLEX" ? ["RB", "WR", "TE"] : [slot];
+    const values = positions.map(position => replacementByWeekPosition.get(`${week}|${position}`)).filter(Number.isFinite);
+    return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : undefined;
+  };
   const teamProjectionsByWeek = new Map();
   for (const { week, projections } of remainingData) {
     for (const [rosterId, starters] of startersByRosterId) {
       const manager = managerByRosterId.get(rosterId);
       if (!manager) continue;
       const resolutions = starters.map(playerId => {
+        if (playerId?.emptySlot) return resolvePlayerProjection({ replacementPoints: slotReplacement(week, playerId.emptySlot) });
         const stats = projections.get(playerId);
         const position = positionById.get(playerId);
         return resolvePlayerProjection({
