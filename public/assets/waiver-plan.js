@@ -1,3 +1,5 @@
+import { compactAuction } from "./faab-auction.js?v=1eea51c520";
+
 const actionable = new Set(["ADD_NOW", "CLAIM_IF_CHEAP"]);
 
 /** Greedy, conditional review plan. Recalculate each marginal gain on the assumed new roster.
@@ -53,7 +55,7 @@ function runGreedyPlan({ candidates, myPlayers, faabRemaining, evaluateCandidate
       teRosterUtility: chosen.teRosterUtility ?? null,
       roleConfirmation: chosen.waiver.roleConfirmation ?? "NOT_APPLICABLE",
       recommendedAction: chosen.waiver.decision.recommendedAction, dropCandidate: fit.dropCandidate,
-      suggestedBid: bid, personalMaxBid: chosen.waiver.personalMaxBid, budgetBefore: remainingBudget, budgetAfter: budgetKnown ? remainingBudget - bid : null,
+      suggestedBid: bid, personalMaxBid: chosen.waiver.personalMaxBid, auction: compactAuction(chosen.waiver.auction), budgetBefore: remainingBudget, budgetAfter: budgetKnown ? remainingBudget - bid : null,
       targetWeekDelta: fit.targetWeekDelta, netGainTotal: fit.netGainTotal, horizonWeeks: fit.horizonWeeks,
       preferencePenaltyTotal: fit.preferencePenaltyTotal ?? 0, preferenceOverridden: fit.preferenceOverridden ?? false, appliedPreference: fit.appliedPreference ?? null, dependsOnPlayerIds, assumesPriorWins: true,
       weeklyLineupDeltas: fit.weeklyLineupDeltas, availability: chosen.availability });
@@ -78,7 +80,7 @@ const processTime = row => Date.parse(row.availability.waiverProcessesAt);
 const groupKey = row => JSON.stringify([resourceOf(row), processTime(row)]);
 const claimView = row => ({ dropCostComponents: row.waiver.fit.dropCostComponents ?? null, teRosterUtility: row.teRosterUtility ?? null, playerId: String(row.sleeperId), name: row.name, position: row.position,
   recommendedAction: row.waiver.decision.recommendedAction, decisionClass: row.waiver.decision.decisionClass ?? null,
-  suggestedBid: row.waiver.suggestedBid, personalMaxBid: row.waiver.personalMaxBid,
+  suggestedBid: row.waiver.suggestedBid, personalMaxBid: row.waiver.personalMaxBid, auction: compactAuction(row.waiver.auction),
   targetWeekDelta: row.waiver.fit.targetWeekDelta, netGainTotal: row.waiver.fit.netGainTotal,
   horizonWeeks: row.waiver.fit.horizonWeeks, dropCandidate: row.waiver.fit.dropCandidate,
   selectionScore: row.waiver.fit.selectionScore ?? row.waiver.fit.netGainTotal, availability: row.availability,

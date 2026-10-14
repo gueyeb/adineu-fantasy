@@ -2,7 +2,7 @@
 import { selectWaiverBoard } from "../public/assets/waiver-board.js";
 import { formatTeRosterUtility } from './te-roster-utility.js';
 import { loadProjectionCapture, buildProjectionComparison } from './projection-comparison.js';
-import { createWaiverEvaluator } from "./waiver-evaluator.js";
+import { createWaiverEvaluator, createAuctionPricer } from "./waiver-evaluator.js";
 import { extractDecisionFeatures, SEVERITY_BY_STATUS } from "./decision-features.js";
 import { buildCoherenceWarnings, formatCoherenceWarnings, countEmptyStarterSlots } from "../public/assets/decision-coherence.js";
 import { resolveAcquisitionAvailability, summarizeRecentTransactions, resolveRoleEvidence, formatRecentTransactions, findRecentDrops, nextWeekHorizon, deriveWaiverRules } from "../public/assets/acquisition-availability.js";
@@ -29,6 +29,7 @@ import {
 } from "../public/assets/league-settings.js";
 import { resolveOperationalWeek, resolveLastCompletedWeek } from "../public/assets/nfl-week.js";
 import { findRosterByTeam, buildStarterSlotOrder, buildRosterSlots, listRosterIdentities } from "../public/assets/roster-view.js";
+import { compactAuction, formatAuction } from "../public/assets/faab-auction.js";
 import { buildFaabHistory, buildTrendingAdds, summarizeFaabByPosition, buildLeagueBidReference } from "../public/assets/league-market.js";
 import { buildPlayerWeeks, calculateUsageScores } from "../public/assets/usage-score.js";
 import { buildDefenseMatchups } from "../public/assets/defense-matchup.js";
@@ -60,6 +61,16 @@ const playersIndexCaches = new WeakMap();
  * statut et zone de blessure, depth chart. Partagé par le Start/Sit Advisor, le Trade Finder
  * (/api/player-status) et le Waiver Wire v2 (événements : promotion, blessure du titulaire).
  */
+const AUCTION_CALIBRATION_URL = new URL("../public/data/faab-auction-calibration.json", import.meta.url);
+let auctionCalibrationCache;
+/** FAAB auction calibration (npm run calibrate:faab); null when absent: bids then use the old basis. */
+export async function loadAuctionCalibration() {
+  if (auctionCalibrationCache === undefined) {
+    try { auctionCalibrationCache = JSON.parse(await readFile(AUCTION_CALIBRATION_URL, "utf8")); } catch { auctionCalibrationCache = null; }
+  }
+  return auctionCalibrationCache;
+}
+
 export async function getPlayersIndex({ fetchImpl = fetch, forceRefresh = false } = {}) {
   const now = Date.now();
   const hit = playersIndexCaches.get(fetchImpl);
@@ -84,6 +95,7 @@ export async function getPlayersIndex({ fetchImpl = fetch, forceRefresh = false 
       depthPosition: player.depth_chart_position || null,
       teamChangedAt: Number.isFinite(player.team_changed_at) ? player.team_changed_at : null,
       searchRank: Number.isFinite(player.search_rank) ? player.search_rank : null,
+      yearsExp: Number.isFinite(player.years_exp) ? player.years_exp : null,
       active: player.active !== false
     });
   }
@@ -585,9 +597,11 @@ export async function getFreeAgents({
   evidencePath = process.env.DECISION_EVIDENCE_FILE,
   asOf = null,
   onDecisionInputs = null,
-  projectionCapturePath = process.env.PROJECTION_COMPARISON_FILE
+  projectionCapturePath = process.env.PROJECTION_COMPARISON_FILE,
+  auctionCalibration = undefined
 } = {}) {
   const { catalog } = await loadPlayerCatalog(catalogUrl);
+  const faabAuctionCalibration = auctionCalibration === undefined ? await loadAuctionCalibration() : auctionCalibration;
   const catalogById = new Map((catalog.players || []).map(player => [player.sleeperId, player]));
   let rosters = await sleeperGet(`/league/${leagueId}/rosters`, { fetchImpl });
   let ownershipAsOf = new Date().toISOString();
@@ -708,7 +722,11 @@ export async function getFreeAgents({
 
   // Real prices of this league, per position, for claims the model cannot price.
   const leagueBidReference = buildLeagueBidReference(allTransactions, { positionOf: id => meta(id)?.position ?? null });
-  const withWaiver = createWaiverEvaluator({ fitContext, week, availabilityFor, ownershipRechecked, transactionsComplete: transactionsByWeek.length === week, horizonFor, bidReferenceByPosition: leagueBidReference });
+  const teamNameById = new Map(listRosterIdentities(rosters, users).map(({ roster, teamName }) => [String(roster.roster_id), teamName]));
+  const auctionFor = createAuctionPricer({ calibration: faabAuctionCalibration, rosters, myRosterId: team ? findRosterByTeam(rosters, users, team).roster.roster_id : null,
+    projections: projectionsByWeek[week], positionOf: id => meta(id)?.position ?? index.get(String(id))?.position ?? null, yearsExpOf: id => index.get(String(id))?.yearsExp ?? null,
+    teamNameOf: rosterId => teamNameById.get(String(rosterId)) ?? null, slots: STARTER_SLOT_ORDER });
+  const withWaiver = createWaiverEvaluator({ fitContext, week, availabilityFor, ownershipRechecked, transactionsComplete: transactionsByWeek.length === week, horizonFor, bidReferenceByPosition: leagueBidReference, auctionFor });
 
   const normalizedPosition = position ? String(position).toUpperCase() : null;
   const byPosition = {};
@@ -776,7 +794,7 @@ export async function getFreeAgents({
       ownershipRechecked, transactionsComplete: transactionsByWeek.length === week,
       marketRows: rows, availabilityById: Object.fromEntries(market.map(player => [player.sleeperId, availabilityFor(player)])),
       fitContext: fitContext ? { ...serialFit, protectedIds: [...fitContext.protectedIds], reserveIds: [...fitContext.reserveIds], lockedIds: [...fitContext.lockedIds], starterIds: [...fitContext.starterIds], paceById, weeklyPaceById } : null,
-      raw: { projectionCapture, projectionsByWeek, statsByWeek, fetchedAtByPath, schedule, rosters, catalog, nflState, users, playersIndex: Object.fromEntries(index), availabilityEvidenceById, roleEvidenceById, eventsById, leagueSettings, allTransactions },
+      raw: { projectionCapture, projectionsByWeek, statsByWeek, fetchedAtByPath, schedule, rosters, catalog, nflState, users, playersIndex: Object.fromEntries(index), availabilityEvidenceById, roleEvidenceById, eventsById, leagueSettings, allTransactions, faabAuctionCalibration },
       playerIndexFetchedAt: playersIndexCaches.get(fetchImpl)?.at ? new Date(playersIndexCaches.get(fetchImpl).at).toISOString() : null
     })));
   }
@@ -872,7 +890,7 @@ export function formatWaiverReport({ byPosition, week, faabRemaining = null, deg
           (Number.isFinite(player.waiver.usageScore) ? ` · Usage ${player.waiver.usageScore}${player.waiver.usageSignal ? ` ${player.waiver.usageSignal}` : ""}` : "") +
           (player.waiver.fit ? ` · Priorité ${player.waiver.fit.priorityScore} · Capture ${player.waiver.fit.fitScore}% · Delta S${week} ${player.waiver.fit.targetWeekDelta ?? "n/d"} · Gain brut ${player.waiver.fit.grossGainTotal ?? "n/d"} sur ${player.waiver.fit.horizonWeeks} sem · Gain net total ${player.waiver.fit.netGainTotal ?? "n/d"} · Gain net moyen ROS ${player.waiver.fit.netGainPerWeek ?? "n/d"} pts/sem · Coupe ${player.waiver.fit.dropCandidate?.name || "n/d"} (${player.waiver.fit.dropCostPerWeek ?? "n/d"} pts/sem) · Max ${player.waiver.fit.faabMaxForMe} $${player.waiver.fit.cutSelection ? ` · Sélection coupe ${player.waiver.fit.cutSelection}` : ""}${formatDropCost(player.waiver.fit.dropCostComponents)}` : "") +
           formatEntry(player) + formatNextUnlock(player.nextUnlockScenario) + (player.teRosterUtility ? ` · ${formatTeRosterUtility(player.teRosterUtility)}` : '') +
-          ` · ${formatMaxBid(player.waiver)} · ${player.waiver.bidStatus === "NOT_DETERMINED" ? `Enchère non déterminée (${player.waiver.bidUndeterminedReason})` : `Enchère proposée ${player.waiver.suggestedBid ?? "n/d"} $${player.waiver.bidBasis === "LEAGUE_MEDIAN_WINNING_BID_CAPPED_BY_PERSONAL_CEILING" ? ` (médiane des enchères gagnantes ${player.position} de la ligue : ${player.waiver.leagueBidReference.median} $, bornée par ton plafond)` : ""}${player.waiver.bidNote === "ZERO_MARKET_ESTIMATE_NOT_A_GUARANTEE" ? ` (marché estimé à 0 $, sans garantie : marge jusqu'au plafond de ${player.waiver.personalMaxBid} $)` : ""}`} · % initial ${player.waiver.bidPctInitial ?? "n/d"} · % restant ${player.waiver.bidPctRemaining ?? "n/d"}` +
+          ` · ${formatMaxBid(player.waiver)} · ${player.waiver.bidStatus === "NOT_DETERMINED" ? `Enchère non déterminée (${player.waiver.bidUndeterminedReason})` : `Enchère proposée ${player.waiver.suggestedBid ?? "n/d"} $${player.waiver.bidBasis === "LEAGUE_MEDIAN_WINNING_BID_CAPPED_BY_PERSONAL_CEILING" ? ` (médiane des enchères gagnantes ${player.position} de la ligue : ${player.waiver.leagueBidReference.median} $, bornée par ton plafond)` : ""}${player.waiver.auction ? ` (rivaux : ${formatAuction(compactAuction(player.waiver.auction))} — estimation non calibrée)` : ""}${player.waiver.bidNote === "ZERO_MARKET_ESTIMATE_NOT_A_GUARANTEE" ? ` (marché estimé à 0 $, sans garantie : marge jusqu'au plafond de ${player.waiver.personalMaxBid} $)` : ""}`} · % initial ${player.waiver.bidPctInitial ?? "n/d"} · % restant ${player.waiver.bidPctRemaining ?? "n/d"}` +
           (player.waiver.duration ? ` · Durée ${player.waiver.duration}` : "") +
           (player.waiver.newsOverride ? ` · ⚡ ${player.waiver.reasons.join(" ; ")}` : "")
         : "";

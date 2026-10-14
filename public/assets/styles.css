@@ -990,6 +990,11 @@ span.war-followed { cursor: default; }
 .war-order pre { margin: 0 0 12px; overflow-x: auto; white-space: pre-wrap; color: var(--ink); font: .8rem/1.6 var(--body); }
 .coach-raw { margin-top: 18px; padding: 18px 22px; border: 1px solid var(--line); color: var(--muted); }
 .coach-raw summary { cursor: pointer; font-size: .72rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.journal-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 10px; }
+.journal-entry { padding: 10px 12px; border: 1px solid var(--line); color: var(--ink); }
+.journal-entry small { display: block; margin-top: 4px; color: var(--muted); }
+.journal-reason { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.journal-reason input { flex: 1 1 200px; min-width: 0; padding: 6px 8px; border: 1px solid var(--line); background: transparent; color: var(--ink); font: inherit; }
 .coach-raw pre { overflow-x: auto; white-space: pre-wrap; color: var(--ink); font: .84rem/1.65 var(--body); }
 @media (max-width: 860px) {
   .coach-gate { grid-template-columns: 1fr; gap: 40px; }

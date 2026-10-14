@@ -1,0 +1,80 @@
+{
+  "generatedAt": "2026-10-14T11:26:35.697Z",
+  "season": "2026",
+  "leagueId": "1392715510830878721",
+  "legs": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "method": "Best rival bid: P(any) logistic + log-normal amount (ridge), sd inflated; rival budgets cap",
+  "features": [
+    "intercept",
+    "opportunityJump",
+    "snapJump",
+    "QB",
+    "RB",
+    "WR",
+    "TE",
+    "young",
+    "rivalNeedShare"
+  ],
+  "rivalNeedPoints": 0.5,
+  "sdInflation": 1.2,
+  "targetWinProbability": 0.6,
+  "sample": {
+    "bids": 161,
+    "contested": 128,
+    "won": 73
+  },
+  "model": {
+    "rivalBidWeights": [
+      0.6473,
+      0.2271,
+      0.1511,
+      0.2871,
+      0.2534,
+      0.2894,
+      -0.5813,
+      0.7471,
+      0.9057
+    ],
+    "amountWeights": [
+      2.7131,
+      0.1129,
+      0.7739,
+      0.5927,
+      1.2054,
+      0.8609,
+      0.7941,
+      0.9087,
+      0.3218
+    ],
+    "sd": 1.2647
+  },
+  "validation": {
+    "leaveOneLegOut": {
+      "legsTested": 5,
+      "bids": 161,
+      "brier": 0.252,
+      "constantRateBrier": 0.255,
+      "contested": 128,
+      "interquartileCoverage": 0.618
+    },
+    "chronological": {
+      "legsTested": 3,
+      "bids": 105,
+      "brier": 0.271,
+      "constantRateBrier": 0.261,
+      "contested": 91,
+      "interquartileCoverage": 0.507
+    }
+  },
+  "limits": [
+    "Sleeper projections of past weeks are read today (rival need only)",
+    "Ties and waiver priority ignored",
+    "No per-manager effect at this sample size"
+  ]
+}

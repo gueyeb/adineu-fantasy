@@ -2,6 +2,8 @@ import { addToWatchlist, buildWarRoom, formatClaimOrder, recordBids, removeFromW
 import { loadBidHistory, loadWatchlist, saveBidHistory, saveWatchlist, syncWarRoom } from "./war-room-store.js?v=7fbca3341a";
 import { renderWeeklyRoster, renderWeeklyMoves } from "./coach-week-view.js?v=67b2ba9a14";
 import { LEAGUE_METADATA_2026 } from "./league-settings.js?v=f6d1bf5212";
+import { formatAuction } from "./faab-auction.js?v=1eea51c520";
+import { REASON_MAX as JOURNAL_REASON_MAX } from "./decision-log.js?v=227210e0f4";
 
 const login = document.getElementById("coach-login");
 const gate = document.getElementById("coach-gate");
@@ -71,6 +73,7 @@ function waiverCard(player, followedIds = new Set()) {
     <h3>${escapeHtml(player.name)}</h3>
     <p>${escapeHtml(player.nflTeam || "FA")} · delta semaine <b>${signed(player.targetWeekDelta)} pts</b><br>Gain net total ${signed(player.netGainTotal)} pts sur ${player.horizonWeeks ?? "n/d"} sem</p>
     <dl><div><dt>Coupe</dt><dd>${escapeHtml(player.dropCandidate?.name || "Aucune")}</dd></div><div><dt>Enchère proposée</dt><dd>${Number.isFinite(player.suggestedBid) ? `${player.suggestedBid} $` : "non déterminée"}</dd></div><div><dt>Plafond Boukki</dt><dd>${Number.isFinite(player.maxForTeam) ? `${player.maxForTeam} $` : "non déterminé"}</dd></div></dl>
+    ${player.auction ? `<small>Rivaux : ${escapeHtml(formatAuction(player.auction))} (estimation non calibrée).</small><br>` : ""}
     ${player.preferenceOverridden ? `<small>Préférence temporaire dépassée : ${escapeHtml(player.appliedPreference?.reason)} (${player.preferencePenaltyTotal} points d’utilité).</small><br>` : ""}
     <small>${escapeHtml(player.availability?.availability || "UNKNOWN")}${player.availability?.availabilitySource === "LEAGUE_RULES_INFERRED" ? " (déduite — à confirmer dans Sleeper)" : ""} · ${escapeHtml(player.roleConfirmation || "UNCONFIRMED")}</small><br><small>${escapeHtml(player.interpretation)}</small><br>${followButton(player, followedIds)}
   </article>`;
@@ -122,6 +125,42 @@ function renderPlan(plan) {
   gate.hidden = true;
   report.hidden = false;
   status.textContent = `Données jusqu’à S${plan.dataThroughWeek ?? "—"} · actualisé ${new Date(plan.generatedAt).toLocaleString("fr-FR")}${Object.keys(plan.preferences || {}).length ? " · préférences Trade Finder appliquées" : ""}`;
+}
+
+const JOURNAL_KIND = { CLAIM_WON: "Claim gagné", CLAIM_LOST: "Claim perdu", FREE_ADD: "Ajout libre", DROP: "Coupe", TRADE: "Trade", LINEUP: "Lineup" };
+const JOURNAL_MODEL = { RECOMMENDED: "recommandé par le modèle", NOT_RECOMMENDED: "évalué, non recommandé", NOT_ON_BOARD: "hors du tableau du modèle", NO_MODEL_RECORD: "pas de plan enregistré" };
+const names = players => players.map(player => escapeHtml(player.name)).join(" + ");
+
+function journalOutcome(entry) {
+  const outcome = entry.outcome;
+  if (!outcome || outcome.status === "PENDING") return "en attente du match";
+  if (entry.kind === "LINEUP") return `${outcome.actualPoints} pts sur ${outcome.optimalPoints} possibles · <b>${outcome.pointsLeft} laissés au banc</b>`;
+  const window = `S${outcome.fromWeek}–S${outcome.throughWeek}${outcome.status === "PARTIAL" ? " (partiel)" : ""}`;
+  if (entry.kind === "CLAIM_LOST") return `${window} : il a marqué ${outcome.addedPoints} pts${entry.lostTo ? ` · parti à ${entry.lostTo.bid} $` : ""}${entry.note === "INVALID_CLAIM" ? " · claim invalide (roster plein)" : ""}`;
+  return `${window} : ajouté ${outcome.addedPoints} pts (${outcome.startedPoints ?? 0} titularisés) contre coupé ${outcome.droppedPoints} pts · <b>net ${signed(outcome.net)}</b>`;
+}
+
+function renderJournal(data) {
+  const summary = data.summary || {};
+  const rows = (data.entries || []).map(entry => `<li class="journal-entry">
+    <div><b>S${entry.week ?? "?"} · ${JOURNAL_KIND[entry.kind] || escapeHtml(entry.kind)}</b>${entry.added.length ? ` ${names(entry.added)}` : ""}${entry.dropped.length ? ` <i>coupe</i> ${names(entry.dropped)}` : ""}${Number.isFinite(entry.bid) ? ` · ${entry.bid} $` : ""}</div>
+    <small>${journalOutcome(entry)}${entry.model ? ` · ${JOURNAL_MODEL[entry.model.verdict] || escapeHtml(entry.model.verdict)}${Number.isFinite(entry.model.suggestedBid) ? ` (${entry.model.suggestedBid} $)` : ""}` : ""}</small>
+    <form class="journal-reason" data-journal-id="${escapeHtml(entry.id)}"><input type="text" maxlength="${JOURNAL_REASON_MAX}" value="${escapeHtml(entry.reason || "")}" placeholder="Pourquoi ? (motif libre)" aria-label="Motif"><button class="coach-secondary" type="submit">Enregistrer</button></form>
+  </li>`).join("");
+  return `<p>${summary.moves ?? 0} mouvements · ${summary.claimsWon ?? 0} claims gagnés / ${summary.claimsLost ?? 0} perdus · ${summary.faabSpent ?? 0} $ dépensés · net des mouvements évalués ${signed(summary.netPointsFromMoves ?? 0)} pts (${summary.evaluatedMoves ?? 0}) · ${summary.lineupPointsLeft ?? "—"} pts laissés au banc sur ${summary.lineupWeeks ?? 0} semaines.</p>
+    <p class="war-note">Net = points des joueurs ajoutés moins ceux des joueurs coupés, au barème de la ligue, sur 4 semaines à partir de la semaine du mouvement. Mis à jour chaque mardi.</p>
+    <ol class="journal-list">${rows || `<p class="coach-empty">Journal vide : la synchronisation du mardi le remplit.</p>`}</ol>`;
+}
+
+async function loadJournal() {
+  const target = document.getElementById("coach-journal");
+  if (!currentPlan || !target) return;
+  target.innerHTML = `<p class="coach-empty">Chargement…</p>`;
+  try {
+    const response = await fetch(`/api/coach/decisions?roster=${encodeURIComponent(currentPlan.rosterId)}`, { cache: "no-store", credentials: "same-origin" });
+    if (!response.ok) throw new Error();
+    target.innerHTML = renderJournal(await response.json());
+  } catch { target.innerHTML = `<p class="coach-empty">Journal indisponible pour le moment.</p>`; }
 }
 
 async function fetchCoach(preferences = {}, watchIds = "") {
@@ -214,6 +253,20 @@ document.getElementById("coach-logout").addEventListener("click", async () => {
     if (!response.ok) throw new Error();
     currentPlan = null; message.textContent = ""; report.hidden = true; gate.hidden = false; login.hidden = false; status.textContent = "Déconnecté.";
   } catch { status.textContent = "Déconnexion impossible. Réessaie."; }
+});
+document.getElementById("coach-journal-details")?.addEventListener("toggle", event => { if (event.currentTarget.open) loadJournal(); });
+document.getElementById("coach-journal")?.addEventListener("submit", async event => {
+  const form = event.target.closest("form[data-journal-id]");
+  if (!form || !currentPlan) return;
+  event.preventDefault();
+  const button = form.querySelector("button");
+  button.disabled = true;
+  try {
+    const response = await fetch("/api/coach/decisions", { method: "PUT", credentials: "same-origin", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rosterId: currentPlan.rosterId, id: form.dataset.journalId, reason: form.querySelector("input").value }) });
+    button.textContent = response.ok ? "Enregistré" : "Échec";
+  } catch { button.textContent = "Échec"; }
+  setTimeout(() => { button.textContent = "Enregistrer"; button.disabled = false; }, 1500);
 });
 loadCoach();
 

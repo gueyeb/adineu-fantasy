@@ -7,6 +7,7 @@ import { extname, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { analyzeTrades, formatTradeBulletin, loadPlayerValues } from "./scripts/analyze-trades.js";
 import { createWarRoomStore } from "./scripts/war-room-sync.js";
+import { createDecisionLogStore } from "./scripts/decision-log.js";
 import {
   getLeagueContext,
   getMatchupContext as getMatchupContextDefault,
@@ -102,6 +103,7 @@ export function createAppServer({
   runModelJob = async () => runWeeklyJob({ supabase: await createSupabaseFromEnv() }),
   getModelFeedback = () => getLatestFeedback(),
   warRoomStore = createWarRoomStore(),
+  decisionLogStore = createDecisionLogStore(),
   coachToken = process.env.COACH_API_TOKEN || "",
   coachPassword = process.env.COACH_WEB_PASSWORD || "",
   secureCookies = process.env.NODE_ENV !== "development"
@@ -177,6 +179,35 @@ export function createAppServer({
         return sendJson(response, 200, { state: await warRoomStore.save(payload.rosterId, { watchlist: payload.watchlist, bidHistory: payload.bidHistory }) });
       } catch (error) {
         return sendJson(response, 503, { error: "SYNC_UNAVAILABLE" });
+      }
+    }
+
+    // Decision journal: the team's real moves with outcomes; only the operator's reason is writable.
+    if (url.pathname === "/api/coach/decisions") {
+      const apiAuthorized = coachToken && request.headers.authorization === `Bearer ${coachToken}`;
+      if (!apiAuthorized && !coachAuth.authenticated(request.headers.cookie)) return sendJson(response, 404, { error: "Not found" });
+      const validRoster = value => Number.isInteger(value) && value >= 1 && value <= 32;
+      try {
+        if (request.method === "GET") {
+          const rosterId = Number(url.searchParams.get("roster"));
+          if (!validRoster(rosterId)) return sendJson(response, 400, { error: "roster invalide" });
+          return sendJson(response, 200, await decisionLogStore.list(rosterId));
+        }
+        if (request.method !== "PUT") return sendJson(response, 405, { error: "Method not allowed" });
+        const origin = request.headers.origin;
+        if (!apiAuthorized && (!origin || !URL.canParse(origin) || new URL(origin).host !== request.headers.host)) return sendJson(response, 403, { error: "Forbidden" });
+        let body = "";
+        for await (const chunk of request) {
+          body += chunk;
+          if (Buffer.byteLength(body) > 4 * 1024) return sendJson(response, 413, { error: "Payload too large" });
+        }
+        let payload;
+        try { payload = JSON.parse(body); } catch { return sendJson(response, 400, { error: "Invalid request" }); }
+        if (!validRoster(payload?.rosterId) || typeof payload.id !== "string") return sendJson(response, 400, { error: "Requête invalide" });
+        try { return sendJson(response, 200, await decisionLogStore.setReason(payload.rosterId, payload.id, payload.reason)); }
+        catch (error) { if (/inconnue|invalide/i.test(error.message)) return sendJson(response, 400, { error: error.message }); throw error; }
+      } catch {
+        return sendJson(response, 503, { error: "JOURNAL_UNAVAILABLE" });
       }
     }
 

@@ -34,7 +34,7 @@ function compactWaiver(player) {
     immediateValue: player.immediateValue, strategicUpside: player.strategicUpside,
     availability: player.availability, roleConfirmation: player.roleConfirmation, horizonWeeks: player.horizonWeeks,
     targetWeekDelta: player.targetWeekDelta, grossGainTotal: player.grossGainTotal, netGainTotal: player.netGainTotal,
-    weeklyLineupDeltas: player.weeklyLineupDeltas, coverageIssues: player.coverageIssues, suggestedBid: player.suggestedBid,
+    weeklyLineupDeltas: player.weeklyLineupDeltas, coverageIssues: player.coverageIssues, suggestedBid: player.suggestedBid, auction: player.auction ?? null,
     netGain: player.netGain, lineupGain: player.lineupGain, dropCandidate: player.dropCandidate,
     dropCost: player.dropCost, faabMarket: player.faabMarket, maxForTeam: player.maxForTeam,
     preferencePenaltyTotal: player.preferencePenaltyTotal, preferenceOverridden: player.preferenceOverridden, appliedPreference: player.appliedPreference,

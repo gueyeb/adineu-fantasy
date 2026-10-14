@@ -11,7 +11,7 @@ import { findRosterByTeam } from '../public/assets/roster-view.js';
 import { normalizeRosterPreferences } from '../public/assets/roster-preferences.js';
 import { buildStarterSlotOrder } from '../public/assets/roster-view.js';
 import { buildAcquisitionPlan, selectPlanCandidates, planPlayerIds } from '../public/assets/waiver-plan.js';
-import { createWaiverEvaluator } from './waiver-evaluator.js';
+import { createWaiverEvaluator, createAuctionPricer } from './waiver-evaluator.js';
 import { buildLeagueBidReference } from '../public/assets/league-market.js';
 import { buildCoherenceWarnings, countEmptyStarterSlots } from '../public/assets/decision-coherence.js';
 
@@ -76,7 +76,12 @@ export function recomputeDecisionInputs(inputs) {
   const evaluate = createWaiverEvaluator({ fitContext, week:inputs.week, availabilityFor:row=>availabilityById[row.sleeperId],
     ownershipRechecked:inputs.ownershipRechecked, transactionsComplete:inputs.transactionsComplete,
     horizonFor:player=>nextWeekHorizon({ schedule:inputs.raw?.schedule || [], week:inputs.week, nflTeam:player.nflTeam }),
-    bidReferenceByPosition:sourceFeatures ? buildLeagueBidReference(inputs.raw.allTransactions, { positionOf:id=>sourceFeatures.meta(id)?.position ?? null }) : {} });
+    bidReferenceByPosition:sourceFeatures ? buildLeagueBidReference(inputs.raw.allTransactions, { positionOf:id=>sourceFeatures.meta(id)?.position ?? null }) : {},
+    // Archives written before the auction model carry no calibration: their bids keep the old basis.
+    auctionFor:sourceFeatures && inputs.raw.faabAuctionCalibration ? createAuctionPricer({ calibration:inputs.raw.faabAuctionCalibration, rosters:inputs.raw.rosters,
+      myRosterId:inputs.team ? findRosterByTeam(inputs.raw.rosters, inputs.raw.users, inputs.team).roster.roster_id : null, projections:inputs.raw.projectionsByWeek[inputs.week],
+      positionOf:id=>sourceFeatures.meta(id)?.position ?? inputs.raw.playersIndex[id]?.position ?? null, yearsExpOf:id=>inputs.raw.playersIndex[id]?.yearsExp ?? null,
+      slots:buildStarterSlotOrder(ROSTER_SETTINGS_2026) }) : () => null });
   const byPosition = {};
   for (const row of selectWaiverBoard(market, { limitPerPosition: inputs.limitPerPosition, position: inputs.position })) {
     (byPosition[row.position] ??= []).push(evaluate(row));

@@ -17,7 +17,8 @@
  * n8n : POST /api/model/weekly (Authorization: Bearer $MODEL_JOB_TOKEN).
  */
 import { pathToFileURL } from "node:url";
-import { getFreeAgents, getUsageReport, getWeeklyProjections, getWeeklyStats } from "./league-context.js";
+import { getFreeAgents, getUsageReport, getWeeklyProjections, getWeeklyStats, loadAuctionCalibration } from "./league-context.js";
+import { AUCTION_FEATURES, RIVAL_NEED_POINTS, scoreAuction } from "../public/assets/faab-auction.js";
 import { resolveOperationalWeek } from "../public/assets/nfl-week.js";
 import { GENERAL_SETTINGS_2026 } from "../public/assets/league-settings.js";
 import { PRICE_PER_POINT } from "../public/assets/waiver-model.js";
@@ -85,6 +86,43 @@ export function projectionAccuracyByHorizon(projectionRows = [], actualById = ne
   return [...byHorizon].sort((a, b) => a[0] - b[0]).map(([horizon, errors]) => ({ horizon, n: errors.length, mae: round(mean(errors)) }));
 }
 
+/**
+ * Adineu vs Sleeper on one completed week, same cohort: every player with a Sleeper projection
+ * for that week in a snapshot, the usage xFP of that same snapshot, and a played game. Three
+ * predictors: Sleeper alone, usage xFP alone, and what our rest-of-season pace uses for that week
+ * (Sleeper inside DIRECT_PROJECTION_WEEKS, then the position's usage blend). Grouped by
+ * projection age and position; a blend that stops beating Sleeper shows up here.
+ */
+export function projectionScorecard(projectionRows = [], usageBySnapshotWeek = new Map(), actualById = new Map(), targetWeek) {
+  const groups = new Map();
+  const add = (key, errors) => {
+    const group = groups.get(key) || { n: 0, sleeper: 0, usage: 0, adineu: 0 };
+    group.n++;
+    for (const name of ["sleeper", "usage", "adineu"]) group[name] += errors[name];
+    groups.set(key, group);
+  };
+  for (const row of projectionRows) {
+    if (row.target_week !== targetWeek || !actualById.has(row.sleeper_player_id)) continue;
+    const usage = usageBySnapshotWeek.get(row.snapshot_week)?.get(row.sleeper_player_id);
+    const weight = FAR_WEEK_USAGE_WEIGHT_BY_POSITION[usage?.position];
+    if (!usage || !Number.isFinite(Number(usage.xfp)) || weight === undefined) continue;
+    const horizon = targetWeek - row.snapshot_week;
+    const sleeper = Number(row.pts_ppr);
+    const xfp = Number(usage.xfp);
+    const adineu = horizon >= DIRECT_PROJECTION_WEEKS ? (1 - weight) * sleeper + weight * xfp : sleeper;
+    const actual = actualById.get(row.sleeper_player_id);
+    const errors = { sleeper: Math.abs(sleeper - actual), usage: Math.abs(xfp - actual), adineu: Math.abs(adineu - actual) };
+    add(`${horizon}|ALL`, errors);
+    add(`${horizon}|${usage.position}`, errors);
+  }
+  return [...groups].map(([key, group]) => {
+    const [horizon, position] = key.split("|");
+    const mae = name => round(group[name] / group.n);
+    return { horizon: Number(horizon), position, n: group.n, sleeperMae: mae("sleeper"), usageMae: mae("usage"), adineuMae: mae("adineu"),
+      blendApplies: Number(horizon) >= DIRECT_PROJECTION_WEEKS, adineuBeatsSleeper: mae("adineu") < mae("sleeper") };
+  }).sort((a, b) => a.horizon - b.horizon || (a.position === "ALL" ? -1 : b.position === "ALL" ? 1 : a.position.localeCompare(b.position)));
+}
+
 /** Signals issued at earlier snapshots: points per game since, vs the ppg they had when flagged. */
 export function signalOutcomes(usageRows = [], pointsByPlayerWeek = new Map(), evaluatedWeek) {
   const groups = { BUY_LOW: [], SELL_HIGH: [] };
@@ -104,6 +142,47 @@ export function signalOutcomes(usageRows = [], pointsByPlayerWeek = new Map(), e
   }]));
 }
 
+const INVALID_BID_NOTE = /roster will have too many players|already started playing/i;
+
+/** Every bid that competed in a leg, won or lost (a full roster or a locked drop never competed). */
+export function competingBids(transactions = []) {
+  const best = new Map();
+  for (const row of Array.isArray(transactions) ? transactions : []) {
+    if (row.type !== "waiver" || !["complete", "failed"].includes(row.status) || INVALID_BID_NOTE.test(row.metadata?.notes || "")) continue;
+    const bid = Number(row.settings?.waiver_bid);
+    if (!Number.isFinite(bid)) continue;
+    for (const [playerId, rosterId] of Object.entries(row.adds || {})) {
+      const key = `${playerId}|${rosterId}`;
+      const previous = best.get(key);
+      best.set(key, { playerId, rosterId, bid: Math.max(bid, previous?.bid ?? -1), won: Boolean(previous?.won) || row.status === "complete" });
+    }
+  }
+  return [...best.values()];
+}
+
+/**
+ * Out-of-sample check of the auction model on one leg: each real bid scored with the inputs the
+ * Tuesday snapshot archived (rival needs, features) and the model it used, the bidder removed
+ * from its own rivals. Bids on players absent from the snapshot are counted, not scored.
+ */
+export function scoreAuctionLeg(bids = [], marketById = new Map(), { model = null, rosterBudgets = {}, baseRate = null } = {}) {
+  if (!model) return { bids: bids.length, scored: 0, reason: "NO_ARCHIVED_MODEL" };
+  const needIndex = AUCTION_FEATURES.indexOf("rivalNeedShare");
+  const samples = [];
+  for (const bid of bids) {
+    const inputs = marketById.get(bid.playerId)?.events?.auction;
+    if (!inputs?.features || !inputs.rivalNeeds) continue;
+    const rivals = Object.entries(inputs.rivalNeeds).filter(([rosterId]) => String(rosterId) !== String(bid.rosterId));
+    const x = AUCTION_FEATURES.map(name => inputs.features[name] ?? 0);
+    x[needIndex] = rivals.length ? rivals.filter(([, need]) => need > RIVAL_NEED_POINTS).length / rivals.length : 0;
+    const others = bids.filter(other => other.playerId === bid.playerId && String(other.rosterId) !== String(bid.rosterId)).map(other => other.bid);
+    const budgets = Object.entries(rosterBudgets).filter(([rosterId]) => String(rosterId) !== String(bid.rosterId)).map(([, budget]) => budget);
+    const someoneWon = bids.some(other => other.playerId === bid.playerId && other.won);
+    samples.push({ x, bid: bid.bid, won: someoneWon ? bid.won : null, bestRivalBid: others.length ? Math.max(...others) : null, maxRivalBudget: budgets.length ? Math.max(...budgets) : undefined });
+  }
+  return { ...(scoreAuction(model, samples, { baseRate }) ?? {}), bids: bids.length, scored: samples.length };
+}
+
 export function formatFeedbackMessage(report) {
   const lines = [`📈 SUIVI DU MODÈLE — ADINEU (semaine ${report.week} terminée)`, ""];
   const faab = report.faab;
@@ -112,12 +191,20 @@ export function formatFeedbackMessage(report) {
   if (!faab.covered && faab.claims) lines.push("À vérifier : IDs joueurs, date et pool du snapshot, fenêtre des transactions. Aucune conclusion sur les montants prédits.");
   if (faab.covered) lines.push(`• Dans la fourchette prédite : ${Math.round(faab.inRangeRate * 100)} %`);
   if (faab.medianImpliedPricePerPoint !== null) lines.push(`• Prix payé par point de surplus (médiane, ${faab.pricedClaims} cas) : ${faab.medianImpliedPricePerPoint} $ (modèle : ${faab.pricePerPoint} $)`);
+  const auction = report.faabAuction;
+  if (auction?.scored) lines.push(`• Modèle d'enchères (rivaux) : ${auction.scored}/${auction.bids} enchère(s) notée(s) · Brier ${auction.brier} (taux constant ${auction.constantRateBrier}) · meilleure enchère rivale dans la fourchette p25–p75 : ${Math.round((auction.interquartileCoverage ?? 0) * 100)} % (cible 50 %, n=${auction.contested})`);
+  else if (auction?.bids) lines.push(`• Modèle d'enchères (rivaux) : aucune des ${auction.bids} enchères notée (${auction.reason || "joueurs absents du snapshot"}).`);
   if (report.projections.length) {
     lines.push("", "Projections Sleeper — MAE (erreur absolue moyenne, pts) selon l'ancienneté :");
     for (const entry of report.projections) lines.push(`• ${entry.horizon} semaine(s) avant : ${entry.mae} pts (n=${entry.n})`);
     lines.push("Horizon 0 ne certifie pas une capture avant kickoff ; ventilation par poste et comparaison sur cohorte identique restent nécessaires.");
   } else {
     lines.push("", "Projections : pas encore de snapshot antérieur à cette semaine.");
+  }
+  const scorecard = (report.scorecard || []).filter(row => row.position === "ALL");
+  if (scorecard.length) {
+    lines.push("", "Adineu contre Sleeper (même cohorte, MAE en pts ; Adineu = Sleeper avant " + DIRECT_PROJECTION_WEEKS + " semaines, puis mélange usage) :");
+    for (const row of scorecard) lines.push(`• ${row.horizon} sem. avant (n=${row.n}) : Sleeper ${row.sleeperMae} · usage seul ${row.usageMae} · Adineu ${row.adineuMae}${row.blendApplies ? (row.adineuBeatsSleeper ? " ✅" : " ⚠️ le mélange ne bat pas Sleeper") : ""}`);
   }
   for (const [signal, stats] of Object.entries(report.signals)) {
     if (stats.n) lines.push(`${signal === "BUY_LOW" ? "🟢 Buy-low" : "🔥 Sell-high"} : ${stats.n} suivi(s), ${stats.changeVsFlagged > 0 ? "+" : ""}${stats.changeVsFlagged} pt/match depuis, ${Math.round(stats.improvedRate * 100)} % en hausse`);
@@ -166,18 +253,22 @@ async function insertChunks(supabase, table, rows, size = 500) {
 /** One waiver-market row of the weekly snapshot. The role profile and its trend are archived in
  * the existing `events` JSON (no schema change) so they can later be compared with real outcomes,
  * WATCH/IGNORE candidates included: that is the dataset the role thresholds are waiting for. */
-export function marketSnapshotRow(row) {
+export function marketSnapshotRow(row, { trendingById = new Map() } = {}) {
   const emerging = row.emergingRole;
   const role = row.roleProfile?.profile ? { roleProfile: row.roleProfile.profile, roleBasis: row.roleProfile.basis ?? [] } : null;
   const trend = emerging?.comparable ? { progression: emerging.progression, progressionSource: emerging.progressionSource ?? null,
     xfpDelta: emerging.xfpDelta ?? null, opportunitiesDelta: emerging.opportunitiesDelta ?? null, weeksCompared: emerging.weeksCompared } : null;
   const flags = row.waiver.flags?.length ? { flags: row.waiver.flags, reasons: row.waiver.reasons, duration: row.waiver.duration } : null;
+  // Auction inputs (features, each roster's need) and Sleeper's 48 h trending adds: the bids of the
+  // next run are scored against them, and trending cannot be rebuilt after the fact.
+  const auction = row.waiver.auctionInputs ? { auction: row.waiver.auctionInputs } : null;
+  const trending = trendingById.has(String(row.sleeperId)) ? { trendingAdds48h: trendingById.get(String(row.sleeperId)) } : null;
   return {
     sleeper_player_id: row.sleeperId, name: row.name, position: row.position, nfl_team: row.nflTeam,
     category: row.waiver.category, market_score: row.waiver.score, faab_low: row.waiver.faabMarket?.[0] ?? null, faab_high: row.waiver.faabMarket?.[1] ?? null,
     surplus_points: row.surplusPoints, effective_ppg: row.effectivePpg, ros_ppg: row.rosPpg,
     news_override: Boolean(row.waiver.newsOverride),
-    events: flags || role || trend ? { ...(flags ?? {}), ...(role ?? {}), ...(trend ?? {}) } : null
+    events: flags || role || trend || auction || trending ? { ...(flags ?? {}), ...(role ?? {}), ...(trend ?? {}), ...(auction ?? {}), ...(trending ?? {}) } : null
   };
 }
 
@@ -193,7 +284,11 @@ export async function takeSnapshot({ supabase, fetchImpl = fetch, season, week, 
     getFreeAgents({ limitPerPosition: 40, fetchImpl }),
     getUsageReport({ fetchImpl })
   ]);
-  const marketRows = Object.values(market.byPosition).flat().map(marketSnapshotRow);
+  const trendingById = new Map((market.trending || []).map(row => [String(row.playerId), row.adds]));
+  const marketRows = Object.values(market.byPosition).flat().map(row => marketSnapshotRow(row, { trendingById }));
+  const calibration = await loadAuctionCalibration();
+  const rosters = await getJson(`/league/${LEAGUE_ID}/rosters`, fetchImpl).catch(() => []);
+  const rosterBudgets = Object.fromEntries(rosters.map(roster => [roster.roster_id, GENERAL_SETTINGS_2026.waiver.budget - Number(roster.settings?.waiver_budget_used || 0)]));
   const projectionRows = [];
   for (let target = week; target <= LAST_REGULAR_WEEK; target++) {
     const projections = await getWeeklyProjections({ week: target, season: String(season), fetchImpl }).catch(() => ({}));
@@ -207,7 +302,8 @@ export async function takeSnapshot({ supabase, fetchImpl = fetch, season, week, 
 
   const { data: snapshot, error } = await supabase.from("model_snapshots").upsert({
     season, week, kind: "weekly", taken_at: new Date().toISOString(), model_version: MODEL_VERSION,
-    settings: { PRICE_PER_POINT, FAR_WEEK_USAGE_WEIGHT, FAR_WEEK_USAGE_WEIGHT_BY_POSITION, DIRECT_PROJECTION_WEEKS },
+    settings: { PRICE_PER_POINT, FAR_WEEK_USAGE_WEIGHT, FAR_WEEK_USAGE_WEIGHT_BY_POSITION, DIRECT_PROJECTION_WEEKS, rosterBudgets,
+      faabAuction: calibration ? { model: calibration.model, generatedAt: calibration.generatedAt, baseRate: calibration.sample?.bids ? calibration.sample.won / calibration.sample.bids : null } : null },
     coverage: { ...market.coverage, usageWeeks: usage.weeks, degraded: summary.degraded }
   }, { onConflict: "season,week,kind" }).select("id").single();
   if (error) throw new Error(`model_snapshots: ${error.message}`);
@@ -246,7 +342,7 @@ export async function buildWeeklyFeedback({ supabase, fetchImpl = fetch, season,
 
   // 2. Snapshots up to (and including) the evaluated week.
   const { data: snapshots, error: snapshotError } = supabase
-    ? await supabase.from("model_snapshots").select("id, week").eq("season", season).eq("kind", "weekly").lte("week", week)
+    ? await supabase.from("model_snapshots").select("id, week, settings").eq("season", season).eq("kind", "weekly").lte("week", week)
     : { data: [], error: null }; // --dry-run without Supabase: no history to compare against
   if (snapshotError) throw new Error(`model_snapshots: ${snapshotError.message}`);
   const weekBySnapshot = new Map((snapshots || []).map(snapshot => [snapshot.id, snapshot.week]));
@@ -257,6 +353,8 @@ export async function buildWeeklyFeedback({ supabase, fetchImpl = fetch, season,
     marketById = new Map((data || []).map(row => [row.sleeper_player_id, row]));
   }
   const faab = summarizeFaabCalibration(outcomes, marketById);
+  const faabAuction = scoreAuctionLeg(competingBids(transactions), marketById, { model: sameWeek?.settings?.faabAuction?.model ?? null,
+    rosterBudgets: sameWeek?.settings?.rosterBudgets ?? {}, baseRate: sameWeek?.settings?.faabAuction?.baseRate ?? null });
 
   // 3. Projection accuracy for the completed week, by projection age.
   const stats = await getWeeklyStats({ week, season: String(season), fetchImpl }).catch(() => ({}));
@@ -267,6 +365,16 @@ export async function buildWeeklyFeedback({ supabase, fetchImpl = fetch, season,
     projectionRows = (data || []).map(row => ({ ...row, snapshot_week: weekBySnapshot.get(row.snapshot_id) }));
   }
   const projections = projectionAccuracyByHorizon(projectionRows, actualById, week);
+  const usageBySnapshotWeek = new Map();
+  if (snapshots?.length) {
+    const { data } = await supabase.from("player_usage_snapshots").select("snapshot_id, sleeper_player_id, position, xfp").in("snapshot_id", snapshots.map(snapshot => snapshot.id)).limit(20000);
+    for (const row of data || []) {
+      const snapshotWeek = weekBySnapshot.get(row.snapshot_id);
+      if (!usageBySnapshotWeek.has(snapshotWeek)) usageBySnapshotWeek.set(snapshotWeek, new Map());
+      usageBySnapshotWeek.get(snapshotWeek).set(row.sleeper_player_id, row);
+    }
+  }
+  const scorecard = projectionScorecard(projectionRows, usageBySnapshotWeek, actualById, week);
 
   // 4. Signals issued at earlier snapshots, followed through the evaluated week.
   let signals = { BUY_LOW: { n: 0 }, SELL_HIGH: { n: 0 } };
@@ -285,7 +393,7 @@ export async function buildWeeklyFeedback({ supabase, fetchImpl = fetch, season,
     signals = signalOutcomes((data || []).map(row => ({ ...row, snapshot_week: weekBySnapshot.get(row.snapshot_id) })), pointsByPlayerWeek, week);
   }
 
-  const report = { season, week, faabLeg: leg, generatedAt: new Date().toISOString(), modelVersion: MODEL_VERSION, faab, projections, signals };
+  const report = { season, week, faabLeg: leg, generatedAt: new Date().toISOString(), modelVersion: MODEL_VERSION, faab, faabAuction, projections, scorecard, signals };
   report.algoFeedback = buildAlgoFeedback(report);
   const message = formatFeedbackMessage(report);
   if (!dryRun) {
@@ -320,6 +428,21 @@ export async function getLatestFeedback(env = process.env) {
   return data?.[0] || null;
 }
 
+/** Decision journal of the operator's team (COACH_TEAM, default t0z): the Tuesday plan is
+ * recorded before the waivers (first write wins), then the season's moves are re-synced. */
+export async function recordDecisionJournal({ supabase, fetchImpl = fetch, week, team = process.env.COACH_TEAM || "t0z" }) {
+  const { createDecisionLogStore, recommendationsFromReport, syncDecisionLog } = await import("./decision-log.js");
+  const store = createDecisionLogStore({ getSupabase: async () => supabase });
+  const report = await getFreeAgents({ team, limitPerPosition: 15, fetchImpl });
+  const rosterId = report.rosterId ?? (await getJson(`/league/${LEAGUE_ID}/rosters`, fetchImpl).then(async rosters => {
+    const { findRosterByTeam } = await import("../public/assets/roster-view.js");
+    return findRosterByTeam(rosters, await getJson(`/league/${LEAGUE_ID}/users`, fetchImpl), team).roster.roster_id;
+  }));
+  const plan = await store.recordPlan(rosterId, week, recommendationsFromReport(report, "WEEKLY_JOB"));
+  const sync = await syncDecisionLog({ team, fetchImpl, store });
+  return { plan, written: sync.written, summary: sync.summary };
+}
+
 /** Tuesday job: feedback on the completed week, then snapshot of the current week. */
 export async function runWeeklyJob({ supabase, fetchImpl = fetch, dryRun = false, force = false } = {}) {
   const state = await getJson("/state/nfl", fetchImpl);
@@ -328,7 +451,8 @@ export async function runWeeklyJob({ supabase, fetchImpl = fetch, dryRun = false
   if (state.season_type !== "regular" || week > LAST_REGULAR_WEEK) return { skipped: `hors saison régulière (${state.season_type}, semaine ${week})` };
   const feedback = week > 1 ? await buildWeeklyFeedback({ supabase, fetchImpl, season, week: week - 1, dryRun }) : null;
   const snapshot = await takeSnapshot({ supabase, fetchImpl, season, week, dryRun, force });
-  return { season, week, snapshot, feedback: feedback?.report || null, message: feedback?.message || null };
+  const journal = dryRun ? null : await recordDecisionJournal({ supabase, fetchImpl, week }).catch(error => ({ error: error.message }));
+  return { season, week, snapshot, journal, feedback: feedback?.report || null, message: feedback?.message || null };
 }
 
 async function main() {

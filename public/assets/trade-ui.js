@@ -17,6 +17,7 @@ import {
 import { resolveOperationalWeek } from "./nfl-week.js?v=8f9fa3f5b2";
 import { listRosterIdentities } from "./roster-view.js?v=120de9d74d";
 import { calculateFaabRemaining } from "./team-metrics.js?v=e47db97055";
+import { compactAuction, formatAuction } from "./faab-auction.js?v=1eea51c520";
 import { buildProjectedLineup, restOfSeasonEstimate } from "./trade-score.js?v=7daaffafe7";
 
 import { SLEEPER_API, SLEEPER_LEAGUE_ID, sleeperGet } from "./sleeper-client.js?v=3f75d48ec5";
@@ -611,7 +612,7 @@ export async function renderTradesPage(container) {
                     <td>${metric(p.waiver.fit.horizonWeeks)} sem<br><small>Option coupe : ${metric(p.waiver.fit.dropCostTotal)} pts estimés<br>Perte après rôle : ${metric(p.waiver.fit.postRoleCutCostTotal)} pts</small></td>
                     <td style="font-weight:700;">${signed(p.waiver.fit.netGainTotal)} pts<br><small>Brut ${metric(p.waiver.fit.grossGainTotal)} · moyenne rôle ${metric(p.waiver.fit.netGainAverage)} pts/sem</small><details><summary>Détail par semaine</summary>${p.waiver.fit.weeklyLineupDeltas.map(row => `<div>S${row.week} : ${signed(row.delta)} pts · ${escapeHtml(row.slot || "banc")} ${row.covered ? "" : "· projection manquante"}</div>`).join("")}<p>${escapeHtml(p.waiver.fit.coverageIssues.join(" · "))}</p></details></td>
                     <td>${money(p.waiver.faabMarket)}</td>
-                    <td style="font-weight:700;">${metric(p.waiver.suggestedBid)} $ / ${metric(p.waiver.personalMaxBid)} $<br><small>${metric(p.waiver.bidPctInitial)} % initial · ${metric(p.waiver.bidPctRemaining)} % restant</small></td>
+                    <td style="font-weight:700;">${metric(p.waiver.suggestedBid)} $ / ${metric(p.waiver.personalMaxBid)} $<br><small>${metric(p.waiver.bidPctInitial)} % initial · ${metric(p.waiver.bidPctRemaining)} % restant</small>${p.waiver.auction ? `<br><small style="font-weight:400;">${escapeHtml(formatAuction(compactAuction(p.waiver.auction)))}</small>` : ""}</td>
                   </tr>
                 `).join("")}
               </tbody>

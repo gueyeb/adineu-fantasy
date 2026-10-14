@@ -2,6 +2,7 @@ import { buildTeRosterUtility } from './te-roster-utility.js';
 import { evaluateRosterFit, classifyWaiverDecision, LAST_REGULAR_WEEK } from '../public/assets/waiver-model.js';
 import { GENERAL_SETTINGS_2026 } from '../public/assets/league-settings.js';
 import { buildProjectedLineup } from '../public/assets/trade-score.js';
+import { lineupGain, priceToWin } from '../public/assets/faab-auction.js';
 
 /** A vacant streaming slot is a weekly decision; the permanent cut is still priced by fit. */
 export function evaluateStarterVacancyScenario({ row, rosterContext, week, rosFit }) {
@@ -61,8 +62,33 @@ export function evaluateNextUnlockScenario({ row, availability, rosterContext, w
 
 export const LEAGUE_REFERENCE_POSITIONS = ["K", "DEF"];
 
+/**
+ * Price to win a claim against the other rosters (public/assets/faab-auction.js). Each rival's
+ * need = what the player adds to its optimal lineup of the target week (Sleeper projections, as in
+ * the calibration); its remaining FAAB caps its bid. Returns (row, ceiling) -> result | null.
+ * Without a calibration (or for an old archive without one) it always returns null.
+ */
+export function createAuctionPricer({ calibration, rosters = [], myRosterId = null, projections = {}, positionOf, yearsExpOf = () => null, teamNameOf = () => null, slots, budget = GENERAL_SETTINGS_2026.waiver.budget }) {
+  const model = calibration?.model;
+  if (!model?.rivalBidWeights || !model?.amountWeights || !Number.isFinite(model.sd) || !slots?.length) return () => null;
+  const rivals = rosters.filter(roster => String(roster.roster_id) !== String(myRosterId)).map(roster => ({
+    rosterId: roster.roster_id, team: teamNameOf(roster.roster_id), ids: (roster.players || []).map(String),
+    budget: Math.max(0, budget - Number(roster.settings?.waiver_budget_used || 0)) }));
+  const pointsOf = id => projections?.[id]?.pts_ppr ?? 0;
+  return (row, ceiling = null) => {
+    if (!row?.position) return null;
+    const rivalRows = rivals.map(rival => ({ rosterId: rival.rosterId, team: rival.team, budget: rival.budget,
+      need: lineupGain(rival.ids, row.sleeperId, { pointsOf, positionOf, slots }) }));
+    const result = priceToWin(model, { position: row.position, yearsExp: yearsExpOf(row.sleeperId), series: row.signals?.series ?? [], rivals: rivalRows, ceiling,
+      target: calibration.targetWinProbability });
+    return result && { ...result, rivalNeeds: Object.fromEntries(rivalRows.map(rival => [rival.rosterId, rival.need])),
+      calibratedAt: calibration.generatedAt ?? null, calibrationBids: calibration.sample?.bids ?? null,
+      validation: calibration.validation?.chronological ?? null, calibrated: false };
+  };
+}
+
 /** Shared by live reports and offline recalculation; no I/O. */
-export function createWaiverEvaluator({ fitContext, week, availabilityFor, ownershipRechecked, transactionsComplete, horizonFor = () => null, bidReferenceByPosition = {} }) {
+export function createWaiverEvaluator({ fitContext, week, availabilityFor, ownershipRechecked, transactionsComplete, horizonFor = () => null, bidReferenceByPosition = {}, auctionFor = () => null }) {
   return (row, state = null) => {
     const rosterContext = fitContext && state ? { ...fitContext, ...state,
       protectedIds: new Set([...fitContext.protectedIds, ...state.protectedIds]) } : fitContext;
@@ -146,12 +172,22 @@ export function createWaiverEvaluator({ fitContext, week, availabilityFor, owner
     // WR/TE the season's winning bids are the contested breakouts — a median that says nothing
     // about a player the model's market prices at 0 $ (a QB was proposed at 76 $ on that basis).
     const useLeague = noMarketSignal && leagueReference?.usable === true && LEAGUE_REFERENCE_POSITIONS.includes(row.position);
+    // Claims are priced against the rivals: the smallest bid with the target chance of beating
+    // their best bid (their need at this position, capped by their remaining FAAB), never above
+    // the personal ceiling. Free adds and undetermined ceilings are not priced.
+    // Priced for every row (the weekly snapshot archives the inputs), shown only for a claim.
+    const auctionAll = auctionFor(row, Number.isFinite(personalMaxBid) ? personalMaxBid : null);
+    const auction = acquisitionMode === "WAIVER_CLAIM" || action === "CLAIM_IF_CHEAP" ? auctionAll : null;
+    const auctionInputs = auctionAll ? { features: auctionAll.features, rivalNeeds: auctionAll.rivalNeeds } : null;
+    const useAuction = action === "CLAIM_IF_CHEAP" && Number.isFinite(auction?.proposedBid);
     const likelyCost = useLeague ? Math.ceil(leagueReference.median) : marketHigh;
-    const suggestedBid = action === "CLAIM_IF_CHEAP" ? (likelyCost === null ? personalMaxBid : Math.min(personalMaxBid, likelyCost)) : action === "ADD_NOW" ? 0 : null;
-    const bidBasis = action !== "CLAIM_IF_CHEAP" ? null : useLeague ? "LEAGUE_MEDIAN_WINNING_BID_CAPPED_BY_PERSONAL_CEILING"
+    const suggestedBid = action === "CLAIM_IF_CHEAP" ? (useAuction ? auction.proposedBid : likelyCost === null ? personalMaxBid : Math.min(personalMaxBid, likelyCost)) : action === "ADD_NOW" ? 0 : null;
+    const bidBasis = action !== "CLAIM_IF_CHEAP" ? null : useAuction ? "AUCTION_MODEL_CAPPED_BY_PERSONAL_CEILING"
+      : useLeague ? "LEAGUE_MEDIAN_WINNING_BID_CAPPED_BY_PERSONAL_CEILING"
       : marketHigh === null ? "PERSONAL_CEILING_NO_MARKET_ESTIMATE" : "MARKET_HIGH_ESTIMATE_CAPPED_BY_PERSONAL_CEILING";
     // A market estimated at 0 $ is the model's guess about rivals, not a promise: say what room is left.
-    const bidNote = action === "CLAIM_IF_CHEAP" && suggestedBid === 0 && personalMaxBid > 0 ? "ZERO_MARKET_ESTIMATE_NOT_A_GUARANTEE" : null;
+    const bidNote = useAuction ? (auction.cappedByCeiling ? "CEILING_BELOW_AUCTION_TARGET" : null)
+      : action === "CLAIM_IF_CHEAP" && suggestedBid === 0 && personalMaxBid > 0 ? "ZERO_MARKET_ESTIMATE_NOT_A_GUARANTEE" : null;
     const bidUndeterminedReason = bidStatus !== "NOT_DETERMINED" ? null
       : availability?.availability === "UNKNOWN" ? "AVAILABILITY_UNVERIFIED"
       : decision.actionBlockers[0] ?? (action === "IGNORE" ? "NO_PROJECTED_GAIN" : "NO_EXECUTABLE_ACTION");
@@ -190,9 +226,11 @@ export function createWaiverEvaluator({ fitContext, week, availabilityFor, owner
         bidPctInitial: Number.isFinite(suggestedBid) ? Number((suggestedBid / GENERAL_SETTINGS_2026.waiver.budget * 100).toFixed(1)) : null,
         acquisitionMode, bidStatus, bidUndeterminedReason, bidBasis, bidNote, leagueBidReference: leagueReference, unpricedPotential,
         bidPctRemaining: rosterContext?.faabRemaining > 0 && Number.isFinite(suggestedBid) ? Number((suggestedBid / rosterContext.faabRemaining * 100).toFixed(1)) : null,
-        marketMethod: "Projection window (ROS or labeled rank fallback), surplus over replacement × PRICE_PER_POINT; not observed rival bids",
+        marketMethod: "Projection window (ROS or labeled rank fallback), surplus over replacement × PRICE_PER_POINT; the proposed bid of a claim comes from the auction model (rival bids) when calibrated",
         marketEstimate: row.marketEstimate,
-        auctionWinProbability: null,
+        auction,
+        auctionInputs,
+        auctionWinProbability: useAuction ? auction.winProbabilityAtProposed : null,
         score: row.marketScore,
         category: row.category,
         projectedPpg: row.weekProjection ?? row.rosPpg,
