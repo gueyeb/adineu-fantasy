@@ -18,8 +18,10 @@ import {
   getWeeklyLeaders as getWeeklyLeadersDefault,
   getSeasonLeaders as getSeasonLeadersDefault,
   getDefenseMatchups as getDefenseMatchupsDefault,
-  formatWaiverReport
+  formatWaiverReport,
+  setAuctionCalibrationSource
 } from "./scripts/league-context.js";
+import { loadLatestCalibration } from "./scripts/calibrate-faab.js";
 import {
   getInjuryStatuses as getInjuryStatusesDefault,
   diagnoseLineup,
@@ -540,6 +542,10 @@ export function createAppServer({
 
 function main() {
   const port = Number(process.env.PORT || 3000);
+  // Latest FAAB calibration stored by the Tuesday job; the committed file stays the fallback.
+  if (process.env.SUPABASE_URL && (process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY)) {
+    setAuctionCalibrationSource(async () => loadLatestCalibration(await createSupabaseFromEnv(), LEAGUE_METADATA_2026.season));
+  }
   const server = createAppServer();
   server.listen(port, "0.0.0.0", () => {
     console.log(`Adineu Fantasy listening on port ${port}`);

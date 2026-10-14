@@ -8,7 +8,9 @@
  * won or lost — becomes a sample; the quantity to predict is the best bid of the other teams.
  * Writes public/data/faab-auction-calibration.json with leave-one-leg-out and chronological scores.
  *
- * CLI: npm run calibrate:faab [-- --dry-run]. Re-run each week after the waivers.
+ * Automatic: the Tuesday job (runWeeklyJob) recalibrates and stores the fit in Supabase
+ * (faab_auction_calibrations); the server reads the latest one. CLI: npm run calibrate:faab
+ * [-- --dry-run] refreshes the committed fallback file only.
  */
 import { writeFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
@@ -112,28 +114,30 @@ export function validateAuctionModel(samples, { sdInflation = SD_INFLATION } = {
   return { leaveOneLegOut: run(false), chronological: run(true) };
 }
 
-async function getJson(path) {
-  const response = await fetch(`${SLEEPER}${path}`, { signal: AbortSignal.timeout(30_000) });
+async function getJson(path, fetchImpl = fetch) {
+  const response = await fetchImpl(`${SLEEPER}${path}`, { signal: AbortSignal.timeout(30_000) });
   if (!response.ok) throw new Error(`Sleeper ${path} -> HTTP ${response.status}`);
   return response.json();
 }
 
-async function main({ dryRun }) {
-  const [league, rosters, state, players] = await Promise.all([getJson(`/league/${LEAGUE_ID}`), getJson(`/league/${LEAGUE_ID}/rosters`), getJson("/state/nfl"), getJson("/players/nfl")]);
+/** Fits the auction model on every bid of the season so far; throws when there are too few bids. */
+export async function calibrateFaab({ fetchImpl = fetch, leagueId = LEAGUE_ID } = {}) {
+  const get = path => getJson(path, fetchImpl);
+  const [league, rosters, state, players] = await Promise.all([get(`/league/${leagueId}`), get(`/league/${leagueId}/rosters`), get("/state/nfl"), get("/players/nfl")]);
   const season = league.season;
   const lastLeg = Math.max(0, Number(state.leg ?? state.week) - 1);
   const legs = Array.from({ length: lastLeg }, (_, i) => i + 1);
-  const transactions = (await Promise.all([...legs, lastLeg + 1].map(leg => getJson(`/league/${LEAGUE_ID}/transactions/${leg}`)))).flat();
-  const statsByWeek = Object.fromEntries(await Promise.all(legs.map(async week => [week, await getJson(`/stats/nfl/regular/${season}/${week}`)])));
-  const projectionsByWeek = Object.fromEntries(await Promise.all(legs.map(async leg => [leg + 1, await getJson(`/projections/nfl/regular/${season}/${leg + 1}`)])));
+  const transactions = (await Promise.all([...legs, lastLeg + 1].map(leg => get(`/league/${leagueId}/transactions/${leg}`)))).flat();
+  const statsByWeek = Object.fromEntries(await Promise.all(legs.map(async week => [week, await get(`/stats/nfl/regular/${season}/${week}`)])));
+  const projectionsByWeek = Object.fromEntries(await Promise.all(legs.map(async leg => [leg + 1, await get(`/projections/nfl/regular/${season}/${leg + 1}`)])));
   const slots = (league.roster_positions || []).filter(slot => !["BN", "IR", "TAXI"].includes(slot));
   const positionOf = id => players[id]?.position || players[id]?.fantasy_positions?.[0] || null;
   const yearsExpOf = id => Number.isFinite(players[id]?.years_exp) ? players[id].years_exp : null;
   const samples = buildAuctionSamples({ transactions, rosters, statsByWeek, projectionsByWeek, positionOf, yearsExpOf, slots, legs });
   const model = fitAuctionModel(samples);
   if (!model) throw new Error(`Not enough bids to fit (${samples.length})`);
-  const output = {
-    generatedAt: new Date().toISOString(), season, leagueId: LEAGUE_ID, legs,
+  return {
+    generatedAt: new Date().toISOString(), season, leagueId, legs,
     method: "Best rival bid: P(any) logistic + log-normal amount (ridge), sd inflated; rival budgets cap",
     features: AUCTION_FEATURES, rivalNeedPoints: RIVAL_NEED_POINTS, sdInflation: SD_INFLATION, targetWinProbability: TARGET_WIN_PROBABILITY,
     sample: { bids: samples.length, contested: samples.filter(sample => sample.bestRivalBid !== null).length, won: samples.filter(sample => sample.won).length },
@@ -141,6 +145,33 @@ async function main({ dryRun }) {
     validation: validateAuctionModel(samples),
     limits: ["Sleeper projections of past weeks are read today (rival need only)", "Ties and waiver priority ignored", "No per-manager effect at this sample size"]
   };
+}
+
+const TABLE = "faab_auction_calibrations";
+
+/** Appends one calibration (history kept); the latest of the season is the live one. */
+export async function saveCalibration(supabase, calibration) {
+  const { error } = await supabase.from(TABLE).insert({ season: Number(calibration.season), last_leg: Math.max(0, ...calibration.legs), generated_at: calibration.generatedAt, calibration });
+  if (error) throw new Error(`${TABLE}: ${error.message}`);
+}
+
+/** Latest calibration of `season`, or null. */
+export async function loadLatestCalibration(supabase, season) {
+  const { data, error } = await supabase.from(TABLE).select("calibration").eq("season", Number(season)).order("generated_at", { ascending: false }).limit(1);
+  if (error) throw new Error(`${TABLE}: ${error.message}`);
+  return data?.[0]?.calibration ?? null;
+}
+
+/** One line for the weekly message: sample and held-out scores of the new fit. */
+export function formatCalibrationLine(calibration) {
+  const v = calibration?.validation?.leaveOneLegOut;
+  const c = calibration?.validation?.chronological;
+  const pct = value => Number.isFinite(value) ? `${Math.round(value * 100)} %` : "n/d";
+  return `Enchères FAAB recalibrées : ${calibration.sample.bids} enchères (legs 1–${Math.max(0, ...calibration.legs)}), fourchette p25–p75 ${pct(v?.interquartileCoverage)} hors échantillon / ${pct(c?.interquartileCoverage)} chronologique, Brier ${v?.brier ?? "n/d"} vs taux constant ${v?.constantRateBrier ?? "n/d"}.`;
+}
+
+async function main({ dryRun }) {
+  const output = await calibrateFaab();
   if (!dryRun) await writeFile(CALIBRATION_PATH, `${JSON.stringify(output, null, 2)}\n`);
   console.log(JSON.stringify({ written: !dryRun, sample: output.sample, validation: output.validation }, null, 2));
 }

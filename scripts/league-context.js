@@ -62,13 +62,41 @@ const playersIndexCaches = new WeakMap();
  * (/api/player-status) et le Waiver Wire v2 (événements : promotion, blessure du titulaire).
  */
 const AUCTION_CALIBRATION_URL = new URL("../public/data/faab-auction-calibration.json", import.meta.url);
-let auctionCalibrationCache;
-/** FAAB auction calibration (npm run calibrate:faab); null when absent: bids then use the old basis. */
+const AUCTION_CALIBRATION_TTL_MS = 60 * 60 * 1000;
+let auctionCalibrationFile;
+let auctionCalibrationSource = null;
+let auctionCalibrationRemote = null;
+
+/** Remote source of the latest calibration (the server plugs Supabase in; CLIs and tests keep the file). */
+export function setAuctionCalibrationSource(loader) {
+  auctionCalibrationSource = loader;
+  auctionCalibrationRemote = null;
+}
+
+/** The Tuesday job's fresh fit, used at once by this process without waiting for the TTL. */
+export function primeAuctionCalibration(calibration) {
+  if (calibration) auctionCalibrationRemote = { at: Date.now(), value: calibration };
+}
+
+/**
+ * FAAB auction calibration: the latest one the weekly job stored (cached 1 h), else the committed
+ * file (npm run calibrate:faab); null when neither exists: bids then use the old basis.
+ */
 export async function loadAuctionCalibration() {
-  if (auctionCalibrationCache === undefined) {
-    try { auctionCalibrationCache = JSON.parse(await readFile(AUCTION_CALIBRATION_URL, "utf8")); } catch { auctionCalibrationCache = null; }
+  if (auctionCalibrationRemote && Date.now() - auctionCalibrationRemote.at < AUCTION_CALIBRATION_TTL_MS) return auctionCalibrationRemote.value;
+  if (auctionCalibrationSource) {
+    try {
+      const value = await auctionCalibrationSource();
+      if (value) { auctionCalibrationRemote = { at: Date.now(), value }; return value; }
+    } catch (error) {
+      if (auctionCalibrationRemote) return auctionCalibrationRemote.value;
+      console.warn(`Calibration FAAB distante indisponible, fichier utilisé : ${error.message}`);
+    }
   }
-  return auctionCalibrationCache;
+  if (auctionCalibrationFile === undefined) {
+    try { auctionCalibrationFile = JSON.parse(await readFile(AUCTION_CALIBRATION_URL, "utf8")); } catch { auctionCalibrationFile = null; }
+  }
+  return auctionCalibrationRemote?.value ?? auctionCalibrationFile;
 }
 
 export async function getPlayersIndex({ fetchImpl = fetch, forceRefresh = false } = {}) {

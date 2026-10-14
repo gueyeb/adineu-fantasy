@@ -106,3 +106,29 @@ test("createAuctionPricer prices against every other roster and stays silent wit
   assert.equal(result.calibrated, false);
   assert.equal(createAuctionPricer({ calibration: null, rosters, slots: SLOTS })({ sleeperId: "fa", position: "RB" }), null);
 });
+
+test("weekly calibration: stored with its last leg, latest one served, file kept as fallback", async () => {
+  const { saveCalibration, loadLatestCalibration, formatCalibrationLine } = await import("../scripts/calibrate-faab.js");
+  const { loadAuctionCalibration, setAuctionCalibrationSource, primeAuctionCalibration } = await import("../scripts/league-context.js");
+  const rows = [];
+  const supabase = { from: table => ({
+    insert: async row => { rows.push({ table, ...row }); return { error: null }; },
+    select: () => ({ eq: () => ({ order: () => ({ limit: async () => ({ data: rows.slice().reverse().map(row => ({ calibration: row.calibration })), error: null }) }) }) })
+  }) };
+  const fit = { season: "2026", legs: [1, 2, 3, 4, 5], generatedAt: "2026-10-20T08:00:00Z", sample: { bids: 170 },
+    validation: { leaveOneLegOut: { brier: 0.25, constantRateBrier: 0.255, interquartileCoverage: 0.6 }, chronological: { interquartileCoverage: 0.52 } } };
+  await saveCalibration(supabase, fit);
+  assert.deepEqual([rows[0].table, rows[0].season, rows[0].last_leg], ["faab_auction_calibrations", 2026, 5]);
+  assert.equal(await loadLatestCalibration(supabase, 2026), fit);
+  assert.match(formatCalibrationLine(fit), /170 enchères \(legs 1–5\), fourchette p25–p75 60 % hors échantillon \/ 52 % chronologique/);
+
+  const file = await loadAuctionCalibration();
+  setAuctionCalibrationSource(async () => { throw new Error("down"); });
+  assert.deepEqual(await loadAuctionCalibration(), file, "Supabase down: committed file");
+  setAuctionCalibrationSource(async () => fit);
+  assert.equal(await loadAuctionCalibration(), fit, "latest stored fit wins over the file");
+  const fresh = { ...fit, generatedAt: "2026-10-27T08:00:00Z" };
+  primeAuctionCalibration(fresh);
+  assert.equal(await loadAuctionCalibration(), fresh, "the job's new fit is used at once");
+  setAuctionCalibrationSource(null);
+});

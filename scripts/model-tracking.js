@@ -17,7 +17,8 @@
  * n8n : POST /api/model/weekly (Authorization: Bearer $MODEL_JOB_TOKEN).
  */
 import { pathToFileURL } from "node:url";
-import { getFreeAgents, getUsageReport, getWeeklyProjections, getWeeklyStats, loadAuctionCalibration } from "./league-context.js";
+import { getFreeAgents, getUsageReport, getWeeklyProjections, getWeeklyStats, loadAuctionCalibration, primeAuctionCalibration } from "./league-context.js";
+import { calibrateFaab, formatCalibrationLine, saveCalibration } from "./calibrate-faab.js";
 import { AUCTION_FEATURES, RIVAL_NEED_POINTS, scoreAuction } from "../public/assets/faab-auction.js";
 import { resolveOperationalWeek } from "../public/assets/nfl-week.js";
 import { GENERAL_SETTINGS_2026 } from "../public/assets/league-settings.js";
@@ -449,10 +450,16 @@ export async function runWeeklyJob({ supabase, fetchImpl = fetch, dryRun = false
   const season = Number(state.season);
   const week = resolveOperationalWeek(state);
   if (state.season_type !== "regular" || week > LAST_REGULAR_WEEK) return { skipped: `hors saison régulière (${state.season_type}, semaine ${week})` };
+  // Recalibrate on every bid through last Wednesday before the snapshot and the plan use it.
+  const auction = await calibrateFaab({ fetchImpl }).then(async calibration => {
+    if (!dryRun) { await saveCalibration(supabase, calibration); primeAuctionCalibration(calibration); }
+    return { line: formatCalibrationLine(calibration), sample: calibration.sample, validation: calibration.validation };
+  }).catch(error => ({ error: error.message, line: `Enchères FAAB : recalibration échouée (${error.message}), calibration précédente conservée.` }));
   const feedback = week > 1 ? await buildWeeklyFeedback({ supabase, fetchImpl, season, week: week - 1, dryRun }) : null;
   const snapshot = await takeSnapshot({ supabase, fetchImpl, season, week, dryRun, force });
   const journal = dryRun ? null : await recordDecisionJournal({ supabase, fetchImpl, week }).catch(error => ({ error: error.message }));
-  return { season, week, snapshot, journal, feedback: feedback?.report || null, message: feedback?.message || null };
+  const message = feedback?.message ? `${feedback.message}\n\n${auction.line}` : auction.line;
+  return { season, week, auction, snapshot, journal, feedback: feedback?.report || null, message };
 }
 
 async function main() {

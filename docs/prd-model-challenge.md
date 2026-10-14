@@ -37,7 +37,7 @@ Module pur `public/assets/faab-auction.js` : pour un joueur et un enchérisseur,
 - Sortie : fourchette de la meilleure enchère rivale (p25/p50/p75/p90), enchère pour 60 % de
   chances, probabilité de gagner à l'enchère proposée, rivaux probables (besoin + budget).
 
-Calibration hors ligne `npm run calibrate:faab` (`scripts/calibrate-faab.js`) → fichier
+Recalibration automatique chaque mardi (job hebdo → table `faab_auction_calibrations`, le serveur lit la plus récente). Calibration hors ligne `npm run calibrate:faab` (`scripts/calibrate-faab.js`) → fichier
 `public/data/faab-auction-calibration.json` (coefficients, échantillon, validation). À relancer
 chaque semaine après les waivers, comme la calibration Boom/Bust.
 
