@@ -79,6 +79,113 @@ export function buildProjectedLineup(players = [], { estimate = weeklyEstimate, 
   return { slots, emptySlots: slots.filter(slot => slot.empty).map(slot => slot.slot), total: round(slots.reduce((sum, slot) => sum + slot.projectedPpg, 0)) };
 }
 
+/** Return-week hypotheses for an injured asset of a trade. Ramp factors are uncalibrated. */
+export const RETURN_SCENARIOS = [
+  { id: "IMMEDIATE", label: "retour immédiat", shift: weeks => weeks.next, ramp: [] },
+  { id: "PROGRESSIVE", label: "retour attendu, progressif", shift: weeks => weeks.expected, ramp: [0.75, 0.75] },
+  { id: "LONG", label: "absence prolongée", shift: weeks => weeks.expected + 3, ramp: [0.75] }
+];
+
+/** Expected return of an Out/IR player: the first later week Sleeper projects him again (its
+ * absence before that is information), else the status' expected games missed. */
+export function expectedReturnWeek(player, { week, projectionsByWeek = {} }) {
+  const missed = GAMES_MISSED_BY_STATUS[injuryStatus(player)] || 0;
+  if (missed < 1) return week;
+  const id = identity(player);
+  const bye = BYE_WEEKS_2026[player.nflTeam];
+  for (let w = week + 1; w <= LAST_REGULAR_WEEK; w++) {
+    if (w !== bye && Number.isFinite(projectionsByWeek[w]?.[id]?.pts_ppr)) return w;
+  }
+  return week + Math.ceil(missed);
+}
+
+/** Healthy weekly rate: mean of the player's published weekly projections, else rosPpg / estimate. */
+function healthyRate(player, { week, projectionsByWeek }) {
+  const id = identity(player);
+  const values = [];
+  for (let w = week + 1; w <= LAST_REGULAR_WEEK; w++) {
+    const value = projectionsByWeek[w]?.[id]?.pts_ppr;
+    if (Number.isFinite(value)) values.push(value);
+  }
+  if (values.length) return values.reduce((sum, value) => sum + value, 0) / values.length;
+  return Number.isFinite(player.rosPpg) ? player.rosPpg : calculatePlayerTradeProfile(player).blendedPpg;
+}
+
+/**
+ * Week-by-week optimal-lineup impact of one trade for both teams, under each return hypothesis for
+ * the injured assets (feedback 14/10: an IR star was valued from one stale number). Every week uses
+ * that week's Sleeper projection (bye = 0, unavailable = 0, missing = healthy rate, counted in
+ * `evidence`). Non-traded injured players follow their expected return. Returns a range, not a verdict.
+ */
+export function tradeReturnScenarios({ myPlayers = [], theirPlayers = [], give = [], receive = [], week, projectionsByWeek = {} }) {
+  const weeks = Array.from({ length: Math.max(0, LAST_REGULAR_WEEK - week + 1) }, (_, i) => week + i);
+  const assets = new Set([...give, ...receive].map(identity));
+  const injuredAssets = [...give, ...receive].filter(player => (GAMES_MISSED_BY_STATUS[injuryStatus(player)] || 0) >= 1);
+  const context = { week, projectionsByWeek };
+  const rates = new Map();
+  const rateOf = player => {
+    if (!rates.has(identity(player))) rates.set(identity(player), healthyRate(player, context));
+    return rates.get(identity(player));
+  };
+  const filled = new Set();
+  const pointsFor = (player, w, scenario) => {
+    if (BYE_WEEKS_2026[player.nflTeam] === w) return 0;
+    const injured = (GAMES_MISSED_BY_STATUS[injuryStatus(player)] || 0) >= 1;
+    const expected = injured ? expectedReturnWeek(player, context) : week;
+    const returnWeek = injured && scenario && assets.has(identity(player))
+      ? scenario.shift({ next: week + 1, expected }) : expected;
+    if (w < returnWeek) return 0;
+    const projected = projectionsByWeek[w]?.[identity(player)]?.pts_ppr;
+    // An injured player's stale projection before his return is ignored above; after it, use it.
+    let value = Number.isFinite(projected) ? projected : null;
+    if (value === null) {
+      value = rateOf(player);
+      if (assets.has(identity(player))) filled.add(`${player.name} S${w}`);
+    }
+    const ramp = injured && scenario && assets.has(identity(player)) ? scenario.ramp[w - returnWeek] ?? 1 : 1;
+    return value * ramp;
+  };
+  const myAfterPlayers = exchange(myPlayers, give, receive);
+  const theirAfterPlayers = exchange(theirPlayers, receive, give);
+  const total = (players, w, scenario) => buildProjectedLineup(players, { estimate: player => pointsFor(player, w, scenario) }).total;
+  const run = scenario => {
+    const byWeek = weeks.map(w => ({
+      week: w,
+      myDelta: round(total(myAfterPlayers, w, scenario) - total(myPlayers, w, scenario)),
+      theirDelta: round(total(theirAfterPlayers, w, scenario) - total(theirPlayers, w, scenario))
+    }));
+    return { byWeek, myTotal: round(byWeek.reduce((sum, row) => sum + row.myDelta, 0)), theirTotal: round(byWeek.reduce((sum, row) => sum + row.theirDelta, 0)) };
+  };
+  const scenarios = injuredAssets.length
+    ? RETURN_SCENARIOS.map(scenario => ({ id: scenario.id, label: scenario.label,
+      returnWeeks: Object.fromEntries(injuredAssets.map(player => [player.name, scenario.shift({ next: week + 1, expected: expectedReturnWeek(player, context) })])),
+      ...run(scenario) }))
+    : [{ id: "HEALTHY", label: "aucun actif blessé", returnWeeks: {}, ...run(null) }];
+  const mine = scenarios.map(row => row.myTotal);
+  const theirs = scenarios.map(row => row.theirTotal);
+  const projectionGaps = [...filled].sort();
+  // A starter slot at 0 (bye, or absent without backup) on one side of the trade only: the delta then
+  // includes a streamer the manager would add anyway. Shown, not corrected.
+  const zeroSlots = (players, w) => new Map(buildProjectedLineup(players, { estimate: player => pointsFor(player, w, null) }).slots.map(slot => [slot.slot, slot.projectedPpg === 0]));
+  const emptySlotWeeks = [["mine", myPlayers, myAfterPlayers], ["theirs", theirPlayers, theirAfterPlayers]].flatMap(([team, before, after]) => weeks.map(w => {
+    const was = zeroSlots(before, w), is = zeroSlots(after, w);
+    return { team, week: w, slots: [...was].filter(([slot, zero]) => zero !== is.get(slot)).map(([slot]) => slot) };
+  }).filter(row => row.slots.length));
+  return {
+    weeks: weeks.length ? { from: weeks[0], to: weeks.at(-1) } : null,
+    scenarios,
+    range: { mine: [Math.min(...mine), Math.max(...mine)], theirs: [Math.min(...theirs), Math.max(...theirs)] },
+    evidence: {
+      basis: "SLEEPER_WEEKLY_PROJECTIONS",
+      injuredAssets: injuredAssets.map(player => ({ name: player.name, status: injuryStatus(player), expectedReturnWeek: expectedReturnWeek(player, context) })),
+      projectionGaps,
+      emptySlotWeeks,
+      quality: projectionGaps.length > 2 || injuredAssets.length || emptySlotWeeks.length ? "MEDIUM" : "HIGH",
+      notes: ["Rampe de retour (75 %) et absence prolongée (+3 sem.) : hypothèses non calibrées."]
+    }
+  };
+}
+
 function exchange(players, give, receive) {
   const outgoing = new Set(give.map(identity));
   return [...players.filter(player => !outgoing.has(identity(player))), ...receive];

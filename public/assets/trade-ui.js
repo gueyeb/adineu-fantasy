@@ -5,7 +5,7 @@
  */
 
 import { calculatePlayerTradeValue, calculatePlayerTradeProfile, evaluateTrade } from "./trade-value.js?v=2c9caa87cf";
-import { diagnoseRoster, findTradeProposals, findCounterOffers } from "./trade-recommender.js?v=9345d0044b";
+import { diagnoseRoster, findTradeProposals, findCounterOffers } from "./trade-recommender.js?v=073d387759";
 import { addToWatchlist, removeFromWatchlist, REASON_MAX } from "./war-room.js?v=e9eae48675";
 import { loadWatchlist, saveWatchlist } from "./war-room-store.js?v=7fbca3341a";
 import { PLAYER_STATUSES, playerKey, playerStatus } from "./trade-preferences.js?v=c5fec5ce56";
@@ -18,7 +18,7 @@ import { resolveOperationalWeek } from "./nfl-week.js?v=8f9fa3f5b2";
 import { listRosterIdentities } from "./roster-view.js?v=120de9d74d";
 import { calculateFaabRemaining } from "./team-metrics.js?v=e47db97055";
 import { compactAuction, formatAuction } from "./faab-auction.js?v=1eea51c520";
-import { buildProjectedLineup, restOfSeasonEstimate } from "./trade-score.js?v=7daaffafe7";
+import { buildProjectedLineup, restOfSeasonEstimate } from "./trade-score.js?v=58e23d308f";
 
 import { SLEEPER_API, SLEEPER_LEAGUE_ID, sleeperGet } from "./sleeper-client.js?v=3f75d48ec5";
 const SUPABASE_URL = "https://juosrzsffvjprqhdyado.supabase.co";
@@ -131,8 +131,11 @@ export async function renderTradesPage(container) {
     console.warn("Erreur chargement Sleeper API", e);
   }
 
-  // Enrichir les joueurs du catalogue avec projections
+  // Enrichir les joueurs du catalogue (Calculateur) comme ceux des rosters : statut, valeur live
+  // (sinon le calcul retombe sur le rang pré-draft du 06/09), projection, scores.
   for (const p of catalog.players || []) {
+    if (injuryStatuses[p.sleeperId]) p.injuryStatus = injuryStatuses[p.sleeperId];
+    Object.assign(p, playerValues[p.sleeperId] || {});
     const proj = weeklyProjections[p.sleeperId];
     if (proj && typeof proj.pts_ppr === "number") {
       p.projectedPpg = Number(proj.pts_ppr.toFixed(1));
@@ -381,6 +384,8 @@ export async function renderTradesPage(container) {
           </div>
         </div>
 
+        <div id="calc-lineup" class="card" style="display:none; background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:20px; margin-bottom:20px;"></div>
+
         <!-- RÉSULTAT DU CALCUL -->
         <div id="calc-result" class="card" style="background:var(--paper-soft); border:1px solid var(--line); border-radius:6px; padding:24px; text-align:center;">
           <span style="color:var(--muted); font-size:0.9rem;">Sélectionne des joueurs des deux côtés pour évaluer l'échange en direct.</span>
@@ -395,6 +400,7 @@ export async function renderTradesPage(container) {
         return;
       }
 
+      updateLineupImpact();
       const evalTrade = evaluateTrade({ sideA, sideB });
       const verdictColor = evalTrade.verdict === "FAIR" ? "var(--grass)" : evalTrade.verdict.startsWith("SLIGHT") ? "var(--gold)" : "var(--red)";
 
@@ -441,6 +447,38 @@ export async function renderTradesPage(container) {
           </div>
         ` : ""}
       `;
+    }
+
+    // Deux rosters réels de la ligue : impact sur la lineup optimale semaine par semaine (/api/trade-offer),
+    // avec les scénarios de retour des blessés. La somme de valeurs ci-dessous reste un repère marché.
+    let lineupRequest = 0;
+    async function updateLineupImpact() {
+      const box = document.getElementById("calc-lineup");
+      const rosterOf = side => {
+        const owners = new Set(side.map(p => formattedRosters.find(r => r.players.some(player => String(player.sleeperId) === String(p.sleeperId)))?.roster_id ?? null));
+        return owners.size === 1 && !owners.has(null) ? [...owners][0] : null;
+      };
+      const a = rosterOf(sideA), b = rosterOf(sideB);
+      if (!sideA.length || !sideB.length || a === null || b === null || a === b) { box.style.display = "none"; return; }
+      const request = ++lineupRequest;
+      box.style.display = "";
+      box.innerHTML = `<span style="color:var(--muted);">Calcul de l'impact sur les lineups…</span>`;
+      let offer = null;
+      try {
+        const res = await fetch(`/api/trade-offer?give=${sideA.map(p => encodeURIComponent(p.sleeperId)).join(",")}&receive=${sideB.map(p => encodeURIComponent(p.sleeperId)).join(",")}`);
+        offer = res.ok ? await res.json() : null;
+      } catch {}
+      if (request !== lineupRequest) return;
+      if (!offer) { box.innerHTML = `<span style="color:var(--muted);">Impact lineup indisponible pour le moment.</span>`; return; }
+      const signed = value => `${value > 0 ? "+" : ""}${value}`;
+      const ev = offer.scenarios.evidence;
+      box.innerHTML = `
+        <h3 style="margin:0 0 8px; font-size:1rem;">Impact sur la lineup optimale (S${offer.scenarios.weeks?.from}–S${offer.scenarios.weeks?.to})</h3>
+        <p style="margin:0 0 10px; font-size:0.85rem;">Moyenne reste de saison : <strong>${escapeHtml(offer.mine.team)} ${signed(offer.seasonAverage.myDeltaPerWeek)} pts/sem</strong> · ${escapeHtml(offer.theirs.team)} ${signed(offer.seasonAverage.theirDeltaPerWeek)} pts/sem</p>
+        <table style="width:100%; font-size:0.85rem;"><thead><tr><th style="text-align:left;">Scénario</th><th>${escapeHtml(offer.mine.team)}</th><th>${escapeHtml(offer.theirs.team)}</th></tr></thead><tbody>
+          ${offer.scenarios.scenarios.map(row => `<tr><td>${escapeHtml(row.label)}${Object.keys(row.returnWeeks).length ? ` <small style="color:var(--muted);">(${Object.entries(row.returnWeeks).map(([name, week]) => `${escapeHtml(name)} S${week}`).join(", ")})</small>` : ""}</td><td style="text-align:center;">${signed(row.myTotal)} pts</td><td style="text-align:center;">${signed(row.theirTotal)} pts</td></tr>`).join("")}
+        </tbody></table>
+        <p class="note" style="margin:10px 0 0;">Preuve ${escapeHtml(ev.quality)}${ev.projectionGaps.length ? ` · sans projection Sleeper : ${escapeHtml(ev.projectionGaps.join(", "))}` : ""}${ev.emptySlotWeeks.length ? ` · slot à 0 d'un seul côté (bye) : ${escapeHtml(ev.emptySlotWeeks.map(row => `${row.team === "mine" ? offer.mine.team : offer.theirs.team} S${row.week} ${row.slots.join("/")}`).join(", "))} — l'écart inclut un streamer` : ""} · ${escapeHtml(ev.notes.join(" "))}</p>`;
     }
 
     function renderSideList(side, containerId) {

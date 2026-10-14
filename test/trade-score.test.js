@@ -123,3 +123,45 @@ test("roster overflow ignores the IR slot for healthy players", () => {
   const score = scoreTradeRecommendation({ myPlayers: mine, theirPlayers: theirs, give, receive });
   assert.ok(score.notes.some(n => /Il devra libérer une place/.test(n)));
 });
+
+test("tradeReturnScenarios: injured asset valued week by week under three return hypotheses", async () => {
+  const { tradeReturnScenarios, expectedReturnWeek } = await import("../public/assets/trade-score.js");
+  const p = (id, position, nflTeam, extra = {}) => ({ sleeperId: id, name: id, position, nflTeam, ...extra });
+  const mine = [p("myQB", "QB", "NYG"), p("WR1", "WR", "LAR"), p("WR2", "WR", "BUF"), p("star", "WR", "NE", { injuryStatus: "IR" }),
+    p("RB1", "RB", "PIT"), p("RB2", "RB", "PIT"), p("TE", "TE", "ARI"), p("K", "K", "DAL"), p("DEF", "DEF", "IND")];
+  const theirs = [p("QB1", "QB", "KC"), p("QB2", "QB", "SEA"), p("TWR1", "WR", "CHI"), p("TWR2", "WR", "DET"), p("TWR3", "WR", "MIA"),
+    p("TRB1", "RB", "ATL"), p("TRB2", "RB", "ATL"), p("TTE", "TE", "LV"), p("TK", "K", "LV"), p("TDEF", "DEF", "LV")];
+  const rates = { myQB: 12, WR1: 18, WR2: 12, star: 16, RB1: 13, RB2: 9, TE: 14, K: 8, DEF: 6, QB1: 19, QB2: 17, TWR1: 11, TWR2: 13, TWR3: 10, TRB1: 12, TRB2: 10, TTE: 9, TK: 8, TDEF: 6 };
+  const projectionsByWeek = {};
+  for (let w = 12; w <= 14; w++) projectionsByWeek[w] = Object.fromEntries(Object.entries(rates).map(([id, pts]) => [id, { pts_ppr: pts }]));
+  delete projectionsByWeek[12].star; delete projectionsByWeek[13].star; // Sleeper projects the star again from W14 only
+  projectionsByWeek[12].star = { pts_ppr: 16 }; // stale current-week projection while on IR: ignored
+  assert.equal(expectedReturnWeek(mine[3], { week: 12, projectionsByWeek }), 14);
+  const result = tradeReturnScenarios({ myPlayers: mine, theirPlayers: theirs, give: [mine[3]], receive: [theirs[0]], week: 12, projectionsByWeek });
+  assert.deepEqual(result.weeks, { from: 12, to: 14 });
+  const byId = Object.fromEntries(result.scenarios.map(row => [row.id, row]));
+  assert.deepEqual(Object.keys(byId), ["IMMEDIATE", "PROGRESSIVE", "LONG"]);
+  assert.equal(byId.IMMEDIATE.returnWeeks.star, 13);
+  assert.equal(byId.PROGRESSIVE.returnWeeks.star, 14);
+  // W12: QB1 19 replaces myQB 12 and the star is out either way.
+  assert.equal(byId.LONG.byWeek[0].myDelta, 7);
+  // Once the star is back he would have started over WR2 (12): the later his return, the better the trade for me.
+  assert.ok(byId.IMMEDIATE.myTotal < byId.PROGRESSIVE.myTotal && byId.PROGRESSIVE.myTotal < byId.LONG.myTotal);
+  assert.ok(byId.IMMEDIATE.theirTotal > byId.LONG.theirTotal);
+  assert.deepEqual(result.range.mine, [byId.IMMEDIATE.myTotal, byId.LONG.myTotal]);
+  // W13 has no star projection: filled by his healthy rate and reported, never silent.
+  assert.deepEqual(result.evidence.projectionGaps, ["star S13"]);
+  assert.equal(result.evidence.quality, "MEDIUM");
+});
+
+test("tradeReturnScenarios flags a starter slot at 0 on one side only (bye without backup)", async () => {
+  const { tradeReturnScenarios } = await import("../public/assets/trade-score.js");
+  const p = (id, position, nflTeam) => ({ sleeperId: id, name: id, position, nflTeam });
+  const mine = [p("myQB", "QB", "NYG"), p("WR", "WR", "LAR"), p("WR2", "WR", "LAR")];
+  const theirs = [p("QB1", "QB", "KC"), p("QB2", "QB", "SEA"), p("TWR", "WR", "KC")];
+  const projectionsByWeek = { 8: { myQB: { pts_ppr: 12 }, WR: { pts_ppr: 10 }, WR2: { pts_ppr: 9 }, QB1: { pts_ppr: 18 }, QB2: { pts_ppr: 15 }, TWR: { pts_ppr: 8 } } };
+  const result = tradeReturnScenarios({ myPlayers: mine, theirPlayers: theirs, give: [mine[1]], receive: [theirs[0], theirs[2]], week: 8, projectionsByWeek });
+  assert.equal(result.scenarios[0].id, "HEALTHY");
+  assert.deepEqual(result.evidence.emptySlotWeeks.filter(row => row.week === 8), [{ team: "mine", week: 8, slots: ["QB"] }]); // NYG bye week 8
+  assert.equal(result.evidence.quality, "MEDIUM");
+});

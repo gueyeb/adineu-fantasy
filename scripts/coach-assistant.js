@@ -164,7 +164,7 @@ export function formatCoachPlan(plan) {
   }
   if (plan.acquisitionPlan?.steps.length) {
     lines.push("", "PLAN CONDITIONNEL — VÉRIFIER APRÈS CHAQUE RÉSULTAT");
-    for (const step of plan.acquisitionPlan.steps) lines.push(`• ${step.name} · coupe ${step.dropCandidate?.name || "place libre"} · réserver ${step.suggestedBid} $ · budget après ${step.budgetAfter} $ · gain marginal ${step.netGainTotal} pts${step.preferenceOverridden ? ` · préférence temporaire dépassée (${step.preferencePenaltyTotal} points d’utilité)` : ""}${step.dependsOnPlayerIds.length ? ` · suppose les ajouts précédents (${step.dependsOnPlayerIds.join(", ")})` : ""}`);
+    for (const step of plan.acquisitionPlan.steps) lines.push(`• ${step.name} · ${step.recommendedAction === "ADD_NOW" ? "ajout libre" : `claim, réserver ${step.suggestedBid} $`} · coupe ${step.dropCandidate?.name || "place libre"} · budget après ${step.budgetAfter} $ · gain marginal ${step.netGainTotal} pts${Number.isFinite(step.horizonWeeks) ? ` sur ${step.horizonWeeks} sem. (S${plan.week} : ${step.targetWeekDelta ?? "n/d"} pts ; projections Sleeper + usage)` : ""}${step.preferenceOverridden ? ` · préférence temporaire dépassée (${step.preferencePenaltyTotal} points d’utilité)` : ""}${step.dependsOnPlayerIds.length ? ` · suppose les ajouts précédents (${step.dependsOnPlayerIds.join(", ")})` : ""}`);
     lines.push(`Total réservé ${plan.acquisitionPlan.reservedFaab} $ ; aucune probabilité de gagner ni soumission automatique.`);
   }
   const claimLines = formatClaimPortfolio(plan.acquisitionPlan);

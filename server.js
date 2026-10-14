@@ -5,7 +5,7 @@ import { stat } from "node:fs/promises";
 import { createServer } from "node:http";
 import { extname, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { analyzeTrades, formatTradeBulletin, loadPlayerValues } from "./scripts/analyze-trades.js";
+import { analyzeTrades, evaluateTradeOffer, formatTradeBulletin, formatTradeOffer, loadPlayerValues } from "./scripts/analyze-trades.js";
 import { createWarRoomStore } from "./scripts/war-room-sync.js";
 import { createDecisionLogStore, refreshDecisionJournal } from "./scripts/decision-log.js";
 import {
@@ -99,6 +99,7 @@ export function createAppServer({
   getSeasonLeaders = getSeasonLeadersDefault,
   getDefenseMatchups = getDefenseMatchupsDefault,
   getPlayerValues = loadPlayerValues,
+  evaluateOffer = evaluateTradeOffer,
   getStartSit = getStartSitDefault,
   getMatchupContext = getMatchupContextDefault,
   modelJobToken = process.env.MODEL_JOB_TOKEN || "",
@@ -350,6 +351,18 @@ export function createAppServer({
       } catch (error) {
         const isUnknownTeam = error.message.startsWith("Équipe Sleeper inconnue");
         sendJson(response, isUnknownTeam ? 404 : 502, { error: error.message });
+      }
+      return;
+    }
+
+    if (url.pathname === "/api/trade-offer") {
+      const ids = name => (url.searchParams.get(name) || "").split(",").map(id => id.trim()).filter(id => /^[A-Za-z0-9]{1,12}$/.test(id)).slice(0, 6);
+      if (!ids("give").length || !ids("receive").length) return sendJson(response, 400, { error: "give et receive requis (ids Sleeper séparés par des virgules)" });
+      try {
+        const offer = await evaluateOffer({ give: ids("give"), receive: ids("receive") });
+        sendJson(response, 200, { ...offer, message: formatTradeOffer(offer) });
+      } catch (error) {
+        sendJson(response, error.message.startsWith("Offre") ? 422 : 502, { error: error.message });
       }
       return;
     }

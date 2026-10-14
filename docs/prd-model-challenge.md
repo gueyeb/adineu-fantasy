@@ -104,6 +104,24 @@ enregistre le plan du modèle (`MODEL_PLAN`, avant les waivers) et resynchronise
 Coach : section « Journal des décisions », motif modifiable par mouvement
 (`GET`/`PUT /api/coach/decisions`).
 
+## 6. Évaluer une offre précise (retour du 14/10 : Mahomes + Burden contre A.J. Brown)
+
+**Problème.** Le Calculateur valait Brown 79, Burden ~35, Mahomes ~6 : rang pré-draft du 06/09,
+la valeur live n'était fusionnée que dans les rosters du Trade Finder. Et une somme de valeurs ne
+dit pas ce que devient la lineup, surtout avec un actif en IR.
+**Solution.** Calculateur : statut + valeur live fusionnés dans le catalogue. `tradeReturnScenarios`
+(`trade-score.js`) rejoue chaque semaine restante sur la lineup optimale des deux équipes, projection
+Sleeper de la semaine (bye = 0), sous trois hypothèses pour chaque actif blessé : retour immédiat,
+retour attendu progressif (première semaine où Sleeper le reprojette, sinon jeux manqués du statut ;
+2 matchs à 75 %), absence prolongée (+3 sem.). Sortie = fourchette + preuve : semaines comblées faute
+de projection, slots à 0 d'un seul côté (bye : l'écart inclut un streamer), hypothèses non calibrées.
+`evaluateTradeOffer` (`analyze-trades.js`) trouve les rosters par ids (jamais deviné), `GET /api/trade-offer?give=&receive=`
+et `npm run analyze:trades -- --give=… --receive=…` ; le Calculateur l'affiche dès que chaque côté vient d'un roster.
+**Limite.** L'API publique Sleeper n'expose pas les offres en attente : le Coach ne peut pas les lire
+seul. Suite possible : saisie de l'offre reçue dans le Coach (même canal que la watchlist).
+**Mesure.** Le journal des décisions enregistre le trade s'il est accepté ; son résultat sur 4 semaines
+dira si la fourchette tenait.
+
 ## Critères de succès
 - Fourchette FAAB calibrée (40–60 % de couverture p25–p75) mesurée chaque semaine.
 - Chaque bilan hebdo dit si notre ROS bat Sleeper.

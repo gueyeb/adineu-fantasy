@@ -7,11 +7,13 @@
  *   node scripts/analyze-trades.js --team=t0z
  *   node scripts/analyze-trades.js --team=all
  *   node scripts/analyze-trades.js --json
+ *   node scripts/analyze-trades.js --give=5859 --receive=4046,12519   (une offre précise)
  */
 
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { diagnoseRoster, findTradeProposals } from "../public/assets/trade-recommender.js";
+import { scoreTradeRecommendation, tradeReturnScenarios } from "../public/assets/trade-score.js";
 import { resolveOperationalWeek } from "../public/assets/nfl-week.js";
 import { usageAdjustedRosPpg, projectedRosOnly } from "../public/assets/rest-of-season.js";
 import { BYE_WEEKS_2026, GENERAL_SETTINGS_2026 } from "../public/assets/league-settings.js";
@@ -102,18 +104,12 @@ export async function loadPlayerValues({ leagueId = DEFAULT_SLEEPER_LEAGUE_ID, f
   };
   const { values: market } = buildLiveMarketValues([...byId].map(([playerId, values]) => ({ playerId, position: infoOf(playerId).position, rosPpg: perGame(values.rosPpg, infoOf(playerId).nflTeam) })));
   for (const [playerId, entry] of market) Object.assign(byId.get(playerId), entry, { marketSource: "LIVE_VALUE_OVER_REPLACEMENT" });
-  return { week, byId, weeklyProjections: projectionsByWeek[week] || {} };
+  return { week, byId, weeklyProjections: projectionsByWeek[week] || {}, projectionsByWeek };
 }
 
-export async function analyzeTrades({
-  team = "t0z",
-  playerPreferences = {},
-  leagueId = DEFAULT_SLEEPER_LEAGUE_ID,
-  fetchImpl = fetch,
-  catalogUrl = DEFAULT_CATALOG_URL,
-  getStatuses = getInjuryStatuses
-} = {}) {
-  const normalizedTeam = String(team).trim().toLowerCase();
+/** Live rosters with every player's catalog info, injury status, projection, rest-of-season and
+ * market value, and past weekly scores: the shared input of the Trade Finder and of one offer. */
+async function loadLeagueRosters({ leagueId = DEFAULT_SLEEPER_LEAGUE_ID, fetchImpl = fetch, catalogUrl = DEFAULT_CATALOG_URL, getStatuses = getInjuryStatuses } = {}) {
   const playerMap = await loadPlayerCatalog(catalogUrl);
   const [rosters, users] = await Promise.all([
     sleeperGet(`/league/${leagueId}/rosters`, { fetchImpl }),
@@ -195,6 +191,20 @@ export async function analyzeTrades({
     };
   });
 
+  return { formattedRosters, currentWeek, playerMap, playerValues };
+}
+
+export async function analyzeTrades({
+  team = "t0z",
+  playerPreferences = {},
+  leagueId = DEFAULT_SLEEPER_LEAGUE_ID,
+  fetchImpl = fetch,
+  catalogUrl = DEFAULT_CATALOG_URL,
+  getStatuses = getInjuryStatuses
+} = {}) {
+  const normalizedTeam = String(team).trim().toLowerCase();
+  const { formattedRosters, currentWeek, playerMap } = await loadLeagueRosters({ leagueId, fetchImpl, catalogUrl, getStatuses });
+
   let targets;
   if (normalizedTeam === "all") {
     targets = formattedRosters;
@@ -233,6 +243,55 @@ export async function analyzeTrades({
 
   return { generatedAt: new Date().toISOString(), week: currentWeek, results };
 }
+
+/**
+ * One concrete offer (received, sent or imagined): `give` = ids leaving the first roster, `receive`
+ * = ids leaving the second. Rosters are found from the ids — never guessed. Returns the season
+ * average deltas of the Trade Finder plus the week-by-week return scenarios, so a pending Sleeper
+ * offer (not exposed by the public API) can be checked in one call.
+ */
+export async function evaluateTradeOffer({ give = [], receive = [], leagueId = DEFAULT_SLEEPER_LEAGUE_ID, fetchImpl = fetch, catalogUrl = DEFAULT_CATALOG_URL, getStatuses = getInjuryStatuses } = {}) {
+  const giveIds = give.map(String), receiveIds = receive.map(String);
+  if (!giveIds.length || !receiveIds.length) throw new Error("Offre incomplète : give et receive requis");
+  const { formattedRosters, currentWeek, playerValues } = await loadLeagueRosters({ leagueId, fetchImpl, catalogUrl, getStatuses });
+  const ownerOf = ids => {
+    const owners = new Set(ids.map(id => formattedRosters.find(roster => roster.players.some(player => String(player.sleeperId) === id))?.roster_id ?? null));
+    if (owners.has(null) || owners.size !== 1) throw new Error("Offre invalide : chaque côté doit venir d'un seul roster de la ligue");
+    return formattedRosters.find(roster => roster.roster_id === [...owners][0]);
+  };
+  const mine = ownerOf(giveIds), theirs = ownerOf(receiveIds);
+  if (mine.roster_id === theirs.roster_id) throw new Error("Offre invalide : les deux côtés viennent du même roster");
+  const pick = (roster, ids) => roster.players.filter(player => ids.includes(String(player.sleeperId)));
+  const args = { myPlayers: mine.players, theirPlayers: theirs.players, give: pick(mine, giveIds), receive: pick(theirs, receiveIds), week: currentWeek };
+  const season = scoreTradeRecommendation(args);
+  const brief = player => ({ id: String(player.sleeperId), name: player.name, position: player.position, injuryStatus: player.injuryStatus || null, rosPpg: player.rosPpg ?? null, marketValue: player.marketValue ?? null });
+  return {
+    week: currentWeek,
+    mine: { rosterId: mine.roster_id, team: mine.name, gives: args.give.map(brief) },
+    theirs: { rosterId: theirs.roster_id, team: theirs.name, gives: args.receive.map(brief) },
+    seasonAverage: { myDeltaPerWeek: season.my_lineup_delta, theirDeltaPerWeek: season.their_lineup_delta, confidence: season.confidence, notes: season.notes },
+    market: season.market_value,
+    scenarios: tradeReturnScenarios({ ...args, projectionsByWeek: playerValues.projectionsByWeek || {} })
+  };
+}
+
+/** Plain-text verdict for the CLI and n8n. */
+export function formatTradeOffer(result) {
+  const names = side => side.gives.map(player => `${player.name}${player.injuryStatus ? ` (${player.injuryStatus})` : ""}`).join(" + ");
+  const { scenarios } = result;
+  const lines = [
+    `Offre S${result.week} : ${result.mine.team} donne ${names(result.mine)} · ${result.theirs.team} donne ${names(result.theirs)}`,
+    `Moyenne reste de saison : ${result.mine.team} ${signed(result.seasonAverage.myDeltaPerWeek)} pts/sem · ${result.theirs.team} ${signed(result.seasonAverage.theirDeltaPerWeek)} pts/sem (lineup optimale)`,
+    `Semaine par semaine S${scenarios.weeks?.from}–S${scenarios.weeks?.to} :`,
+    ...scenarios.scenarios.map(row => `• ${row.label}${Object.keys(row.returnWeeks).length ? ` (${Object.entries(row.returnWeeks).map(([name, week]) => `${name} S${week}`).join(", ")})` : ""} : ${result.mine.team} ${signed(row.myTotal)} pts · ${result.theirs.team} ${signed(row.theirTotal)} pts`),
+    `Marché (valeur au-dessus du remplacement, pas ta lineup) : ${result.market.give} ↔ ${result.market.receive}`,
+    ...scenarios.evidence.emptySlotWeeks.map(row => `⚠ ${row.team === "mine" ? result.mine.team : result.theirs.team} S${row.week} : ${row.slots.join(", ")} à 0 d'un seul côté de l'échange (bye/absent sans remplaçant) — l'écart inclut un streamer qu'on ajouterait de toute façon.`),
+    `Preuve ${scenarios.evidence.quality}${scenarios.evidence.projectionGaps.length ? ` · semaines sans projection Sleeper comblées par le rythme sain : ${scenarios.evidence.projectionGaps.join(", ")}` : ""} · ${scenarios.evidence.notes.join(" ")}`
+  ];
+  return lines.join("\n");
+}
+
+const signed = value => `${value > 0 ? "+" : ""}${value}`;
 
 function formatPlayers(players) {
   return players.map(player => {
@@ -287,6 +346,12 @@ async function main() {
   const args = process.argv.slice(2);
   const isJson = args.includes("--json");
   const team = (args.find(arg => arg.startsWith("--team=")) || "--team=t0z").split("=")[1];
+  const ids = flag => (args.find(arg => arg.startsWith(`--${flag}=`)) || "").split("=")[1]?.split(",").filter(Boolean) || [];
+  if (ids("give").length || ids("receive").length) {
+    const offer = await evaluateTradeOffer({ give: ids("give"), receive: ids("receive") });
+    console.log(isJson ? JSON.stringify({ ...offer, message: formatTradeOffer(offer) }, null, 2) : formatTradeOffer(offer));
+    return;
+  }
   const analysis = await analyzeTrades({ team });
 
   if (isJson) {
