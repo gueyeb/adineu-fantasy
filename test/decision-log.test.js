@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { once } from "node:events";
 import { createAppServer } from "../server.js";
-import { attachModelView, buildMoveEntries, decisionWeekOf, evaluateMove, lastKickoffByWeek, normalizeReason, skippedRecommendations, summarizeDecisionLog } from "../public/assets/decision-log.js";
+import { attachModelView, buildMoveEntries, decisionWeekOf, evaluateMove, lastKickoffByWeek, normalizeReason, postWaiverReview, skippedRecommendations, summarizeDecisionLog } from "../public/assets/decision-log.js";
 import { assembleDecisionLog, createDecisionLogStore, recommendationsFromReport } from "../scripts/decision-log.js";
 
 const schedule = [
@@ -112,4 +112,37 @@ test("decision routes require the Coach access and only write a reason", async t
   assert.equal((await (await fetch(`${url}?roster=1`, { headers: bearer })).json()).entries[0].reason, "bye");
   failing = true;
   assert.equal((await fetch(`${url}?roster=1`, { headers: bearer })).status, 503);
+});
+
+test("post-waiver review lists the week's claims with who beat each bid, spend and skipped plan picks", () => {
+  const entries = [
+    { kind: "CLAIM_WON", week: 6, added: [{ name: "Xavier Worthy" }], dropped: [{ name: "Tre Harris" }], bid: 21 },
+    { kind: "CLAIM_LOST", week: 6, added: [{ name: "Jordan Love" }], dropped: [], bid: 25, lostTo: { rosterId: 4, bid: 41 } },
+    { kind: "FREE_ADD", week: 6, added: [{ name: "Colts" }], dropped: [{ name: "Browns" }], bid: null },
+    { kind: "CLAIM_WON", week: 5, added: [{ name: "Old" }], dropped: [], bid: 99 }
+  ];
+  const review = postWaiverReview({ entries, skipped: [{ week: 6, playerId: "9", name: "Germie Bernard", action: "CLAIM_IF_CHEAP", suggestedBid: 12 }],
+    week: 6, teamName: "Boukki", budgetLeft: 410, teamNameOf: id => ({ 4: "Saitaamaa" })[id] });
+  assert.deepEqual([review.claimsWon, review.claimsLost, review.freeAdds, review.spent], [1, 1, 1, 21]);
+  assert.equal(review.message, [
+    "Waivers semaine 6 — Boukki",
+    "✅ Xavier Worthy — 21 $ (coupe Tre Harris)",
+    "❌ Jordan Love — ton offre 25 $, Saitaamaa à 41 $",
+    "➕ Colts (agent libre), coupe Browns",
+    "FAAB dépensé : 21 $ · reste 410 $",
+    "Plan du modèle non placé : Germie Bernard (CLAIM_IF_CHEAP 12 $)"
+  ].join("\n"));
+  assert.match(postWaiverReview({ week: 7 }).message, /Aucun claim/);
+});
+
+test("journal refresh route needs the job token", async t => {
+  let runs = 0;
+  const server = createAppServer({ modelJobToken: "job-test", runJournalJob: async () => { runs++; return { message: "ok" }; } });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(() => server.close());
+  const url = `http://127.0.0.1:${server.address().port}/api/coach/decisions/sync`;
+  assert.equal((await fetch(url, { method: "POST" })).status, 401);
+  assert.deepEqual(await (await fetch(url, { method: "POST", headers: { authorization: "Bearer job-test" } })).json(), { message: "ok" });
+  assert.equal(runs, 1);
 });

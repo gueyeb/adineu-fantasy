@@ -7,7 +7,7 @@ import { extname, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { analyzeTrades, formatTradeBulletin, loadPlayerValues } from "./scripts/analyze-trades.js";
 import { createWarRoomStore } from "./scripts/war-room-sync.js";
-import { createDecisionLogStore } from "./scripts/decision-log.js";
+import { createDecisionLogStore, refreshDecisionJournal } from "./scripts/decision-log.js";
 import {
   getLeagueContext,
   getMatchupContext as getMatchupContextDefault,
@@ -103,6 +103,7 @@ export function createAppServer({
   getMatchupContext = getMatchupContextDefault,
   modelJobToken = process.env.MODEL_JOB_TOKEN || "",
   runModelJob = async () => runWeeklyJob({ supabase: await createSupabaseFromEnv() }),
+  runJournalJob = async () => refreshDecisionJournal(),
   getModelFeedback = () => getLatestFeedback(),
   warRoomStore = createWarRoomStore(),
   decisionLogStore = createDecisionLogStore(),
@@ -142,13 +143,15 @@ export function createAppServer({
       }
     }
     // Weekly model tracking job (n8n, Tuesday): feedback on the completed week + snapshot.
-    if (url.pathname === "/api/model/weekly" && request.method === "POST") {
+    // Journal refresh (n8n, Thursday): re-sync after Wednesday's waivers + post-waiver review.
+    const jobRoutes = { "/api/model/weekly": () => runModelJob(), "/api/coach/decisions/sync": () => runJournalJob() };
+    if (jobRoutes[url.pathname] && request.method === "POST") {
       if (!modelJobToken) return sendJson(response, 503, { error: "MODEL_JOB_TOKEN non configuré." });
       const expected = Buffer.from(`Bearer ${modelJobToken}`);
       const received = Buffer.from(request.headers.authorization || "");
       if (received.length !== expected.length || !timingSafeEqual(received, expected)) return sendJson(response, 401, { error: "Unauthorized" });
       try {
-        const result = await runModelJob();
+        const result = await jobRoutes[url.pathname]();
         return sendJson(response, 200, result);
       } catch (error) {
         // Missing server configuration is a 503 with a clear message (Cloudflare masks origin 502s).

@@ -3,7 +3,7 @@ import { loadBidHistory, loadWatchlist, saveBidHistory, saveWatchlist, syncWarRo
 import { renderWeeklyRoster, renderWeeklyMoves } from "./coach-week-view.js?v=67b2ba9a14";
 import { LEAGUE_METADATA_2026 } from "./league-settings.js?v=f6d1bf5212";
 import { formatAuction } from "./faab-auction.js?v=1eea51c520";
-import { REASON_MAX as JOURNAL_REASON_MAX } from "./decision-log.js?v=227210e0f4";
+import { REASON_MAX as JOURNAL_REASON_MAX } from "./decision-log.js?v=a0e3f31155";
 
 const login = document.getElementById("coach-login");
 const gate = document.getElementById("coach-gate");

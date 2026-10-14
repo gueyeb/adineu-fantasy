@@ -13,12 +13,12 @@
 import { readdir, readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { resolve } from "node:path";
-import { LEAGUE_METADATA_2026, ROSTER_SETTINGS_2026 } from "../public/assets/league-settings.js";
+import { GENERAL_SETTINGS_2026, LEAGUE_METADATA_2026, ROSTER_SETTINGS_2026 } from "../public/assets/league-settings.js";
 import { findRosterByTeam } from "../public/assets/roster-view.js";
 import { resolveLastCompletedWeek, resolveOperationalWeek } from "../public/assets/nfl-week.js";
 import { leaguePoints } from "../public/assets/weekly-leaders.js";
 import { computeOptimalLineupPoints } from "../public/assets/weekly-recap.js";
-import { attachModelView, buildLineupEntries, buildMoveEntries, decisionWeekOf, evaluateMove, lastKickoffByWeek, normalizeReason, skippedRecommendations, summarizeDecisionLog, winningClaims } from "../public/assets/decision-log.js";
+import { attachModelView, buildLineupEntries, buildMoveEntries, decisionWeekOf, evaluateMove, lastKickoffByWeek, normalizeReason, postWaiverReview, skippedRecommendations, summarizeDecisionLog, winningClaims } from "../public/assets/decision-log.js";
 import { createSupabaseFromEnv } from "./model-tracking.js";
 import { getPlayersIndex, getSchedule } from "./league-context.js";
 
@@ -158,7 +158,20 @@ export async function syncDecisionLog({ team = "t0z", fetchImpl = fetch, store =
   const result = assembleDecisionLog({ transactions, matchupsByWeek, statsByWeek, scoring: league.scoring_settings, schedule, rosterId: roster.roster_id, season,
     lastCompletedWeek, playerOf: id => index.get(String(id)) ?? null, recommendationsByWeek });
   const written = !dryRun && store ? await store.upsert(result.entries) : 0;
-  return { team, rosterId: roster.roster_id, season, lastCompletedWeek, written, ...result };
+  const teamNames = new Map(rosters.map(row => {
+    const owner = users.find(user => user.user_id === row.owner_id);
+    return [row.roster_id, owner?.metadata?.team_name || owner?.display_name || null];
+  }));
+  const budgetLeft = Number(league.settings?.waiver_budget ?? GENERAL_SETTINGS_2026.waiver.budget) - Number(roster.settings?.waiver_budget_used || 0);
+  return { team, rosterId: roster.roster_id, season, week, lastCompletedWeek, written, teamNames, budgetLeft, ...result };
+}
+
+/** Thursday refresh (n8n, after Wednesday's waivers): re-sync the journal, then review this week's claims. */
+export async function refreshDecisionJournal({ team = process.env.COACH_TEAM || "t0z", fetchImpl = fetch, store = createDecisionLogStore() } = {}) {
+  const sync = await syncDecisionLog({ team, fetchImpl, store });
+  const review = postWaiverReview({ entries: sync.entries, skipped: sync.skipped, week: sync.week, teamName: sync.teamNames.get(sync.rosterId),
+    budgetLeft: sync.budgetLeft, teamNameOf: rosterId => sync.teamNames.get(rosterId) });
+  return { team, week: sync.week, written: sync.written, summary: sync.summary, review, message: review.message };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {

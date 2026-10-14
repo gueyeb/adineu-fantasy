@@ -152,3 +152,29 @@ export function normalizeReason(value) {
   const text = value.trim().slice(0, REASON_MAX);
   return text || null;
 }
+
+/**
+ * Post-waiver review of one decision week (Thursday message): claims won with their cut, claims
+ * lost with the bid and team that beat them, free adds, FAAB spent and left, and the plan's
+ * claims the team did not place. Facts from Sleeper only; nothing is priced or guessed.
+ */
+export function postWaiverReview({ entries = [], skipped = [], week, teamName, budgetLeft = null, teamNameOf = () => null }) {
+  const ofWeek = entries.filter(entry => entry.week === week);
+  const names = players => players.map(player => player.name).join(" + ");
+  const won = ofWeek.filter(entry => entry.kind === "CLAIM_WON");
+  const lost = ofWeek.filter(entry => entry.kind === "CLAIM_LOST");
+  const free = ofWeek.filter(entry => entry.kind === "FREE_ADD");
+  const missed = skipped.filter(row => row.week === week);
+  const spent = won.reduce((sum, entry) => sum + (entry.bid || 0), 0);
+  const lines = [`Waivers semaine ${week}${teamName ? ` — ${teamName}` : ""}`];
+  if (!won.length && !lost.length && !free.length) lines.push("Aucun claim ni ajout cette semaine.");
+  for (const entry of won) lines.push(`✅ ${names(entry.added)} — ${entry.bid ?? 0} $${entry.dropped.length ? ` (coupe ${names(entry.dropped)})` : ""}`);
+  for (const entry of lost) {
+    const by = entry.lostTo ? `${teamNameOf(entry.lostTo.rosterId) ?? `roster ${entry.lostTo.rosterId}`} à ${entry.lostTo.bid} $` : entry.note === "INVALID_CLAIM" ? "claim invalide" : "gagnant inconnu";
+    lines.push(`❌ ${names(entry.added)} — ton offre ${entry.bid ?? 0} $, ${by}`);
+  }
+  for (const entry of free) lines.push(`➕ ${names(entry.added)} (agent libre)${entry.dropped.length ? `, coupe ${names(entry.dropped)}` : ""}`);
+  lines.push(`FAAB dépensé : ${spent} $${Number.isFinite(budgetLeft) ? ` · reste ${budgetLeft} $` : ""}`);
+  if (missed.length) lines.push(`Plan du modèle non placé : ${missed.map(row => `${row.name ?? `#${row.playerId}`} (${row.action}${Number.isFinite(row.suggestedBid) ? ` ${row.suggestedBid} $` : ""})`).join(", ")}`);
+  return { week, claimsWon: won.length, claimsLost: lost.length, freeAdds: free.length, spent, budgetLeft, missedRecommendations: missed.length, message: lines.join("\n") };
+}
