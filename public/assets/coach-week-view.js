@@ -29,6 +29,27 @@ export function renderWeeklyRoster(plan, suggested = false) {
   return `<div class="coach-table-scroll"><table class="coach-week-table"><caption>${suggested ? 'Lineup proposée — à appliquer dans Sleeper' : 'Lineup actuelle'} · S${escapeHtml(plan.week)}</caption><thead><tr><th>Slot</th><th>Joueur</th><th>S${escapeHtml(plan.week)} pts</th><th>ROS pts/sem</th><th>Usage /100</th></tr></thead><tbody>${starters.join('')}<tr class="coach-group-row"><th colspan="5">Banc</th></tr>${bench.map(player => rosterRow(player, player.position)).join('')}${roster.ir?.length ? `<tr class="coach-group-row"><th colspan="5">IR · hors lineup</th></tr>${roster.ir.map(player => rosterRow(player, 'IR')).join('')}` : ''}</tbody></table></div>`;
 }
 
+/** One line per player and cause: weeks collapsed into ranges, roster first. */
+function groupProjectionGaps(rows = []) {
+  const groups = new Map();
+  for (const row of rows || []) {
+    const key = `${row.scope || 'candidates'}|${row.playerId || row.name}|${row.cause}`;
+    if (!groups.has(key)) groups.set(key, { scope: row.scope || 'candidates', name: row.name, cause: row.cause, weeks: [] });
+    groups.get(key).weeks.push(Number(row.week));
+  }
+  return [...groups.values()].sort((a, b) => (a.scope === 'roster' ? 0 : 1) - (b.scope === 'roster' ? 0 : 1) || String(a.name).localeCompare(String(b.name), 'fr'));
+}
+
+const weekRanges = weeks => {
+  const sorted = [...new Set(weeks)].sort((a, b) => a - b);
+  const ranges = [];
+  for (const week of sorted) {
+    const last = ranges.at(-1);
+    if (last && week === last[1] + 1) last[1] = week; else ranges.push([week, week]);
+  }
+  return ranges.map(([from, to]) => from === to ? `S${from}` : `S${from}–S${to}`).join(', ');
+};
+
 export function renderWeeklyMoves(plan) {
   const steps = plan.acquisitionPlan?.steps || [];
   const alternatives = (plan.acquisitionPlan?.alternativeClaimGroups || plan.acquisitionPlan?.claimPortfolio?.alternativeClaimGroups || []).flatMap(group => group.claims || []);
@@ -49,7 +70,8 @@ export function renderWeeklyMoves(plan) {
     return `<details class="coach-move"><summary><strong>${escapeHtml(row.name)}</strong><span>${row.recommendedAction === 'ADD_NOW' ? 'Ajout libre · 0 $' : `Claim · ${money(row.suggestedBid)}`}</span></summary><dl><div><dt>Gain net</dt><dd>${number(row.netGainTotal)} pts / ${escapeHtml(row.horizonWeeks ?? 'n/d')} sem</dd></div><div><dt>Plafond personnel</dt><dd>${money(row.personalMaxBid ?? row.maxForTeam)}</dd></div><div><dt>Disponibilité</dt><dd>${escapeHtml(row.availability?.availability || 'UNKNOWN')}${row.availability?.verified !== true ? ' · à confirmer dans Sleeper' : ''}</dd></div></dl><p>${escapeHtml(row.interpretation || 'Scénario conditionnel, roster et budget recalculés après chaque résultat.')}</p><p>Réévaluer après le résultat de l’ajout ou une nouvelle information de santé/rôle.${unpriced ? ' Potentiel de la coupe non chiffré : coût estimé incomplet.' : ''}</p></details>`;
   }).join('')}</article>`).join('');
   const warnings = plan.coherence?.warnings || [];
+  const gaps = groupProjectionGaps(plan.projectionDiagnostics);
   const status = plan.publishable === false ? 'NON PUBLIABLE — corriger avant action' : plan.coherence?.decisionStatus?.status === 'TO_CONFIRM' ? 'Disponibilités déduites — à confirmer dans Sleeper' : plan.coherence?.decisionStatus?.status === 'DEGRADED' ? 'Décision dégradée — données à vérifier' : 'Recommandations à vérifier avant action';
   const alerts = (plan.lineup?.alerts || []).map(alert => `<p class="coach-review-status"><strong>${escapeHtml(alert.slot)} : ${escapeHtml(alert.reason)}</strong>${alert.advice ? ` — ${escapeHtml(alert.advice)}` : ''}</p>`).join('');
-  return `${alerts}<p class="coach-review-status">${escapeHtml(status)}</p>${cards || '<p class="coach-empty">Aucune acquisition prioritaire. Conserver le roster et surveiller les alertes.</p>'}<details class="coach-review-details"><summary>Données à vérifier (${warnings.length + (plan.projectionDiagnostics?.length || 0)})</summary>${warnings.map(row => `<p>${escapeHtml(row.message || row.code)}</p>`).join('')}${(plan.projectionDiagnostics || []).map(row => `<p>${escapeHtml(row.name)} · S${row.week} : ${row.cause === 'LOAD_FAILED' ? 'chargement de la source échoué' : 'joueur absent des projections publiées'}. Aucune valeur zéro substituée.</p>`).join('')}</details>`;
+  return `${alerts}<p class="coach-review-status">${escapeHtml(status)}</p>${cards || '<p class="coach-empty">Aucune acquisition prioritaire. Conserver le roster et surveiller les alertes.</p>'}<details class="coach-review-details"><summary>Données à vérifier (${warnings.length} alerte${warnings.length > 1 ? 's' : ''}${gaps.length ? ` · ${gaps.length} joueur${gaps.length > 1 ? 's' : ''} sans projection` : ''})</summary>${warnings.map(row => `<p>${escapeHtml(row.message || row.code)}</p>`).join('')}${gaps.length ? `<p><strong>Semaines sans projection publiée</strong> (aucune valeur zéro substituée) :</p>${gaps.map(row => `<p>${row.scope === 'roster' ? 'Ton roster' : 'Candidat'} · ${escapeHtml(row.name)} · ${weekRanges(row.weeks)} : ${row.cause === 'LOAD_FAILED' ? 'chargement de la source échoué' : 'joueur absent des projections publiées'}.</p>`).join('')}` : ''}</details>`;
 }

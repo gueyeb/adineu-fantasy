@@ -1,6 +1,6 @@
 import { addToWatchlist, buildWarRoom, formatClaimOrder, recordBids, removeFromWatchlist, watchIdsHeader, REASON_MAX } from "./war-room.js?v=e9eae48675";
 import { loadBidHistory, loadWatchlist, saveBidHistory, saveWatchlist, syncWarRoom } from "./war-room-store.js?v=7fbca3341a";
-import { renderWeeklyRoster, renderWeeklyMoves } from "./coach-week-view.js?v=67b2ba9a14";
+import { renderWeeklyRoster, renderWeeklyMoves } from "./coach-week-view.js?v=cc2b0d0bd8";
 import { LEAGUE_METADATA_2026 } from "./league-settings.js?v=f6d1bf5212";
 import { formatAuction } from "./faab-auction.js?v=1eea51c520";
 import { REASON_MAX as JOURNAL_REASON_MAX } from "./decision-log.js?v=a0e3f31155";

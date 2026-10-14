@@ -23,6 +23,14 @@ test('missing projections distinguish a bye from source failure and absent playe
   assert.match(html,/chargement de la source échoué/);
 });
 
+test('missing projections collapse into one line per player with week ranges, roster first', () => {
+  const rows=[7,8,9,10,12,13,14].map(week=>({playerId:'g',name:'Blake Grupe',week,cause:'PLAYER_MISSING',scope:'candidates'}));
+  const html=renderWeeklyMoves({projectionDiagnostics:[...rows,{playerId:'c',name:'Jonah Coleman',week:6,cause:'PLAYER_MISSING',scope:'roster'}],coherence:{warnings:[{message:'w'}]}});
+  assert.match(html,/Données à vérifier \(1 alerte · 2 joueurs sans projection\)/);
+  assert.match(html,/Candidat · Blake Grupe · S7–S10, S12–S14/);
+  assert.ok(html.indexOf('Ton roster · Jonah Coleman · S6')<html.indexOf('Blake Grupe'));
+});
+
 test('moves show fallback claims once and retain injury alerts', () => {
   const primary={playerId:'a',name:'A'}, fallback={playerId:'b',name:'B'};
   const html=renderWeeklyMoves({acquisitionPlan:{steps:[primary],claimPortfolio:{alternativeClaimGroups:[{claims:[primary,fallback]}]}},lineup:{alerts:[{slot:'RB',reason:'Questionable',advice:'Surveiller Love'}]}});
