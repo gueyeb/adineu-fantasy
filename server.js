@@ -269,7 +269,7 @@ export function createAppServer({
     }
 
     if (url.pathname === "/api/version") {
-      const paths = ["server.js", "scripts/league-context.js", "scripts/waiver-evaluator.js", "public/assets/waiver-model.js", "public/assets/waiver-board.js", "public/assets/waiver-plan.js", "scripts/coach-assistant.js", "public/assets/coach-ui.js", "public/assets/coach-week-view.js"];
+      const paths = ["scripts/sos-sources.js", "scripts/sos-service.js", "scripts/sos-store.js", "public/assets/wr-ros-sos.js", "public/assets/sos-explorer.js", "server.js", "scripts/league-context.js", "scripts/waiver-evaluator.js", "public/assets/waiver-model.js", "public/assets/waiver-board.js", "public/assets/waiver-plan.js", "scripts/coach-assistant.js", "public/assets/coach-ui.js", "public/assets/coach-week-view.js"];
       const files = Object.fromEntries(await Promise.all(paths.map(async path => {
         try { return [path, createHash("sha256").update(await readFile(new URL(path, import.meta.url))).digest("hex")]; }
         catch { return [path, null]; }
