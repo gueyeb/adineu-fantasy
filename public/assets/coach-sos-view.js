@@ -1,3 +1,4 @@
+import { sosDifficultyFields } from './sos-insights.js?v=c553d8c0f3';
 /** Compact explanatory view. Never sorts or changes Coach decisions. */
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const labels = { FAVORABLE: 'Favorable', NEUTRAL: 'Neutre', DIFFICULT: 'Difficile' };
@@ -10,8 +11,9 @@ function playerRows(players, caption) {
   return `<div class="coach-sos-table-wrap"><table class="coach-sos-table"><caption>${escapeHtml(caption)}</caption><thead><tr><th scope="col">Joueur</th><th scope="col">Rang ROS</th><th scope="col">Prochains adversaires</th></tr></thead><tbody>${players.map(row => {
     const horizon = row.sos ?? row.horizons?.FANTASY_ROS;
     const games = horizon?.opponents?.slice(0, 3) ?? [];
-    const label = row.sos ? labels[row.sos.difficulty] ?? 'Non classé' : reasons[row.reason] ?? 'Non classé';
-    return `<tr><td><details class="coach-sos-player"><summary><strong>${escapeHtml(row.name)}</strong><span>${escapeHtml(row.nflTeam || 'Équipe inconnue')}</span></summary><div class="coach-sos-player-data"><p><b>${number(horizon?.sosScore)}</b> WR PPR concédés par match, ajustés</p><p>${horizon ? `Couverture : ${horizon.coveredGames}/${horizon.gamesInWindow} matchs${horizon.coverageStatus === 'PARTIAL' ? ' · score indicatif, sans rang officiel' : ''}.` : 'Couverture indisponible.'}</p>${row.reason ? `<p>${escapeHtml(reasons[row.reason] ?? 'Données insuffisantes')}</p>` : ''}</div></details></td><td><strong class="coach-sos-rank">${row.sos?.rank ? `${row.sos.rank}<small>/32</small>` : '—'}</strong><span class="coach-sos-label ${escapeHtml(row.sos?.difficulty || '')}">${escapeHtml(label)}</span></td><td><div class="coach-sos-games">${games.map(game => `<span><small>S${game.week}</small><b>${escapeHtml(game.opponent)}</b></span>`).join('') || '<span class="coach-empty">—</span>'}</div></td></tr>`;
+    const categories = sosDifficultyFields(row.sos ?? {});
+    const label = row.sos ? (categories.relativeDifficulty === 'NEUTRAL' ? 'Intermédiaire' : labels[categories.relativeDifficulty]) ?? 'Non classé' : reasons[row.reason] ?? 'Non classé';
+    return `<tr><td><details class="coach-sos-player"><summary><strong>${escapeHtml(row.name)}</strong><span>${escapeHtml(row.nflTeam || 'Équipe inconnue')}</span></summary><div class="coach-sos-player-data"><p>Difficulté absolue : ${escapeHtml(labels[categories.absoluteDifficulty] ?? 'Non classé')} (±12 % de la moyenne NFL).</p><p><b>${number(horizon?.sosScore)}</b> WR PPR concédés par match, ajustés</p><p>${horizon ? `Couverture : ${horizon.coveredGames}/${horizon.gamesInWindow} matchs${horizon.coverageStatus === 'PARTIAL' ? ' · score indicatif, sans rang officiel' : ''}.` : 'Couverture indisponible.'}</p>${row.reason ? `<p>${escapeHtml(reasons[row.reason] ?? 'Données insuffisantes')}</p>` : ''}</div></details></td><td><strong class="coach-sos-rank">${row.sos?.rank ? `${row.sos.rank}<small>/32</small>` : '—'}</strong><span class="coach-sos-label ${escapeHtml(categories.relativeDifficulty || '')}">${escapeHtml(label)}</span></td><td><div class="coach-sos-games">${games.map(game => `<span><small>S${game.week}</small><b>${escapeHtml(game.opponent)}</b></span>`).join('') || '<span class="coach-empty">—</span>'}</div></td></tr>`;
   }).join('')}</tbody></table></div>`;
 }
 
@@ -22,7 +24,7 @@ export function renderCoachSos(sos) {
     timeZone: 'Europe/Paris', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
   }) : null;
   return `<header class="coach-sos-header"><div><p>Receveurs · fin de saison régulière</p><h2>CALENDRIER ROS</h2></div><a href="/sos/">Explorer →</a></header>
-    <p class="coach-sos-intro">Rang 1 = calendrier le plus favorable aux WR. Ce contexte ne suffit pas à décider d’un ajout ou d’une titularisation.</p>
+    <p class="coach-sos-intro">Rang 1 = calendrier le plus favorable aux WR. Étiquette relative au rang ; seuil absolu dans le détail. Ce contexte ne suffit pas à décider d’un ajout ou d’une titularisation.</p>
     ${!sos || sos.reason ? `<p class="coach-empty">${escapeHtml(reasons[sos?.reason] ?? 'Calendrier indisponible')} · décisions habituelles conservées.</p>` : ''}
     ${sos ? playerRows(roster, 'WR du roster') : ''}
     ${candidates.length ? `<details class="coach-sos-candidates"><summary>Voir les candidats waivers <span>${candidates.length} WR</span></summary>${playerRows(candidates, 'WR disponibles — contexte calendrier uniquement')}</details>` : ''}

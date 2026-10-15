@@ -65,3 +65,9 @@
 .sos-ai input { justify-self: start; min-width: 24px; min-height: 24px; accent-color: #17362e; }
 .sos-ai > p { margin: 0; font-size: .8rem; }
 .sos-ai button:disabled { opacity: .5; cursor: wait; }
+/* Five independent filters; keep their meaning visible without extra prose. */
+.sos-filters { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.sos-ai .sos-filters { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 700px) {
+  .sos-filters, .sos-ai .sos-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

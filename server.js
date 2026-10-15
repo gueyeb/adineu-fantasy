@@ -258,7 +258,8 @@ export function createAppServer({
         if (!bundle) return fail(id ? 404 : 503, id ? "SNAPSHOT_NOT_FOUND" : "SOS_SOURCE_UNAVAILABLE");
         if (url.pathname.endsWith("/evaluation")) {
           const current = await loadSos();
-          return sendJson(response, 200, evaluateSos(bundle, current.inputs.dvp.observations, current.asOf));
+          return sendJson(response, 200, { ...evaluateSos(bundle, current.inputs.dvp.observations, current.asOf), forecast: historicalSos(bundle, "NFL_ROS"),
+            observationSources: current.horizons.NFL_ROS.sources });
         }
         if (url.pathname.endsWith("/bundle")) {
           if (perspective !== "CURRENT") return fail(400, "INVALID_SOS_PERSPECTIVE");
