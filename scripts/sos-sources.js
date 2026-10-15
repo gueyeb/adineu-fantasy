@@ -7,7 +7,9 @@ import { normalizeSosTeam } from '../public/assets/wr-ros-sos.js';
 import { NFLVERSE_PLAYER_STATS_URL, parseNflverseCsv } from './nflverse-player-stats.js';
 export { NFLVERSE_PLAYER_STATS_URL } from './nflverse-player-stats.js';
 export const parseSosCsv = parseNflverseCsv;
-export const hashSos = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
+export const canonicalSosJson = value => JSON.stringify(value, (_key, entry) => entry && typeof entry === 'object' && !Array.isArray(entry)
+  ? Object.fromEntries(Object.keys(entry).sort().map(key => [key, entry[key]])) : entry);
+export const hashSos = value => createHash('sha256').update(canonicalSosJson(value)).digest('hex');
 
 const fields = { passing_yards: 'passYds', passing_tds: 'passTd', passing_interceptions: 'passInt', passing_2pt_conversions: 'pass2pt',
   rushing_yards: 'rushYds', rushing_tds: 'rushTd', rushing_2pt_conversions: 'rush2pt', receptions: 'receptions', receiving_yards: 'recYds',

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createClient } from '@supabase/supabase-js';
 import { createSupabaseSosStore } from '../scripts/sos-store.js';
-import { hashSos } from '../scripts/sos-sources.js';
+import { hashSos, canonicalSosJson } from '../scripts/sos-sources.js';
 
 // Exercise real supabase-js request generation against an isolated PostgREST test double.
 // No production credentials or writes. DB uniqueness is the existing model_snapshots constraint.
@@ -27,7 +27,7 @@ test('Supabase store uses conflict-ignore, isolates SOS kinds and preserves firs
       }));
       if (headers.get('accept')?.includes('vnd.pgrst.object')) result = result[0] ?? null;
     }
-    return new Response(JSON.stringify(result), { status: 200, headers: { 'content-type': 'application/json' } });
+    return new Response(canonicalSosJson(result), { status: 200, headers: { 'content-type': 'application/json' } });
   };
   const db = createClient('https://isolated-sos-test.supabase.co', 'test-only-key', { global: { fetch: fetchImpl }, auth: { persistSession: false } });
   const store = createSupabaseSosStore({ getSupabase: async () => db });
@@ -42,4 +42,10 @@ test('Supabase store uses conflict-ignore, isolates SOS kinds and preserves firs
   assert.equal((await store.list()).length, 1);
   assert.ok(writes.every(row => row.kind.startsWith('sos-')));
   assert.ok(rows.length === 2);
+});
+
+
+test('archive hashes survive JSONB key reordering', () => {
+  assert.equal(hashSos({ b: 2, a: { z: 3, y: 4 } }), hashSos({ a: { y: 4, z: 3 }, b: 2 }));
+  assert.notEqual(hashSos([1, 2]), hashSos([2, 1]));
 });
