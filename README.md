@@ -114,3 +114,5 @@ Context/Coach réutilisent le moteur playoffs existant avec couverture et hypoth
 Avant ingestion WOPR : `npm run wopr:validate -- NUMERIC.json ISO_ASOF` ou
 `npm run wopr:compare -- LEFT.json RIGHT.json ISO_ASOF`. Métadonnées/univers/formule obligatoires ;
 voir [l’exemple fictif](docs/examples/wopr-evidence.fixture.json). Aucun WOPR n’est injecté automatiquement.
+
+Fantasy SOS Explorer has a tested pure calculation engine; API, snapshots, UI and Coach integration are still planned: WR schedules across past, next three games, fantasy ROS, fantasy playoffs and NFL ROS, with immutable weekly predictions and outcome evaluation. See the [V1.1 technical PRD and delivery checklist](docs/prd-fantasy-sos-explorer.md).

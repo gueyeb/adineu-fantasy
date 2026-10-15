@@ -1,5 +1,12 @@
 # Approved in-season roadmap
 
+## Fantasy SOS Explorer — WR temporel (15/10/2026)
+
+**État : PRD V1.1 documenté et premier incrément moteur livré ; API, archives, UI et Coach à faire.** Distinguer passé rétrospectif, futurs NEXT_3 / Fantasy ROS W14 / playoffs W15–17 / NFL ROS W18, et prévisions hebdomadaires figées évaluées après les matchs. Réutiliser DvP et nflverse, sans modifier projections ni décisions du Coach. Audit de code effectué ; provenance DvP et calendrier à compléter.
+
+[PRD, contrats, lots SOS-00 à SOS-07 et critères de livraison](prd-fantasy-sos-explorer.md).
+
+
 ## Nice-to-haves: weekly awards et notes de draft après saison
 
 Ajout demandé le 07/10 : awards hebdomadaires et bilan de draft après saison, inspirés des captures Sleeper et des exports FantasyPros. Ajouter également une vue publique simple pour les visiteurs hors ligue, sans ouvrir le Coach privé ni transformer ADINEU en produit multi-ligues.
