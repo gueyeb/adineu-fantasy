@@ -21,7 +21,7 @@ import { buildPlayerWeeks, calculateUsageScores } from "../public/assets/usage-s
 
 const CACHE = new URL("../.cache/backtest/", import.meta.url);
 const SLEEPER = "https://api.sleeper.app/v1";
-const NFLVERSE = season => `https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_${season}.csv`;
+import { NFLVERSE_PLAYER_STATS_URL as NFLVERSE, parseNflverseCsv } from "./nflverse-player-stats.js";
 const POSITIONS = ["RB", "WR", "TE"];
 
 async function cached(name, load) {
@@ -40,15 +40,8 @@ const getJson = async url => {
 };
 
 function parseCsv(text) {
-  const [header, ...lines] = text.trim().split("\n");
-  const columns = header.split(",");
-  const index = name => columns.indexOf(name);
-  const [id, week, team, type] = ["player_id", "week", "team", "season_type"].map(index);
-  // Only the 4 columns we need; none of them contain quoted commas.
-  return lines.map(line => {
-    const cells = line.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/);
-    return { gsis: cells[id], week: Number(cells[week]), team: cells[team], seasonType: cells[type] };
-  }).filter(row => row.seasonType === "REG");
+  return parseNflverseCsv(text).filter(row => row.season_type === "REG")
+    .map(row => ({ gsis: row.player_id, week: Number(row.week), team: row.team, seasonType: row.season_type }));
 }
 
 const mean = values => values.reduce((sum, value) => sum + value, 0) / values.length;

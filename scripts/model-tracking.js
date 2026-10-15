@@ -16,6 +16,9 @@
  * CLI : npm run track:weekly[:production] [-- --dry-run]
  * n8n : POST /api/model/weekly (Authorization: Bearer $MODEL_JOB_TOKEN).
  */
+import { sosService } from "./sos-service.js";
+import { sosStore } from "./sos-store.js";
+import { evaluateSos } from "./sos-feedback.js";
 import { pathToFileURL } from "node:url";
 import { getFreeAgents, getUsageReport, getWeeklyProjections, getWeeklyStats, loadAuctionCalibration, primeAuctionCalibration } from "./league-context.js";
 import { calibrateFaab, formatCalibrationLine, saveCalibration } from "./calibrate-faab.js";
@@ -457,9 +460,20 @@ export async function runWeeklyJob({ supabase, fetchImpl = fetch, dryRun = false
   }).catch(error => ({ error: error.message, line: `Enchères FAAB : recalibration échouée (${error.message}), calibration précédente conservée.` }));
   const feedback = week > 1 ? await buildWeeklyFeedback({ supabase, fetchImpl, season, week: week - 1, dryRun }) : null;
   const snapshot = await takeSnapshot({ supabase, fetchImpl, season, week, dryRun, force });
+  const sos = await (async () => {
+    const bundle = await sosService.getBundle();
+    if (dryRun) return { dryRun: true, snapshotId: bundle.snapshotId };
+    const evaluations = [];
+    for (const archive of await sosStore.list()) {
+      const historical = await sosStore.load(archive.snapshotId);
+      const result = evaluateSos(historical, bundle.inputs.dvp.observations, bundle.asOf);
+      evaluations.push(await sosStore.saveEvaluation(archive.snapshotId, result));
+    }
+    return { ...await sosStore.save(bundle), evaluations };
+  })().catch(() => ({ error: "SOS_TRACKING_UNAVAILABLE" }));
   const journal = dryRun ? null : await recordDecisionJournal({ supabase, fetchImpl, week }).catch(error => ({ error: error.message }));
   const message = feedback?.message ? `${feedback.message}\n\n${auction.line}` : auction.line;
-  return { season, week, auction, snapshot, journal, feedback: feedback?.report || null, message };
+  return { season, week, auction, snapshot, journal, sos, feedback: feedback?.report || null, message };
 }
 
 async function main() {

@@ -511,12 +511,13 @@ export async function getSchedule({ season = "2026", fetchImpl = fetch } = {}) {
   const [header, ...lines] = (await response.text()).trim().split("\n");
   const columns = header.split(",");
   const at = name => columns.indexOf(name);
+  const sourceFetchedAt = new Date().toISOString();
   const team = code => NFLVERSE_TO_SLEEPER_TEAM[code] || code;
   const games = lines.map(line => line.split(","))
     .filter(cells => cells[at("season")] === String(season) && cells[at("game_type")] === "REG")
     .map(cells => ({ gameId: cells[at("game_id")], season: Number(cells[at("season")]), week: Number(cells[at("week")]), away_team: team(cells[at("away_team")]), home_team: team(cells[at("home_team")]),
       spreadLine: cells[at("spread_line")] === "" ? null : Number(cells[at("spread_line")]), totalLine: cells[at("total_line")] === "" ? null : Number(cells[at("total_line")]),
-      awayQb: cells[at("away_qb_name")] || null, homeQb: cells[at("home_qb_name")] || null, kickoffAt: easternKickoffIso(cells[at("gameday")], cells[at("gametime")]), completed: cells[at("away_score")] !== "" && cells[at("home_score")] !== "" && Number.isFinite(Number(cells[at("away_score")])) && Number.isFinite(Number(cells[at("home_score")])), source: NFLVERSE_GAMES_URL }));
+      awayQb: cells[at("away_qb_name")] || null, homeQb: cells[at("home_qb_name")] || null, kickoffAt: easternKickoffIso(cells[at("gameday")], cells[at("gametime")]), completed: cells[at("away_score")] !== "" && cells[at("home_score")] !== "" && Number.isFinite(Number(cells[at("away_score")])) && Number.isFinite(Number(cells[at("home_score")])), source: NFLVERSE_GAMES_URL, sourceFetchedAt }));
   scheduleCaches.set(fetchImpl, { at: Date.now(), season, games });
   return games;
 }
@@ -535,6 +536,7 @@ export async function getTeamWeeks({ season = "2026", fetchImpl = fetch } = {}) 
   const [header, ...lines] = (await response.text()).trim().split("\n");
   const columns = splitCsvLine(header);
   const at = name => columns.indexOf(name);
+  const sourceFetchedAt = new Date().toISOString();
   const team = code => NFLVERSE_TO_SLEEPER_TEAM[code] || code;
   const number = (cells, name) => Number(cells[at(name)]) || 0;
   const rows = lines.map(splitCsvLine).filter(cells => cells[at("season_type")] === "REG").map(cells => ({

@@ -45,6 +45,11 @@ import { createSupabaseFromEnv, getLatestFeedback, runWeeklyJob } from "./script
 import { timingSafeEqual, createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 
+import { sosService } from "./scripts/sos-service.js";
+import { sosStore, historicalSos } from "./scripts/sos-store.js";
+import { evaluateSos } from "./scripts/sos-feedback.js";
+import { SOS_HORIZONS } from "./public/assets/wr-ros-sos.js";
+
 const DEFAULT_PUBLIC_ROOT = fileURLToPath(new URL("./public", import.meta.url));
 const MIME_TYPES = {
   ".css": "text/css; charset=utf-8",
@@ -88,6 +93,8 @@ function resolvePublicPath(publicRoot, pathname) {
 
 export function createAppServer({
   publicRoot = DEFAULT_PUBLIC_ROOT,
+  getSosBundle = () => sosService.getBundle(),
+  sosArchives = sosStore,
   analyze = analyzeTrades,
   getContext = getLeagueContext,
   getPlayoffContext = getContext === getLeagueContext ? getPlayoffDecisionContext : async () => null,
@@ -221,6 +228,26 @@ export function createAppServer({
       response.writeHead(405, { allow: "GET, HEAD" });
       response.end();
       return;
+    }
+
+    if (["/api/sos", "/api/sos/snapshots", "/api/sos/evaluation"].includes(url.pathname)) {
+      const fail = (status, code) => sendJson(response, status, { error: { code, message: code } });
+      const position = url.searchParams.get("position") || "WR";
+      const rawHorizon = url.searchParams.get("horizon") || "FANTASY_ROS";
+      const horizon = rawHorizon === "ROS" ? "FANTASY_ROS" : rawHorizon;
+      const id = url.searchParams.get("snapshotId");
+      if (position !== "WR" || !SOS_HORIZONS.includes(horizon) || (id !== null && !/^[a-f0-9]{64}$/.test(id))) return fail(400, "INVALID_SOS_QUERY");
+      if (url.pathname.endsWith("/evaluation") && !id) return fail(400, "SNAPSHOT_REQUIRED");
+      try {
+        if (url.pathname.endsWith("/snapshots")) return sendJson(response, 200, { snapshots: await sosArchives.list() });
+        const bundle = id ? await sosArchives.load(id) : await getSosBundle();
+        if (!bundle) return fail(404, "SNAPSHOT_NOT_FOUND");
+        if (url.pathname.endsWith("/evaluation")) {
+          const current = await getSosBundle();
+          return sendJson(response, 200, evaluateSos(bundle, current.inputs.dvp.observations, current.asOf));
+        }
+        return sendJson(response, 200, id ? historicalSos(bundle, horizon) : bundle.horizons[horizon]);
+      } catch { return fail(503, "SOS_SOURCE_UNAVAILABLE"); }
     }
 
     if (url.pathname === "/api/version") {
