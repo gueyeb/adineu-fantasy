@@ -10,6 +10,8 @@
  *   node scripts/lineup-advisor.js --team=t0z
  */
 
+import { sosService, createSosService } from "./sos-service.js";
+import { loadSosSources } from "./sos-sources.js";
 import { groupLineupMovements } from "./lineup-movements.js";
 import { pathToFileURL } from "node:url";
 import { getLeagueContext, getFreeAgents, getInjuryStatuses, getPlayersIndex, getSchedule, getWeeklyProjections, getWeeklyStats, SEVERITY_BY_STATUS } from "./league-context.js";
@@ -256,9 +258,13 @@ export async function getStartSit({ team = null, ids = [], fetchImpl = fetch } =
   const opponents = buildOpponents(games);
   const dvp = buildDefenseVsPosition(statsByWeek, {
     teamOf: id => index.get(id)?.nflTeam || null,
-    positionOf: id => index.get(id)?.position || null,
+    positionOf: id => index.get(id)?.position === "WR" ? null : index.get(id)?.position || null,
     opponents
   });
+  // WR has one canonical dated DvP source, shared with Explorer/Coach. Other positions
+  // keep their existing context. This attachment never enters projection/lineup scoring.
+  const wrBundle = await (fetchImpl === fetch ? sosService : createSosService({ load: () => loadSosSources({ fetchImpl }) })).getBundle().catch(() => null);
+  for (const [key, entry] of wrBundle?.inputs.dvp.byDefense ?? []) if (key.endsWith("|WR") && entry.valid) dvp.byDefense.set(key, entry);
   const players = requested.map(id => {
     const meta = index.get(id) || {};
     const value = values.byId.get(id) || {};
@@ -304,7 +310,7 @@ export async function getStartSit({ team = null, ids = [], fetchImpl = fetch } =
       }
     } catch { /* no matchup published yet: recommendation simply absent */ }
   }
-  return { week: currentWeek, team, completedWeeks: statsByWeek.map(entry => entry.week), players, lineups };
+  return { week: currentWeek, team, wrDvpSnapshotId: wrBundle?.snapshotId ?? null, completedWeeks: statsByWeek.map(entry => entry.week), players, lineups };
 }
 
 function describePlayer(player) {

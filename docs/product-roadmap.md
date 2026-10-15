@@ -2,7 +2,7 @@
 
 ## Fantasy SOS Explorer — WR temporel (15/10/2026)
 
-**État : PRD V1.1 documenté et premier incrément moteur livré ; API, archives, UI et Coach à faire.** Distinguer passé rétrospectif, futurs NEXT_3 / Fantasy ROS W14 / playoffs W15–17 / NFL ROS W18, et prévisions hebdomadaires figées évaluées après les matchs. Réutiliser DvP et nflverse, sans modifier projections ni décisions du Coach. Audit de code effectué ; provenance DvP et calendrier à compléter.
+**État : moteur, API, archives immuables, Explorer et contexte Coach implémentés ; vérification locale validée, publication en cours.** Distinguer passé rétrospectif, futurs NEXT_3 / Fantasy ROS W14 / playoffs W15–17 / NFL ROS W18, et prévisions hebdomadaires figées évaluées après les matchs. Réutiliser DvP et nflverse, sans modifier projections ni décisions du Coach. Provenance DvP datée et identités historiques vérifiées ; suivi prospectif activable par le job existant.
 
 [PRD, contrats, lots SOS-00 à SOS-07 et critères de livraison](prd-fantasy-sos-explorer.md).
 

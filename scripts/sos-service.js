@@ -29,3 +29,11 @@ export function createSosService({ load = loadSosSources, now = () => Date.now()
   } };
 }
 export const sosService = createSosService();
+
+/** Offline reproduction uses archived inputs, including the original source times and cutoff. */
+export function replaySosBundle(archive) {
+  const inputs = { ...archive.inputs, dvp: { ...archive.inputs.dvp, byDefense: new Map(archive.inputs.dvp.byDefense) } };
+  const recomputed = buildSosBundle(inputs);
+  if (recomputed.snapshotId !== archive.snapshotId || hashSos(recomputed.horizons) !== hashSos(archive.horizons)) throw Error('SOS_REPLAY_MISMATCH');
+  return { snapshotId: archive.snapshotId, reproduced: true, methodologyVersion: archive.methodologyVersion };
+}

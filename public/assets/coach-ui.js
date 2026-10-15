@@ -121,6 +121,8 @@ function renderPlan(plan) {
     <section class="coach-panel coach-trade"><header><span>05</span><div><p>Négociation optionnelle</p><h2>TRADE</h2></div><strong>${trade ? "À explorer" : "HOLD"}</strong></header>${trade ? `<div class="coach-trade-body"><p>Partenaire</p><h3>${escapeHtml(trade.partnerName)}</h3><strong>${escapeHtml(trade.title)}</strong><a href="/trades/">Ouvrir dans le Trade Finder →</a></div>` : `<p class="coach-empty">Aucun échange prioritaire ne surpasse les options internes.</p>`}</section>
     ${warRoomPanel(currentWarRoom, followedIds)}`;
 
+  const sosPanel = document.getElementById("coach-sos");
+  if (sosPanel) sosPanel.innerHTML = `<header><div><p>Contexte WR · projections inchangées</p><h2>CALENDRIER ROS</h2></div><a href="/sos/">Explorer →</a></header><p>${escapeHtml(plan.sos?.explanation || "SOS indisponible ; décisions habituelles conservées.")}</p><small>${escapeHtml(plan.sos?.asOf || plan.sos?.reason || "SOS_UNAVAILABLE")} · ${escapeHtml(plan.sos?.snapshotId?.slice(0, 12) || "—")}</small><ul>${(plan.sos?.players || []).map(row => `<li><b>${escapeHtml(row.name)} · ${escapeHtml(row.nflTeam)}</b><span>${row.sos ? `Rang ${row.sos.rank} · ${row.sos.sosScore} WR PPR concédés/match ajustés · ${row.sos.coveredGames}/${row.sos.gamesInWindow} couverts · ${escapeHtml(row.sos.difficulty || "signal indisponible")}<br>Prochains : ${row.sos.opponents.slice(0, 3).map(game => `S${game.week} ${escapeHtml(game.opponent)}`).join(" · ")}` : escapeHtml(row.reason)}</span><small>${row.scope === "ROSTER" ? "Roster" : "Waivers"}</small></li>`).join("")}</ul>`;
   message.textContent = plan.message;
   gate.hidden = true;
   report.hidden = false;

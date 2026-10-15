@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { createSosService, buildSosBundle } from '../scripts/sos-service.js';
+import { createSosService, buildSosBundle, replaySosBundle } from '../scripts/sos-service.js';
 import { createSosStore, historicalSos } from '../scripts/sos-store.js';
 import { evaluateSos, spearman } from '../scripts/sos-feedback.js';
 import { buildSosDvp, parseSosCsv } from '../scripts/sos-sources.js';
@@ -41,6 +41,9 @@ test('atomic archive publication keeps first weekly capture and replay output', 
     assert.equal((await store.list()).length, 1);
     const restored = await store.load(bundle.snapshotId);
     assert.deepEqual(restored, JSON.parse(JSON.stringify(bundle)));
+    assert.equal(replaySosBundle(restored).reproduced, true);
+    const corrupted = structuredClone(restored); corrupted.horizons.FANTASY_ROS.teams[0].sosScore = 999;
+    assert.throws(() => replaySosBundle(corrupted), /SOS_REPLAY_MISMATCH/);
     const historical = historicalSos(restored, 'FANTASY_ROS');
     assert.equal(historical.window.viewMode, 'AS_OF_SNAPSHOT');
     assert.equal(historical.teams.find(t => t.team === 'ARI').sosScore, bundle.horizons.FANTASY_ROS.teams.find(t => t.team === 'ARI').sosScore);

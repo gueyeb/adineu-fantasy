@@ -8,9 +8,12 @@ if (assetVersions.stale.length) {
 }
 
 const root = resolve("public");
-const routes = ["", "standings", "power-rankings", "rivalry-week", "trades", "matchups", "history", "hall-of-fame", "franchises", "teams"];
+const routes = ["", "standings", "power-rankings", "rivalry-week", "trades", "matchups", "history", "hall-of-fame", "franchises", "teams", "sos"];
 const requiredAssets = [
   "favicon.svg",
+  "assets/sos-explorer.js",
+  "assets/sos-explorer.css",
+  "assets/wr-ros-sos.js",
   "assets/styles.css",
   "assets/site.js",
   "assets/power-rankings.js",

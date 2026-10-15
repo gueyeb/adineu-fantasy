@@ -45,10 +45,12 @@ import { createSupabaseFromEnv, getLatestFeedback, runWeeklyJob } from "./script
 import { timingSafeEqual, createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 
+import { buildCoachSos, formatCoachSos } from "./scripts/sos-coach.js";
 import { sosService } from "./scripts/sos-service.js";
 import { sosStore, historicalSos } from "./scripts/sos-store.js";
+import { frozenPastSos } from "./scripts/sos-history.js";
 import { evaluateSos } from "./scripts/sos-feedback.js";
-import { SOS_HORIZONS } from "./public/assets/wr-ros-sos.js";
+import { SOS_HORIZONS, SOS_METHODOLOGY_VERSION } from "./public/assets/wr-ros-sos.js";
 
 const DEFAULT_PUBLIC_ROOT = fileURLToPath(new URL("./public", import.meta.url));
 const MIME_TYPES = {
@@ -93,7 +95,7 @@ function resolvePublicPath(publicRoot, pathname) {
 
 export function createAppServer({
   publicRoot = DEFAULT_PUBLIC_ROOT,
-  getSosBundle = () => sosService.getBundle(),
+  getSosBundle,
   sosArchives = sosStore,
   analyze = analyzeTrades,
   getContext = getLeagueContext,
@@ -119,6 +121,7 @@ export function createAppServer({
   coachPassword = process.env.COACH_WEB_PASSWORD || "",
   secureCookies = process.env.NODE_ENV !== "development"
 } = {}) {
+  const loadSos = getSosBundle || (getContext === getLeagueContext ? () => sosService.getBundle() : async () => null);
   const coachAuth = createCoachAuth({ password: coachPassword, secure: secureCookies });
   return createServer(async (request, response) => {
     const url = new URL(request.url, "http://localhost");
@@ -230,21 +233,36 @@ export function createAppServer({
       return;
     }
 
-    if (["/api/sos", "/api/sos/snapshots", "/api/sos/evaluation"].includes(url.pathname)) {
+    if (["/api/sos", "/api/sos/snapshots", "/api/sos/evaluation", "/api/sos/trends"].includes(url.pathname)) {
       const fail = (status, code) => sendJson(response, status, { error: { code, message: code } });
-      const position = url.searchParams.get("position") || "WR";
-      const rawHorizon = url.searchParams.get("horizon") || "FANTASY_ROS";
+      const supported = ["position", "horizon", "snapshotId", "perspective"];
+      if ([...url.searchParams.keys()].some(key => !supported.includes(key) || url.searchParams.getAll(key).length > 1)) return fail(400, "INVALID_SOS_QUERY");
+      const position = url.searchParams.get("position") ?? "WR";
+      const rawHorizon = url.searchParams.get("horizon") ?? "FANTASY_ROS";
       const horizon = rawHorizon === "ROS" ? "FANTASY_ROS" : rawHorizon;
       const id = url.searchParams.get("snapshotId");
+      const perspective = url.searchParams.get("perspective") || "CURRENT";
+      if (!["CURRENT", "FROZEN"].includes(perspective) || (perspective === "FROZEN" && (horizon !== "PAST" || id))) return fail(400, "INVALID_SOS_PERSPECTIVE");
       if (position !== "WR" || !SOS_HORIZONS.includes(horizon) || (id !== null && !/^[a-f0-9]{64}$/.test(id))) return fail(400, "INVALID_SOS_QUERY");
+      if (url.pathname.endsWith("/evaluation") && url.searchParams.has("horizon") && horizon !== "NFL_ROS") return fail(400, "INVALID_EVALUATION_HORIZON");
       if (url.pathname.endsWith("/evaluation") && !id) return fail(400, "SNAPSHOT_REQUIRED");
       try {
+        if (url.pathname.endsWith("/trends")) {
+          const archives = await Promise.all((await sosArchives.list()).filter(row => row.methodologyVersion === SOS_METHODOLOGY_VERSION).map(row => sosArchives.load(row.snapshotId)));
+          return sendJson(response, 200, { horizon, methodologyVersion: SOS_METHODOLOGY_VERSION,
+            snapshots: archives.filter(Boolean).map(bundle => ({ snapshotId: bundle.snapshotId, asOf: bundle.asOf, week: bundle.week,
+              teams: bundle.horizons[horizon].teams.map(team => ({ team: team.team, rank: team.rank, sosScore: team.sosScore, coverageStatus: team.coverageStatus })) })) });
+        }
         if (url.pathname.endsWith("/snapshots")) return sendJson(response, 200, { snapshots: await sosArchives.list() });
-        const bundle = id ? await sosArchives.load(id) : await getSosBundle();
-        if (!bundle) return fail(404, "SNAPSHOT_NOT_FOUND");
+        const bundle = id ? await sosArchives.load(id) : await loadSos();
+        if (!bundle) return fail(id ? 404 : 503, id ? "SNAPSHOT_NOT_FOUND" : "SOS_SOURCE_UNAVAILABLE");
         if (url.pathname.endsWith("/evaluation")) {
-          const current = await getSosBundle();
+          const current = await loadSos();
           return sendJson(response, 200, evaluateSos(bundle, current.inputs.dvp.observations, current.asOf));
+        }
+        if (perspective === "FROZEN") {
+          const archives = await Promise.all((await sosArchives.list()).map(row => sosArchives.load(row.snapshotId)));
+          return sendJson(response, 200, frozenPastSos(bundle, archives.filter(Boolean)));
         }
         return sendJson(response, 200, id ? historicalSos(bundle, horizon) : bundle.horizons[horizon]);
       } catch { return fail(503, "SOS_SOURCE_UNAVAILABLE"); }
@@ -285,6 +303,7 @@ export function createAppServer({
         }
         const compactContext = await getContext({ team });
         let context = compactContext;
+        let sosWaivers = null;
         let message = formatContextText(compactContext);
         if (mode === "decision") {
           const playerIds = [
@@ -302,6 +321,7 @@ export function createAppServer({
           const playerValues = valuesResult.status === "fulfilled" ? valuesResult.value : { byId: new Map(), weeklyProjections: {} };
           const statuses = statusesResult.status === "fulfilled" ? statusesResult.value : new Map();
           const waivers = waiversResult.status === "fulfilled" ? waiversResult.value : null;
+          sosWaivers = waivers;
           const matchup = matchupResult.status === "fulfilled" ? matchupResult.value : null;
           const lineup = diagnoseLineup({
             myTeam: compactContext.myTeam,
@@ -321,6 +341,8 @@ export function createAppServer({
           context = buildDecisionContext({ context: compactContext, playerValues, statuses, waivers, lineup, matchup, playoffContext: playoffResult.status === "fulfilled" ? playoffResult.value : { ready: false, reason: "SOURCE_UNAVAILABLE" } });
           message = formatDecisionContext(context);
         }
+        context = { ...context, sos: buildCoachSos({ context: compactContext, waivers: sosWaivers, bundle: await loadSos().catch(() => null) }) };
+        message += formatCoachSos(context.sos);
         if (url.searchParams.get("requirePublishable") === "1" && refuseUnpublishable(response, context.coherence)) return;
         if (url.searchParams.get("format") === "text") {
           response.writeHead(200, { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" });
@@ -533,9 +555,10 @@ export function createAppServer({
         } catch { lineup.optimal = null; }
         const decisionContext = buildDecisionContext({ context, playerValues, statuses: playerStatuses, waivers: freeAgents, lineup, matchup, playoffContext });
         const plan = buildCoachPlan({ decisionContext, trades, preferences });
+        plan.sos = buildCoachSos({ context, waivers: freeAgents, bundle: await loadSos().catch(() => null) });
         // Bearer = automation: refuse. The signed-in page still shows the plan with its warning.
         if (apiAuthorized && refuseUnpublishable(response, plan.coherence)) return;
-        sendJson(response, 200, { ...plan, message: formatCoachPlan(plan) });
+        sendJson(response, 200, { ...plan, message: formatCoachPlan(plan) + formatCoachSos(plan.sos) });
       } catch (error) {
         const isUnknownTeam = error.message.startsWith("Équipe Sleeper inconnue");
         sendJson(response, isUnknownTeam ? 404 : 502, { error: error.message });

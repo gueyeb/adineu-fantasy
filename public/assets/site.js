@@ -1,3 +1,4 @@
+import { renderSosExplorer } from "./sos-explorer.js?v=2abf2ff002";
 import { renderPublicWeek } from "./public-week.js?v=fc4f03d802";
 import { buildSharedPlayoffContext } from "./playoff-context.js?v=099f369f8a";
 import { calculatePowerRankings, MINIMUM_COMPLETED_WEEKS, POWER_WEIGHTS } from "./power-rankings.js?v=86d062a9e8";
@@ -62,6 +63,7 @@ document.getElementById("site-header").innerHTML = `
             Tools <span aria-hidden="true">⌄</span>
           </button>
           <div class="nav-submenu" id="tools-menu">
+            <a href="/sos/"><strong>Fantasy SOS Explorer</strong><small>Calendriers WR · passé, futur et suivi</small></a>
             <a href="/trades/#recommendations"${page === "trades" ? ' aria-current="page"' : ""}>
               <strong>Trade Finder</strong>
               <small>Opportunités pour chaque équipe</small>
@@ -1430,6 +1432,7 @@ async function renderPowerRankings() {
 async function start() {
   const app = document.getElementById("app");
   try {
+    if (page === "sos") { await renderSosExplorer(app); return; }
     if (page === "power-rankings") {
       await renderPowerRankings();
       return;

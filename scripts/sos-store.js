@@ -1,11 +1,14 @@
 /** Durable append-only SOS archives. Mount SOS_DATA_DIR outside the public tree. */
 import { mkdir, readFile, readdir, writeFile, link, unlink } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { resolve, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import { hashSos } from './sos-sources.js';
 const validId = id => typeof id === 'string' && /^[a-f0-9]{64}$/.test(id);
 export function createSosStore({ directory = process.env.SOS_DATA_DIR || '.cache/sos' } = {}) {
   const root = resolve(directory);
+  const publicRoot = fileURLToPath(new URL('../public', import.meta.url));
+  if (root === publicRoot || root.startsWith(publicRoot + sep)) throw Error('SOS_ARCHIVE_MUST_BE_OUTSIDE_PUBLIC');
   async function atomic(name, value) {
     await mkdir(root, { recursive: true });
     const temporary = resolve(root, `.tmp-${randomUUID()}`);

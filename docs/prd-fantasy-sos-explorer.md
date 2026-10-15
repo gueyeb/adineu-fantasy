@@ -1,6 +1,6 @@
 # PRD — Fantasy SOS Explorer V1.1
 
-Date : 15 octobre 2026. Statut : premier incrément moteur implémenté localement ; API, archives, interface et Coach à faire. Non déployé. Position : WR, scoring Full PPR. Cette version remplace le périmètre exclusivement ROS du brouillon V1 par un SOS temporel et vérifiable.
+Date : 15 octobre 2026. Statut : moteur, API, archives, Explorer et Coach implémentés et vérifiés localement ; contrôle de publication en cours. Position : WR, scoring Full PPR. Cette version remplace le périmètre exclusivement ROS du brouillon V1 par un SOS temporel et vérifiable.
 
 ## Objectif et garde-fous
 
@@ -152,14 +152,14 @@ Backtest chronologique : ajuster k sur entraînement antérieur, figer, valider 
 
 | ID | Lot / fichiers proposés | Critère de sortie | État |
 |---|---|---|---|
-| SOS-00 | Audit et contrat source ; modules DvP/calendrier existants | Provenance, identités historiques et validation du calendrier spécifiées puis vérifiées en fixtures | Audit de code fait ; adaptations à faire |
+| SOS-00 | Audit et contrat source ; modules DvP/calendrier existants | Provenance, identités historiques et validation du calendrier spécifiées puis vérifiées en fixtures | Contrats et source historique implémentés, fixtures et lecture live validées |
 | SOS-01 | `public/assets/wr-ros-sos.js`, `test/wr-ros-sos.test.js` | Cinq fenêtres, 32 équipes, déterminisme et couverture | Moteur livré, fixtures validées |
-| SOS-02 | `scripts/sos-service.js`, `server.js`, tests HTTP | Bundle partagé, validation, TTL/kickoff, erreurs explicites | À faire |
-| SOS-03 | Migration sous `supabase/`, job modèle, tests stockage | Capture atomique immutable, relance et reprise | À faire |
-| SOS-04 | `/sos/`, rendu, navigation | Filtres, détails, perspectives et états accessibles | À faire |
-| SOS-05 | Feedback SOS et vue évaluation | Prévisions authentiques vs résultats, exclusions et métriques | À faire |
-| SOS-06 | Coach, contexte IA et tests non-régression | Même snapshot et décisions inchangées | À faire |
-| SOS-07 | Vérification, documentation d'exploitation | Tests/check, navigateur desktop/mobile, contrôle production après déploiement | À faire |
+| SOS-02 | `scripts/sos-service.js`, `server.js`, tests HTTP | Bundle partagé, validation, TTL/kickoff, erreurs explicites | Livré et testé |
+| SOS-03 | Migration sous `supabase/`, job modèle, tests stockage | Capture atomique immutable, relance et reprise | Livré ; schéma existant réutilisé, sans migration |
+| SOS-04 | `/sos/`, rendu, navigation | Filtres, détails, perspectives et états accessibles | Livré ; navigateur desktop/mobile validé |
+| SOS-05 | Feedback SOS et vue évaluation | Prévisions authentiques vs résultats, exclusions et métriques | Livré ; résultats réels attendus après activation |
+| SOS-06 | Coach, contexte IA et tests non-régression | Même snapshot et décisions inchangées | Livré ; contrat HTTP de bout en bout testé |
+| SOS-07 | Vérification, documentation d'exploitation | Tests/check, navigateur desktop/mobile, contrôle production après déploiement | Local validé ; publication à contrôler |
 
 PR conseillées : (1) SOS-00/01, sources et moteur ; (2) SOS-02/03, service et archives ; (3) SOS-04/05, Explorer et évaluation ; (4) SOS-06/07, Coach et validation finale. Chaque PR met à jour ce tableau avec preuves et limites. Le suivi commence dès la livraison des archives ; ne pas attendre le Coach pour collecter.
 
@@ -167,21 +167,21 @@ PR conseillées : (1) SOS-00/01, sources et moteur ; (2) SOS-02/03, service et a
 
 Ship signal : tous les contrôles applicables passent, sources rejouables, aucune mutation du moteur fantasy, limites affichées. Les cases restent ouvertes jusqu'à implémentation et preuve de validation.
 
-- [ ] 32 équipes uniques dans chaque horizon, rang 1 favorable, égalités 1/1/3 et ordre stable.
-- [ ] Fixture de semaine mixte : terminés et kickoffs passés exclus du futur, borne W14 respectée, PAST sans semaine partielle.
-- [ ] NEXT_3 compte trois matchs malgré bye ; playoffs W15–17 et NFL ROS W18 distincts.
-- [ ] Byes hors dénominateur, calendrier incomplet distinct d'un bye ; game_id dupliqué/inconnu rejeté.
-- [ ] Régression vers mu pondérée, k versionné, pas de double ajustement.
-- [ ] Fixture DvP partiel : score indicatif, rang null ; aucune conversion de manque en zéro.
-- [ ] Aucun match restant distinct de zéro donnée, saison avant W1 et après W18 couvertes.
-- [ ] Cutoff et identités historiques : transfert de joueur, stats incomplètes et scoring incompatible invalident les données concernées.
-- [ ] Filtres laissent scores/rangs inchangés ; changement d'horizon lit la bonne fenêtre.
-- [ ] API : 400/404/503, alias ROS, absence DvP, absence de secrets et séparation public/privé.
-- [ ] Cache expirant au kickoff ; accès concurrents Explorer/Coach/IA lisent le même bundle.
-- [ ] Snapshot immutable : relance, option force, transaction interrompue, correction append-only et replay hors réseau identique.
-- [ ] Feedback sans fuite temporelle, stats corrigées tracées, doublons exclus, MAE/Spearman et cas dégénérés testés.
-- [ ] Coach/IA : même snapshot/score ; avec ou sans SOS, projections, ordre des candidats, gains, coupes et publishable identiques.
-- [ ] `npm test`, `npm run check` et vérification navigateur desktop/mobile passent ; aucune compilation ni lint configurés à ce jour.
+- [x] 32 équipes uniques dans chaque horizon, rang 1 favorable, égalités 1/1/3 et ordre stable.
+- [x] Fixture de semaine mixte : terminés et kickoffs passés exclus du futur, borne W14 respectée, PAST sans semaine partielle.
+- [x] NEXT_3 compte trois matchs malgré bye ; playoffs W15–17 et NFL ROS W18 distincts.
+- [x] Byes hors dénominateur, calendrier incomplet distinct d'un bye ; game_id dupliqué/inconnu rejeté.
+- [x] Régression vers mu pondérée, k versionné, pas de double ajustement.
+- [x] Fixture DvP partiel : score indicatif, rang null ; aucune conversion de manque en zéro.
+- [x] Aucun match restant distinct de zéro donnée, saison avant W1 et après W18 couvertes.
+- [x] Cutoff et identités historiques : transfert de joueur, stats incomplètes et scoring incompatible invalident les données concernées.
+- [x] Filtres laissent scores/rangs inchangés ; changement d'horizon lit la bonne fenêtre.
+- [x] API : 400/404/503, alias ROS, absence DvP, absence de secrets et séparation public/privé.
+- [x] Cache expirant au kickoff ; accès concurrents Explorer/Coach/IA lisent le même bundle.
+- [x] Snapshot immutable : écritures concurrentes, premier snapshot conservé, archive atomique et replay identique ; option force du moteur sans effet sur le type SOS. Une nouvelle capture datée ne remplace jamais la capture publiée.
+- [x] Feedback sans fuite temporelle, stats corrigées tracées, doublons exclus, MAE/Spearman et cas dégénérés testés.
+- [x] Coach/IA : même snapshot/score ; avec ou sans SOS, projections, ordre des candidats, gains, coupes et publishable identiques.
+- [x] `npm test`, `npm run check` et vérification navigateur desktop/mobile passent ; aucune compilation ni lint configurés à ce jour.
 - [ ] Après déploiement : API, page et Coach cohérents en production ; première capture réelle et date de début de suivi documentées.
 
 ## Journal des décisions
@@ -214,3 +214,16 @@ La décision fichier seule est remplacée pour la production : `model_snapshots`
 Validation : requêtes SDK réelles contre un double PostgREST isolé ; unicité, conservation du premier snapshot et isolation du kind testées dans un PostgreSQL local éphémère, supprimé après le contrôle. Le schéma de production a été inspecté en lecture seule par MCP : colonnes compatibles confirmées. Aucun schéma de production modifié. Pas de projet Supabase staging disponible et daemon Docker indisponible : le test PostgreSQL isolé et le test SDK couvrent ces deux couches séparément.
 
 `npm run sos:track` et `npm run sos:track:production` permettent la capture explicite ; `-- --dry-run` ne persiste rien. Le job existant capture SOS avant sa borne fantasy et continue ce sous-job durant W15–18, sans prolonger les décisions waivers au-delà de W14. Les lectures HTTP restent sans écriture. Premier snapshot réel local capturé le 15/10/2026 en S6, daté du jeudi ; il ne prétend pas être un snapshot du mardi ni précéder les waivers déjà exécutés.
+
+
+### Explorer, historique et Coach — 15/10/2026
+
+Page `/sos/` ajoutée au menu Tools, avec les cinq horizons, filtres d'affichage, détail hebdomadaire, byes et provenance. Perspectives : courant, PAST figé, archive et évaluation. `GET /api/sos?position=WR&horizon=PAST&perspective=FROZEN` utilise seulement les archives pré-match authentiques, sans remplissage rétrospectif ; faute d'archive, `NO_PREGAME_ARCHIVE`. `/api/sos/trends?horizon=...` expose l'évolution des rangs de même méthode/horizon. Les fenêtres évoluant chaque semaine, cette évolution n'est pas une mesure d'erreur.
+
+Coach et exports IA : ajout d'un espace `sos` explicatif séparé, par WR roster/waiver, comprenant les horizons, l'objet Fantasy ROS identique à l'Explorer, son snapshot et les signaux. Données absentes/périmées : `sos: null` par joueur et motif, décisions inchangées. Le comparateur Start/Sit utilise désormais cette même source DvP WR (les autres positions conservent leur contexte existant), sans modifier les projections ou l'optimisation de lineup. Aucun nouveau calcul de DvP WR basé sur l'équipe actuelle n'est conservé en parallèle.
+
+Contrôles locaux : API Explorer/Coach/contexte IA testées ensemble (même identifiant et même résultat), puis comparaison des sorties de décision avec/sans SOS. Navigateur réel : 32 équipes, filtre équipe, semaines sans recalcul du score, ouverture des détails, archive réelle S6, évaluation sans résultat futur inventé, PAST figé sans historique fictif. Captures desktop 1440 px et mobile 390 px sous `output/playwright/sos-{desktop,mobile}.png` (ignorées par Git), aucune erreur console. Les scores manquants ne deviennent pas zéro.
+
+Limites d'évaluation assumées : une archive vient d'être activée, donc aucune conclusion prédictive ni optimisation de k n'est publiée. Le tableau d'évaluation concerne le snapshot sélectionné ; ne pas sommer ses lignes avec celles d'autres snapshots. Les catégories utilisent la moyenne archivée et la corrélation reste null quand l'échantillon est insuffisant ou sans variance. La comparaison prédiction/réalité d'un horizon ROS complet n'est pas publiée tant que son ensemble de rencontres n'a pas été observé ; les observations sont montrées match par match.
+
+Reproduction hors réseau : `npm run sos:track -- --replay SNAPSHOT_ID` recharge les inputs archivés, recalcule les cinq horizons avec le moteur versionné et vérifie identifiant et hash des sorties. Le même mode existe avec `sos:track:production`. Une divergence produit `SOS_REPLAY_MISMATCH`, jamais un remplacement de l'archive.

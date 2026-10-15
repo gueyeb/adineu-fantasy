@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /** Called by the existing Tuesday job; can also run independently through NFL W18. */
 import { pathToFileURL } from 'node:url';
-import { sosService } from './sos-service.js';
+import { sosService, replaySosBundle } from './sos-service.js';
 import { sosStore } from './sos-store.js';
 import { evaluateSos } from './sos-feedback.js';
 export async function trackSos({ service = sosService, store = sosStore, dryRun = false } = {}) {
@@ -16,6 +16,9 @@ export async function trackSos({ service = sosService, store = sosStore, dryRun 
   return { ...await store.save(bundle), evaluations };
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  trackSos({ dryRun: process.argv.includes('--dry-run') }).then(result => console.log(JSON.stringify(result)))
+  const replay = process.argv.indexOf('--replay');
+  const work = replay >= 0 ? sosStore.load(process.argv[replay + 1]).then(bundle => { if (!bundle) throw Error('SNAPSHOT_NOT_FOUND'); return replaySosBundle(bundle); })
+    : trackSos({ dryRun: process.argv.includes('--dry-run') });
+  work.then(result => console.log(JSON.stringify(result)))
     .catch(error => { console.error(error.message); process.exitCode = 1; });
 }

@@ -2,7 +2,7 @@
 
 ## Ajout du 15/10/2026 — Fantasy SOS Explorer (planifié)
 
-[PRD V1.1](prd-fantasy-sos-explorer.md) : WR, 32 franchises, passé/futur séparés et suivi prévision/réalité par snapshots immuables. Fantasy ROS s’arrête à W14 ; playoffs W15–17 et NFL ROS W18 restent des horizons distincts. Contexte explicatif du Coach sans modification automatique des projections ni décisions. Premier incrément moteur implémenté et testé ; intégration produit à faire.
+[PRD V1.1](prd-fantasy-sos-explorer.md) : WR, 32 franchises, passé/futur séparés et suivi prévision/réalité par snapshots immuables. Fantasy ROS s’arrête à W14 ; playoffs W15–17 et NFL ROS W18 restent des horizons distincts. Contexte explicatif du Coach sans modification automatique des projections ni décisions. Moteur, API, Explorer, archives et contexte Coach implémentés et testés ; validation de publication en cours.
 
 
 Version : 1ᵉʳ octobre 2026 (semaine 4 NFL). Document de référence du produit : à joindre à

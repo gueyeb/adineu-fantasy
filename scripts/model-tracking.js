@@ -16,6 +16,9 @@
  * CLI : npm run track:weekly[:production] [-- --dry-run]
  * n8n : POST /api/model/weekly (Authorization: Bearer $MODEL_JOB_TOKEN).
  */
+import { createSupabaseSosStore } from "./sos-store.js";
+import { createSosService, sosService } from "./sos-service.js";
+import { loadSosSources } from "./sos-sources.js";
 import { trackSos } from "./sos-tracking.js";
 import { pathToFileURL } from "node:url";
 import { getFreeAgents, getUsageReport, getWeeklyProjections, getWeeklyStats, loadAuctionCalibration, primeAuctionCalibration } from "./league-context.js";
@@ -451,7 +454,8 @@ export async function runWeeklyJob({ supabase, fetchImpl = fetch, dryRun = false
   const season = Number(state.season);
   const week = resolveOperationalWeek(state);
   const sos = season === 2026 && state.season_type === "regular"
-    ? await trackSos({ dryRun }).catch(() => ({ error: "SOS_TRACKING_UNAVAILABLE" })) : { skipped: "hors saison SOS 2026" };
+    ? await trackSos({ dryRun, service: fetchImpl === fetch ? sosService : createSosService({ load: () => loadSosSources({ fetchImpl }) }),
+      ...(supabase ? { store: createSupabaseSosStore({ getSupabase: async () => supabase }) } : {}) }).catch(() => ({ error: "SOS_TRACKING_UNAVAILABLE" })) : { skipped: "hors saison SOS 2026" };
   if (state.season_type !== "regular" || week > LAST_REGULAR_WEEK) return { skipped: `hors saison régulière (${state.season_type}, semaine ${week})`, sos };
   // Recalibrate on every bid through last Wednesday before the snapshot and the plan use it.
   const auction = await calibrateFaab({ fetchImpl }).then(async calibration => {
