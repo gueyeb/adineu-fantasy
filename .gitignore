@@ -24,3 +24,6 @@ output/projection-comparisons/
 
 # Private UI audit screenshots and local visual checks.
 output/readability-audit/
+
+# Local browser verification traces.
+.playwright-mcp/

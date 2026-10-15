@@ -1,3 +1,11 @@
+import { readSosHandoff, formatSosHandoff, SOS_HANDOFF_KEY } from './sos-ai-context.js?v=0d14d02fd4';
+import { registerPageAiContext } from './ai-context-client.js?v=fa8bdebc75';
+let explorerContext = null;
+try { explorerContext = readSosHandoff(globalThis.sessionStorage); } catch { /* Private browsing may deny storage. */ }
+const appendExplorerContext = text => explorerContext ? `${text}
+
+CONTEXTE IMPORTÉ DE L’EXPLORER — peut différer du snapshot actuel du Coach
+${formatSosHandoff(explorerContext)}` : text;
 import { renderCoachSos } from "./coach-sos-view.js?v=085cdc242a";
 import { addToWatchlist, buildWarRoom, formatClaimOrder, recordBids, removeFromWatchlist, watchIdsHeader, REASON_MAX } from "./war-room.js?v=e9eae48675";
 import { loadBidHistory, loadWatchlist, saveBidHistory, saveWatchlist, syncWarRoom } from "./war-room-store.js?v=7fbca3341a";
@@ -124,7 +132,18 @@ function renderPlan(plan) {
 
   const sosPanel = document.getElementById("coach-sos");
   if (sosPanel) sosPanel.innerHTML = renderCoachSos(plan.sos);
-  message.textContent = plan.message;
+  message.textContent = appendExplorerContext(plan.message);
+  registerPageAiContext(() => appendExplorerContext(currentPlan.message));
+  document.getElementById('coach-imported-sos')?.remove();
+  if (explorerContext) {
+    const panel = document.createElement('details');
+    panel.id = 'coach-imported-sos'; panel.className = 'coach-panel';
+    const summary = document.createElement('summary'); summary.textContent = 'Contexte SOS importé de l’Explorer';
+    const pre = document.createElement('pre'); pre.textContent = formatSosHandoff(explorerContext); pre.style.whiteSpace = 'pre-wrap';
+    const clear = document.createElement('button'); clear.type = 'button'; clear.textContent = 'Retirer ce contexte';
+    clear.addEventListener('click', () => { explorerContext = null; sessionStorage.removeItem(SOS_HANDOFF_KEY); panel.remove(); message.textContent = plan.message; });
+    panel.append(summary, clear, pre); document.getElementById('coach-sos')?.after(panel);
+  }
   gate.hidden = true;
   report.hidden = false;
   status.textContent = `Données jusqu’à S${plan.dataThroughWeek ?? "—"} · actualisé ${new Date(plan.generatedAt).toLocaleString("fr-FR")}${Object.keys(plan.preferences || {}).length ? " · préférences Trade Finder appliquées" : ""}`;
@@ -212,7 +231,7 @@ login.addEventListener("submit", async event => {
 document.getElementById("coach-refresh").addEventListener("click", loadCoach);
 document.getElementById("coach-copy").addEventListener("click", async event => {
   if (!currentPlan) return;
-  await navigator.clipboard.writeText(currentPlan.message);
+  await navigator.clipboard.writeText(appendExplorerContext(currentPlan.message));
   const button = event.currentTarget; button.textContent = "Plan copié"; setTimeout(() => { button.textContent = "Copier le plan"; }, 1800);
 });
 // War Room: follow asks for a dated reason inline, then re-evaluates; nothing is sent to Sleeper.
@@ -254,7 +273,7 @@ document.getElementById("coach-logout").addEventListener("click", async () => {
   try {
     const response = await fetch("/api/coach-session?logout=1", { method: "POST", credentials: "same-origin" });
     if (!response.ok) throw new Error();
-    currentPlan = null; message.textContent = ""; report.hidden = true; gate.hidden = false; login.hidden = false; status.textContent = "Déconnecté.";
+    currentPlan = null; registerPageAiContext(null); message.textContent = ""; report.hidden = true; gate.hidden = false; login.hidden = false; status.textContent = "Déconnecté.";
   } catch { status.textContent = "Déconnexion impossible. Réessaie."; }
 });
 document.getElementById("coach-journal-details")?.addEventListener("toggle", event => { if (event.currentTarget.open) loadJournal(); });

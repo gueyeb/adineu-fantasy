@@ -233,7 +233,7 @@ export function createAppServer({
       return;
     }
 
-    if (["/api/sos", "/api/sos/snapshots", "/api/sos/evaluation", "/api/sos/trends"].includes(url.pathname)) {
+    if (["/api/sos", "/api/sos/bundle", "/api/sos/snapshots", "/api/sos/evaluation", "/api/sos/trends"].includes(url.pathname)) {
       const fail = (status, code) => sendJson(response, status, { error: { code, message: code } });
       const supported = ["position", "horizon", "snapshotId", "perspective"];
       if ([...url.searchParams.keys()].some(key => !supported.includes(key) || url.searchParams.getAll(key).length > 1)) return fail(400, "INVALID_SOS_QUERY");
@@ -259,6 +259,10 @@ export function createAppServer({
         if (url.pathname.endsWith("/evaluation")) {
           const current = await loadSos();
           return sendJson(response, 200, evaluateSos(bundle, current.inputs.dvp.observations, current.asOf));
+        }
+        if (url.pathname.endsWith("/bundle")) {
+          if (perspective !== "CURRENT") return fail(400, "INVALID_SOS_PERSPECTIVE");
+          return sendJson(response, 200, { horizons: Object.fromEntries(SOS_HORIZONS.map(key => [key, id ? historicalSos(bundle, key) : bundle.horizons[key]])) });
         }
         if (perspective === "FROZEN") {
           const archives = await Promise.all((await sosArchives.list()).map(row => sosArchives.load(row.snapshotId)));

@@ -19,6 +19,9 @@ test('Coach uses exactly Explorer team objects; explanation cannot mutate existi
   const before = structuredClone({ context, waivers, bundle });
   const sos = buildCoachSos({ context, waivers, bundle, now: Date.parse(bundle.asOf) });
   assert.equal(sos.snapshotId, bundle.snapshotId);
+  assert.equal(sos.aiContext.snapshot.snapshotId, bundle.snapshotId);
+  assert.deepEqual(sos.aiContext.snapshot.sources, bundle.horizons.FANTASY_ROS.sources);
+  assert.match(formatCoachSos(sos), /adineu.sos.v1/);
   assert.strictEqual(sos.players[0].sos, bundle.horizons.FANTASY_ROS.teams.find(t => t.team === 'ARI'));
   assert.equal(sos.players[1].scope, 'WAIVER');
   assert.match(formatCoachSos(sos), /projections et décisions inchangées/);

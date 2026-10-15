@@ -251,3 +251,19 @@ Derniers contrôles : une relance réelle de la capture de production a renvoyé
 ### Readability follow-up — 15/10/2026
 
 The Coach schedule context now uses compact roster rows, collapsed waiver candidates and per-player score/coverage details. Methodology and raw snapshot metadata remain on demand. Trade Hub methodology and Explorer labels follow the same progressive-disclosure principle. No SOS score or fantasy decision changed. See [scope, evidence and remaining visual checks](readability-review-2026-10-15.md).
+
+### Livraison — Contexte IA SOS (15 octobre 2026)
+
+L’Explorer réutilise l’accès global « Contexte IA » et propose deux actions locales : « Copier pour l’IA » et « Analyser dans le Coach ». Les options restent repliées pour préserver la lisibilité.
+
+- Sérialiseur partagé pur `public/assets/sos-ai-context.js`, schéma `adineu.sos.v1`, Markdown ou JSON. Réutilisé dans les exports API du Coach, le navigateur Coach et l’Explorer.
+- Sélections : 32 équipes, équipe sélectionnée, ou rangs officiels 1–10 et 23–32, égalités conservées. Les équipes sans rang ne sont jamais ajoutées aux extrêmes. Les filtres d’affichage sont documentés dans l’export ; la sélection d’export reste explicite et indépendante.
+- Détail complet : adversaires, identifiants de matchs, kickoff, DvP brut et ajusté, taille d’échantillon, byes et archives pré-match lorsqu’elles existent. Résumé compact : scores, rangs, couverture, motifs, méthode et provenance.
+- `GET /api/sos/bundle` retourne les cinq horizons publics issus d’un seul bundle, sans les entrées brutes d’ingestion. Même validation que `/api/sos`, archives via `snapshotId`. Aucun recalcul ou appel réseau au clic de copie. Comparaison facultative PAST / NEXT_3 / FANTASY_ROS / FANTASY_PLAYOFFS depuis ce même bundle. Le passé figé est exportable seul ; l’évaluation reste consultable dans sa vue dédiée, sans être assimilée à un classement.
+- Trois dates distinctes : `asOf` du calcul, `sources.*.fetchedAt` de collecte et `exportedAt` de consultation/export. La date d’export peut différer entre deux copies, jamais les données capturées. Les sources précisent les semaines terminées et empreintes.
+- Les rangs sont relatifs ; les classes sont absolues par rapport à la moyenne NFL : favorable à +12 %, difficile à −12 %, neutre entre les deux. Les 32 équipes peuvent donc être neutres sans erreur de classement. Couverture et fiabilité prédictive ne sont pas interchangeables.
+- Les métriques historiques ne sont pas incluses dans cet export initial : la limite est explicite. Aucune fiabilité numérique, donnée de joueur ou prévision historique absente n’est inventée.
+- Transmission au Coach par `sessionStorage` du même onglet et de la même origine, conservée pendant la connexion, valable une heure après export, taille maximale 2 Mo à la lecture. Pas de données dans l’URL, pas d’écriture serveur. Payload invalide ignoré. Une restriction du stockage est signalée à l’action ; la copie reste disponible.
+- Dans le Coach, panneau importé replié distinct du snapshot courant. Les deux contextes peuvent avoir des dates différentes. Le contexte est joint à « Copier le plan » et « Contexte IA » après connexion, et peut être retiré. Aucun effet sur projections, enchères, waivers ou décisions.
+
+Validation : tests de valeurs exactes, rangs/nulls/égalités, dates distinctes, comparaison incohérente refusée, formats, aller-retour sélection vers Coach, expiration/stockage invalide, API bundle et absence d’entrées privées. Navigateur : données NFL réelles, 32 lignes, TEN 34,46 identique à l’écran, aucune requête sur copie locale ou globale, transfert conservé avant connexion ; Coach après connexion vérifié avec réponse de fixture locale explicitement identifiée. Mobile 390 px sans débordement de page, capture locale ignorée dans `output/readability-audit/sos-ai-mobile.png`.

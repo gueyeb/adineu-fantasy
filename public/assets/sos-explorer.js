@@ -1,3 +1,5 @@
+import { buildSosAiContext, SOS_HANDOFF_KEY } from './sos-ai-context.js?v=0d14d02fd4';
+import { registerPageAiContext } from './ai-context-client.js?v=fa8bdebc75';
 import { SOS_TEAM_CODES } from './wr-ros-sos.js?v=74b4a6a313';
 const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const number = value => Number.isFinite(value) ? value.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) : '—';
@@ -24,10 +26,24 @@ export async function renderSosExplorer(app) {
     <label>Couverture<select id="sos-coverage"><option value="">Toutes</option>${options({ COMPLETE: 'Complète', PARTIAL: 'Partielle', UNAVAILABLE: 'Indisponible' })}</select></label>
     <label>Semaines affichées<select id="sos-weeks"><option value="">Tout l’horizon</option>${options(Object.fromEntries(Array.from({ length: 18 }, (_, i) => [i + 1, `Semaine ${i + 1}`])))}</select></label></div>
     <p class="sos-note">Les filtres réduisent l’affichage, jamais le score ni le rang de l’horizon.</p>
-    <p class="sos-scroll-hint">Faites défiler le tableau pour voir le score et la couverture.</p><div id="sos-results"></div><details class="sos-method"><summary>Méthode, sources et limites</summary><div id="sos-sources"></div><p>WR PPR concédés par match, ajustés : production de tous les WR adverses, pas une projection individuelle. Moyenne des adversaires de la fenêtre, régression vers la moyenne NFL (k = 3). Rang 1 = plus favorable. Byes hors dénominateur ; matchs commencés exclus des fenêtres futures. PAST courant utilise les données actuelles ; seul le passé figé conserve les prévisions authentiques.</p><p>Un calendrier favorable ne constitue pas une recommandation ADD ou START. Rôle, routes, targets, disponibilité et coût de coupe restent prioritaires. Aucune projection Sleeper n’est modifiée.</p></details></div></section>`;
+    <div class="sos-ai"><button type="button" id="sos-copy">Copier pour l’IA</button> <button type="button" id="sos-coach">Analyser dans le Coach</button><details><summary>Options d’export IA</summary><div class="sos-filters"><label>Équipes<select id="sos-scope"><option value="ALL">32 équipes</option><option value="SELECTED">Équipe sélectionnée</option><option value="EXTREMES">Top 10 + Bottom 10</option></select></label><label>Détail<select id="sos-detail"><option value="FULL">Adversaires et méthode</option><option value="COMPACT">Résumé compact</option></select></label><label>Format<select id="sos-format"><option value="MARKDOWN">Markdown</option><option value="JSON">JSON versionné</option></select></label><label><input type="checkbox" id="sos-compare"> Comparer passé et futur</label></div></details><p id="sos-ai-status" role="status" aria-live="polite"></p></div><p class="sos-scroll-hint">Faites défiler le tableau pour voir le score et la couverture.</p><div id="sos-results"></div><details class="sos-method"><summary>Méthode, sources et limites</summary><div id="sos-sources"></div><p>WR PPR concédés par match, ajustés : production de tous les WR adverses, pas une projection individuelle. Moyenne des adversaires de la fenêtre, régression vers la moyenne NFL (k = 3). Rang 1 = plus favorable. Byes hors dénominateur ; matchs commencés exclus des fenêtres futures. PAST courant utilise les données actuelles ; seul le passé figé conserve les prévisions authentiques.</p><p>Le rang compare les équipes entre elles ; les étiquettes comparent le score à la moyenne NFL (±12 %). Un rang extrême peut rester neutre. La couverture mesure les données disponibles, pas la précision prédictive.</p><p>Un calendrier favorable ne constitue pas une recommandation ADD ou START. Rôle, routes, targets, disponibilité et coût de coupe restent prioritaires. Aucune projection Sleeper n’est modifiée.</p></details></div></section>`;
   const el = id => app.querySelector(`#sos-${id}`);
+  let capturedHorizons = null;
   let response = null; let evaluation = null; let trends = []; let requestNumber = 0;
   const state = () => ({ team: el('team').value, difficulty: el('difficulty').value, coverage: el('coverage').value });
+  const exportContext = (format = el('format').value) => buildSosAiContext(response, {
+    scope: el('scope').value, team: el('team').value, detail: el('detail').value, format,
+    filters: { ...state(), displayedWeek: el('weeks').value || null },
+    comparisons: el('compare').checked ? Object.values(capturedHorizons ?? {}).filter(row => row.window.horizon !== response?.window.horizon && row.window.horizon !== 'NFL_ROS') : []
+  });
+  registerPageAiContext(() => exportContext());
+  for (const action of ['copy', 'coach']) el(action).addEventListener('click', async () => {
+    try {
+      if (action === 'copy') await navigator.clipboard.writeText(exportContext());
+      else { sessionStorage.setItem(SOS_HANDOFF_KEY, exportContext('JSON')); location.assign('/coach/'); }
+      el('ai-status').textContent = 'Contexte copié depuis le snapshot affiché.';
+    } catch (error) { el('ai-status').textContent = error.message; }
+  });
   function draw() {
     if (evaluation) {
       const rows = evaluation.rows.filter(row => (!el('team').value || row.offensiveTeam === el('team').value) && (!el('weeks').value || row.targetWeek === Number(el('weeks').value)));
@@ -54,7 +70,10 @@ export async function renderSosExplorer(app) {
     el('difficulty').disabled = perspective === 'EVALUATION'; el('coverage').disabled = perspective === 'EVALUATION';
     if (perspective === 'FROZEN') el('horizon').value = 'PAST';
     if (perspective === 'EVALUATION') el('horizon').value = 'NFL_ROS';
-    response = null; evaluation = null; trends = [];
+    response = null; evaluation = null; trends = []; capturedHorizons = null;
+    el('compare').checked = false; el('compare').disabled = ['FROZEN', 'EVALUATION'].includes(perspective);
+    el('ai-status').textContent = perspective === 'EVALUATION' ? 'Export du classement disponible dans les vues de calendrier.' : '';
+    for (const action of ['copy', 'coach']) el(action).disabled = true;
     el('results').innerHTML = '';
     el('results').setAttribute('aria-busy', 'true');
     el('status').textContent = 'Chargement du snapshot…';
@@ -63,10 +82,12 @@ export async function renderSosExplorer(app) {
       const query = new URLSearchParams({ position: 'WR', horizon: el('horizon').value });
       if (perspective === 'FROZEN') query.set('perspective', 'FROZEN');
       if (['ARCHIVE', 'EVALUATION'].includes(perspective)) query.set('snapshotId', el('snapshot').value);
-      const res = await fetch(`/api/sos${perspective === 'EVALUATION' ? '/evaluation' : ''}?${query}`);
+      const res = await fetch(`/api/sos${perspective === 'EVALUATION' ? '/evaluation' : perspective === 'FROZEN' ? '' : '/bundle'}?${query}`);
       if (!res.ok) throw Error('Sources indisponibles. Réessayez avec Actualiser.');
-      const payload = await res.json();
+      const loaded = await res.json();
+      const payload = loaded.horizons ? loaded.horizons[el('horizon').value] : loaded;
       if (request !== requestNumber) return;
+      capturedHorizons = loaded.horizons ?? null;
       evaluation = perspective === 'EVALUATION' ? payload : null; response = evaluation ? null : payload;
       el('status').textContent = `${perspective === 'EVALUATION' ? 'Évaluation au' : 'Snapshot au'} ${shortDate(payload.asOf || payload.evaluatedAt)}${payload.window ? ` · S${payload.window.startWeek}–${payload.window.endWeek}` : ''} · ${perspective === 'CURRENT' ? 'données actuelles' : perspective === 'FROZEN' ? 'prévisions pré-match figées' : 'archive immuable'}`;
       el('sources').innerHTML = response ? `<p class="method-provenance">Snapshot : ${escape(payload.snapshotId)}<br>Capture : ${escape(date(payload.asOf || payload.evaluatedAt))}</p><p>Méthode ${escape(response.methodologyVersion)} · k ${response.shrinkGames} · moyenne NFL ${number(response.leagueAverage)}</p>${Object.entries(response.sources).map(([key, source]) => `<p><b>${escape(key)}</b> · ${escape(source.source)}<br>Collecte ${escape(date(source.fetchedAt))} · hash ${escape(source.inputHash)}${source.completedWeeks ? `<br>Semaines DvP : ${escape(source.completedWeeks.join(', '))}` : ''}</p>`).join('')}<p>${escape(response.warnings.join(' · '))}</p>` : '<p>Prévisions strictement pré-match ; résultats confirmés et complets uniquement. Les valeurs manquantes restent exclues.</p>';
@@ -77,6 +98,7 @@ export async function renderSosExplorer(app) {
         trends = history.snapshots ?? [];
       } catch { trends = []; }
       draw();
+      for (const action of ['copy', 'coach']) el(action).disabled = !response;
     } catch (error) { if (request === requestNumber) { response = null; evaluation = null; el('results').innerHTML = ''; el('sources').textContent = ''; el('status').textContent = error.message; } }
     finally { if (request === requestNumber) el('results').setAttribute('aria-busy', 'false'); }
   }

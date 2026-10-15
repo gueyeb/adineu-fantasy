@@ -1,3 +1,4 @@
+import { buildSosAiContext, formatSosHandoff } from '../public/assets/sos-ai-context.js';
 /** Explanatory attachment only: never feed these fields to decision scoring. */
 const horizons = ['PAST', 'NEXT_3', 'FANTASY_ROS', 'FANTASY_PLAYOFFS'];
 export function buildCoachSos({ context, waivers, bundle, now = Date.now() }) {
@@ -20,11 +21,12 @@ export function buildCoachSos({ context, waivers, bundle, now = Date.now() }) {
     });
   return { snapshotId: available ? bundle.snapshotId : null, asOf: available ? bundle.asOf : null,
     reason: !bundle ? 'SOS_UNAVAILABLE' : stale ? 'SOS_STALE' : null, players,
+    aiContext: available ? JSON.parse(buildSosAiContext(bundle.horizons.FANTASY_ROS, { format: 'JSON', detail: 'COMPACT', exportedAt: new Date(now).toISOString() })) : null,
     explanation: 'Contexte explicatif WR uniquement. Vérifier rôle, routes, targets, disponibilité et coût de coupe. Aucun signal SOS ne suffit à ADD ou START ; projections et décisions inchangées.' };
 }
 export function formatCoachSos(sos) {
   if (!sos) return '';
   return '\n\nSOS WR — CONTEXTE EXPLICATIF\n' +
     `Snapshot ${sos.snapshotId ?? 'indisponible'} · ${sos.asOf ?? sos.reason}\n` +
-    sos.players.map(row => `${row.scope} ${row.name} (${row.nflTeam ?? '?'}) : ${row.sos ? `Fantasy ROS #${row.sos.rank} · ${row.sos.sosScore} WR PPR concédés/match ajustés · ${row.sos.coveredGames}/${row.sos.gamesInWindow} couverts · prochains ${row.sos.opponents.slice(0, 3).map(g => `S${g.week} ${g.opponent}`).join(', ')} · ${row.signal ?? 'signal indisponible'}` : row.reason}`).join('\n') + '\n' + sos.explanation;
+    sos.players.map(row => `${row.scope} ${row.name} (${row.nflTeam ?? '?'}) : ${row.sos ? `Fantasy ROS #${row.sos.rank} · ${row.sos.sosScore} WR PPR concédés/match ajustés · ${row.sos.coveredGames}/${row.sos.gamesInWindow} couverts · prochains ${row.sos.opponents.slice(0, 3).map(g => `S${g.week} ${g.opponent}`).join(', ')} · ${row.signal ?? 'signal indisponible'}` : row.reason}`).join('\n') + '\n' + sos.explanation + (sos.aiContext ? '\n\n' + formatSosHandoff(sos.aiContext) : '');
 }

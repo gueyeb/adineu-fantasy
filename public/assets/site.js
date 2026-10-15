@@ -1,4 +1,4 @@
-import { renderSosExplorer } from "./sos-explorer.js?v=35cc211227";
+import { renderSosExplorer } from "./sos-explorer.js?v=f25d40ba9d";
 import { renderPublicWeek } from "./public-week.js?v=fc4f03d802";
 import { buildSharedPlayoffContext } from "./playoff-context.js?v=099f369f8a";
 import { calculatePowerRankings, MINIMUM_COMPLETED_WEEKS, POWER_WEIGHTS } from "./power-rankings.js?v=86d062a9e8";
@@ -20,7 +20,7 @@ import { renderTeamsHub } from "./teams.js?v=74759b10f3";
 import { buildYahooRecordBook } from "./record-book.js?v=0ebb2a4e56";
 import { listRosterIdentities } from "./roster-view.js?v=120de9d74d";
 import { GENERAL_SETTINGS_2026 } from "./league-settings.js?v=f6d1bf5212";
-import { appendManagerPreferences } from "./ai-context-client.js?v=460ba54cb6";
+import { appendManagerPreferences, getPageAiContext } from "./ai-context-client.js?v=fa8bdebc75";
 import {
   simulatePlayoffProbabilities,
   NEAR_WEEKS,
@@ -124,6 +124,12 @@ const copyContextLabel = copyContextBtn?.querySelector(".context-copy-label");
 
 copyContextBtn?.addEventListener("click", async () => {
   try {
+    const pageText = getPageAiContext();
+    if (pageText !== null) {
+      await navigator.clipboard.writeText(pageText);
+      copyContextLabel.textContent = "Copié !";
+      return;
+    }
     const response = await fetch("/api/context?mode=decision");
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const context = await response.json();

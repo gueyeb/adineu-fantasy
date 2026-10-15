@@ -20,3 +20,7 @@ export function appendManagerPreferences(message, context, preferences = {}) {
     `UNTOUCHABLE: ${groups.UNTOUCHABLE.join(", ") || "none"}`
   ].join("\n");
 }
+
+let pageContextProvider = null;
+export function registerPageAiContext(provider) { pageContextProvider = provider; }
+export function getPageAiContext() { return pageContextProvider ? pageContextProvider() : null; }
