@@ -88,3 +88,5 @@ Le modèle prenait déjà les résultats réels des semaines complètes comme po
 Vérification prévue : bilan de départ conservé, total de matchs finaux cohérent, égalités réelles, absence de matchs restants, calendrier incomplet, exclusion des semaines déjà jouées/playoffs, déterminisme, affichage et suite de non-régression.
 
 Validation locale : 521 tests réussis ; `npm run check`, versions d’assets et diff vérifiés. Navigateur avec données live : 12 lignes dans les deux tableaux, bilan de départ visible (ex. 4–1), moyenne finale (ex. 9,4–4,6), titre méthodologique explicite. Vérification mobile à 390 px sans débordement de page ; tableaux défilants conservés. Capture locale ignorée : `output/readability-audit/projected-record-desktop.png`.
+
+Livraison : `689c21c` poussé sur `main`. Contrôle navigateur public confirmé après déploiement : 12 bilans projetés, bilan actuel 4–1 et moyenne finale 9,4–4,6 visibles à côté de la probabilité sur la première ligne ; nouveau titre méthodologique présent. Comparaison avant/après du moteur sur 3 000 simulations seedées : probabilités strictement identiques à entrées identiques.
