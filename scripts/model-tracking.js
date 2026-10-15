@@ -453,7 +453,7 @@ export async function runWeeklyJob({ supabase, fetchImpl = fetch, dryRun = false
   const state = await getJson("/state/nfl", fetchImpl);
   const season = Number(state.season);
   const week = resolveOperationalWeek(state);
-  const sos = season === 2026 && state.season_type === "regular"
+  const sos = season === 2026 && ["regular", "post"].includes(state.season_type)
     ? await trackSos({ dryRun, service: fetchImpl === fetch ? sosService : createSosService({ load: () => loadSosSources({ fetchImpl }) }),
       ...(supabase ? { store: createSupabaseSosStore({ getSupabase: async () => supabase }) } : {}) }).catch(() => ({ error: "SOS_TRACKING_UNAVAILABLE" })) : { skipped: "hors saison SOS 2026" };
   if (state.season_type !== "regular" || week > LAST_REGULAR_WEEK) return { skipped: `hors saison régulière (${state.season_type}, semaine ${week})`, sos };

@@ -1,6 +1,6 @@
 # PRD — Fantasy SOS Explorer V1.1
 
-Date : 15 octobre 2026. Statut : moteur, API, archives, Explorer et Coach implémentés et vérifiés localement ; contrôle de publication en cours. Position : WR, scoring Full PPR. Cette version remplace le périmètre exclusivement ROS du brouillon V1 par un SOS temporel et vérifiable.
+Date : 15 octobre 2026. Statut : fonctionnalité implémentée et publiée ; Explorer, API et archives contrôlés en production. Coach authentifié validé localement, contrôle authentifié de production non réalisé. Position : WR, scoring Full PPR. Cette version remplace le périmètre exclusivement ROS du brouillon V1 par un SOS temporel et vérifiable.
 
 ## Objectif et garde-fous
 
@@ -159,7 +159,7 @@ Backtest chronologique : ajuster k sur entraînement antérieur, figer, valider 
 | SOS-04 | `/sos/`, rendu, navigation | Filtres, détails, perspectives et états accessibles | Livré ; navigateur desktop/mobile validé |
 | SOS-05 | Feedback SOS et vue évaluation | Prévisions authentiques vs résultats, exclusions et métriques | Livré ; résultats réels attendus après activation |
 | SOS-06 | Coach, contexte IA et tests non-régression | Même snapshot et décisions inchangées | Livré ; contrat HTTP de bout en bout testé |
-| SOS-07 | Vérification, documentation d'exploitation | Tests/check, navigateur desktop/mobile, contrôle production après déploiement | Local validé ; publication à contrôler |
+| SOS-07 | Vérification, documentation d'exploitation | Tests/check, navigateur desktop/mobile, contrôle production après déploiement | Tests, navigateur et production publique validés ; session Coach production non disponible |
 
 PR conseillées : (1) SOS-00/01, sources et moteur ; (2) SOS-02/03, service et archives ; (3) SOS-04/05, Explorer et évaluation ; (4) SOS-06/07, Coach et validation finale. Chaque PR met à jour ce tableau avec preuves et limites. Le suivi commence dès la livraison des archives ; ne pas attendre le Coach pour collecter.
 
@@ -182,7 +182,8 @@ Ship signal : tous les contrôles applicables passent, sources rejouables, aucun
 - [x] Feedback sans fuite temporelle, stats corrigées tracées, doublons exclus, MAE/Spearman et cas dégénérés testés.
 - [x] Coach/IA : même snapshot/score ; avec ou sans SOS, projections, ordre des candidats, gains, coupes et publishable identiques.
 - [x] `npm test`, `npm run check` et vérification navigateur desktop/mobile passent ; aucune compilation ni lint configurés à ce jour.
-- [ ] Après déploiement : API, page et Coach cohérents en production ; première capture réelle et date de début de suivi documentées.
+- [x] Production publique : API, page, archives et contexte IA contrôlés ; première capture réelle et date de début de suivi documentées.
+- [ ] Vérification visuelle du Coach dans une session authentifiée de production (session non disponible ; route protégée vérifiée, parcours authentifié testé localement).
 
 ## Journal des décisions
 
@@ -229,3 +230,17 @@ Limites d'évaluation assumées : une archive vient d'être activée, donc aucun
 Reproduction hors réseau : `npm run sos:track -- --replay SNAPSHOT_ID` recharge les inputs archivés, recalcule les cinq horizons avec le moteur versionné et vérifie identifiant et hash des sorties. Le même mode existe avec `sos:track:production`. Une divergence produit `SOS_REPLAY_MISMATCH`, jamais un remplacement de l'archive.
 
 Contrôle de persistance : les empreintes utilisent une sérialisation JSON canonique (clés triées récursivement), pour résister à la réorganisation des objets par PostgreSQL JSONB. Test dédié et test SDK avec réponses réordonnées ajoutés avant toute capture SOS en production. Le premier essai local à hash non canonique est conservé hors du répertoire actif sous `.cache/sos-before-canonical-hashes`.
+
+
+## Bilan de livraison et exploitation — 15/10/2026
+
+Implémentation poussée sur `main`, avec commits par lot : API/archives `19fba61`, persistance durable `6a1a245`, Explorer/historique/Coach `9e607fc`, empreintes JSONB canoniques `03dd847`, diagnostic de version `b8c4fff`. Les petits correctifs de clôture conservent les mêmes formules et les mêmes données archivées.
+
+- Validation finale : **504 tests réussis**, `npm run check`, `npm run assets:check` et `git diff --check`. Pas de build, type-check ou linter configurés. Tests ciblés supplémentaires après la protection des transitions UI (ancien tableau masqué pendant le chargement ; historique rétrospectif non mélangé au PAST figé).
+- Production : `https://adineu-fantasy.bakene.tech/sos/` et API courante répondent 200 avec 32 équipes classées. Archive, tendances et évaluation répondent 200 ; position RB renvoie 400. PAST figé renvoie 32 lignes sans score et `NO_PREGAME_ARCHIVE` pour les rencontres antérieures à l'activation, comme attendu.
+- Première capture réelle de production : **S6, 2026-10-15T00:47:09.032Z**, snapshot `9a58331e0463a7bd70391cd9f4cd5f340c0c2ee908310c2cbcb4555e49de8152`. Capture du jeudi, pas une reconstruction du mardi. Persistance confirmée par lecture MCP ; relecture hors réseau depuis Supabase : `reproduced: true`. Les premières métriques réelles arriveront après les rencontres concernées, sans inventer de résultats.
+- Contexte IA en production : même snapshot que l'Explorer courant, scores/rangs identiques pour les WR concernés. Coach privé : 404 sans autorisation, parcours authentifié et panneau SOS vérifiés visuellement sur serveur local de test, aucune erreur console. Aucune session/credential Coach de production n'est disponible dans l'environnement local : son rendu authentifié de production reste le seul contrôle manuel non réalisé, sans changer l'authentification.
+- Navigateur production : tableau 32 lignes, archive S6 sélectionnable et lecture historique immuable vérifiés dans Chrome. Tests desktop/mobile et filtres effectués localement. Aucun secret ni donnée privée n'est embarqué dans la page publique.
+- Le job SOS continue l'évaluation après la dernière semaine NFL régulière, y compris quand Sleeper passe en `post`, mais ne publie pas de fausse prévision W19. Cette limite de saison est testée.
+
+Aucune migration ni nouvelle configuration n'est nécessaire pour la production déjà équipée des credentials serveur Supabase. Le job hebdomadaire existant orchestre les captures ; la CLI SOS sert au dry-run, au replay et à la reprise ciblée. Pas de nouvelle notification envoyée et pas de changement de projections, FAAB ou décisions du Coach.

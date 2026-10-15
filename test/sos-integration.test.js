@@ -93,3 +93,16 @@ test('Explorer, Coach and AI HTTP responses share snapshot and keep decision out
   for (const key of ['waiverActions', 'cutCandidates', 'acquisitionPlan', 'coherence', 'priorities', 'lineup']) assert.deepEqual(withoutSos[key], withSos[key]);
   assert.equal(withoutSos.sos.players[0].sos, null);
 });
+
+
+test('final NFL feedback still runs after W18 without publishing a fake W19 forecast', async () => {
+  const bundle = { ...buildSosBundle(input()), week: 19 };
+  let writes = 0, feedback = 0;
+  const result = await trackSos({ service: { getBundle: async () => bundle }, store: {
+    list: async () => [{ snapshotId: bundle.snapshotId }], load: async () => bundle,
+    saveEvaluation: async () => { feedback++; }, save: async () => { writes++; }
+  } });
+  assert.equal(result.skipped, 'NO_REMAINING_REGULAR_SEASON_GAMES');
+  assert.equal(feedback, 1);
+  assert.equal(writes, 0);
+});

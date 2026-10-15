@@ -52,6 +52,9 @@ export async function renderSosExplorer(app) {
     el('difficulty').disabled = perspective === 'EVALUATION'; el('coverage').disabled = perspective === 'EVALUATION';
     if (perspective === 'FROZEN') el('horizon').value = 'PAST';
     if (perspective === 'EVALUATION') el('horizon').value = 'NFL_ROS';
+    response = null; evaluation = null; trends = [];
+    el('results').innerHTML = '';
+    el('results').setAttribute('aria-busy', 'true');
     el('status').textContent = 'Chargement du snapshot…';
     try {
       if (['ARCHIVE', 'EVALUATION'].includes(perspective) && !el('snapshot').value) throw Error('Aucun snapshot archivé : le suivi commence à son activation, sans prévisions inventées.');
@@ -66,13 +69,14 @@ export async function renderSosExplorer(app) {
       el('status').textContent = `${perspective === 'EVALUATION' ? 'Évaluation au' : 'Snapshot au'} ${date(payload.asOf || payload.evaluatedAt)} · ${payload.snapshotId.slice(0, 12)}${payload.window ? ` · S${payload.window.startWeek}–${payload.window.endWeek}` : ''} · ${perspective === 'CURRENT' ? 'données actuelles' : perspective === 'FROZEN' ? 'prévisions pré-match figées' : 'archive immuable'}`;
       el('sources').innerHTML = response ? `<p>Méthode ${escape(response.methodologyVersion)} · k ${response.shrinkGames} · moyenne NFL ${number(response.leagueAverage)}</p>${Object.entries(response.sources).map(([key, source]) => `<p><b>${escape(key)}</b> · ${escape(source.source)}<br>Collecte ${escape(date(source.fetchedAt))} · hash ${escape(source.inputHash)}${source.completedWeeks ? `<br>Semaines DvP : ${escape(source.completedWeeks.join(', '))}` : ''}</p>`).join('')}<p>${escape(response.warnings.join(' · '))}</p>` : '<p>Prévisions strictement pré-match ; résultats confirmés et complets uniquement. Les valeurs manquantes restent exclues.</p>';
       try {
-        const historyResponse = await fetch(`/api/sos/trends?horizon=${encodeURIComponent(el('horizon').value)}`);
-        const history = await historyResponse.json();
+        const historyResponse = ['FROZEN', 'EVALUATION'].includes(perspective) ? null : await fetch(`/api/sos/trends?horizon=${encodeURIComponent(el('horizon').value)}`);
+        const history = historyResponse ? await historyResponse.json() : { snapshots: [] };
         if (request !== requestNumber) return;
         trends = history.snapshots ?? [];
       } catch { trends = []; }
       draw();
     } catch (error) { if (request === requestNumber) { response = null; evaluation = null; el('results').innerHTML = ''; el('sources').textContent = ''; el('status').textContent = error.message; } }
+    finally { if (request === requestNumber) el('results').setAttribute('aria-busy', 'false'); }
   }
   for (const id of ['team', 'difficulty', 'coverage', 'weeks']) el(id).addEventListener('change', draw);
   for (const id of ['horizon', 'perspective', 'snapshot']) el(id).addEventListener('change', load);

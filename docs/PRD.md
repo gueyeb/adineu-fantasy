@@ -1,8 +1,8 @@
 # Adineu Fantasy — PRD global
 
-## Ajout du 15/10/2026 — Fantasy SOS Explorer (planifié)
+## Ajout du 15/10/2026 — Fantasy SOS Explorer (livré)
 
-[PRD V1.1](prd-fantasy-sos-explorer.md) : WR, 32 franchises, passé/futur séparés et suivi prévision/réalité par snapshots immuables. Fantasy ROS s’arrête à W14 ; playoffs W15–17 et NFL ROS W18 restent des horizons distincts. Contexte explicatif du Coach sans modification automatique des projections ni décisions. Moteur, API, Explorer, archives et contexte Coach implémentés et testés ; validation de publication en cours.
+[PRD V1.1](prd-fantasy-sos-explorer.md) : WR, 32 franchises, passé/futur séparés et suivi prévision/réalité par snapshots immuables. Fantasy ROS s’arrête à W14 ; playoffs W15–17 et NFL ROS W18 restent des horizons distincts. Contexte explicatif du Coach sans modification automatique des projections ni décisions. Moteur, API, Explorer, archives et contexte Coach livrés ; API publique et archive S6 contrôlées en production, parcours Coach authentifié validé localement.
 
 
 Version : 1ᵉʳ octobre 2026 (semaine 4 NFL). Document de référence du produit : à joindre à
@@ -67,6 +67,7 @@ Toute suggestion d'amélioration doit les respecter :
 
 | Page / outil | Ce que ça fait | Données |
 |---|---|---|
+| **Fantasy SOS Explorer** `/sos/` | WR : cinq horizons, couverture, filtres, archives pré-match et évaluation ; contexte Coach explicatif | DvP partagé, nflverse, snapshots Supabase |
 | **Accueil** `/` | Stats d'archive + accès aux fonctionnalités saison 2026 en priorité | Archive + liens |
 | **Standings** `/standings/` | Classement 2026 + **Luck** (victoires réelles − all-play attendues) + **% playoffs** (estimation) + **courbe du rang** semaine par semaine | Supabase + Sleeper |
 | **Power Rankings** `/power-rankings/` | Score = 45 % % de victoires, 35 % points/match, 20 % marge des 3 dernières semaines (en percentiles). **Playoff Race** (arithmétique : ordre, games back du 8e). **Playoff Probabilities** (simulation Monte Carlo seedée du reste de la saison, estimation). **All-Play** (bilan si on jouait les 11 autres chaque semaine). | Sleeper + Supabase |

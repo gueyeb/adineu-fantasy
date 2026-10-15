@@ -13,6 +13,7 @@ export async function trackSos({ service = sosService, store = sosStore, dryRun 
     const result = evaluateSos(historical, bundle.inputs.dvp.observations, bundle.asOf);
     evaluations.push(await store.saveEvaluation(archive.snapshotId, result));
   }
+  if (bundle.week > 18) return { skipped: 'NO_REMAINING_REGULAR_SEASON_GAMES', evaluations };
   return { ...await store.save(bundle), evaluations };
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
