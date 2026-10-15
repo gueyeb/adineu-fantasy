@@ -14,7 +14,7 @@
  */
 
 import { calculatePowerRankings } from "./power-rankings.js?v=86d062a9e8";
-import { calculatePlayerFantasyPoints } from "./league-settings.js?v=f6d1bf5212";
+import { calculatePlayerFantasyPoints, GENERAL_SETTINGS_2026 } from "./league-settings.js?v=f6d1bf5212";
 
 export const DEFAULT_PLAYOFF_SPOTS = 8;
 export const DEFAULT_SIMULATIONS = 3000;
@@ -168,6 +168,13 @@ function standingsOrder(a, b) {
 export function runSimulation({ baseStandings, remainingWeeks, schedule, teamProjectionsByWeek, stdDevByManager, playoffSpots, simulations, seed, teamStrengthSd = 0, nearWeeks = NEAR_WEEKS, farWeekShrink = 0 }) {
   const rng = mulberry32(seed);
   const managers = baseStandings.map(team => team.manager);
+  const recordTotals = new Map(managers.map(manager => [manager, { wins: 0, losses: 0, ties: 0 }]));
+  const scheduleComplete = remainingWeeks.every(week => {
+    const pairs = schedule.get(week) || [];
+    if (pairs.some(pair => !Array.isArray(pair) || pair.length !== 2)) return false;
+    const scheduled = pairs.flat();
+    return scheduled.length === managers.length && new Set(scheduled).size === managers.length && scheduled.every(manager => managers.includes(manager));
+  });
   const qualifiedCount = new Map(managers.map(manager => [manager, 0]));
 
   // Expected score per team/week, computed once: far weeks shrink the edge over that week's mean.
@@ -183,7 +190,7 @@ export function runSimulation({ baseStandings, remainingWeeks, schedule, teamPro
   });
 
   for (let run = 0; run < simulations; run += 1) {
-    const standings = new Map(baseStandings.map(team => [team.manager, { ...team }]));
+    const standings = new Map(baseStandings.map(team => [team.manager, { ...team, losses: team.losses ?? 0 }]));
     // One persistent strength offset per team per simulated season (the projection's own error).
     const offset = new Map(managers.map(manager => [manager, teamStrengthSd > 0 ? gaussian(rng) * teamStrengthSd : 0]));
 
@@ -199,12 +206,16 @@ export function runSimulation({ baseStandings, remainingWeeks, schedule, teamPro
 
         teamA.pointsFor += scoreA;
         teamB.pointsFor += scoreB;
-        if (scoreA > scoreB) teamA.wins += 1;
-        else if (scoreB > scoreA) teamB.wins += 1;
+        if (scoreA > scoreB) { teamA.wins += 1; teamB.losses += 1; }
+        else if (scoreB > scoreA) { teamB.wins += 1; teamA.losses += 1; }
         else { teamA.ties += 1; teamB.ties += 1; }
       }
     }
 
+    for (const team of standings.values()) {
+      const total = recordTotals.get(team.manager);
+      for (const field of ["wins", "losses", "ties"]) total[field] += team[field];
+    }
     const ranked = [...standings.values()].sort(standingsOrder);
     for (let index = 0; index < Math.min(playoffSpots, ranked.length); index += 1) {
       qualifiedCount.set(ranked[index].manager, qualifiedCount.get(ranked[index].manager) + 1);
@@ -213,7 +224,9 @@ export function runSimulation({ baseStandings, remainingWeeks, schedule, teamPro
 
   return managers.map(manager => ({
     manager,
-    probability: Number((qualifiedCount.get(manager) / simulations).toFixed(4))
+    probability: Number((qualifiedCount.get(manager) / simulations).toFixed(4)),
+    projectedRecord: scheduleComplete ? Object.fromEntries(Object.entries(recordTotals.get(manager)).map(([key, value]) => [key, value / simulations])) : null,
+    projectedRecordReason: scheduleComplete ? null : "INCOMPLETE_REMAINING_SCHEDULE"
   }));
 }
 
@@ -254,6 +267,7 @@ export function simulatePlayoffProbabilities(rows, options = {}) {
   const baseStandings = power.rankings.map(team => ({
     manager: team.manager,
     wins: team.wins,
+    losses: team.losses,
     ties: team.ties,
     pointsFor: team.pointsFor
   }));
@@ -272,9 +286,11 @@ export function simulatePlayoffProbabilities(rows, options = {}) {
     coverageByManager.get(manager).push(projection.coveragePct ?? 0);
   }
 
+  const lockedThroughWeek = Math.max(...power.completedWeeks);
+  const futureWeeks = [...new Set(remainingWeeks)].filter(week => Number.isInteger(week) && week > lockedThroughWeek && week <= GENERAL_SETTINGS_2026.regularSeasonWeeks).sort((a, b) => a - b);
   const results = runSimulation({
     baseStandings,
-    remainingWeeks,
+    remainingWeeks: futureWeeks,
     schedule,
     teamProjectionsByWeek,
     stdDevByManager,
@@ -302,7 +318,15 @@ export function simulatePlayoffProbabilities(rows, options = {}) {
       const coveragePct = coverageValues.length
         ? Math.round((coverageValues.reduce((sum, value) => sum + value, 0) / coverageValues.length) * 10) / 10
         : null;
-      return { ...entry, coveragePct };
+      const baseline = baseStandings.find(team => team.manager === entry.manager);
+      return { ...entry, currentRecord: { wins: baseline.wins, losses: baseline.losses, ties: baseline.ties }, coveragePct };
     }).sort((a, b) => b.probability - a.probability || a.manager.localeCompare(b.manager, "fr"))
   };
+}
+
+/** Expected record, not a promised integer season outcome. */
+export function formatProjectedRecord(record) {
+  if (!record || !['wins', 'losses', 'ties'].every(key => Number.isFinite(record[key]))) return '—';
+  const number = value => value.toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  return `${number(record.wins)}–${number(record.losses)}${record.ties > 0 ? `–${number(record.ties)}` : ''}`;
 }

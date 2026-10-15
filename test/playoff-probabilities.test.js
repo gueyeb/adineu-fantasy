@@ -8,7 +8,8 @@ import {
   resolvePlayerProjection,
   sumTeamProjection,
   runSimulation,
-  simulatePlayoffProbabilities
+  simulatePlayoffProbabilities,
+  formatProjectedRecord
 } from "../public/assets/playoff-probabilities.js";
 
 test("adaptSleeperProjectionStats maps Sleeper's snake_case projection fields to calculatePlayerFantasyPoints' shape", () => {
@@ -177,4 +178,38 @@ test("runSimulation reports per-manager coverage via the caller-supplied project
   // With no remaining weeks, standings never change — A (already ahead on wins) qualifies every run.
   assert.equal(result.find(entry => entry.manager === "A").probability, 1);
   assert.equal(result.find(entry => entry.manager === "B").probability, 0);
+});
+
+test('projected final record extends locked wins/losses using the same simulations as playoff odds', () => {
+  const result = simulate(42);
+  for (const row of result.probabilities) {
+    const currentWins = { A: 3, B: 2, C: 1, D: 0 }[row.manager];
+    assert.deepEqual(row.currentRecord, { wins: currentWins, losses: 3 - currentWins, ties: 0 });
+    assert.ok(row.projectedRecord.wins >= currentWins);
+    assert.ok(row.projectedRecord.losses >= 3 - currentWins);
+    assert.equal(row.projectedRecord.wins + row.projectedRecord.losses + row.projectedRecord.ties, 4);
+  }
+  assert.equal(result.probabilities.reduce((sum, row) => sum + row.projectedRecord.wins, 0), 8);
+});
+
+test('no remaining games returns the actual final record including real ties', () => {
+  const result = runSimulation({ baseStandings: [{ manager: 'A', wins: 6, losses: 7, ties: 1, pointsFor: 100 }], remainingWeeks: [], schedule: new Map(), teamProjectionsByWeek: new Map(), stdDevByManager: new Map(), playoffSpots: 1, simulations: 10, seed: 1 });
+  assert.deepEqual(result[0].projectedRecord, { wins: 6, losses: 7, ties: 1 });
+});
+
+test('an incomplete remaining schedule never publishes a truncated final projected record', () => {
+  const result = simulatePlayoffProbabilities(completedRows, { currentWeek: 4, expectedManagers: managers, remainingWeeks: [4, 5], schedule, teamProjectionsByWeek, simulations: 10 });
+  assert.ok(result.probabilities.every(row => row.projectedRecord === null && row.projectedRecordReason === 'INCOMPLETE_REMAINING_SCHEDULE'));
+});
+
+test('completed weeks and fantasy playoff weeks cannot be simulated twice into the final record', () => {
+  const result = simulatePlayoffProbabilities(completedRows, { currentWeek: 4, expectedManagers: managers, remainingWeeks: [3, 4, 4, 15], schedule, teamProjectionsByWeek, simulations: 10 });
+  assert.ok(result.probabilities.every(row => row.projectedRecord.wins + row.projectedRecord.losses + row.projectedRecord.ties === 4));
+});
+
+
+test('projected record formatting labels fractional expected records and preserves missing data', () => {
+  assert.equal(formatProjectedRecord({ wins: 9.24, losses: 4.76, ties: 0 }), '9,2–4,8');
+  assert.equal(formatProjectedRecord({ wins: 6, losses: 7, ties: 1 }), '6,0–7,0–1,0');
+  assert.equal(formatProjectedRecord(null), '—');
 });

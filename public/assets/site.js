@@ -1,6 +1,6 @@
 import { renderSosExplorer } from "./sos-explorer.js?v=9da62366fc";
 import { renderPublicWeek } from "./public-week.js?v=fc4f03d802";
-import { buildSharedPlayoffContext } from "./playoff-context.js?v=099f369f8a";
+import { buildSharedPlayoffContext } from "./playoff-context.js?v=ebd0c909f3";
 import { calculatePowerRankings, MINIMUM_COMPLETED_WEEKS, POWER_WEIGHTS } from "./power-rankings.js?v=86d062a9e8";
 import {
   ACTIVE_MANAGERS_2026,
@@ -23,10 +23,11 @@ import { GENERAL_SETTINGS_2026 } from "./league-settings.js?v=f6d1bf5212";
 import { appendManagerPreferences, getPageAiContext } from "./ai-context-client.js?v=fa8bdebc75";
 import {
   simulatePlayoffProbabilities,
+  formatProjectedRecord,
   NEAR_WEEKS,
   FAR_WEEK_SHRINK,
   DEFAULT_SIMULATIONS
-} from "./playoff-probabilities.js?v=04b4081b79";
+} from "./playoff-probabilities.js?v=763d3e9cf9";
 
 const SUPABASE_URL = "https://juosrzsffvjprqhdyado.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_7Bu9q2dKz0WEol94OGVhHw_xjSwHeHu";
@@ -298,7 +299,7 @@ function standingsTable(rows, isLive = false, extras = null) {
       <thead><tr>
         <th>Rang</th><th>Équipe</th>${showManagers ? "<th>Manager</th>" : ""}
         <th class="num">V</th><th class="num">D</th><th class="num">N</th>
-        <th class="num">PF</th><th class="num">PA</th>${extras ? `<th class="num" title="Victoires réelles − victoires attendues (all-play)">Luck</th><th class="num" title="Estimation Adineu (simulation)">Playoffs</th>` : ""}
+        <th class="num">PF</th><th class="num">PA</th>${extras ? `<th class="num" title="Victoires réelles − victoires attendues (all-play)">Luck</th><th class="num" title="Estimation Adineu (simulation)">Playoffs</th><th class="num" title="Moyenne des bilans finaux simulés jusqu’à S14, bilan actuel inclus">Bilan projeté</th>` : ""}
       </tr></thead>
       <tbody>${rows.map((row, index) => `
         <tr class="${index === 0 && !isLive ? "champion-row" : ""}">
@@ -321,7 +322,8 @@ function standingsExtraCells(extras, manager) {
   const odds = extras.odds?.get(manager);
   const luckCell = Number.isFinite(luck) ? `<td class="num ${luck >= 0 ? "positive" : "negative"}">${luck > 0 ? "+" : ""}${luck.toLocaleString("fr-FR", { maximumFractionDigits: 1 })}</td>` : `<td class="num">—</td>`;
   const oddsCell = Number.isFinite(odds) ? `<td class="num">${Math.round(odds * 100)}%</td>` : `<td class="num">—</td>`;
-  return luckCell + oddsCell;
+  const projectedCell = `<td class="num">${formatProjectedRecord(extras.projectedRecords?.get(manager))}</td>`;
+  return luckCell + oddsCell + projectedCell;
 }
 
 const RANK_CHART_COLORS = ["#b8ff3d", "#ffb443", "#ff6b52", "#5cc8ff", "#c792ea", "#f78fb3", "#7bed9f", "#ffd166", "#70a1ff", "#ff9f43", "#1dd1a1", "#e0e0e0"];
@@ -444,16 +446,19 @@ async function renderStandings(data) {
         const luck = calculateLuck(matchupRows, { currentWeek, expectedManagers });
         const history = calculateRankHistory(matchupRows, { currentWeek, expectedManagers });
         const power = calculatePowerRankings(matchupRows, { currentWeek, expectedManagers });
-        const extras = { luck: new Map(luck.records.map(record => [record.manager, record.luck])), odds: new Map() };
+        const extras = { luck: new Map(luck.records.map(record => [record.manager, record.luck])), odds: new Map(), projectedRecords: new Map() };
         content.innerHTML = `${standingsTable(rows, true, extras)}
-          <p class="note"><strong>Luck</strong> = victoires réelles − victoires attendues si tu avais affronté les 11 autres chaque semaine (all-play). Positif = chanceux. ${luck.ready ? "" : "Disponible après deux semaines complètes pour les 12 équipes."} <strong>Playoffs</strong> = estimation Adineu (simulation), jamais une donnée officielle Sleeper.</p>
+          <p class="note"><strong>Luck</strong> = victoires réelles − victoires attendues si tu avais affronté les 11 autres chaque semaine (all-play). Positif = chanceux. ${luck.ready ? "" : "Disponible après deux semaines complètes pour les 12 équipes."} <strong>Playoffs</strong> = estimation Adineu (simulation), jamais une donnée officielle Sleeper. <strong>Bilan projeté</strong> = moyenne V–D (–N si nécessaire) à S14, bilan actuel inclus.</p>
           <h3 style="margin:28px 0 8px;">Évolution du classement</h3>
           ${rankHistoryChart(history)}`;
         bindRankChart(content);
         // Playoff odds are the slow part (future projections + simulations): filled in afterwards.
         const { playoffProbabilities } = await computeLivePlayoffOdds(matchupRows, { ready: power.ready, currentWeek, expectedManagers });
         if (playoffProbabilities && select.value === String(CURRENT_SEASON)) {
-          for (const row of playoffProbabilities.probabilities) extras.odds.set(row.manager, row.probability);
+          for (const row of playoffProbabilities.probabilities) {
+            extras.odds.set(row.manager, row.probability);
+            extras.projectedRecords.set(row.manager, row.projectedRecord);
+          }
           content.querySelector(".table-wrap").outerHTML = standingsTable(rows, true, extras);
         }
       } catch (error) {
@@ -1410,22 +1415,24 @@ async function renderPowerRankings() {
       <div class="section-head"><div><p class="eyebrow">Estimation Adineu · pas une donnée Sleeper</p><h2>Playoff Probabilities.</h2></div><p>Simulation du reste du calendrier (projections joueurs + calendrier réel Sleeper, rescorés aux règles Adineu) — distincte de la Course aux Playoffs ci-dessus, qui reste purement arithmétique.</p></div>
       ${playoffProbabilities?.ready ? `
         <div class="table-wrap power-table"><table>
-          <thead><tr><th>Manager</th><th>Équipe</th><th class="num">Probabilité</th><th class="num">Couverture directe</th></tr></thead>
+          <thead><tr><th>Manager</th><th>Équipe</th><th class="num">Bilan actuel</th><th class="num">Probabilité</th><th class="num">Bilan projeté · S14</th><th class="num">Couverture directe</th></tr></thead>
           <tbody>${playoffProbabilities.probabilities.map(row => {
             const teamName = result.rankings.find(rank => rank.manager === row.manager)?.team || row.manager;
             return `<tr>
               <td class="team-name">${escapeHtml(row.manager)}</td><td>${escapeHtml(teamName)}</td>
+              <td class="num">${row.currentRecord.wins}–${row.currentRecord.losses}${row.currentRecord.ties ? `–${row.currentRecord.ties}` : ""}</td>
               <td class="num ${row.probability >= 0.5 ? "positive" : "negative"}">${Math.round(row.probability * 100)}%</td>
+              <td class="num">${formatProjectedRecord(row.projectedRecord)}</td>
               <td class="num">${row.coveragePct != null ? `${row.coveragePct}%` : "—"}</td>
             </tr>`;
           }).join("")}</tbody>
         </table></div>
-        <p class="note"><strong>${GENERAL_SETTINGS_2026.playoffTeams} places</strong> sur ${teamCount} équipes · ${playoffProbabilities.simulations.toLocaleString("fr-FR")} simulations seedées (seed ${playoffProbabilities.seed}, reproductible) · calendrier restant simulé jusqu'à S${GENERAL_SETTINGS_2026.regularSeasonWeeks} · lineups figés à la date du modèle (${new Date(playoffProbabilities.modelDate).toLocaleDateString("fr-FR")}). Le modèle ajoute une incertitude persistante (écart-type ${playoffProbabilities.teamStrengthSd} pts) sur la vraie force d'une équipe et réduit de ${Math.round(playoffProbabilities.farWeekShrink * 100)} % les écarts projetés au-delà des ${playoffProbabilities.nearWeeks} prochaines semaines. "Couverture directe" = part des points projetés d'une équipe qui vient d'une projection Sleeper de la semaine plutôt que d'une moyenne de repli. <strong>Estimation Adineu, jamais une donnée officielle Sleeper.</strong></p>
+        <p class="note">Bilan projeté = moyenne V–D (–N si nécessaire) des mêmes simulations, bilan actuel validé inclus ; les décimales représentent une espérance, pas un résultat garanti. <strong>${GENERAL_SETTINGS_2026.playoffTeams} places</strong> sur ${teamCount} équipes · ${playoffProbabilities.simulations.toLocaleString("fr-FR")} simulations seedées (seed ${playoffProbabilities.seed}, reproductible) · calendrier restant simulé jusqu'à S${GENERAL_SETTINGS_2026.regularSeasonWeeks} · lineups figés à la date du modèle (${new Date(playoffProbabilities.modelDate).toLocaleDateString("fr-FR")}). Le modèle ajoute une incertitude persistante (écart-type ${playoffProbabilities.teamStrengthSd} pts) sur la vraie force d'une équipe et réduit de ${Math.round(playoffProbabilities.farWeekShrink * 100)} % les écarts projetés au-delà des ${playoffProbabilities.nearWeeks} prochaines semaines. "Couverture directe" = part des points projetés d'une équipe qui vient d'une projection Sleeper de la semaine plutôt que d'une moyenne de repli. <strong>Estimation Adineu, jamais une donnée officielle Sleeper.</strong></p>
       ` : `<p class="note">${escapeHtml(playoffProbabilitiesNote)}</p>`}
     </div></section>
 
     <section class="section"><div class="shell">
-      <div class="section-head"><div><p class="eyebrow">Méthode publique</p><h2>Trois signaux. Zéro boîte noire.</h2></div><p>Chaque métrique est transformée en percentile parmi les 12 équipes avant pondération. Une égalité parfaite reste une égalité.</p></div>
+      <div class="section-head"><div><p class="eyebrow">Méthode publique</p><h2>Comment le classement est calculé.</h2></div><p>Ces trois critères expliquent le classement des équipes affiché plus haut. Chaque métrique est convertie en percentile parmi les 12 équipes, puis pondérée.</p></div>
       <div class="power-formula-grid">
         <article class="power-formula"><span>01 · Résultats</span><strong>${Math.round(POWER_WEIGHTS.winRate * 100)}%</strong><h3>Taux de victoire</h3><p>Une égalité compte comme une demi-victoire.</p></article>
         <article class="power-formula"><span>02 · Production</span><strong>${Math.round(POWER_WEIGHTS.pointsPerGame * 100)}%</strong><h3>Points par match</h3><p>La force offensive sur toutes les semaines terminées.</p></article>

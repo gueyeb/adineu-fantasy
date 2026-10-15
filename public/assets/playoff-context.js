@@ -1,6 +1,6 @@
 import { ROSTER_SETTINGS_2026, GENERAL_SETTINGS_2026 } from './league-settings.js?v=f6d1bf5212';
 import { listRosterIdentities } from './roster-view.js?v=120de9d74d';
-import { projectPlayerFantasyPoints, resolvePlayerProjection, sumTeamProjection, estimateTeamStrengthSd } from './playoff-probabilities.js?v=04b4081b79';
+import { projectPlayerFantasyPoints, resolvePlayerProjection, sumTeamProjection, estimateTeamStrengthSd } from './playoff-probabilities.js?v=763d3e9cf9';
 
 /** Same source preparation for browser and server; no second playoff model. */
 export async function buildSharedPlayoffContext(currentWeek, matchupRows = [], expectedManagers = [], { loadResource, loadProjections, loadPositions, leagueId }) {

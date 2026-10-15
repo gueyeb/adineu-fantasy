@@ -35,7 +35,7 @@ export async function getPlayoffDecisionContext({ week, rosterId, leagueId = pro
   const result=simulatePlayoffProbabilities(rows,{currentWeek:week,expectedManagers,playoffSpots:GENERAL_SETTINGS_2026.playoffTeams,...context,nearWeeks:NEAR_WEEKS,farWeekShrink:FAR_WEEK_SHRINK,simulations:DEFAULT_SIMULATIONS,seed:1,modelDate:new Date().toISOString()});
   const manager=managerById.get(rosterId);
   const team=result.probabilities.find(row=>row.manager===manager);
-  return {ready:result.ready && Boolean(team),reason:result.reason,model:'ADINEU_EXISTING_MONTE_CARLO',probability:team?.probability ?? null,coveragePct:team?.coveragePct ?? null,modelDate:result.modelDate,
+  return {ready:result.ready && Boolean(team),reason:result.reason,model:'ADINEU_EXISTING_MONTE_CARLO',probability:team?.probability ?? null,currentRecord:team?.currentRecord ?? null,projectedRecord:team?.projectedRecord ?? null,projectedRecordReason:team?.projectedRecordReason ?? null,coveragePct:team?.coveragePct ?? null,modelDate:result.modelDate,
     simulations:result.simulations,seed:result.seed,playoffSpots:result.playoffSpots,teamStrengthSd:result.teamStrengthSd,nearWeeks:result.nearWeeks,farWeekShrink:result.farWeekShrink,
     assumptions:['CURRENT_LINEUPS_FROZEN','DIRECT_PROJECTION_THEN_SEASON_AVERAGE_THEN_POSITION_REPLACEMENT','WEEKLY_NOISE_AND_PERSISTENT_TEAM_STRENGTH','HISTORICAL_PROJECTIONS_RELOADED_NOT_CERTIFIED_PREGAME','NOT_OFFICIAL_SLEEPER_ODDS'],source:'PUBLIC_SLEEPER',identityMatched:Boolean(manager)};
 }

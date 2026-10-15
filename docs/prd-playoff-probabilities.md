@@ -74,3 +74,17 @@ le navigateur. Probabilité, couverture, date, paramètres et hypothèses sont e
 calendrier incomplet bloque le calcul. Les projections historiques rechargées restent une limite,
 car elles ne sont pas certifiées pré-match. Playoff Race reste indépendante et arithmétique.
 Extension non déployée ; voir [le suivi](decision-reliability-2026-10-04.md).
+
+## Itération — bilan final projeté (15 octobre 2026)
+
+Le modèle prenait déjà les résultats réels des semaines complètes comme point de départ (victoires, égalités, points marqués), puis simulait les semaines restantes jusqu’à S14. Le bilan final n’était pas exposé.
+
+- Chaque simulation conserve désormais aussi les défaites. `projectedRecord: { wins, losses, ties }` est la moyenne des bilans finaux des **mêmes tirages** que la probabilité de qualification, sans nouveau modèle ni nouveaux tirages aléatoires. `currentRecord` contient le bilan validé à la date du calcul. Les valeurs JSON restent exactes ; l’écran affiche une décimale, comme une espérance et non un résultat entier garanti.
+- `/power-rankings/` affiche « Bilan actuel », « Probabilité », puis « Bilan projeté · S14 ». `/standings/` ajoute également le bilan projeté à côté de sa probabilité de playoffs, sans modifier les colonnes historiques Yahoo. Le contexte serveur partagé expose les mêmes champs pour les consommateurs du Coach.
+- Les semaines déjà verrouillées, les doublons et les playoffs S15+ sont exclus du calendrier transmis à la simulation. Avec zéro match restant, le bilan projeté égale le bilan réel, égalités comprises. Si une semaine demandée ne couvre pas tous les managers exactement une fois, le bilan projeté vaut `null` avec `INCOMPLETE_REMAINING_SCHEDULE` : aucun bilan final tronqué n’est inventé. Le pipeline live exige déjà un calendrier complet avant simulation.
+- Le bilan actuel est celui des semaines régulières complètes retenues par Power Rankings ; la semaine NFL en cours reste entièrement simulée. Les scores live ne sont pas présentés comme des résultats verrouillés.
+- Le bloc méthodologique final s’intitule désormais « Comment le classement est calculé » : il explique les poids 45/35/20 du Power Ranking situé plus haut. Aucune seconde liste d’équipes n’est attendue sous les trois cartes ; la formule du Power Ranking est distincte de la simulation de qualification.
+
+Vérification prévue : bilan de départ conservé, total de matchs finaux cohérent, égalités réelles, absence de matchs restants, calendrier incomplet, exclusion des semaines déjà jouées/playoffs, déterminisme, affichage et suite de non-régression.
+
+Validation locale : 521 tests réussis ; `npm run check`, versions d’assets et diff vérifiés. Navigateur avec données live : 12 lignes dans les deux tableaux, bilan de départ visible (ex. 4–1), moyenne finale (ex. 9,4–4,6), titre méthodologique explicite. Vérification mobile à 390 px sans débordement de page ; tableaux défilants conservés. Capture locale ignorée : `output/readability-audit/projected-record-desktop.png`.
