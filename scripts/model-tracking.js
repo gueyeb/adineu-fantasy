@@ -16,9 +16,7 @@
  * CLI : npm run track:weekly[:production] [-- --dry-run]
  * n8n : POST /api/model/weekly (Authorization: Bearer $MODEL_JOB_TOKEN).
  */
-import { sosService } from "./sos-service.js";
-import { sosStore } from "./sos-store.js";
-import { evaluateSos } from "./sos-feedback.js";
+import { trackSos } from "./sos-tracking.js";
 import { pathToFileURL } from "node:url";
 import { getFreeAgents, getUsageReport, getWeeklyProjections, getWeeklyStats, loadAuctionCalibration, primeAuctionCalibration } from "./league-context.js";
 import { calibrateFaab, formatCalibrationLine, saveCalibration } from "./calibrate-faab.js";
@@ -452,7 +450,9 @@ export async function runWeeklyJob({ supabase, fetchImpl = fetch, dryRun = false
   const state = await getJson("/state/nfl", fetchImpl);
   const season = Number(state.season);
   const week = resolveOperationalWeek(state);
-  if (state.season_type !== "regular" || week > LAST_REGULAR_WEEK) return { skipped: `hors saison régulière (${state.season_type}, semaine ${week})` };
+  const sos = season === 2026 && state.season_type === "regular"
+    ? await trackSos({ dryRun }).catch(() => ({ error: "SOS_TRACKING_UNAVAILABLE" })) : { skipped: "hors saison SOS 2026" };
+  if (state.season_type !== "regular" || week > LAST_REGULAR_WEEK) return { skipped: `hors saison régulière (${state.season_type}, semaine ${week})`, sos };
   // Recalibrate on every bid through last Wednesday before the snapshot and the plan use it.
   const auction = await calibrateFaab({ fetchImpl }).then(async calibration => {
     if (!dryRun) { await saveCalibration(supabase, calibration); primeAuctionCalibration(calibration); }
@@ -460,17 +460,6 @@ export async function runWeeklyJob({ supabase, fetchImpl = fetch, dryRun = false
   }).catch(error => ({ error: error.message, line: `Enchères FAAB : recalibration échouée (${error.message}), calibration précédente conservée.` }));
   const feedback = week > 1 ? await buildWeeklyFeedback({ supabase, fetchImpl, season, week: week - 1, dryRun }) : null;
   const snapshot = await takeSnapshot({ supabase, fetchImpl, season, week, dryRun, force });
-  const sos = await (async () => {
-    const bundle = await sosService.getBundle();
-    if (dryRun) return { dryRun: true, snapshotId: bundle.snapshotId };
-    const evaluations = [];
-    for (const archive of await sosStore.list()) {
-      const historical = await sosStore.load(archive.snapshotId);
-      const result = evaluateSos(historical, bundle.inputs.dvp.observations, bundle.asOf);
-      evaluations.push(await sosStore.saveEvaluation(archive.snapshotId, result));
-    }
-    return { ...await sosStore.save(bundle), evaluations };
-  })().catch(() => ({ error: "SOS_TRACKING_UNAVAILABLE" }));
   const journal = dryRun ? null : await recordDecisionJournal({ supabase, fetchImpl, week }).catch(error => ({ error: error.message }));
   const message = feedback?.message ? `${feedback.message}\n\n${auction.line}` : auction.line;
   return { season, week, auction, snapshot, journal, sos, feedback: feedback?.report || null, message };

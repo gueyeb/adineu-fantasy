@@ -205,3 +205,12 @@ SOS-02 et stockage SOS-03 implémentés : `/api/sos`, `/api/sos/snapshots`, `/ap
 Décision de stockage : bundles et feedback JSON immuables sur disque, au lieu de nouvelles tables Supabase. Cela conserve un seul ordonnanceur (`runWeeklyJob`) sans migration de production. `SOS_DATA_DIR` doit viser un volume persistant hors `public/` ; défaut local `.cache/sos`. Chaque snapshot contient les inputs numériques et leurs hashes. Le job existant capture le SOS et archive le feedback sans bloquer le Coach en cas d'échec. Les lectures HTTP n'écrivent aucune archive. La production doit monter le volume avant activation du suivi.
 
 Validation de cet incrément : 496 tests passent et `npm run check` passe. API/archives disponibles dans le code ; interface et intégration Coach à venir dans les incréments suivants. Pas de déploiement ni de snapshot historique fictif.
+
+
+### Persistance durable finalisée — 15/10/2026
+
+La décision fichier seule est remplacée pour la production : `model_snapshots` est réutilisée sans migration, avec `kind = sos-weekly-v1`, un bundle complet dans `settings` et `upsert(ignoreDuplicates: true)` sur la contrainte existante `(season, week, kind)`. Les captures `weekly` du moteur existant restent isolées. Le feedback est append-only sous un kind SOS propre à chaque révision. Aucune donnée Coach privée n'entre dans ces lignes publiques. Le stockage fichier reste le défaut local sans credentials et peut être forcé par `SOS_DATA_DIR`.
+
+Validation : requêtes SDK réelles contre un double PostgREST isolé ; unicité, conservation du premier snapshot et isolation du kind testées dans un PostgreSQL local éphémère, supprimé après le contrôle. Le schéma de production a été inspecté en lecture seule par MCP : colonnes compatibles confirmées. Aucun schéma de production modifié. Pas de projet Supabase staging disponible et daemon Docker indisponible : le test PostgreSQL isolé et le test SDK couvrent ces deux couches séparément.
+
+`npm run sos:track` et `npm run sos:track:production` permettent la capture explicite ; `-- --dry-run` ne persiste rien. Le job existant capture SOS avant sa borne fantasy et continue ce sous-job durant W15–18, sans prolonger les décisions waivers au-delà de W14. Les lectures HTTP restent sans écriture. Premier snapshot réel local capturé le 15/10/2026 en S6, daté du jeudi ; il ne prétend pas être un snapshot du mardi ni précéder les waivers déjà exécutés.

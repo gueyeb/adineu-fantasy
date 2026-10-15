@@ -503,9 +503,9 @@ const NFLVERSE_GAMES_URL = "https://raw.githubusercontent.com/nflverse/nfldata/m
 const NFLVERSE_TO_SLEEPER_TEAM = { LA: "LAR" };
 const scheduleCaches = new WeakMap();
 /** Calendrier NFL de la saison régulière (nflverse games.csv, gratuit), codes d'équipe Sleeper. Cache 12 h. */
-export async function getSchedule({ season = "2026", fetchImpl = fetch } = {}) {
+export async function getSchedule({ season = "2026", fetchImpl = fetch, maxAgeMs = 12 * 3600 * 1000 } = {}) {
   const hit = scheduleCaches.get(fetchImpl);
-  if (hit && hit.season === season && Date.now() - hit.at < 12 * 3600 * 1000) return hit.games;
+  if (hit && hit.season === season && Date.now() - hit.at < maxAgeMs) return hit.games;
   const response = await fetchImpl(NFLVERSE_GAMES_URL, { signal: AbortSignal.timeout(20_000) });
   if (!response.ok) throw new Error(`nflverse games.csv -> HTTP ${response.status}`);
   const [header, ...lines] = (await response.text()).trim().split("\n");

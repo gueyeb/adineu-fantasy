@@ -63,7 +63,7 @@ export function buildSosDvp({ rows, games, lastCompletedWeek, fetchedAt, source 
 }
 
 export async function loadSosSources({ fetchImpl = fetch, now = () => new Date(), season = 2026 } = {}) {
-  const games = await getSchedule({ season: String(season), fetchImpl });
+  const games = await getSchedule({ season: String(season), fetchImpl, maxAgeMs: 15 * 60_000 });
   // getSchedule is shared/cached; capture the adapter's observation time and hash.
   const fetchedAt = games[0]?.sourceFetchedAt || now().toISOString();
   if (!games.length) throw Error('SCHEDULE_UNAVAILABLE');
