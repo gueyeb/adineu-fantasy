@@ -25,6 +25,7 @@ const requiredAssets = [
   "assets/trade-recommender.js",
   "assets/trade-score.js",
   "assets/coach-ui.js",
+  "assets/coach-sos-view.js",
   "coach/index.html",
   "assets/trade-ui.js",
   "assets/league-settings.js",

@@ -246,3 +246,8 @@ Implémentation poussée sur `main`, avec commits par lot : API/archives `19fba6
 Aucune migration ni nouvelle configuration n'est nécessaire pour la production déjà équipée des credentials serveur Supabase. Le job hebdomadaire existant orchestre les captures ; la CLI SOS sert au dry-run, au replay et à la reprise ciblée. Pas de nouvelle notification envoyée et pas de changement de projections, FAAB ou décisions du Coach.
 
 Derniers contrôles : une relance réelle de la capture de production a renvoyé `published: false` avec le même snapshot S6, et a ajouté uniquement une révision de feedback. Un joueur présent sous deux équipes la même semaine invalide les deux observations concernées, pas seulement la deuxième ligne. Les contrats TypeScript du document reflètent les champs sources effectivement exposés par l'API.
+
+
+### Readability follow-up — 15/10/2026
+
+The Coach schedule context now uses compact roster rows, collapsed waiver candidates and per-player score/coverage details. Methodology and raw snapshot metadata remain on demand. Trade Hub methodology and Explorer labels follow the same progressive-disclosure principle. No SOS score or fantasy decision changed. See [scope, evidence and remaining visual checks](readability-review-2026-10-15.md).

@@ -1,3 +1,4 @@
+import { renderCoachSos } from "./coach-sos-view.js?v=085cdc242a";
 import { addToWatchlist, buildWarRoom, formatClaimOrder, recordBids, removeFromWatchlist, watchIdsHeader, REASON_MAX } from "./war-room.js?v=e9eae48675";
 import { loadBidHistory, loadWatchlist, saveBidHistory, saveWatchlist, syncWarRoom } from "./war-room-store.js?v=7fbca3341a";
 import { renderWeeklyRoster, renderWeeklyMoves } from "./coach-week-view.js?v=cc2b0d0bd8";
@@ -122,7 +123,7 @@ function renderPlan(plan) {
     ${warRoomPanel(currentWarRoom, followedIds)}`;
 
   const sosPanel = document.getElementById("coach-sos");
-  if (sosPanel) sosPanel.innerHTML = `<header><div><p>Contexte WR · projections inchangées</p><h2>CALENDRIER ROS</h2></div><a href="/sos/">Explorer →</a></header><p>${escapeHtml(plan.sos?.explanation || "SOS indisponible ; décisions habituelles conservées.")}</p><small>${escapeHtml(plan.sos?.asOf || plan.sos?.reason || "SOS_UNAVAILABLE")} · ${escapeHtml(plan.sos?.snapshotId?.slice(0, 12) || "—")}</small><ul>${(plan.sos?.players || []).map(row => `<li><b>${escapeHtml(row.name)} · ${escapeHtml(row.nflTeam)}</b><span>${row.sos ? `Rang ${row.sos.rank} · ${row.sos.sosScore} WR PPR concédés/match ajustés · ${row.sos.coveredGames}/${row.sos.gamesInWindow} couverts · ${escapeHtml(row.sos.difficulty || "signal indisponible")}<br>Prochains : ${row.sos.opponents.slice(0, 3).map(game => `S${game.week} ${escapeHtml(game.opponent)}`).join(" · ")}` : escapeHtml(row.reason)}</span><small>${row.scope === "ROSTER" ? "Roster" : "Waivers"}</small></li>`).join("")}</ul>`;
+  if (sosPanel) sosPanel.innerHTML = renderCoachSos(plan.sos);
   message.textContent = plan.message;
   gate.hidden = true;
   report.hidden = false;
