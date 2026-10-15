@@ -76,6 +76,7 @@ test('CSV parsing and historical team adapter preserve numeric zero and reject i
   assert.equal(build([base]).byDefense.get('ATL|WR').allowedPerGame, 0);
   assert.equal(build([{ ...base, receptions: '' }]).byDefense.size, 0);
   assert.equal(build([base, base]).byDefense.size, 0);
+  assert.equal(build([base, { ...base, team: 'ATL', opponent_team: 'ARI' }]).byDefense.size, 0);
   assert.equal(build([{ ...base, game_id: 'wrong' }]).byDefense.size, 0);
 });
 

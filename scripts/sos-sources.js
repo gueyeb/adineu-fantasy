@@ -19,7 +19,7 @@ const SOS_OPPONENT = (game, team) => SOS_TEAM_SOURCE(game.away_team === team ? g
 const SOS_TEAM_SOURCE = team => team === 'LAR' ? 'LA' : team;
 
 export function buildSosDvp({ rows, games, lastCompletedWeek, fetchedAt, source }) {
-  const totals = new Map(); const invalid = new Set(); const seen = new Set();
+  const totals = new Map(); const invalid = new Set(); const seen = new Map();
   for (const row of rows) {
     if (row.season_type !== 'REG' || row.position !== 'WR' || Number(row.week) > lastCompletedWeek) continue;
     const week = Number(row.week);
@@ -28,8 +28,8 @@ export function buildSosDvp({ rows, games, lastCompletedWeek, fetchedAt, source 
     try { team = normalizeSosTeam(row.team, 'nflverse'); } catch { throw Error('Unknown historical WR team'); }
     const key = `${week}|${team}`;
     const identity = `${row.player_id}|${week}`;
-    if (!row.player_id || seen.has(identity)) { invalid.add(key); continue; }
-    seen.add(identity);
+    if (!row.player_id || seen.has(identity)) { invalid.add(key); if (seen.has(identity)) invalid.add(seen.get(identity)); continue; }
+    seen.set(identity, key);
     const scheduled = games.find(game => game.week === week && (game.away_team === team || game.home_team === team));
     if (!scheduled || row.game_id !== scheduled.gameId || row.opponent_team !== SOS_OPPONENT(scheduled, team)) { invalid.add(key); continue; }
     const stats = {}; let valid = true;

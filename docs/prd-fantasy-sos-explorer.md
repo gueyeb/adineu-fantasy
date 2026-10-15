@@ -77,8 +77,8 @@ type WrSosResponse = {
   teams: TeamWrSos[]; warnings: string[];
 };
 type Source = {
-  name: string; url: string; fetchedAt: string; dataThroughWeek: number | null;
-  completedWeeks: number[]; inputHash: string;
+  source: string; fetchedAt: string; inputHash: string;
+  completedWeeks?: number[];
 };
 ```
 
@@ -155,7 +155,7 @@ Backtest chronologique : ajuster k sur entraînement antérieur, figer, valider 
 | SOS-00 | Audit et contrat source ; modules DvP/calendrier existants | Provenance, identités historiques et validation du calendrier spécifiées puis vérifiées en fixtures | Contrats et source historique implémentés, fixtures et lecture live validées |
 | SOS-01 | `public/assets/wr-ros-sos.js`, `test/wr-ros-sos.test.js` | Cinq fenêtres, 32 équipes, déterminisme et couverture | Moteur livré, fixtures validées |
 | SOS-02 | `scripts/sos-service.js`, `server.js`, tests HTTP | Bundle partagé, validation, TTL/kickoff, erreurs explicites | Livré et testé |
-| SOS-03 | Migration sous `supabase/`, job modèle, tests stockage | Capture atomique immutable, relance et reprise | Livré ; schéma existant réutilisé, sans migration |
+| SOS-03 | `scripts/sos-store.js`, table `model_snapshots` existante, job et tests stockage | Capture atomique immutable, relance et reprise | Livré ; schéma existant réutilisé, sans migration |
 | SOS-04 | `/sos/`, rendu, navigation | Filtres, détails, perspectives et états accessibles | Livré ; navigateur desktop/mobile validé |
 | SOS-05 | Feedback SOS et vue évaluation | Prévisions authentiques vs résultats, exclusions et métriques | Livré ; résultats réels attendus après activation |
 | SOS-06 | Coach, contexte IA et tests non-régression | Même snapshot et décisions inchangées | Livré ; contrat HTTP de bout en bout testé |
@@ -244,3 +244,5 @@ Implémentation poussée sur `main`, avec commits par lot : API/archives `19fba6
 - Le job SOS continue l'évaluation après la dernière semaine NFL régulière, y compris quand Sleeper passe en `post`, mais ne publie pas de fausse prévision W19. Cette limite de saison est testée.
 
 Aucune migration ni nouvelle configuration n'est nécessaire pour la production déjà équipée des credentials serveur Supabase. Le job hebdomadaire existant orchestre les captures ; la CLI SOS sert au dry-run, au replay et à la reprise ciblée. Pas de nouvelle notification envoyée et pas de changement de projections, FAAB ou décisions du Coach.
+
+Derniers contrôles : une relance réelle de la capture de production a renvoyé `published: false` avec le même snapshot S6, et a ajouté uniquement une révision de feedback. Un joueur présent sous deux équipes la même semaine invalide les deux observations concernées, pas seulement la deuxième ligne. Les contrats TypeScript du document reflètent les champs sources effectivement exposés par l'API.
