@@ -15,7 +15,7 @@ export function filterSosTeams(teams, { team = '', difficulty = '', coverage = '
 const options = obj => Object.entries(obj).map(([value, label]) => `<option value="${escape(value)}">${escape(label)}</option>`).join('');
 
 export async function renderSosExplorer(app) {
-  app.innerHTML = `<header class="sos-hero"><div class="shell"><p class="eyebrow">FANTASY SOS EXPLORER / WR / FULL PPR</p><h1>Le calendrier<br><em>change la perspective.</em></h1><p>Comparez les calendriers WR, passés et à venir.</p><div class="sos-ruler" aria-hidden="true">PASSÉ <span>━━━━━━━━</span> MAINTENANT <span>━━━━━━━━</span> S14 / S17 / S18</div></div></header>
+  app.innerHTML = `<header class="page-hero"><div class="shell page-hero-grid"><div><p class="eyebrow">Fantasy SOS Explorer · WR · Full PPR</p><h1>Le calendrier <em>compte.</em></h1><p class="lede">Comparez les calendriers WR des 32 équipes NFL, passés et à venir.</p><div class="sos-ruler" aria-hidden="true">PASSÉ <span>━━━━━━━━</span> MAINTENANT <span>━━━━━━━━</span> S14 / S17 / S18</div></div><aside class="page-stamp"><span>Position analysée</span><strong>WR</strong><small>Rang 1 = calendrier le plus favorable</small></aside></div></header>
     <section class="section"><div class="shell sos-workspace"><div class="sos-controls">
     <label>Horizon<select id="sos-horizon">${options(horizons)}</select></label>
     <label>Perspective<select id="sos-perspective"><option value="CURRENT">Données actuelles</option><option value="FROZEN">Passé figé</option><option value="ARCHIVE">Snapshot historique</option><option value="EVALUATION">Prévisions vs résultats</option></select></label>

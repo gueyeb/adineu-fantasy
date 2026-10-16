@@ -1,73 +1,66 @@
-.sos-hero { padding: 76px 0 44px; background: #102b27; color: #fff8e8; border-bottom: 6px solid #dfb15c; }
-.sos-hero h1 { margin: 20px 0; font-size: clamp(2.7rem, 6vw, 5.4rem); line-height: 1.02; letter-spacing: -.045em; }
-.sos-hero h1 em { color: #e9bd73; }
-.sos-hero p { max-width: 660px; font-size: 1.1rem; }
-.sos-ruler { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 32px; font-size: .72rem; letter-spacing: .15em; color: #d9cbb0; }
-.sos-ruler span { opacity: .35; }
-.sos-workspace { padding-top: 24px; padding-bottom: 55px; }
+/* Fantasy SOS Explorer — built on the site tokens (styles.css): dark field, grass accent, gold secondary. */
+.sos-ruler { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 28px; color: var(--muted); font-size: .7rem; font-weight: 800; letter-spacing: .15em; }
+.sos-ruler span { color: var(--line); }
 .sos-controls, .sos-filters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; align-items: end; }
-.sos-controls { border-bottom: 1px solid #d4cbbb; padding-bottom: 24px; }
-.sos-workspace label { display: grid; gap: 8px; font-size: .8rem; font-weight: 700; letter-spacing: .025em; }
-.sos-workspace select, .sos-workspace button { width: 100%; min-height: 44px; border: 1px solid #c8bfaf; background: #fffdf7; color: #17362e; border-radius: 3px; font: inherit; padding: 10px; }
-.sos-workspace button { background: #17362e; color: #fff9e8; cursor: pointer; }
-.sos-workspace select:focus-visible, .sos-workspace button:focus-visible, .sos-workspace summary:focus-visible { outline: 3px solid #b87b1f; outline-offset: 3px; }
-.sos-workspace select:disabled { opacity: .55; }
-#sos-status { font-size: .85rem; padding: 16px 0; overflow-wrap: anywhere; }
-.sos-note, .sos-method { font-size: .85rem; color: #56635d; }
-.sos-table-wrap { overflow-x: auto; margin-top: 25px; }
-.sos-table-wrap table { width: 100%; border-collapse: collapse; text-align: left; }
-.sos-table-wrap caption { text-align: left; padding-bottom: 18px; font-weight: 700; color: #17362e; }
-.sos-table-wrap th { padding: 14px 12px; border-bottom: 2px solid #17362e; font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; }
-.sos-table-wrap td { padding: 18px 12px; border-bottom: 1px solid #ddd6c8; vertical-align: top; }
-.sos-table-wrap small { display: block; margin-top: 6px; font-size: .73rem; font-weight: normal; color: #64726c; }
-.sos-table summary { cursor: pointer; min-width: 190px; }
-.sos-table summary > strong { font-size: 1.3rem; margin: 0 14px 0 7px; }
-.sos-rank { width: 55px; font-size: 1.65rem; color: #8a7757; font-variant-numeric: tabular-nums; }
-.sos-score { font-size: 1.6rem; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.sos-chip { font-size: .65rem; text-transform: uppercase; letter-spacing: .07em; padding: 5px 7px; border: 1px solid #c6c7bc; border-radius: 3px; }
-.sos-chip.FAVORABLE { color: #176145; background: #e7efe6; border-color: #a7c5a7; }
-.sos-chip.DIFFICULT { color: #8a3825; background: #f6e4da; border-color: #dab39f; }
-.sos-opponents { display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 12px; margin: 20px 0 4px; }
-.sos-opponents article { padding: 12px; background: #eeece3; display: grid; gap: 6px; font-size: .8rem; }
-.sos-opponents article > strong { font-size: 1.4rem; }
-.sos-opponents article > span { color: #52655d; font-size: .73rem; }
-.sos-method { margin-top: 30px; padding: 20px; border: 1px solid #d4cbbb; overflow-wrap: anywhere; }
-.sos-method summary { font-weight: 700; cursor: pointer; color: #17362e; }
-.sos-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin: 24px 0; }
-.sos-metrics div { background: #eae8de; padding: 20px; font-size: .8rem; }
-.sos-metrics b { display: block; font-size: 2rem; }
-@media (max-width: 700px) {
-  .sos-hero { padding: 40px 0 30px; }
-  .sos-controls, .sos-filters, .sos-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .sos-table-wrap td, .sos-table-wrap th { padding: 13px 8px; }
-  .sos-table summary { min-width: 170px; }
-  .sos-table-wrap { scrollbar-width: thin; }
-}
-/* Match the clubhouse's dark field palette and keep provenance readable. */
-.sos-note, .sos-method { color: #b7c8bf; }
-.sos-table-wrap caption { color: #e9bd73; }
-.sos-table-wrap small { color: #b4c4ba; }
-.sos-method summary { color: #fff8e8; }
-.sos-opponents article, .sos-metrics div { background: #19382f; }
-.sos-opponents article > span { color: #c3d2c8; }
-.sos-table-wrap th { border-bottom-color: #718a75; }
-.sos-table-wrap td { border-bottom-color: #3a5144; }
-.sos-rank { color: #d8bb86; }
-
-.sos-scroll-hint { display: none; font-size: .8rem; color: #b7c8bf; }
-.sos-rank-history { max-width: 440px; white-space: normal; font-size: .78rem; }
-.sos-table-wrap:focus-visible { outline: 2px solid #e9bd73; outline-offset: 4px; }
-@media (max-width: 700px) { .sos-scroll-hint { display: block; } }
-.sos-ai { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 24px 0; padding: 18px 0; border-block: 1px solid #3a5144; }
-.sos-ai > button { width: auto; }
-.sos-ai > details { flex-basis: 100%; }
-.sos-ai summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; color: #e9bd73; }
-.sos-ai input { justify-self: start; min-width: 24px; min-height: 24px; accent-color: #17362e; }
-.sos-ai > p { margin: 0; font-size: .8rem; }
-.sos-ai button:disabled { opacity: .5; cursor: wait; }
-/* Five independent filters; keep their meaning visible without extra prose. */
 .sos-filters { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.sos-controls { padding-bottom: 22px; border-bottom: 1px solid var(--line); }
+.sos-workspace label { display: grid; gap: 8px; color: var(--muted); font-size: .68rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.sos-workspace select { width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 0; background: var(--paper-soft); color: var(--ink); font-size: .88rem; letter-spacing: 0; text-transform: none; }
+.sos-workspace button { min-height: 44px; padding: 10px 16px; border: 1px solid var(--grass); border-radius: 0; background: var(--grass); color: #10180d; font-size: .78rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; cursor: pointer; }
+.sos-workspace button:hover { filter: brightness(1.08); }
+.sos-ai > button + button { background: transparent; color: var(--grass); }
+.sos-workspace select:focus-visible, .sos-workspace button:focus-visible, .sos-workspace summary:focus-visible, .sos-table-wrap:focus-visible { outline: 2px solid var(--grass); outline-offset: 3px; }
+.sos-workspace select:disabled, .sos-workspace button:disabled { opacity: .45; cursor: not-allowed; }
+#sos-status { margin: 0; padding: 14px 0; color: var(--muted); font-size: .82rem; overflow-wrap: anywhere; }
+.sos-note { margin: 10px 0 0; color: var(--muted); font-size: .8rem; }
+
+.sos-ai { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 24px 0; padding: 18px 0; border-block: 1px solid var(--line); }
+.sos-ai > details { flex-basis: 100%; }
+.sos-ai summary, .sos-method summary { min-height: 44px; display: flex; align-items: center; color: var(--gold); font-size: .72rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; cursor: pointer; }
 .sos-ai .sos-filters { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.sos-ai input { justify-self: start; width: 22px; height: 22px; accent-color: var(--grass); }
+.sos-ai > p { margin: 0; color: var(--muted); font-size: .8rem; }
+
+.sos-scroll-hint { display: none; color: var(--muted); font-size: .8rem; }
+.sos-table-wrap { overflow-x: auto; margin-top: 22px; border: 1px solid var(--line); background: var(--paper-soft); }
+.sos-table-wrap table { width: 100%; border-collapse: collapse; text-align: left; }
+.sos-table-wrap caption { padding: 16px; border-bottom: 1px solid var(--line); color: var(--ink); font-family: var(--display); font-size: .9rem; text-align: left; text-transform: uppercase; }
+.sos-table-wrap th { padding: 12px 16px; color: var(--muted); font-size: .68rem; letter-spacing: .12em; text-transform: uppercase; }
+.sos-table-wrap td { padding: 14px 16px; border-bottom: 1px solid var(--line); vertical-align: top; white-space: normal; }
+.sos-table-wrap small { display: block; margin-top: 4px; color: var(--muted); font-size: .72rem; font-weight: 500; }
+.sos-table summary { display: flex; align-items: center; gap: 10px; min-width: 190px; cursor: pointer; }
+.sos-table summary::before { content: "▸"; color: var(--muted); transition: transform 160ms ease; }
+.sos-table details[open] summary::before { transform: rotate(90deg); color: var(--grass); }
+.sos-table summary::-webkit-details-marker { display: none; }
+.sos-table summary > strong { font-family: var(--display); font-size: 1.15rem; font-weight: 400; }
+.sos-table details[open] summary > strong { color: var(--grass); }
+.sos-table details p { color: var(--muted); font-size: .82rem; }
+.sos-rank { width: 56px; color: var(--grass); font-family: var(--display); font-size: 1.4rem; font-variant-numeric: tabular-nums; }
+.sos-score { font-family: var(--display); font-size: 1.35rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sos-chip { padding: 3px 7px; border: 1px solid var(--line); color: var(--muted); font-size: .62rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.sos-chip.FAVORABLE { border-color: rgba(184, 255, 61, .45); background: rgba(184, 255, 61, .1); color: var(--grass); }
+.sos-chip.DIFFICULT { border-color: rgba(255, 107, 82, .45); background: rgba(255, 107, 82, .1); color: var(--red); }
+.sos-table-wrap .sos-reason { color: var(--gold); }
+.sos-rank-history { max-width: 460px; font-size: .78rem; }
+.sos-opponents { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 16px 0 4px; }
+.sos-opponents article { display: grid; gap: 4px; padding: 12px; border: 1px solid var(--line); background: var(--panel); font-size: .78rem; }
+.sos-opponents article > b { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; }
+.sos-opponents article > span { color: var(--muted); font-size: .72rem; }
+.sos-opponents article > strong { color: var(--grass); font-family: var(--display); font-size: 1.3rem; font-weight: 400; }
+
+.sos-metrics { display: grid; grid-template-columns: repeat(4, 1fr); margin: 24px 0; border: 1px solid var(--line); }
+.sos-metrics div { padding: 22px; background: var(--paper-soft); color: var(--muted); font-size: .72rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.sos-metrics div + div { border-left: 1px solid var(--line); }
+.sos-metrics b { display: block; margin-bottom: 10px; color: var(--grass); font-family: var(--display); font-size: 2rem; font-weight: 400; letter-spacing: 0; }
+
+.sos-method { margin-top: 30px; padding: 4px 20px 12px; border: 1px solid var(--line); border-left: 4px solid var(--gold); background: var(--paper-soft); color: var(--muted); font-size: .84rem; overflow-wrap: anywhere; }
+
 @media (max-width: 700px) {
-  .sos-filters, .sos-ai .sos-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sos-controls, .sos-filters, .sos-ai .sos-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sos-metrics { grid-template-columns: repeat(2, 1fr); }
+  .sos-metrics div:nth-child(3) { border-left: 0; }
+  .sos-metrics div:nth-child(n + 3) { border-top: 1px solid var(--line); }
+  .sos-table-wrap td, .sos-table-wrap th { padding: 12px 10px; }
+  .sos-table summary { min-width: 160px; }
+  .sos-scroll-hint { display: block; }
 }

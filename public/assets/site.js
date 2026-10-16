@@ -1,4 +1,4 @@
-import { renderSosExplorer } from "./sos-explorer.js?v=9da62366fc";
+import { renderSosExplorer } from "./sos-explorer.js?v=173a59016c";
 import { renderPublicWeek } from "./public-week.js?v=fc4f03d802";
 import { buildSharedPlayoffContext } from "./playoff-context.js?v=ebd0c909f3";
 import { calculatePowerRankings, MINIMUM_COMPLETED_WEEKS, POWER_WEIGHTS } from "./power-rankings.js?v=86d062a9e8";
