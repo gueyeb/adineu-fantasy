@@ -13,7 +13,7 @@ Source de vérité courte ; le détail historique suit plus bas. Un élément «
 | Contrôle avant verrouillage | `POST /api/coach/prelock`, n8n dimanche | Fuseau n8n (voir Ops) |
 | Classements hebdo par poste + FLEX | Game Center `#rankings`, `GET /api/rankings` | Filtre « Mon équipe » non vérifié avec un vrai roster |
 | Lisibilité mobile (390 px) | Toutes les routes publiques : 0 débordement, cibles ≥ 40 px | Coach authentifié non audité |
-| Awards hebdo + vue visiteurs | Récap Hebdo, accueil (`8f0be9a`) | V1.1 : MVP / joueurs de banc, efficacité de lineup |
+| Awards hebdo V1 + V1.1 + vue visiteurs | Récap Hebdo, accueil (`8f0be9a`, `b4e251c`) : MVP titulaires/banc par poste, efficacité de lineup après match | IR historique non fournie par Sleeper (documenté) |
 | Probabilités de playoffs calibrées, Trade Finder (préférences, contre-offres), waiver v2, War Room, journal de décisions, modèle d’enchères FAAB | voir CLAUDE.md « Current State » | Calibration (ci-dessous) |
 
 Les quatre branches `codex/*` du 07/10 sont fusionnées dans `main`.
@@ -24,8 +24,7 @@ Les quatre branches `codex/*` du 07/10 sont fusionnées dans `main`.
 2. **Vérifier le job du mardi 20/10** : snapshots SOS WR + RB, recalibration FAAB, évaluation SOS S6 (0/386 observations le 16/10, faute de résultats).
 3. **Mesurer avant d’ajouter.** Après S8 : scorecard Adineu vs Sleeper, probabilité de gain FAAB vs taux constant, verdicts du journal de décisions. N’ajuster un seuil que sur échantillon suffisant.
 4. **Contrôles visuels authentifiés** (Coach mobile et production) — nécessitent une session connectée.
-5. **Awards V1.1** ([PRD](prd-public-weekly-awards.md)) : MVP, points laissés au banc, efficacité de lineup.
-6. **Hors saison** : bilan de draft (après S17), kit draft 2027 (valeur marché vs ADP, rareté par poste).
+5. **Hors saison** : bilan de draft (après S17), kit draft 2027 (valeur marché vs ADP, rareté par poste).
 
 ### Écarté
 
