@@ -20,7 +20,7 @@ Les quatre branches `codex/*` du 07/10 sont fusionnées dans `main`.
 
 ### Priorités
 
-1. **Ops — fuseau n8n.** L’instance est en UTC : mardi/jeudi tournent 2 h plus tard que prévu (heure de Paris), et le contrôle de dimanche 15:45 UTC doit passer à 16:45 UTC le 1er novembre 2026 (fin de l’heure d’été US). Régler le fuseau par workflow dans l’UI n8n (Paris ; US Eastern pour dimanche) ou décaler l’heure à la main.
+1. **Ops — fuseau n8n.** L’instance est en UTC. Dimanche réglé (workflow en `America/New_York`, 18/10). Reste : mardi/jeudi tournent 2 h plus tard que prévu (1 h après le 25/10) — régler leur fuseau sur Europe/Paris dans l’UI n8n (Settings du workflow).
 2. **Vérifier le job du mardi 20/10** : snapshots SOS WR + RB, recalibration FAAB, évaluation SOS S6 (0/386 observations le 16/10, faute de résultats).
 3. **Mesurer avant d’ajouter.** Après S8 : scorecard Adineu vs Sleeper, probabilité de gain FAAB vs taux constant, verdicts du journal de décisions. N’ajuster un seuil que sur échantillon suffisant.
 4. **Contrôles visuels authentifiés** (Coach mobile et production) — nécessitent une session connectée.
