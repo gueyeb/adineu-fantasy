@@ -67,19 +67,23 @@ function isFlagged(player, playerStatuses) {
   return Boolean(SEVERITY_BY_STATUS[status]);
 }
 
-function bestBenchReplacement(slot, bench, playerStatuses) {
+function bestBenchReplacement(slot, bench, playerStatuses, preferProjection = false) {
   const candidates = bench.filter(player => isEligibleForSlot(player.position, slot) && !isFlagged(player, playerStatuses));
   if (candidates.length === 0) return null;
   return candidates
     .map(player => ({ player, tradeValue: calculatePlayerTradeProfile(player).tradeValue }))
-    .sort((a, b) => b.tradeValue - a.tradeValue)[0].player;
+    .sort((a, b) => (preferProjection ? (b.player.projectedPpg ?? -Infinity) - (a.player.projectedPpg ?? -Infinity) : 0) || b.tradeValue - a.tradeValue)[0].player;
 }
 
-function bestFreeAgentReplacement(slot, freeAgentsByPosition) {
+function bestFreeAgentReplacement(slot, freeAgentsByPosition, preferProjection = false) {
   const positions = slot === "FLEX" ? FLEX_ELIGIBLE : [slot];
   const candidates = positions.flatMap(pos => freeAgentsByPosition[pos] || []);
   if (candidates.length === 0) return null;
   return [...candidates].sort((a, b) => {
+    if (preferProjection) {
+      const delta = (b.projectedPpg ?? -Infinity) - (a.projectedPpg ?? -Infinity);
+      if (delta) return delta;
+    }
     // Waiver v2 market score first (in-season value), expert rank only as a tie-break.
     const scoreDiff = (b.waiver?.score ?? -1) - (a.waiver?.score ?? -1);
     if (scoreDiff !== 0) return scoreDiff;
@@ -96,15 +100,15 @@ const acquisitionView = row => ({ availability: row.availability?.availability ?
   confirmation: row.waiver?.decision?.confirmation ?? null, suggestedBid: row.waiver?.suggestedBid ?? row.suggestedBid ?? null,
   personalMaxBid: row.waiver?.personalMaxBid ?? row.personalMaxBid ?? null });
 
-function findReplacement(slot, bench, playerStatuses, freeAgentsByPosition, acquisitionPlan = null) {
-  const fromBench = bestBenchReplacement(slot, bench, playerStatuses);
+function findReplacement(slot, bench, playerStatuses, freeAgentsByPosition, acquisitionPlan = null, preferProjection = false) {
+  const fromBench = bestBenchReplacement(slot, bench, playerStatuses, preferProjection);
   if (fromBench) return { source: "bench", player: fromBench };
   // The plan's own step for that slot first: Start/Sit and the waiver plan name the same player.
   const positions = slot === "FLEX" ? FLEX_ELIGIBLE : [slot];
   const step = (acquisitionPlan?.steps || []).find(row => positions.includes(row.position));
   if (step) return { source: "acquisition_plan", player: { sleeperId: step.playerId, name: step.name, position: step.position, nflTeam: step.availability?.nflTeam ?? null },
     acquisition: acquisitionView(step) };
-  const fromMarket = bestFreeAgentReplacement(slot, freeAgentsByPosition);
+  const fromMarket = bestFreeAgentReplacement(slot, freeAgentsByPosition, preferProjection);
   if (fromMarket) return { source: "acquisition_target", player: fromMarket, acquisition: acquisitionView(fromMarket) };
   return null;
 }
@@ -140,7 +144,8 @@ export function diagnoseLineup({
   freeAgentsByPosition = {},
   byeWeeks = {},
   currentWeek = null,
-  acquisitionPlan = null
+  acquisitionPlan = null,
+  preferProjection = false
 }) {
   const bench = myTeam.bench || [];
   const alerts = [];
@@ -155,7 +160,7 @@ export function diagnoseLineup({
         severity: "ALERT",
         reason: "Slot vide",
         replacementRole: "REPLACE",
-        replacement: findReplacement(starter.slot, bench, playerStatuses, freeAgentsByPosition, acquisitionPlan)
+        replacement: findReplacement(starter.slot, bench, playerStatuses, freeAgentsByPosition, acquisitionPlan, preferProjection)
       });
       continue;
     }
@@ -172,7 +177,7 @@ export function diagnoseLineup({
       reason: onBye ? `Bye Week (semaine ${currentWeek})` : status,
       // Questionable alone justifies no swap: the bench player is a fallback, not a replacement.
       replacementRole: !onBye && statusSeverity === "WATCH" ? "FALLBACK_IF_INACTIVE" : "REPLACE",
-      replacement: findReplacement(starter.slot, bench, playerStatuses, freeAgentsByPosition, acquisitionPlan)
+      replacement: findReplacement(starter.slot, bench, playerStatuses, freeAgentsByPosition, acquisitionPlan, preferProjection)
     });
   }
 
@@ -185,7 +190,7 @@ export function diagnoseLineup({
  * Finder (buildProjectedLineup + weeklyEstimate : projection Sleeper de la semaine, 0 si Out/IR).
  * IR exclu du pool. Retourne le gain en points projetés et les changements à faire.
  */
-export function compareWithOptimalLineup({ myTeam, projections = {}, playerStatuses = new Map() }) {
+export function compareWithOptimalLineup({ myTeam, projections = {}, playerStatuses = new Map(), fixedSlots = {} }) {
   const enrich = player => player && {
     ...player,
     projectedPpg: Number.isFinite(projections[player.sleeperId]?.pts_ppr) ? projections[player.sleeperId].pts_ppr : undefined,
@@ -194,7 +199,7 @@ export function compareWithOptimalLineup({ myTeam, projections = {}, playerStatu
   const current = myTeam.starters.map(starter => ({ slot: starter.slot, player: enrich(starter.player) }));
   const currentTotal = current.reduce((sum, starter) => sum + (starter.player ? weeklyEstimate(starter.player) : 0), 0);
   const pool = [...current.map(starter => starter.player).filter(Boolean), ...(myTeam.bench || []).map(enrich)];
-  const optimal = buildProjectedLineup(pool, { estimate: weeklyEstimate });
+  const optimal = buildProjectedLineup(pool, { estimate: weeklyEstimate, fixedSlots });
   const currentIds = new Set(current.map(starter => starter.player?.sleeperId).filter(Boolean));
   const optimalIds = new Set(optimal.slots.map(slot => slot.sleeperId).filter(Boolean));
   const byId = new Map(pool.map(player => [String(player.sleeperId), player]));

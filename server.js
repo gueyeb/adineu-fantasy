@@ -50,6 +50,7 @@ import { sosService } from "./scripts/sos-service.js";
 import { sosStore, historicalSos } from "./scripts/sos-store.js";
 import { frozenPastSos } from "./scripts/sos-history.js";
 import { evaluateSos } from "./scripts/sos-feedback.js";
+import { getPrelockCheck } from "./scripts/prelock-check.js";
 import { SOS_HORIZONS, sosMethodology } from "./public/assets/wr-ros-sos.js";
 
 const DEFAULT_PUBLIC_ROOT = fileURLToPath(new URL("./public", import.meta.url));
@@ -113,6 +114,7 @@ export function createAppServer({
   getMatchupContext = getMatchupContextDefault,
   modelJobToken = process.env.MODEL_JOB_TOKEN || "",
   runModelJob = async () => runWeeklyJob({ supabase: await createSupabaseFromEnv() }),
+  runPrelockJob = getPrelockCheck,
   runJournalJob = async () => refreshDecisionJournal(),
   getModelFeedback = () => getLatestFeedback(),
   warRoomStore = createWarRoomStore(),
@@ -155,7 +157,7 @@ export function createAppServer({
     }
     // Weekly model tracking job (n8n, Tuesday): feedback on the completed week + snapshot.
     // Journal refresh (n8n, Thursday): re-sync after Wednesday's waivers + post-waiver review.
-    const jobRoutes = { "/api/model/weekly": () => runModelJob(), "/api/coach/decisions/sync": () => runJournalJob() };
+    const jobRoutes = { "/api/coach/prelock": () => runPrelockJob({ team: url.searchParams.get("team") || process.env.COACH_TEAM || "t0z" }), "/api/model/weekly": () => runModelJob(), "/api/coach/decisions/sync": () => runJournalJob() };
     if (jobRoutes[url.pathname] && request.method === "POST") {
       if (!modelJobToken) return sendJson(response, 503, { error: "MODEL_JOB_TOKEN non configuré." });
       const expected = Buffer.from(`Bearer ${modelJobToken}`);

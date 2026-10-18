@@ -600,8 +600,8 @@ export async function getDefenseMatchups({ leagueId = DEFAULT_SLEEPER_LEAGUE_ID,
 }
 
 /** Projections Sleeper d'une semaine (cache 1 h), pour le Start/Sit Advisor. */
-export async function getWeeklyProjections({ week, season = "2026", fetchImpl = fetch } = {}) {
-  return cachedWeekly(`/projections/nfl/regular/${season}/${week}`, fetchImpl);
+export async function getWeeklyProjections({ week, season = "2026", fetchImpl = fetch, maxAgeMs = 60 * 60 * 1000 } = {}) {
+  return cachedWeekly(`/projections/nfl/regular/${season}/${week}`, fetchImpl, maxAgeMs);
 }
 
 /**

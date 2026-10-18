@@ -6,6 +6,8 @@ Read `AGENTS.md` first — its repository, testing, identity, and security rules
 
 ## Current State (not derivable from code)
 
+- **Contrôle avant verrouillage** : `POST /api/coach/prelock` (bearer `MODEL_JOB_TOKEN`, équipe `COACH_TEAM` ou `t0z`), n8n le dimanche à 11:00 et 17:45 Europe/Paris ; inactifs publiés environ 90 min avant les matchs de 19:00 Paris. Lecture seule, aucune modification Sleeper.
+
 - **Fantasy SOS Explorer** (`/sos/`): WR and RB share the positional PPR method; URL `?position=RB` selects RB. Archives and weekly feedback stay separate by methodology (`WR_TEMPORAL_V1` / `RB_TEMPORAL_V1`); existing WR hashes and replay are preserved. Coach attaches both positions without changing decisions.
 
 - Production: `https://adineu-fantasy.bakene.tech/`

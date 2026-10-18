@@ -26,6 +26,7 @@
     "assets:check": "node scripts/asset-versions.js --check",
     "track:weekly": "node scripts/model-tracking.js",
     "track:weekly:production": "node --env-file=.env.production scripts/model-tracking.js",
+    "prelock": "node scripts/prelock-check.js",
     "advisor": "node scripts/lineup-advisor.js",
     "decision:snapshot": "node scripts/decision-snapshot.js",
     "decision:evaluate": "node scripts/decision-outcomes.js",
