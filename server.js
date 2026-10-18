@@ -16,6 +16,7 @@ import {
   getWeeklyProjections as getWeeklyProjectionsDefault,
   getUsageReport as getUsageReportDefault,
   getWeeklyLeaders as getWeeklyLeadersDefault,
+  getWeeklyRankings as getWeeklyRankingsDefault,
   getSeasonLeaders as getSeasonLeadersDefault,
   getDefenseMatchups as getDefenseMatchupsDefault,
   formatWaiverReport,
@@ -106,6 +107,7 @@ export function createAppServer({
   getProjections = getWeeklyProjectionsDefault,
   getUsage = getUsageReportDefault,
   getLeaders = getWeeklyLeadersDefault,
+  getRankings = getWeeklyRankingsDefault,
   getSeasonLeaders = getSeasonLeadersDefault,
   getDefenseMatchups = getDefenseMatchupsDefault,
   getPlayerValues = loadPlayerValues,
@@ -453,6 +455,21 @@ export function createAppServer({
       if (week !== null && !(Number.isInteger(week) && week >= 1 && week <= 18)) return sendJson(response, 400, { error: "week doit être un entier entre 1 et 18" });
       try {
         sendJson(response, 200, await getDefenseMatchups({ week }));
+      } catch (error) {
+        sendJson(response, 502, { error: error.message });
+      }
+      return;
+    }
+
+    if (url.pathname === "/api/rankings") {
+      const requested = url.searchParams.get("week");
+      const week = requested === null ? null : Number(requested);
+      if (week !== null && !(Number.isInteger(week) && week >= 1 && week <= 18)) {
+        sendJson(response, 400, { error: "week doit être un entier entre 1 et 18" });
+        return;
+      }
+      try {
+        sendJson(response, 200, await getRankings({ week }));
       } catch (error) {
         sendJson(response, 502, { error: error.message });
       }

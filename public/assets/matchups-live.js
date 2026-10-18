@@ -1,3 +1,4 @@
+import { tierChip, tierSeparator } from "./tier-view.js?v=d3a45b4046";
 import { sleeperManager } from "./rivalry-week.js?v=714a861458";
 import { buildWeeklyAwards, resolveCompletedAwardsWeek } from "./weekly-awards.js?v=af66f49349";
 import { renderWeeklyAwards } from "./weekly-awards-view.js?v=ec6cd710f4";
@@ -330,6 +331,7 @@ export async function renderMatchupsHub(container, {
     <button type="button" class="matchups-view" data-view="schedule" role="tab">Calendrier 2026</button>
     <button type="button" class="matchups-view" data-view="recap" role="tab">Récap Hebdo</button>
     <button type="button" class="matchups-view" data-view="leaders" role="tab">Leaders</button>
+    <button type="button" class="matchups-view" data-view="rankings" role="tab">Classements</button>
     <button type="button" class="matchups-view" data-view="archives" role="tab">Archives 2019—2025</button>
   </div></div>
   <div id="matchups-panel-live" class="matchups-panel" role="tabpanel">
@@ -363,6 +365,17 @@ export async function renderMatchupsHub(container, {
       </div>
       <div id="leaders-content" aria-live="polite"><div class="state">Chargement des leaders…</div></div>
       <p class="note"><strong>Lecture :</strong> points au barème de la ligue. La projection est celle de Sleeper avant le match, rescorée au même barème. Le détenteur est celui d’aujourd’hui ; l’Usage Score couvre les trois dernières semaines terminées. Un gros écart avec un usage faible tient souvent à un touchdown.</p>
+    </div></section>
+  </div>
+  <div id="matchups-panel-rankings" class="matchups-panel" role="tabpanel" hidden>
+    <section class="section"><div class="shell">
+      <h2>Classements de la semaine</h2>
+      <div class="schedule-toolbar"><label>Semaine <select id="rankings-week"></select></label>
+        <label>Joueurs <select id="rankings-filter"><option value="all">Tous</option><option value="free">Free agents</option>${coachRosterHint() ? '<option value="mine">Mon équipe</option>' : ''}</select></label>
+      </div>
+      <div id="rankings-positions" class="schedule-toolbar" role="group" aria-label="Poste">${["QB", "RB", "WR", "TE", "FLEX", "K", "DEF"].map(pos => `<button type="button" data-position="${pos}" aria-pressed="${pos === 'QB'}">${pos}</button>`).join("")}</div>
+      <div id="rankings-content" aria-live="polite"></div>
+      <p class="note">Projections Sleeper rescorées au barème de la ligue ; tiers = groupes séparés par les plus gros écarts. — = sans projection, non classé. Détenteurs actuels des 12 équipes.</p>
     </div></section>
   </div>
   <div id="matchups-panel-archives" class="matchups-panel" role="tabpanel" hidden><div class="shell state">Les archives seront chargées à l’ouverture.</div></div>`;
@@ -442,6 +455,47 @@ export async function renderMatchupsHub(container, {
     }
   }
 
+  const rankingsSelect = document.getElementById("rankings-week");
+  const rankingsFilter = document.getElementById("rankings-filter");
+  const rankingsContent = document.getElementById("rankings-content");
+  rankingsSelect.innerHTML = Array.from({ length: 18 }, (_, i) => `<option value="${i + 1}"${i + 1 === currentWeek ? " selected" : ""}>Semaine ${i + 1}</option>`).join("");
+  let rankingsReport = null;
+  let rankingsPosition = "QB";
+  let rankingsRequest = 0;
+  function renderRankings() {
+    if (!rankingsReport) return;
+    const rows = (rankingsPosition === "FLEX" ? rankingsReport.flex : rankingsReport.byPosition[rankingsPosition]).filter(row =>
+      rankingsFilter.value === "free" ? row.holder === null : rankingsFilter.value === "mine" ? String(row.holderRosterId) === coachRosterHint() : true);
+    const number = (value, suffix = "") => Number.isFinite(value) ? `${value.toFixed(suffix ? 0 : 1)}${suffix}` : "—";
+    rankingsContent.innerHTML = `<div class="table-wrap" tabindex="0" role="region" aria-label="Classements ${rankingsPosition}"><table><thead><tr>${["Rang", "Joueur", "Équipe fantasy", "Proj.", "Plancher", "Plafond", "Boom", "Bust", "Matchup", "Statut"].map(label => `<th scope="col">${label}</th>`).join("")}</tr></thead><tbody>${rows.map((row, index) => `${tierSeparator({ ...row, position: rankingsPosition }, index ? { ...rows[index - 1], position: rankingsPosition } : null, 10)}<tr>
+      <td>${row.rank ?? "—"}</td><td>${tierChip(row.tier)}${escapeHtml(row.name)}<br><small>${escapeHtml(row.position)} · ${escapeHtml(row.nflTeam)}</small></td>
+      <td>${escapeHtml(row.holder ?? "Free agent")}</td><td>${number(row.projection)}</td><td>${number(row.floor)}</td><td>${number(row.ceiling)}</td><td>${number(row.boomPct, "%")}</td><td>${number(row.bustPct, "%")}</td>
+      <td>${row.matchup.opponent ? `${escapeHtml(row.matchup.opponent)} · ${escapeHtml(row.matchup.label)}${row.matchup.rank ? ` #${row.matchup.rank}` : ""}` : row.injuryStatus === "BYE" ? "BYE" : "—"}</td><td>${escapeHtml(row.injuryStatus || "—")}</td></tr>`).join("") || '<tr><td colspan="10">Aucun joueur dans ce filtre.</td></tr>'}</tbody></table></div>`;
+  }
+  async function loadRankings() {
+    const request = ++rankingsRequest;
+    rankingsContent.innerHTML = '<div class="state">Chargement des classements…</div>';
+    rankingsReport = null;
+    try {
+      const report = await fetchJson(`/api/rankings?week=${rankingsSelect.value}`, { timeoutMs: 40_000 });
+      if (request !== rankingsRequest) return;
+      rankingsReport = report;
+      renderRankings();
+    } catch (error) {
+      if (request === rankingsRequest) rankingsContent.innerHTML = `<div class="state">Classements indisponibles : ${escapeHtml(error.message)} <button type="button" id="rankings-retry">Réessayer</button></div>`;
+    }
+  }
+  rankingsContent.addEventListener("click", event => { if (event.target.closest("#rankings-retry")) loadRankings(); });
+  rankingsSelect.addEventListener("change", loadRankings);
+  rankingsFilter.addEventListener("change", renderRankings);
+  document.getElementById("rankings-positions").addEventListener("click", event => {
+    const button = event.target.closest("[data-position]");
+    if (!button) return;
+    rankingsPosition = button.dataset.position;
+    document.querySelectorAll("#rankings-positions button").forEach(node => node.setAttribute("aria-pressed", String(node === button)));
+    renderRankings();
+  });
+
   const leadersSelect = document.getElementById("leaders-week");
   const leadersContent = document.getElementById("leaders-content");
   let leadersWeek = null;
@@ -496,6 +550,7 @@ export async function renderMatchupsHub(container, {
   let scheduleLoaded = false;
   let recapLoaded = false;
   let leadersLoaded = false;
+  let rankingsLoaded = false;
   async function selectView(view, { updateUrl = true } = {}) {
     document.querySelectorAll(".matchups-view").forEach(button => {
       const selected = button.dataset.view === view;
@@ -515,6 +570,10 @@ export async function renderMatchupsHub(container, {
     if (view === "recap" && !recapLoaded) {
       recapLoaded = true;
       await loadRecap(Number(recapSelect.value));
+    }
+    if (view === "rankings" && !rankingsLoaded) {
+      rankingsLoaded = true;
+      await loadRankings();
     }
     if (view === "leaders" && !leadersLoaded) {
       leadersLoaded = true;
@@ -545,6 +604,7 @@ export async function renderMatchupsHub(container, {
     const hash = window.location.hash;
     if (hash === "#schedule") return "schedule";
     if (hash === "#recap") return "recap";
+    if (hash === "#rankings") return "rankings";
     if (hash === "#leaders") return "leaders";
     if (hash === "#archives") return "archives";
     return "live";

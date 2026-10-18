@@ -6,6 +6,8 @@ Read `AGENTS.md` first — its repository, testing, identity, and security rules
 
 ## Current State (not derivable from code)
 
+- **Classements de la semaine** : onglet Classements du Game Center, `GET /api/rankings?week=`, projections au barème de la ligue pour les 12 managers et agents libres, postes + FLEX, tiers et fourchettes calibrées ; absents/bye à zéro, projections inconnues non classées.
+
 - **Contrôle avant verrouillage** : `POST /api/coach/prelock` (bearer `MODEL_JOB_TOKEN`, équipe `COACH_TEAM` ou `t0z`), n8n « Adineu — Contrôle avant verrouillage (dimanche) » (`v5cfLgsrwNQ5efrM`) le dimanche 09:00 et 15:45 **UTC** — l'instance n8n est en UTC (tous les workflows Adineu le sont) ; 15:45 UTC = 75 min avant les matchs de 13:00 ET tant que les US sont à l'heure d'été (jusqu'au 1er novembre 2026), à décaler à 16:45 UTC ensuite. Lecture seule, aucune modification Sleeper.
 
 - **Fantasy SOS Explorer** (`/sos/`): WR and RB share the positional PPR method; URL `?position=RB` selects RB. Archives and weekly feedback stay separate by methodology (`WR_TEMPORAL_V1` / `RB_TEMPORAL_V1`); existing WR hashes and replay are preserved. Coach attaches both positions without changing decisions.

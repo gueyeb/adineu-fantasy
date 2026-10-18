@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { buildWeeklyRankings } from "../public/assets/weekly-rankings.js";
+import { buildOpponents, buildDefenseVsPosition } from "../public/assets/defense-vs-position.js";
 import { selectWaiverBoard } from "../public/assets/waiver-board.js";
 import { formatTeRosterUtility } from './te-roster-utility.js';
 import { loadProjectionCapture, buildProjectionComparison } from './projection-comparison.js';
@@ -408,6 +410,33 @@ export async function getUsageReport({ leagueId = DEFAULT_SLEEPER_LEAGUE_ID, fet
 }
 
 const LIVE_STATS_TTL_MS = 5 * 60 * 1000;
+let rankingsCalibration;
+export async function getWeeklyRankings({ leagueId = DEFAULT_SLEEPER_LEAGUE_ID, fetchImpl = fetch, week = null } = {}) {
+  const [league, rosters, users, state, players, statuses] = await Promise.all([
+    sleeperGet(`/league/${leagueId}`, { fetchImpl }), sleeperGet(`/league/${leagueId}/rosters`, { fetchImpl }),
+    sleeperGet(`/league/${leagueId}/users`, { fetchImpl }), sleeperGet("/state/nfl", { fetchImpl }),
+    getPlayersIndex({ fetchImpl }), getInjuryStatuses({ fetchImpl })
+  ]);
+  const season = String(state.season || league.season || "2026");
+  const currentWeek = resolveOperationalWeek(state);
+  const target = week ?? currentWeek;
+  const [projections, games, statsByWeek] = await Promise.all([
+    getWeeklyProjections({ season, week: target, fetchImpl }), getSchedule({ season, fetchImpl }).catch(() => []),
+    Promise.all(Array.from({ length: Math.max(0, Math.min(target, currentWeek) - 1) }, async (_, index) => {
+      const week = index + 1;
+      return { week, stats: await getWeeklyStats({ season, week, fetchImpl }).catch(() => ({})) };
+    }))
+  ]);
+  rankingsCalibration ??= JSON.parse(await readFile(new URL("../public/data/boom-bust-calibration.json", import.meta.url), "utf8"));
+  const opponents = buildOpponents(games);
+  const dvp = buildDefenseVsPosition(statsByWeek, { opponents, teamOf: id => players.get(id)?.nflTeam, positionOf: id => players.get(id)?.position });
+  const owners = new Map(listRosterIdentities(rosters, users).flatMap(({ roster, teamName }) =>
+    (roster.players || []).map(id => [id, { rosterId: roster.roster_id, teamName }])));
+  return { season, currentWeek, generatedAt: new Date().toISOString(), ...buildWeeklyRankings({ players, projections,
+    scoring: league.scoring_settings, statuses, owners, opponents, dvp, calibration: rankingsCalibration,
+    byeWeeks: season === "2026" ? BYE_WEEKS_2026 : {}, week: target }) };
+}
+
 /**
  * Leaders de la semaine (docs/prd-weekly-leaders.md) : top 10 par poste au barème de la ligue,
  * détenteur actuel ou agent libre, projection d'avant-match et usage. Sans `week` : la semaine en

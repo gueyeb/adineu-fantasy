@@ -1,3 +1,4 @@
+import { tierChip, tierSeparator } from "./tier-view.js?v=d3a45b4046";
 /**
  * Adineu Fantasy — Interface Utilisateur Trade Hub
  *
@@ -26,15 +27,6 @@ import { buildProjectedLineup, restOfSeasonEstimate } from "./trade-score.js?v=5
 import { SLEEPER_API, SLEEPER_LEAGUE_ID, sleeperGet } from "./sleeper-client.js?v=3f75d48ec5";
 const SUPABASE_URL = "https://juosrzsffvjprqhdyado.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_7Bu9q2dKz0WEol94OGVhHw_xjSwHeHu";
-
-function tierChip(tier) {
-  return tier === null ? "" : `<span class="value-tier-chip" title="Groupe de valeur ${tier}">T${tier}</span>`;
-}
-
-function tierSeparator(row, previous, columns) {
-  if (previous && row.position === previous.position && row.tier === previous.tier) return "";
-  return `<tr class="value-tier-separator"><th colspan="${columns}" scope="colgroup">${escapeHtml(row.position || "?")} · ${row.tier === null ? "Valeur indisponible" : `Tier ${row.tier}`}</th></tr>`;
-}
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, character => ({
