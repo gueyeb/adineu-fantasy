@@ -1,8 +1,14 @@
-/** Pure WR schedule explorer. Input contract and delivery scope: docs/prd-fantasy-sos-explorer.md. */
+/** Pure positional schedule explorer. Input contract and delivery scope: docs/prd-fantasy-sos-explorer.md. */
 import { SHRINK_GAMES } from './defense-vs-position.js?v=aa50fb77c1';
 import { GENERAL_SETTINGS_2026 } from './league-settings.js?v=f6d1bf5212';
 
 export const SOS_METHODOLOGY_VERSION = 'WR_TEMPORAL_V1';
+export const SOS_POSITIONS = ['WR', 'RB'];
+export function sosMethodology(position = 'WR') {
+  if (!SOS_POSITIONS.includes(position)) throw Error('Unsupported SOS position');
+  return `${position}_TEMPORAL_V1`;
+}
+export const sosPosition = bundle => bundle.methodologyVersion === 'RB_TEMPORAL_V1' ? 'RB' : 'WR';
 export const SOS_HORIZONS = ['PAST', 'NEXT_3', 'FANTASY_ROS', 'FANTASY_PLAYOFFS', 'NFL_ROS'];
 // Explicit canonical mapping. Never infer identities from display names.
 export const SOS_TEAM_CODES = Object.freeze(Object.fromEntries([
@@ -27,8 +33,11 @@ const validTime = value => typeof value === 'string' && Number.isFinite(Date.par
  * Schedule envelope: {source,fetchedAt,complete,games}; complete is an upstream
  * attestation, never inferred from the number of rows passed to this function.
  */
-export function calculateWrSos({ season = 2026, week, lastCompletedWeek, asOf, schedule, dvp,
+export function calculatePositionSos({ position = 'WR', season = 2026, week, lastCompletedWeek, asOf, schedule, dvp,
   horizon = 'FANTASY_ROS', shrinkGames = SHRINK_GAMES } = {}) {
+  const methodologyVersion = sosMethodology(position);
+  const allowedKey = position === 'WR' ? 'opponentWrPprAllowed' : 'opponentRbPprAllowed';
+  const gamesKey = position === 'WR' ? 'opponentWrGames' : 'opponentRbGames';
   if (horizon === 'ROS') horizon = 'FANTASY_ROS';
   if (!SOS_HORIZONS.includes(horizon)) throw new Error('Unsupported SOS horizon');
   if (season !== 2026) throw new Error('Unsupported league settings season');
@@ -63,8 +72,8 @@ export function calculateWrSos({ season = 2026, week, lastCompletedWeek, asOf, s
   });
   const valid = new Map();
   for (const [key, entry] of dvp.byDefense) {
-    const [team, position] = key.split('|');
-    if (position !== 'WR') continue;
+    const [team, entryPosition] = key.split('|');
+    if (entryPosition !== position) continue;
     normalizeSosTeam(team, 'dvp');
     if (entry?.valid === true && Number.isInteger(entry.games) && entry.games > 0
       && entry.games <= dvp.completedWeeks.length && typeof entry.allowedPerGame === 'number'
@@ -88,7 +97,7 @@ export function calculateWrSos({ season = 2026, week, lastCompletedWeek, asOf, s
       const opponent = game.away_team === team ? game.home_team : game.away_team;
       const entry = valid.get(opponent);
       return { week: game.week, gameId: game.gameId, opponent, kickoff: game.kickoffAt,
-        opponentWrPprAllowed: entry?.allowedPerGame ?? null, opponentWrGames: entry?.games ?? 0,
+        [allowedKey]: entry?.allowedPerGame ?? null, [gamesKey]: entry?.games ?? 0,
         adjustedDifficulty: adjusted.get(opponent) ?? null, status: entry ? 'COVERED' : 'MISSING_DVP' };
     });
     const covered = opponents.filter(row => row.status === 'COVERED');
@@ -98,7 +107,7 @@ export function calculateWrSos({ season = 2026, week, lastCompletedWeek, asOf, s
     const detailEnd = horizon === 'NEXT_3' && selected.length ? Math.max(...selected.map(g => g.week)) : endWeek;
     const byeWeeks = schedule.complete ? Array.from({ length: Math.max(0, detailEnd - startWeek + 1) }, (_, i) => i + startWeek)
       .filter(w => !teamGames.some(game => game.week === w)) : [];
-    return { team, position: 'WR', window: { ...window }, gamesInWindow: total, coveredGames: covered.length,
+    return { team, position, window: { ...window }, gamesInWindow: total, coveredGames: covered.length,
       coveragePct: total ? round(covered.length / total * 100) : schedule.complete ? 100 : 0,
       coverageStatus: complete ? 'COMPLETE' : covered.length ? 'PARTIAL' : 'UNAVAILABLE',
       scheduleComplete: schedule.complete, reason: !schedule.complete ? 'SCHEDULE_INCOMPLETE' : !total
@@ -110,10 +119,13 @@ export function calculateWrSos({ season = 2026, week, lastCompletedWeek, asOf, s
   const ranked = rows.filter(row => row.coverageStatus === 'COMPLETE' && row.sosScore !== null)
     .sort((a, b) => b.sosScore - a.sosScore || a.team.localeCompare(b.team));
   ranked.forEach((row, index) => { row.rank = index && row.sosScore === ranked[index - 1].sosScore ? ranked[index - 1].rank : index + 1; });
-  return { asOf, season, scoring: 'FULL_PPR', window, methodologyVersion: SOS_METHODOLOGY_VERSION,
+  return { asOf, season, scoring: 'FULL_PPR', window, methodologyVersion,
     shrinkGames, leagueAverage: mu, rankedTeams: ranked.length,
     sources: { schedule: { source: schedule.source, fetchedAt: schedule.fetchedAt },
       dvp: { source: dvp.source, fetchedAt: dvp.fetchedAt, completedWeeks: [...dvp.completedWeeks] } },
     teams: rows.sort((a, b) => (a.rank ?? Infinity) - (b.rank ?? Infinity) || a.team.localeCompare(b.team)),
     warnings: [...(!schedule.complete ? ['SCHEDULE_INCOMPLETE'] : []), ...(ranked.length < 32 ? [`PARTIAL_RANKING:${ranked.length}/32`] : [])] };
 }
+
+// Preserve the original WR output contract for archived replay.
+export const calculateWrSos = inputs => calculatePositionSos({ ...inputs, position: 'WR' });

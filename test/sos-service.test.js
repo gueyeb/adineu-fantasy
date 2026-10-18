@@ -92,7 +92,7 @@ test('HTTP SOS contract: validation, missing archives, shared response and no ra
     assert.equal(body.snapshotId, bundle.snapshotId);
     assert.equal(body.inputs, undefined);
     assert.equal(body.teams.length, 32);
-    for (const query of ['position=RB', 'horizon=WHOLE', 'snapshotId=../secret']) assert.equal((await fetch(`${base}/api/sos?${query}`)).status, 400);
+    for (const query of ['position=QB', 'horizon=WHOLE', 'snapshotId=../secret']) assert.equal((await fetch(`${base}/api/sos?${query}`)).status, 400);
     assert.equal((await fetch(`${base}/api/sos?snapshotId=${'0'.repeat(64)}`)).status, 404);
     assert.equal((await fetch(`${base}/api/sos/evaluation`)).status, 400);
     assert.equal((await fetch(`${base}/api/sos`, { method: 'POST' })).status, 405);

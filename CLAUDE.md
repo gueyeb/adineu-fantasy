@@ -6,6 +6,8 @@ Read `AGENTS.md` first — its repository, testing, identity, and security rules
 
 ## Current State (not derivable from code)
 
+- **Fantasy SOS Explorer** (`/sos/`): WR and RB share the positional PPR method; URL `?position=RB` selects RB. Archives and weekly feedback stay separate by methodology (`WR_TEMPORAL_V1` / `RB_TEMPORAL_V1`); existing WR hashes and replay are preserved. Coach attaches both positions without changing decisions.
+
 - Production: `https://adineu-fantasy.bakene.tech/`
 - Sleeper 2026: league `1392715510830878721`, 12 owners/rosters, `in_season`. Draft `1392715511942352896` completed Sunday, September 6, 2026 at 22:04 Paris time (snake, 15 rounds, 60s picks).
 - Yahoo archive: 2019–2025 complete and reconciled — 609 regular-season matchups, 44+8 playoff games, 88/88 identities across 15 managers. Birama = `El Fenomeno` (2019) / `Ethan Hunt` (2020) / Yahoo `Bombeul22` (2021–2025) / Sleeper `bm2222` then display `bmb22`, one canonical owner. Mat's confirmed Sleeper displays are `MouhammadAT` then `Shiro00` for Kuro.

@@ -50,7 +50,7 @@ import { sosService } from "./scripts/sos-service.js";
 import { sosStore, historicalSos } from "./scripts/sos-store.js";
 import { frozenPastSos } from "./scripts/sos-history.js";
 import { evaluateSos } from "./scripts/sos-feedback.js";
-import { SOS_HORIZONS, SOS_METHODOLOGY_VERSION } from "./public/assets/wr-ros-sos.js";
+import { SOS_HORIZONS, sosMethodology } from "./public/assets/wr-ros-sos.js";
 
 const DEFAULT_PUBLIC_ROOT = fileURLToPath(new URL("./public", import.meta.url));
 const MIME_TYPES = {
@@ -121,7 +121,7 @@ export function createAppServer({
   coachPassword = process.env.COACH_WEB_PASSWORD || "",
   secureCookies = process.env.NODE_ENV !== "development"
 } = {}) {
-  const loadSos = getSosBundle || (getContext === getLeagueContext ? () => sosService.getBundle() : async () => null);
+  const loadSos = getSosBundle || (getContext === getLeagueContext ? position => sosService.getBundle(position) : async () => null);
   const coachAuth = createCoachAuth({ password: coachPassword, secure: secureCookies });
   return createServer(async (request, response) => {
     const url = new URL(request.url, "http://localhost");
@@ -242,22 +242,26 @@ export function createAppServer({
       const horizon = rawHorizon === "ROS" ? "FANTASY_ROS" : rawHorizon;
       const id = url.searchParams.get("snapshotId");
       const perspective = url.searchParams.get("perspective") || "CURRENT";
+      if (!["WR", "RB"].includes(position)) return fail(400, "INVALID_SOS_QUERY");
       if (!["CURRENT", "FROZEN"].includes(perspective) || (perspective === "FROZEN" && (horizon !== "PAST" || id))) return fail(400, "INVALID_SOS_PERSPECTIVE");
-      if (position !== "WR" || !SOS_HORIZONS.includes(horizon) || (id !== null && !/^[a-f0-9]{64}$/.test(id))) return fail(400, "INVALID_SOS_QUERY");
+      if (!SOS_HORIZONS.includes(horizon) || (id !== null && !/^[a-f0-9]{64}$/.test(id))) return fail(400, "INVALID_SOS_QUERY");
       if (url.pathname.endsWith("/evaluation") && url.searchParams.has("horizon") && horizon !== "NFL_ROS") return fail(400, "INVALID_EVALUATION_HORIZON");
       if (url.pathname.endsWith("/evaluation") && !id) return fail(400, "SNAPSHOT_REQUIRED");
+      const methodologyVersion = sosMethodology(position);
       try {
         if (url.pathname.endsWith("/trends")) {
-          const archives = await Promise.all((await sosArchives.list()).filter(row => row.methodologyVersion === SOS_METHODOLOGY_VERSION).map(row => sosArchives.load(row.snapshotId)));
-          return sendJson(response, 200, { horizon, methodologyVersion: SOS_METHODOLOGY_VERSION,
-            snapshots: archives.filter(Boolean).map(bundle => ({ snapshotId: bundle.snapshotId, asOf: bundle.asOf, week: bundle.week,
+          const archives = await Promise.all((await sosArchives.list(position)).filter(row => row.methodologyVersion === methodologyVersion).map(row => sosArchives.load(row.snapshotId)));
+          return sendJson(response, 200, { horizon, methodologyVersion,
+            snapshots: archives.filter(Boolean).map(bundle => ({ snapshotId: bundle.snapshotId, asOf: bundle.asOf, week: bundle.week, methodologyVersion: bundle.methodologyVersion,
               teams: bundle.horizons[horizon].teams.map(team => ({ team: team.team, rank: team.rank, sosScore: team.sosScore, coverageStatus: team.coverageStatus })) })) });
         }
-        if (url.pathname.endsWith("/snapshots")) return sendJson(response, 200, { snapshots: await sosArchives.list() });
-        const bundle = id ? await sosArchives.load(id) : await loadSos();
+        if (url.pathname.endsWith("/snapshots")) return sendJson(response, 200, { snapshots: (await sosArchives.list(position)).filter(row => row.methodologyVersion === methodologyVersion) });
+        const bundle = id ? await sosArchives.load(id) : await loadSos(position);
+        if (bundle && bundle.methodologyVersion !== methodologyVersion) return fail(404, "SNAPSHOT_NOT_FOUND");
         if (!bundle) return fail(id ? 404 : 503, id ? "SNAPSHOT_NOT_FOUND" : "SOS_SOURCE_UNAVAILABLE");
         if (url.pathname.endsWith("/evaluation")) {
-          const current = await loadSos();
+          const current = await loadSos(position);
+          if (!current || current.methodologyVersion !== methodologyVersion) return fail(503, "SOS_SOURCE_UNAVAILABLE");
           return sendJson(response, 200, { ...evaluateSos(bundle, current.inputs.dvp.observations, current.asOf), forecast: historicalSos(bundle, "NFL_ROS"),
             observationSources: current.horizons.NFL_ROS.sources });
         }
@@ -266,7 +270,7 @@ export function createAppServer({
           return sendJson(response, 200, { horizons: Object.fromEntries(SOS_HORIZONS.map(key => [key, id ? historicalSos(bundle, key) : bundle.horizons[key]])) });
         }
         if (perspective === "FROZEN") {
-          const archives = await Promise.all((await sosArchives.list()).map(row => sosArchives.load(row.snapshotId)));
+          const archives = await Promise.all((await sosArchives.list(position)).map(row => sosArchives.load(row.snapshotId)));
           return sendJson(response, 200, frozenPastSos(bundle, archives.filter(Boolean)));
         }
         return sendJson(response, 200, id ? historicalSos(bundle, horizon) : bundle.horizons[horizon]);
@@ -346,7 +350,7 @@ export function createAppServer({
           context = buildDecisionContext({ context: compactContext, playerValues, statuses, waivers, lineup, matchup, playoffContext: playoffResult.status === "fulfilled" ? playoffResult.value : { ready: false, reason: "SOURCE_UNAVAILABLE" } });
           message = formatDecisionContext(context);
         }
-        context = { ...context, sos: buildCoachSos({ context: compactContext, waivers: sosWaivers, bundle: await loadSos().catch(() => null) }) };
+        context = { ...context, sos: buildCoachSos({ context: compactContext, waivers: sosWaivers, bundle: await loadSos().catch(() => null), rbBundle: await loadSos('RB').catch(() => null) }) };
         message += formatCoachSos(context.sos);
         if (url.searchParams.get("requirePublishable") === "1" && refuseUnpublishable(response, context.coherence)) return;
         if (url.searchParams.get("format") === "text") {
@@ -560,7 +564,7 @@ export function createAppServer({
         } catch { lineup.optimal = null; }
         const decisionContext = buildDecisionContext({ context, playerValues, statuses: playerStatuses, waivers: freeAgents, lineup, matchup, playoffContext });
         const plan = buildCoachPlan({ decisionContext, trades, preferences });
-        plan.sos = buildCoachSos({ context, waivers: freeAgents, bundle: await loadSos().catch(() => null) });
+        plan.sos = buildCoachSos({ context, waivers: freeAgents, bundle: await loadSos().catch(() => null), rbBundle: await loadSos('RB').catch(() => null) });
         // Bearer = automation: refuse. The signed-in page still shows the plan with its warning.
         if (apiAuthorized && refuseUnpublishable(response, plan.coherence)) return;
         sendJson(response, 200, { ...plan, message: formatCoachPlan(plan) + formatCoachSos(plan.sos) });

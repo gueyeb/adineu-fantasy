@@ -1,4 +1,4 @@
-import { readSosHandoff, formatSosHandoff, SOS_HANDOFF_KEY } from './sos-ai-context.js?v=bb4900504d';
+import { readSosHandoff, formatSosHandoff, SOS_HANDOFF_KEY } from './sos-ai-context.js?v=b1eb756fb9';
 import { registerPageAiContext } from './ai-context-client.js?v=fa8bdebc75';
 let explorerContext = null;
 try { explorerContext = readSosHandoff(globalThis.sessionStorage); } catch { /* Private browsing may deny storage. */ }
@@ -6,7 +6,7 @@ const appendExplorerContext = text => explorerContext ? `${text}
 
 CONTEXTE IMPORTÉ DE L’EXPLORER — peut différer du snapshot actuel du Coach
 ${formatSosHandoff(explorerContext)}` : text;
-import { renderCoachSos } from "./coach-sos-view.js?v=2106cce2a7";
+import { renderCoachSos } from "./coach-sos-view.js?v=9ffe9f3221";
 import { addToWatchlist, buildWarRoom, formatClaimOrder, recordBids, removeFromWatchlist, watchIdsHeader, REASON_MAX } from "./war-room.js?v=e9eae48675";
 import { loadBidHistory, loadWatchlist, saveBidHistory, saveWatchlist, syncWarRoom } from "./war-room-store.js?v=7fbca3341a";
 import { renderWeeklyRoster, renderWeeklyMoves } from "./coach-week-view.js?v=cc2b0d0bd8";

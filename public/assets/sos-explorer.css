@@ -1,7 +1,7 @@
 /* Fantasy SOS Explorer — built on the site tokens (styles.css): dark field, grass accent, gold secondary. */
 .sos-ruler { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 28px; color: var(--muted); font-size: .7rem; font-weight: 800; letter-spacing: .15em; }
 .sos-ruler span { color: var(--line); }
-.sos-controls, .sos-filters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; align-items: end; }
+.sos-controls, .sos-filters { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 16px; align-items: end; }
 .sos-filters { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .sos-controls { padding-bottom: 22px; border-bottom: 1px solid var(--line); }
 .sos-workspace label { display: grid; gap: 8px; color: var(--muted); font-size: .68rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }

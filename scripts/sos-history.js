@@ -1,5 +1,8 @@
 /** Reconstruct past difficulty only from authentic pregame weekly archives. */
 export function frozenPastSos(current, archives) {
+  archives = archives.filter(bundle => bundle.methodologyVersion === current.methodologyVersion);
+  const allowedKey = current.methodologyVersion === 'RB_TEMPORAL_V1' ? 'opponentRbPprAllowed' : 'opponentWrPprAllowed';
+  const gamesKey = current.methodologyVersion === 'RB_TEMPORAL_V1' ? 'opponentRbGames' : 'opponentWrGames';
   const result = structuredClone(current.horizons.PAST);
   result.perspective = 'FROZEN_PREGAME';
   result.archiveIds = archives.map(bundle => bundle.snapshotId);
@@ -12,7 +15,7 @@ export function frozenPastSos(current, archives) {
         const source = bundle.horizons.NFL_ROS.teams.find(row => row.team === team.team)?.opponents.find(row => row.gameId === game.gameId && row.opponent === game.opponent);
         if (source?.adjustedDifficulty !== null && source?.adjustedDifficulty !== undefined) { prediction = { ...source, predictionSnapshotId: bundle.snapshotId }; break; }
       }
-      Object.assign(game, prediction ? { opponentWrPprAllowed: prediction.opponentWrPprAllowed, opponentWrGames: prediction.opponentWrGames, adjustedDifficulty: prediction.adjustedDifficulty, status: prediction.status, predictionSnapshotId: prediction.predictionSnapshotId } : { opponentWrPprAllowed: null, opponentWrGames: 0, adjustedDifficulty: null, status: 'MISSING_DVP' });
+      Object.assign(game, prediction ? { [allowedKey]: prediction[allowedKey], [gamesKey]: prediction[gamesKey], adjustedDifficulty: prediction.adjustedDifficulty, status: prediction.status, predictionSnapshotId: prediction.predictionSnapshotId } : { [allowedKey]: null, [gamesKey]: 0, adjustedDifficulty: null, status: 'MISSING_DVP' });
     }
     const covered = team.opponents.filter(game => game.adjustedDifficulty !== null);
     team.coveredGames = covered.length;

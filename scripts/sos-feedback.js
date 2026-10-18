@@ -9,6 +9,7 @@ export function spearman(xs, ys) {
 }
 const category = (x, mu) => mu > 0 ? x / mu >= 1.12 ? 'FAVORABLE' : x / mu <= 0.88 ? 'DIFFICULT' : 'NEUTRAL' : null;
 export function evaluateSos(bundle, observations, evaluatedAt) {
+  observations = observations.filter(row => !row.position || row.position === (bundle.methodologyVersion === 'RB_TEMPORAL_V1' ? 'RB' : 'WR'));
   const forecast = bundle.horizons.NFL_ROS;
   const actuals = new Map(observations.map(row => [`${row.gameId}|${row.defense}`, row]));
   const rows = []; const exclusions = {};
@@ -29,7 +30,7 @@ export function evaluateSos(bundle, observations, evaluatedAt) {
     const key = `${category(row.predictedAllowedPpr, forecast.leagueAverage)}:${category(row.actualAllowedPpr, forecast.leagueAverage)}`;
     confusion[key] = (confusion[key] ?? 0) + 1;
   }
-  return { snapshotId: bundle.snapshotId, evaluatedAt, sample: pairs.length, total: rows.length,
+  return { snapshotId: bundle.snapshotId, methodologyVersion: bundle.methodologyVersion, position: bundle.methodologyVersion === 'RB_TEMPORAL_V1' ? 'RB' : 'WR', evaluatedAt, sample: pairs.length, total: rows.length,
     coveragePct: rows.length ? pairs.length / rows.length * 100 : 0, exclusions,
     mae: mean(pairs.map(row => row.absoluteError)), spearman: spearman(pairs.map(r => r.predictedAllowedPpr), pairs.map(r => r.actualAllowedPpr)),
     classificationAccuracy: forecast.leagueAverage > 0 ? mean(pairs.map(row => Number(category(row.predictedAllowedPpr, forecast.leagueAverage) === category(row.actualAllowedPpr, forecast.leagueAverage)))) : null,

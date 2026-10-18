@@ -42,6 +42,13 @@ test('Supabase store uses conflict-ignore, isolates SOS kinds and preserves firs
   assert.equal((await store.list()).length, 1);
   assert.ok(writes.every(row => row.kind.startsWith('sos-')));
   assert.ok(rows.length === 2);
+  const rb = { ...bundle, snapshotId: hashSos('rb'), methodologyVersion: 'RB_TEMPORAL_V1' };
+  assert.equal((await store.save(rb)).published, true);
+  assert.deepEqual((await store.list('RB')).map(row => row.snapshotId), [rb.snapshotId]);
+  assert.deepEqual((await store.list('WR')).map(row => row.snapshotId), [bundle.snapshotId]);
+  assert.deepEqual(await store.load(rb.snapshotId), rb);
+  assert.equal((await store.save({ ...rb, snapshotId: hashSos('rb-later') })).snapshotId, rb.snapshotId);
+  assert.equal(rows.find(row => row.settings.bundle?.snapshotId === rb.snapshotId).kind, 'sos-weekly-rb-v1');
 });
 
 

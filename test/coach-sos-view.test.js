@@ -9,7 +9,7 @@ test('roster leads; waiver candidates and technical details stay in labelled clo
   const sos = { players: [row('ROSTER'), row('WAIVER', { name: 'Candidate' })], asOf: '2026-10-15T08:05:32Z', snapshotId: 'snapshot', explanation: 'Full explanation' };
   const before = structuredClone(sos);
   const html = renderCoachSos(sos);
-  assert.ok(html.indexOf('WR du roster') < html.indexOf('Voir les candidats waivers'));
+  assert.ok(html.indexOf('WR et RB du roster') < html.indexOf('Voir les candidats waivers'));
   assert.match(html, /<details class="coach-sos-candidates"><summary>Voir les candidats waivers/);
   assert.match(html, /<details class="method-note coach-sos-method"><summary>Méthode et données/);
   assert.doesNotMatch(html, /<details[^>]*\bopen\b/);
