@@ -23,12 +23,14 @@ Les quatre branches `codex/*` du 07/10 sont fusionnées dans `main`.
 1. **Ops — fuseau n8n.** L’instance est en UTC. Dimanche réglé (workflow en `America/New_York`, 18/10). Reste : mardi/jeudi tournent 2 h plus tard que prévu (1 h après le 25/10) — régler leur fuseau sur Europe/Paris dans l’UI n8n (Settings du workflow).
 2. **Vérifier le job du mardi 20/10** : snapshots SOS WR + RB, recalibration FAAB, évaluation SOS S6 (0/386 observations le 16/10, faute de résultats).
 3. **Mesurer avant d’ajouter.** Après S8 : scorecard Adineu vs Sleeper, probabilité de gain FAAB vs taux constant, verdicts du journal de décisions. N’ajuster un seuil que sur échantillon suffisant.
+   - **SOS QB/TE (décidé le 19/10)** : pas avant preuve. Lire le feedback SOS WR/RB vers S8–S10 ; s’il bat une base simple, ajouter QB avec la même méthode (planifier le streaming ; 1QB, donc valeur ROS faible, matchup hebdo déjà couvert par la DvP Start/Sit).
 4. **Contrôles visuels authentifiés** (Coach mobile et production) — nécessitent une session connectée.
 5. **Hors saison** : bilan de draft (après S17), kit draft 2027 (valeur marché vs ADP, rareté par poste).
 
 ### Écarté
 
 - Copier des classements payants externes (The Blueprint, etc.) : seuls les formats ont été repris (tiers, contrôle pré-verrouillage, classements hebdo).
+- SOS TE : DvP TE dominée par quelques joueurs affrontés (bruit), TE titulaire fixe en ligue 12 — sauf feedback WR/RB exceptionnel.
 - Probabilité d’acceptation synthétique d’un trade, statistiques d’usage inventées.
 
 ## Historique
