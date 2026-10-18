@@ -1,6 +1,6 @@
 # Vue publique, weekly awards et bilan de draft
 
-Date : 7 octobre 2026. État : **V1 en production** (`8f0be9a`, récap hebdo et accueil). **V1.1 implémentée localement** (joueurs et efficacité, validation visuelle restante) ; bilan de draft au backlog.
+Date : 7 octobre 2026. État : **V1 en production** (`8f0be9a`, récap hebdo et accueil). **V1.1 en production** (`b4e251c`, joueurs et efficacité, validée mobile 390 px le 18/10) ; bilan de draft au backlog.
 
 ## Objectif et références
 
