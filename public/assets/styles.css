@@ -1088,3 +1088,31 @@ span.war-followed { cursor: default; }
   .coach-sos-games > span { padding: 4px; font-size: .66rem; }
   .coach-sos-player summary { font-size: .8rem; overflow-wrap: anywhere; }
 }
+
+/* Display-only value groups: overlay the chip inside the existing player cell. */
+.value-tier-chip {
+  display: inline-block;
+  padding: 1px 4px;
+  border: 1px solid var(--grass);
+  border-radius: 4px;
+  color: var(--grass);
+  font-size: 0.65rem;
+  line-height: 1.2;
+  margin-right: 4px;
+}
+.value-tier-separator th {
+  border-top: 2px solid var(--line);
+  color: var(--gold);
+  background: transparent;
+  font-size: 0.7rem;
+  padding: 6px 10px;
+  text-align: left;
+}
+@media (max-width: 640px) {
+  .value-tier-chip {
+    display: block;
+    width: fit-content;
+    margin: 0 0 3px;
+    color: var(--muted);
+  }
+}

@@ -4,6 +4,9 @@
  * Gère le Calculateur de Trade interactif et le Moteur de Recommandations.
  */
 
+import { buildTiers } from "./value-tiers.js?v=32f5359873";
+import { buildWaiverDisplayTiers } from "./waiver-board.js?v=8889a568a8";
+
 import { calculatePlayerTradeValue, calculatePlayerTradeProfile, evaluateTrade } from "./trade-value.js?v=2c9caa87cf";
 import { diagnoseRoster, findTradeProposals, findCounterOffers } from "./trade-recommender.js?v=073d387759";
 import { addToWatchlist, removeFromWatchlist, REASON_MAX } from "./war-room.js?v=e9eae48675";
@@ -23,6 +26,15 @@ import { buildProjectedLineup, restOfSeasonEstimate } from "./trade-score.js?v=5
 import { SLEEPER_API, SLEEPER_LEAGUE_ID, sleeperGet } from "./sleeper-client.js?v=3f75d48ec5";
 const SUPABASE_URL = "https://juosrzsffvjprqhdyado.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_7Bu9q2dKz0WEol94OGVhHw_xjSwHeHu";
+
+function tierChip(tier) {
+  return tier === null ? "" : `<span class="value-tier-chip" title="Groupe de valeur ${tier}">T${tier}</span>`;
+}
+
+function tierSeparator(row, previous, columns) {
+  if (previous && row.position === previous.position && row.tier === previous.tier) return "";
+  return `<tr class="value-tier-separator"><th colspan="${columns}" scope="colgroup">${escapeHtml(row.position || "?")} · ${row.tier === null ? "Valeur indisponible" : `Tier ${row.tier}`}</th></tr>`;
+}
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, character => ({
@@ -587,15 +599,15 @@ export async function renderTradesPage(container) {
     const followControl = p => followButton(p.sleeperId, p.name, p.position, followedIds.has(String(p.sleeperId)));
     const positionCards = positionOrder
       .map(pos => {
-        const players = report.byPosition?.[pos] || [];
+        const players = buildWaiverDisplayTiers(report.byPosition?.[pos] || []);
         if (players.length === 0) return "";
         return `
           <h4 class="fa-pos">${pos}</h4>
           <div class="table-wrap fa-table"><table>
             <colgroup><col class="fa-col-player"><col class="fa-col-cat"><col><col><col class="fa-col-money"><col><col class="fa-col-money"></colgroup>
             <thead><tr><th>Joueur</th><th>Catégorie</th><th class="num" title="Points par semaine attendus d'ici la S14 (rôle actuel inclus)">Pts/sem</th><th class="num">Usage</th><th class="num">FAAB marché</th><th class="num" title="Part du surplus marché captée par ta lineup">Capture</th><th class="num">Max pour toi</th></tr></thead>
-            <tbody>${players.map(p => `<tr>
-              <td><strong>${escapeHtml(p.name)}</strong> <small>${escapeHtml(p.nflTeam || "FA")}${p.injuryStatus ? ` · ${escapeHtml(p.injuryStatus)}` : ""}</small> ${followControl(p)}<br><small>${escapeHtml(availabilityText(p))}</small>${p.waiver?.newsOverride ? `<br><small class="fa-news">⚡ ${escapeHtml(p.waiver.reasons.join(" · "))}</small>` : ""}</td>
+            <tbody>${players.map((p, index) => `${tierSeparator(p, players[index - 1], 7)}<tr>
+              <td>${tierChip(p.tier)}<strong>${escapeHtml(p.name)}</strong> <small>${escapeHtml(p.nflTeam || "FA")}${p.injuryStatus ? ` · ${escapeHtml(p.injuryStatus)}` : ""}</small> ${followControl(p)}<br><small>${escapeHtml(availabilityText(p))}</small>${p.waiver?.newsOverride ? `<br><small class="fa-news">⚡ ${escapeHtml(p.waiver.reasons.join(" · "))}</small>` : ""}</td>
               <td>${escapeHtml(p.waiver?.category || "—")}</td>
               <td class="num" title="${escapeHtml({ SLEEPER_USAGE_BLEND: "Base : projections Sleeper + usage", RANK_ESTIMATE: "Base : estimation par rang", SLEEPER_PROJECTIONS: "Base : projections Sleeper" }[p.waiver?.rosSource] || "")}">${Number.isFinite(p.effectivePpg) ? p.effectivePpg : p.waiver?.rosPpg ?? "—"}${p.waiver?.rosSource === "RANK_ESTIMATE" ? "*" : ""}${Number.isFinite(p.effectivePpg) && Number.isFinite(p.waiver?.rosPpg) && Math.abs(p.effectivePpg - p.waiver.rosPpg) >= 0.5 ? `<br><small>ROS ${p.waiver.rosPpg}</small>` : ""}</td>
               <td class="num">${p.waiver ? usageCell(p.waiver) : "—"}</td>
@@ -692,6 +704,7 @@ export async function renderTradesPage(container) {
         </div>
         <p class="note" style="margin:0 0 8px;">Pts/sem = points attendus par semaine d'ici la S14, rôle actuel inclus (sous-ligne ROS = projection de base quand un événement ⚡ la modifie ; * = estimation par rang). Usage = Usage Score 0–100 (🟢 buy-low, 🔥 sell-high), diagnostic de production vs xFP estimé : aucune consigne de coupe ni garantie de rebond. Disponibilité vérifiée séparément ; un joueur hors roster peut rester en waiver. Fit = part de la valeur qui passe dans <em>ta</em> lineup.</p>
         <div>
+          ${positionCards ? `<p class="note">Tiers = groupes séparés par les plus gros écarts dans l’ordre du tableau (valeur marché ; projection de la semaine pour QB/K/DEF). Deux joueurs du même tier sont quasi interchangeables.</p>` : ""}
           ${positionCards || `<div class="card" style="padding:24px; text-align:center; color:var(--muted);">Aucun free agent trouvé.</div>`}
         </div>
       </div>
@@ -880,14 +893,21 @@ export async function renderTradesPage(container) {
   const MAX_COMPARE = 8;
   const compareIds = [];
   function startSitTable(players, { markStarters = false } = {}) {
+    const groups = new Map();
+    for (const player of players) {
+      const position = player.position || "?";
+      if (!groups.has(position)) groups.set(position, []);
+      groups.get(position).push(player);
+    }
+    const displayPlayers = [...groups.values()].flatMap(rows => buildTiers(rows, { value: row => row.projection }));
     const best = Math.max(...players.map(player => player.projection ?? -Infinity));
     const matchupChip = matchup => !matchup ? "—"
       : matchup.label === "BYE" ? `<span class="chip">Bye</span>`
       : `<span class="chip ${matchup.label === "FACILE" ? "chip-grass" : matchup.label === "DIFFICILE" ? "chip-red" : ""}">${escapeHtml(matchup.opponent)} · ${matchup.label === "FACILE" ? "facile" : matchup.label === "DIFFICILE" ? "difficile" : "neutre"}${matchup.rank ? ` (${matchup.rank}e)` : ""}</span>`;
-    return `<div class="table-wrap"><table>
+    return `<p class="note">Tiers par poste = groupes séparés par les plus gros écarts de projection de la semaine ; deux joueurs du même tier sont quasi interchangeables.</p><div class="table-wrap"><table>
       <thead><tr><th>Joueur</th>${markStarters ? "<th>Rôle</th>" : ""}<th class="num">Proj. semaine</th><th class="num" title="20e percentile : 4 semaines sur 5 au-dessus">Plancher</th><th class="num" title="80e percentile : 1 semaine sur 5 au-dessus">Plafond</th><th class="num" title="Probabilité d'une grosse semaine (QB ≥ 25, RB/WR ≥ 20, TE ≥ 15, K/DEF ≥ 12)">Boom</th><th class="num" title="Probabilité d'une semaine ratée (QB ≤ 12, RB/WR ≤ 6, TE ≤ 4, K ≤ 4, DEF ≤ 2)">Bust</th><th>Matchup</th><th class="num">ROS</th><th class="num">Usage</th><th>Statut</th></tr></thead>
-      <tbody>${players.map(player => `<tr${!markStarters && player.projection === best && best > 0 ? ' class="compare-best"' : ""}>
-        <td><strong>${escapeHtml(player.name)}</strong> <small style="color:var(--muted);">${escapeHtml(player.position || "?")}${player.nflTeam ? ` · ${escapeHtml(player.nflTeam)}` : ""}</small></td>
+      <tbody>${displayPlayers.map((player, index) => `${tierSeparator(player, displayPlayers[index - 1], markStarters ? 11 : 10)}<tr${!markStarters && player.projection === best && best > 0 ? ' class="compare-best"' : ""}>
+        <td>${tierChip(player.tier)}<strong>${escapeHtml(player.name)}</strong> <small style="color:var(--muted);">${escapeHtml(player.position || "?")}${player.nflTeam ? ` · ${escapeHtml(player.nflTeam)}` : ""}</small></td>
         ${markStarters ? `<td>${player.starter ? "Titulaire" : "Banc"}</td>` : ""}
         <td class="num"><strong>${player.projection ?? "—"}</strong></td>
         <td class="num">${player.floor ?? "—"}</td>

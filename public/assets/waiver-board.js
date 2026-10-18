@@ -13,3 +13,14 @@ export function selectWaiverBoard(marketRows, { limitPerPosition = 10, position 
     return ordered.filter((row, i) => i < limitPerPosition || row.poolEntry?.pinned);
   });
 }
+
+import { buildTiers } from './value-tiers.js?v=32f5359873';
+
+/** Browser presentation only; never use this ordering for the acquisition plan. */
+/** Tiers follow the board's own sort key (selectWaiverBoard / market order), so rows never move. */
+export function buildWaiverDisplayTiers(rows) {
+  const streaming = ["QB", "K", "DEF"].includes(rows[0]?.position);
+  return buildTiers(rows, {
+    value: row => row.valuationCovered === false ? null : streaming ? row.weekProjection : row.marketScore
+  });
+}
