@@ -64,3 +64,4 @@
   .sos-table summary { min-width: 160px; }
   .sos-scroll-hint { display: block; }
 }
+@media (max-width: 700px) { .sos-table summary { min-height: 40px; } }

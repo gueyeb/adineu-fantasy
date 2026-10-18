@@ -733,6 +733,7 @@ tbody tr:hover td { background: rgba(184, 255, 61, 0.045); }
   .rivalry-schedule { padding: 24px 20px; }
   .schedule-grid { grid-template-columns: 1fr; }
   .rivalry-live-status { min-height: 220px; padding: 26px 22px; }
+  .rivalry-live-status > strong { overflow-wrap: anywhere; hyphens: auto; font-size: clamp(1.7rem, 8vw, 2.4rem); }
   .team-profile-head { align-items: flex-start; flex-direction: column; }
   .team-record { text-align: left; }
   .team-roster-grid { grid-template-columns: 1fr; }
@@ -1125,3 +1126,12 @@ span.war-followed { cursor: default; }
 #rankings-positions button { min-height: 36px; padding: 6px 14px; border: 1px solid var(--line); border-radius: 0; background: transparent; color: var(--muted); font-size: .72rem; font-weight: 800; letter-spacing: .1em; cursor: pointer; }
 #rankings-positions button:hover { color: var(--ink); border-color: var(--grass); }
 #rankings-positions button[aria-pressed="true"] { background: var(--grass); border-color: var(--grass); color: #10180d; }
+
+/* Phone readability: no horizontal spill, 40px minimum touch targets (audit 18/10/2026, 390px). */
+@media (max-width: 700px) {
+  .team-strength-value { flex-wrap: wrap; min-width: 0; }
+  .tabs-nav .filter-btn, select.player-preference, .context-copy-btn { min-height: 40px; }
+  .context-copy-btn, .source-link { display: inline-flex; align-items: center; }
+  .source-link { min-height: 40px; }
+  details > summary { min-height: 40px; padding-block: 8px; box-sizing: border-box; }
+}
