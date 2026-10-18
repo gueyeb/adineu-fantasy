@@ -1,6 +1,6 @@
 # Vue publique, weekly awards et bilan de draft
 
-Date : 7 octobre 2026. État : **V1 codée et testée sur branche, non déployée**. Le bilan de draft et la V1.1 restent au backlog.
+Date : 7 octobre 2026. État : **V1 en production** (`8f0be9a`, récap hebdo et accueil). Le bilan de draft et la V1.1 restent au backlog.
 
 ## Objectif et références
 

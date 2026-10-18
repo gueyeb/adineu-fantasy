@@ -1,5 +1,39 @@
 # Approved in-season roadmap
 
+## Triage du 18/10/2026 (semaine 6)
+
+Source de vérité courte ; le détail historique suit plus bas. Un élément « livré » est en production sur `main`.
+
+### Livré
+
+| Chantier | Où | Reste ouvert |
+| --- | --- | --- |
+| SOS Explorer WR **et RB** | `/sos/?position=WR\|RB`, Coach, job du mardi | Premier snapshot RB au job du 20/10 ; contrôle visuel Coach authentifié |
+| Tiers de valeur (affichage seul) | Trade Hub Waivers, Start/Sit, Classements | — |
+| Contrôle avant verrouillage | `POST /api/coach/prelock`, n8n dimanche | Fuseau n8n (voir Ops) |
+| Classements hebdo par poste + FLEX | Game Center `#rankings`, `GET /api/rankings` | Filtre « Mon équipe » non vérifié avec un vrai roster |
+| Lisibilité mobile (390 px) | Toutes les routes publiques : 0 débordement, cibles ≥ 40 px | Coach authentifié non audité |
+| Awards hebdo + vue visiteurs | Récap Hebdo, accueil (`8f0be9a`) | V1.1 : MVP / joueurs de banc, efficacité de lineup |
+| Probabilités de playoffs calibrées, Trade Finder (préférences, contre-offres), waiver v2, War Room, journal de décisions, modèle d’enchères FAAB | voir CLAUDE.md « Current State » | Calibration (ci-dessous) |
+
+Les quatre branches `codex/*` du 07/10 sont fusionnées dans `main`.
+
+### Priorités
+
+1. **Ops — fuseau n8n.** L’instance est en UTC : mardi/jeudi tournent 2 h plus tard que prévu (heure de Paris), et le contrôle de dimanche 15:45 UTC doit passer à 16:45 UTC le 1er novembre 2026 (fin de l’heure d’été US). Régler le fuseau par workflow dans l’UI n8n (Paris ; US Eastern pour dimanche) ou décaler l’heure à la main.
+2. **Vérifier le job du mardi 20/10** : snapshots SOS WR + RB, recalibration FAAB, évaluation SOS S6 (0/386 observations le 16/10, faute de résultats).
+3. **Mesurer avant d’ajouter.** Après S8 : scorecard Adineu vs Sleeper, probabilité de gain FAAB vs taux constant, verdicts du journal de décisions. N’ajuster un seuil que sur échantillon suffisant.
+4. **Contrôles visuels authentifiés** (Coach mobile et production) — nécessitent une session connectée.
+5. **Awards V1.1** ([PRD](prd-public-weekly-awards.md)) : MVP, points laissés au banc, efficacité de lineup.
+6. **Hors saison** : bilan de draft (après S17), kit draft 2027 (valeur marché vs ADP, rareté par poste).
+
+### Écarté
+
+- Copier des classements payants externes (The Blueprint, etc.) : seuls les formats ont été repris (tiers, contrôle pré-verrouillage, classements hebdo).
+- Probabilité d’acceptation synthétique d’un trade, statistiques d’usage inventées.
+
+## Historique
+
 ## Fantasy SOS Explorer — WR temporel (15/10/2026)
 
 **État : livré et poussé ; Explorer/API/archives contrôlés en production, première capture S6 conservée. Coach authentifié validé localement ; contrôle visuel authentifié de production restant.** Distinguer passé rétrospectif, futurs NEXT_3 / Fantasy ROS W14 / playoffs W15–17 / NFL ROS W18, et prévisions hebdomadaires figées évaluées après les matchs. Réutiliser DvP et nflverse, sans modifier projections ni décisions du Coach. Provenance DvP datée et identités historiques vérifiées ; suivi prospectif activable par le job existant.
