@@ -6,6 +6,8 @@ Read `AGENTS.md` first — its repository, testing, identity, and security rules
 
 ## Current State (not derivable from code)
 
+- **Awards V1.1 locale** : MVP titulaires/banc par poste et « efficacité de lineup après match » dans Récap Hebdo ; optimiseur partagé, roster historique uniquement, ratio n/d si couverture/score incohérent. Sleeper S4 ne fournit pas de réserve historique : limite IR documentée dans `docs/prd-public-weekly-awards.md`.
+
 - **Classements de la semaine** : onglet Classements du Game Center, `GET /api/rankings?week=`, projections au barème de la ligue pour les 12 managers et agents libres, postes + FLEX, tiers et fourchettes calibrées ; absents/bye à zéro, projections inconnues non classées.
 
 - **Contrôle avant verrouillage** : `POST /api/coach/prelock` (bearer `MODEL_JOB_TOKEN`, équipe `COACH_TEAM` ou `t0z`), n8n « Adineu — Contrôle avant verrouillage (dimanche) » (`3les1YhQX3wME6nr`, fuseau du workflow `America/New_York`) le dimanche 05:00 et 11:45 ET — 75 min avant les matchs de 13:00 ET, inactifs publiés ~90 min avant, toute l'année sans réglage d'heure d'été. L'instance n8n est en UTC par défaut : un workflow sans fuseau propre tourne en UTC. Lecture seule, aucune modification Sleeper.

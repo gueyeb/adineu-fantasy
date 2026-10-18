@@ -1135,3 +1135,9 @@ span.war-followed { cursor: default; }
   .source-link { min-height: 40px; }
   details > summary { min-height: 40px; padding-block: 8px; box-sizing: border-box; }
 }
+
+/* Weekly awards: contain wide tables and retain keyboard/touch access. */
+#recap-content { min-width: 0; max-width: 100%; }
+#recap-content .table-wrap { max-width: 100%; }
+.weekly-details summary { min-height: 40px; display: flex; align-items: center; }
+.recap-bench .award-team { display: block; color: var(--muted); white-space: normal; }

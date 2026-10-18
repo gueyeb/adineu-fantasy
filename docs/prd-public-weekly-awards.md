@@ -1,6 +1,6 @@
 # Vue publique, weekly awards et bilan de draft
 
-Date : 7 octobre 2026. État : **V1 en production** (`8f0be9a`, récap hebdo et accueil). Le bilan de draft et la V1.1 restent au backlog.
+Date : 7 octobre 2026. État : **V1 en production** (`8f0be9a`, récap hebdo et accueil). **V1.1 implémentée localement** (joueurs et efficacité, validation visuelle restante) ; bilan de draft au backlog.
 
 ## Objectif et références
 
@@ -72,3 +72,11 @@ Tests futurs : 12 équipes ⇒ 11 comparaisons all-play par équipe ; nombre tot
 Le récap publié ne reprend plus l'ancien upset calculé à partir de projections relues après match ni le panneau de points de banc dont la couverture historique n'était pas contrôlée. Le module historique `weekly-recap.js` est conservé ; l'efficacité et le banc restent pour la V1.1 avec données vérifiées. Ce changement retire des métriques insuffisamment justifiées, pas une mesure certifiée.
 
 Validation : 406 tests passent, contrôles statiques et versions d'assets réussis. Les six tests dédiés couvrent les 11 comparaisons, symétrie W/L, égalités, vrais zéros, valeurs absentes, semaine live, saisons/périodes et absence de ressources Coach. Lecture live S4 : 12 équipes et huit catégories couvertes ; Gridiron gang meilleur score, Estocade victoire sur le fil et calendrier favorable, Binaries meilleur score en défaite et défaite malgré un bon score. Le navigateur cloud refuse localhost (`ERR_BLOCKED_BY_CLIENT`) : vérification visuelle desktop/mobile encore ouverte, aucun screenshot validé.
+
+## Livraison V1.1 locale — 18 octobre 2026
+
+MVP titulaires et meilleurs joueurs du banc par poste, tous les ex aequo, et tableau « efficacité de lineup après match » dans Récap Hebdo. L’accueil conserve son format V1 compact. L’optimiseur partagé de `weekly-recap.js` utilise les `roster_positions` réels et les éligibilités NFL/FLEX ; aucune projection n’entre dans ces calculs. Zéro reste un score ; données absentes, slots inconnus ou éligibilité incohérente suspendent les métriques concernées. Un score officiel différent de la somme des titulaires conserve score/max/écart mais donne un ratio n/d ; maximum nul donne également n/d. Semaines non terminées : aucune publication.
+
+- **Constat Sleeper / IR** : lecture réelle de S4 le 18 octobre via `https://api.sleeper.app/v1/league/1392715510830878721/matchups/4` : 12 lignes, champs `points`, `players`, `roster_id`, `custom_points`, `matchup_id`, `starters`, `starters_points`, `players_points`, sans `reserve` ni IR historique. Comparaison diagnostique avec `https://api.sleeper.app/v1/league/1392715510830878721/rosters` : 10 des 11 joueurs actuellement en réserve figurent aussi dans `players` S4, dont un alors titulaire. Cela confirme que filtrer par la réserve actuelle serait faux, mais ne prouve pas leur statut IR en S4. L’état NFL lu indiquait semaine 6 ; les appels suivants (league/catalogue) ont échoué en DNS. On ne peut donc pas certifier ici si les IR de S4 sont inclus ou non dans `players`. Exclusion seulement des réserves explicitement identifiées dans la ligne historique (`reserve`/`ir` si présentes), jamais de la réserve ou du statut blessure actuels. Sans historique IR fourni par Sleeper, le banc et le maximum portent sur le pool historique publié ; la garantie « aucune IR incluse » reste limitée à ces preuves, explicitée dans le rendu. Aucun statut historique n’est inventé.
+
+Tests dédiés : ex aequo, FLEX au poste NFL, IR historique exclue, réserve actuelle ignorée, zéro/absence, maximum nul, score/somme incohérents, couverture incomplète, semaine live, slots réels et éligibilités multiples. Pas de sur/sous-performance face aux projections.

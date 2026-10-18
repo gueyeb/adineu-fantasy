@@ -1,6 +1,6 @@
 import { getLeagueCore, sleeperGet, SLEEPER_LEAGUE_ID } from './sleeper-client.js?v=3f75d48ec5';
-import { buildWeeklyAwards, resolveCompletedAwardsWeek, publicTeamIdentity } from './weekly-awards.js?v=af66f49349';
-import { renderWeeklyAwards } from './weekly-awards-view.js?v=ec6cd710f4';
+import { buildWeeklyAwards, resolveCompletedAwardsWeek, publicTeamIdentity } from './weekly-awards.js?v=fbde8903ab';
+import { renderWeeklyAwards } from './weekly-awards-view.js?v=ead74e2c71';
 
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
 const number = value => Number.isFinite(value) ? value.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) : 'n/d';

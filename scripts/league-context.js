@@ -118,6 +118,7 @@ export async function getPlayersIndex({ fetchImpl = fetch, forceRefresh = false 
       id: playerId,
       name: player.full_name || [player.first_name, player.last_name].filter(Boolean).join(" ") || `Player #${playerId}`,
       position,
+      fantasyPositions: Array.isArray(player.fantasy_positions) ? player.fantasy_positions : null,
       nflTeam: player.team || null,
       injuryStatus: player.injury_status || null,
       injuryBodyPart: player.injury_body_part || null,

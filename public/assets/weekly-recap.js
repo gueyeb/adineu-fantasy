@@ -9,41 +9,41 @@
 import { estimatePregameWinProbability } from "./win-probability.js?v=78dcaa4abd";
 import { ROSTER_SETTINGS_2026 } from "./league-settings.js?v=f6d1bf5212";
 
-const FLEX_ELIGIBLE = ["RB", "WR", "TE"];
-
 function resolvePosition(playerCatalog, playerId) {
   const player = playerCatalog?.get ? playerCatalog.get(playerId) : playerCatalog?.[playerId];
   return (player?.position || "FLEX").toUpperCase();
 }
 
 /**
- * Meilleur score possible pour un roster donné une semaine, à composition de règles fixe
- * (titulaires par poste + un FLEX RB/WR/TE). Optimal car remplir chaque poste requis avec
- * ses meilleurs scoreurs puis le FLEX avec le meilleur reste RB/WR/TE est toujours optimal
- * quand un seul FLEX partagé existe (aucun gain à sacrifier un titulaire requis pour le FLEX).
+ * Maximum réel sous contraintes de slots et éligibilité, partagé avec les awards.
+ * Le caller contrôle la couverture des données avant publication.
  */
-export function computeOptimalLineupPoints({ playerIds = [], playersPoints = {}, playerCatalog, rosterSettings = ROSTER_SETTINGS_2026 }) {
-  const byPosition = { QB: [], RB: [], WR: [], TE: [], K: [], DEF: [] };
-
-  for (const playerId of playerIds) {
-    const points = Number(playersPoints[playerId]);
-    if (!Number.isFinite(points)) continue;
-    const position = resolvePosition(playerCatalog, playerId);
-    if (!byPosition[position]) continue;
-    byPosition[position].push(points);
+export function computeOptimalLineupPoints({ playerIds = [], playersPoints = {}, playerCatalog, rosterSettings = ROSTER_SETTINGS_2026, rosterPositions }) {
+  const slots = rosterPositions || Object.entries(rosterSettings.starters).flatMap(([slot, count]) => Array(count).fill(slot));
+  const activeSlots = slots.filter(slot => !['BN', 'IR', 'RESERVE'].includes(slot));
+  const eligibility = { FLEX: ['RB', 'WR', 'TE'], SUPER_FLEX: ['QB', 'RB', 'WR', 'TE'],
+    REC_FLEX: ['WR', 'TE'], WRRB_FLEX: ['RB', 'WR'] };
+  // Assignment DP: a player may occupy only one eligible slot, including overlapping FLEX slots.
+  let totals = new Map([[0, 0]]);
+  for (const playerId of new Set(playerIds)) {
+    const value = playersPoints[playerId];
+    if (!Number.isFinite(value)) continue;
+    const player = playerCatalog?.get ? playerCatalog.get(playerId) : playerCatalog?.[playerId];
+    const positions = player?.fantasy_positions || [resolvePosition(playerCatalog, playerId)];
+    const next = new Map(totals);
+    for (const [mask, total] of totals) {
+      activeSlots.forEach((slot, index) => {
+        if (mask & (1 << index) || !positions.some(position => (eligibility[slot] || [slot]).includes(position))) return;
+        const assigned = mask | (1 << index);
+        next.set(assigned, Math.max(next.get(assigned) ?? -Infinity, total + value));
+      });
+    }
+    totals = next;
   }
-  for (const position of Object.keys(byPosition)) byPosition[position].sort((a, b) => b - a);
-
-  let total = 0;
-  for (const position of ["QB", "RB", "WR", "TE", "K", "DEF"]) {
-    const count = rosterSettings.starters[position] || 0;
-    total += byPosition[position].splice(0, count).reduce((sum, value) => sum + value, 0);
-  }
-
-  const flexPool = FLEX_ELIGIBLE.flatMap(position => byPosition[position]).sort((a, b) => b - a);
-  total += flexPool.slice(0, rosterSettings.starters.FLEX || 0).reduce((sum, value) => sum + value, 0);
-
-  return Number(total.toFixed(2));
+  // Fill required slots when possible, including negative scorers.
+  const filled = mask => mask.toString(2).replaceAll("0", "").length;
+  const mostFilled = Math.max(...[...totals.keys()].map(filled));
+  return Number(Math.max(...[...totals].filter(([mask]) => filled(mask) === mostFilled).map(([, value]) => value)).toFixed(2));
 }
 
 function teamIdentity(row, rosterById, userById) {

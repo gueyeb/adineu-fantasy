@@ -1,3 +1,4 @@
+import { computeOptimalLineupPoints } from './weekly-recap.js?v=8bf30523ea';
 import { sleeperManager } from './rivalry-week.js?v=714a861458';
 
 const cents = value => Math.round(value * 100);
@@ -18,7 +19,7 @@ export function publicTeamIdentity(roster, users) {
 }
 
 /** Completed regular-season scores only. No projections, private claims or current player rosters. */
-export function buildWeeklyAwards({ rows = [], rosters = [], users = [], week, completedThroughWeek = 0, expectedTeamCount = 12 }) {
+export function buildWeeklyAwards({ rows = [], rosters = [], users = [], week, completedThroughWeek = 0, expectedTeamCount = 12, playerCatalog, rosterPositions }) {
   const unavailable = reason => ({ ready: false, reason, week, teams: [], matchups: [], awards: [], allPlay: [] });
   if (!Number.isInteger(week) || week < 1 || week > completedThroughWeek) return unavailable('WEEK_NOT_COMPLETED');
   const expectedIds = new Set(rosters.map(row => Number(row.roster_id)));
@@ -70,5 +71,64 @@ export function buildWeeklyAwards({ rows = [], rosters = [], users = [], week, c
   add('LOW_WIN', 'Plus faible score en victoire', extreme(teams.filter(row => row.result === 'W'), row => row.scoreCents, false), 'score');
   add('LUCKY_WIN', 'Calendrier favorable', extreme(allPlay.filter(row => row.result === 'W' && row.winRate < 0.5), row => row.winRate, false), 'allPlay');
   add('UNLUCKY_LOSS', 'Défaite malgré un bon score', extreme(allPlay.filter(row => row.result === 'L' && row.winRate > 0.5), row => row.winRate), 'allPlay');
-  return { ready: true, reason: 'COMPLETE', week, teams, matchups, awards, allPlay };
+  const players = buildPlayerAwards({ rows, teams, playerCatalog, rosterPositions });
+  return { ready: true, reason: 'COMPLETE', week, teams, matchups, awards, allPlay, ...players };
+}
+
+const POSITIONS = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'];
+const SLOT_POSITIONS = { FLEX: ['RB', 'WR', 'TE'], SUPER_FLEX: ['QB', 'RB', 'WR', 'TE'], REC_FLEX: ['WR', 'TE'], WRRB_FLEX: ['RB', 'WR'] };
+
+function buildPlayerAwards({ rows, teams, playerCatalog, rosterPositions }) {
+  const pools = { starters: [], bench: [] };
+  let starterCoverage = true;
+  let benchCoverage = true;
+  const slots = rosterPositions?.filter(slot => !['BN', 'IR', 'RESERVE'].includes(slot));
+  const legalSlots = slots?.length > 0 && slots.length < 20 && slots.every(slot => POSITIONS.includes(slot) || SLOT_POSITIONS[slot]);
+  const lineupPerformance = rows.map(row => {
+    const team = teams.find(team => team.rosterId === Number(row.roster_id));
+    // Only fields from this historical matchup may exclude reserve players. Never current rosters/statuses.
+    const reserve = new Set([...(row.reserve || []), ...(row.ir || [])].map(String));
+    const ids = row.players?.map(String);
+    const starters = row.starters?.map(String);
+    let complete = Boolean(ids && starters && new Set(ids).size === ids.length);
+    let startersComplete = Boolean(starters && ids && starters.every(id => id === '0' || ids.includes(id)));
+    if (starters && new Set(starters.filter(id => id !== '0')).size !== starters.filter(id => id !== '0').length) startersComplete = false;
+    const players = [];
+    for (const id of ids || []) {
+      if (reserve.has(id)) continue;
+      const player = playerCatalog?.get ? playerCatalog.get(id) : playerCatalog?.[id];
+      const value = row.players_points?.[id];
+      const started = starters?.includes(id);
+      if (!player || !POSITIONS.includes(player.position) || !Number.isFinite(value)) {
+        complete = false;
+        if (started) startersComplete = false;
+        else benchCoverage = false;
+        continue;
+      }
+      const entry = { ...team, playerId: id, name: player.full_name || player.name || id, position: player.position, points: value };
+      pools[started ? 'starters' : 'bench'].push(entry);
+      players.push(id);
+    }
+    if (!ids || !starters) benchCoverage = false;
+    if (starters?.some(id => reserve.has(id))) startersComplete = false;
+    starterCoverage &&= startersComplete && Boolean(legalSlots) && starters.length === slots.length;
+    const legalStarters = legalSlots && starters?.length === slots.length && starters.every((id, i) => {
+      if (id === '0') return true;
+      const player = playerCatalog?.get ? playerCatalog.get(id) : playerCatalog?.[id];
+      return (player?.fantasy_positions || [player?.position]).some(position => (SLOT_POSITIONS[slots[i]] || [slots[i]]).includes(position));
+    });
+    starterCoverage &&= Boolean(legalStarters);
+    complete &&= startersComplete && Boolean(legalStarters);
+    const maximum = complete ? computeOptimalLineupPoints({ playerIds: players, playersPoints: row.players_points, playerCatalog, rosterPositions }) : null;
+    const sum = startersComplete ? starters.reduce((total, id) => total + (id === '0' ? 0 : row.players_points[id]), 0) : null;
+    const consistent = sum !== null && cents(sum) === cents(team.actualScore);
+    return { ...team, maximum, gap: maximum === null ? null : points(cents(maximum) - team.scoreCents),
+      efficiency: complete && consistent && maximum > 0 ? team.actualScore / maximum * 100 : null };
+  });
+  const leaders = (pool, covered) => POSITIONS.map(position => {
+    const candidates = pool.filter(player => player.position === position);
+    const best = Math.max(...candidates.map(player => cents(player.points)));
+    return { position, covered, laureates: covered ? candidates.filter(player => cents(player.points) === best) : [] };
+  });
+  return { playerAwards: leaders(pools.starters, starterCoverage), benchAwards: leaders(pools.bench, benchCoverage), lineupPerformance };
 }

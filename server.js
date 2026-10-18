@@ -19,6 +19,7 @@ import {
   getWeeklyRankings as getWeeklyRankingsDefault,
   getSeasonLeaders as getSeasonLeadersDefault,
   getDefenseMatchups as getDefenseMatchupsDefault,
+  getPlayersIndex as getPlayersIndexDefault,
   formatWaiverReport,
   setAuctionCalibrationSource
 } from "./scripts/league-context.js";
@@ -104,6 +105,7 @@ export function createAppServer({
   getPlayoffContext = getContext === getLeagueContext ? getPlayoffDecisionContext : async () => null,
   getFreeAgents = getFreeAgentsDefault,
   getInjuryStatuses = getInjuryStatusesDefault,
+  getPlayersIndex = getPlayersIndexDefault,
   getProjections = getWeeklyProjectionsDefault,
   getUsage = getUsageReportDefault,
   getLeaders = getWeeklyLeadersDefault,
@@ -493,6 +495,23 @@ export function createAppServer({
       }
       try {
         sendJson(response, 200, await getLeaders({ week }));
+      } catch (error) {
+        sendJson(response, 502, { error: error.message });
+      }
+      return;
+    }
+
+    // Slim catalog for the browser (weekly awards): only requested ids, never the 15 MB Sleeper dump.
+    if (url.pathname === "/api/players") {
+      const ids = (url.searchParams.get("ids") || "").split(",").map(id => id.trim()).filter(id => /^[A-Za-z0-9]{1,8}$/.test(id));
+      if (!ids.length || ids.length > 600) return sendJson(response, 400, { error: "ids : 1 à 600 identifiants Sleeper" });
+      try {
+        const index = await getPlayersIndex();
+        const players = Object.fromEntries(ids.filter(id => index.has(id)).map(id => {
+          const player = index.get(id);
+          return [id, { full_name: player.name, position: player.position, fantasy_positions: player.fantasyPositions || (player.position ? [player.position] : []) }];
+        }));
+        sendJson(response, 200, { players });
       } catch (error) {
         sendJson(response, 502, { error: error.message });
       }

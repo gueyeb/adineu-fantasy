@@ -1,7 +1,7 @@
 import { tierChip, tierSeparator } from "./tier-view.js?v=d3a45b4046";
 import { sleeperManager } from "./rivalry-week.js?v=714a861458";
-import { buildWeeklyAwards, resolveCompletedAwardsWeek } from "./weekly-awards.js?v=af66f49349";
-import { renderWeeklyAwards } from "./weekly-awards-view.js?v=ec6cd710f4";
+import { buildWeeklyAwards, resolveCompletedAwardsWeek } from "./weekly-awards.js?v=fbde8903ab";
+import { renderWeeklyAwards } from "./weekly-awards-view.js?v=ead74e2c71";
 import { resolveOperationalWeek } from "./nfl-week.js?v=8f9fa3f5b2";
 import { estimateBaselineProjectedPpg } from "./trade-value.js?v=2c9caa87cf";
 import { estimatePregameWinProbability } from "./win-probability.js?v=78dcaa4abd";
@@ -443,7 +443,9 @@ export async function renderMatchupsHub(container, {
     content.innerHTML = `<div class="state">Lecture de la semaine ${week}…</div>`;
     try {
       const rows = week <= completedThroughWeek ? await sleeperGet(`/league/${leagueId}/matchups/${week}`, { fresh: true }) : [];
-      const recap = buildWeeklyAwards({ rows, rosters, users, week, completedThroughWeek,
+      const ids = [...new Set(rows.flatMap(row => row.players || []).map(String))];
+      const playerCatalog = ids.length ? await fetch(`/api/players?ids=${encodeURIComponent(ids.join(","))}`).then(r => r.ok ? r.json() : null).then(body => body?.players ?? null).catch(() => null) : null;
+      const recap = buildWeeklyAwards({ rows, rosters, users, week, completedThroughWeek, playerCatalog, rosterPositions: league.roster_positions,
         expectedTeamCount: Number(league.total_rosters) });
       content.innerHTML = renderWeeklyAwards(recap);
       status.textContent = recap.ready ? `Semaine ${week} terminée · ${recap.matchups.length} matchs` : `Semaine ${week} · récap en attente`;
