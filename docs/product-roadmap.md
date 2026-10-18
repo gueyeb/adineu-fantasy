@@ -11,7 +11,7 @@ Source de vérité courte ; le détail historique suit plus bas. Un élément «
 | SOS Explorer WR **et RB** | `/sos/?position=WR\|RB`, Coach, job du mardi | Premier snapshot RB au job du 20/10 ; contrôle visuel Coach authentifié |
 | Tiers de valeur (affichage seul) | Trade Hub Waivers, Start/Sit, Classements | — |
 | Contrôle avant verrouillage | `POST /api/coach/prelock`, n8n dimanche | Fuseau n8n (voir Ops) |
-| Classements hebdo par poste + FLEX | Game Center `#rankings`, `GET /api/rankings` | Filtre « Mon équipe » non vérifié avec un vrai roster |
+| Classements hebdo par poste + FLEX | Game Center `#rankings`, `GET /api/rankings` | Filtre « Mon équipe » vérifié en prod le 19/10 (roster t0z, 7 onglets, 390 px). Limite : filtré après les plafonds (FLEX 100), un joueur au-delà n’apparaît pas (Q. Johnston WR48 absent du FLEX) |
 | Lisibilité mobile (390 px) | Toutes les routes publiques : 0 débordement, cibles ≥ 40 px | Coach authentifié non audité |
 | Awards hebdo V1 + V1.1 + vue visiteurs | Récap Hebdo, accueil (`8f0be9a`, `b4e251c`) : MVP titulaires/banc par poste, efficacité de lineup après match | IR historique non fournie par Sleeper (documenté) |
 | Probabilités de playoffs calibrées, Trade Finder (préférences, contre-offres), waiver v2, War Room, journal de décisions, modèle d’enchères FAAB | voir CLAUDE.md « Current State » | Calibration (ci-dessous) |
@@ -19,6 +19,17 @@ Source de vérité courte ; le détail historique suit plus bas. Un élément «
 Les quatre branches `codex/*` du 07/10 sont fusionnées dans `main`.
 
 ### Priorités
+
+Suivi daté (à cocher ici) :
+
+- [ ] 20/10 — job du mardi : snapshot SOS RB, recalibration FAAB, évaluation SOS S6 ; bulletin Coach 10:30 publié.
+- [ ] 20/10 — awards S6 (après le MNF) : 12 équipes couvertes dans Récap Hebdo.
+- [ ] Utilisateur — fuseau Europe/Paris sur les workflows n8n mardi/jeudi.
+- [ ] Après S8 (~03/11) — scorecard Adineu vs Sleeper, probabilité FAAB vs taux constant, verdicts du journal, échantillons des profils de rôle (20 fenêtres requises).
+- [ ] Proposé 19/10 — benchmark privé vs experts (FantasyPros ECR, autres sources) : capture figée avant kickoff, notée après les matchs comme le scorecard Sleeper. Décision utilisateur en attente.
+- [ ] S8–S10 — décision SOS QB sur le feedback WR/RB.
+- [ ] Utilisateur connecté — contrôle visuel Coach mobile/production.
+- [ ] Après S17 — bilan de draft ; kit draft 2027.
 
 1. **Ops — fuseau n8n.** L’instance est en UTC. Dimanche réglé (workflow en `America/New_York`, 18/10). Reste : mardi/jeudi tournent 2 h plus tard que prévu (1 h après le 25/10) — régler leur fuseau sur Europe/Paris dans l’UI n8n (Settings du workflow).
 2. **Vérifier le job du mardi 20/10** : snapshots SOS WR + RB, recalibration FAAB, évaluation SOS S6 (0/386 observations le 16/10, faute de résultats).
@@ -29,7 +40,7 @@ Les quatre branches `codex/*` du 07/10 sont fusionnées dans `main`.
 
 ### Écarté
 
-- Copier des classements payants externes (The Blueprint, etc.) : seuls les formats ont été repris (tiers, contrôle pré-verrouillage, classements hebdo).
+- Copier/afficher des classements payants externes (The Blueprint, etc.) : seuls les formats ont été repris (tiers, contrôle pré-verrouillage, classements hebdo). **Les confronter en privé à notre modèle n’est pas écarté** : voir benchmark experts ci-dessus.
 - SOS TE : DvP TE dominée par quelques joueurs affrontés (bruit), TE titulaire fixe en ligue 12 — sauf feedback WR/RB exceptionnel.
 - Probabilité d’acceptation synthétique d’un trade, statistiques d’usage inventées.
 
