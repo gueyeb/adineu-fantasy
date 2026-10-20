@@ -35,7 +35,9 @@ export function buildWeeklyRankings({ players = new Map(), projections = {}, sco
       if (Number.isFinite(row.projection) && (place === null || row.projection !== previous)) place = index + 1;
       previous = row.projection;
       return { ...row, rank: Number.isFinite(row.projection) ? place : null };
-    }).slice(0, limits[position] ?? RANKINGS_LIMITS[position]);
+    }).flatMap((row, index) => index < (limits[position] ?? RANKINGS_LIMITS[position]) ? [row]
+      // Rostered players past the cut stay available (with their real rank) for per-team views only.
+      : row.holderRosterId !== null ? [{ ...row, beyondLimit: true }] : []);
   };
   return { week, byPosition: Object.fromEntries(LEADER_POSITIONS.map(position => [position, rank(rows.filter(row => row.position === position), position)])),
     flex: rank(rows.filter(row => ["RB", "WR", "TE"].includes(row.position)), "FLEX") };

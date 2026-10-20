@@ -467,7 +467,7 @@ export async function renderMatchupsHub(container, {
   function renderRankings() {
     if (!rankingsReport) return;
     const rows = (rankingsPosition === "FLEX" ? rankingsReport.flex : rankingsReport.byPosition[rankingsPosition]).filter(row =>
-      rankingsFilter.value === "free" ? row.holder === null : rankingsFilter.value === "mine" ? String(row.holderRosterId) === coachRosterHint() : true);
+      rankingsFilter.value === "mine" ? String(row.holderRosterId) === coachRosterHint() : !row.beyondLimit && (rankingsFilter.value !== "free" || row.holder === null));
     const number = (value, suffix = "") => Number.isFinite(value) ? `${value.toFixed(suffix ? 0 : 1)}${suffix}` : "—";
     rankingsContent.innerHTML = `<div class="table-wrap" tabindex="0" role="region" aria-label="Classements ${rankingsPosition}"><table><thead><tr>${["Rang", "Joueur", "Équipe fantasy", "Proj.", "Plancher", "Plafond", "Boom", "Bust", "Matchup", "Statut"].map(label => `<th scope="col">${label}</th>`).join("")}</tr></thead><tbody>${rows.map((row, index) => `${tierSeparator({ ...row, position: rankingsPosition }, index ? { ...rows[index - 1], position: rankingsPosition } : null, 10)}<tr>
       <td>${row.rank ?? "—"}</td><td>${tierChip(row.tier)}${escapeHtml(row.name)}<br><small>${escapeHtml(row.position)} · ${escapeHtml(row.nflTeam)}</small></td>

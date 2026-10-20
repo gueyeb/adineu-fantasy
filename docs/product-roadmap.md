@@ -11,7 +11,7 @@ Source de vérité courte ; le détail historique suit plus bas. Un élément «
 | SOS Explorer WR **et RB** | `/sos/?position=WR\|RB`, Coach, job du mardi | Premier snapshot RB au job du 20/10 ; contrôle visuel Coach authentifié |
 | Tiers de valeur (affichage seul) | Trade Hub Waivers, Start/Sit, Classements | — |
 | Contrôle avant verrouillage | `POST /api/coach/prelock`, n8n dimanche | Fuseau n8n (voir Ops) |
-| Classements hebdo par poste + FLEX | Game Center `#rankings`, `GET /api/rankings` | Filtre « Mon équipe » vérifié en prod le 19/10 (roster t0z, 7 onglets, 390 px). Limite : filtré après les plafonds (FLEX 100), un joueur au-delà n’apparaît pas (Q. Johnston WR48 absent du FLEX) |
+| Classements hebdo par poste + FLEX | Game Center `#rankings`, `GET /api/rankings` | Filtre « Mon équipe » vérifié en prod le 19/10 (roster t0z, 7 onglets, 390 px). Joueurs rostés au-delà des plafonds conservés (`beyondLimit`, rang réel) et visibles seulement dans « Mon équipe » (20/10) |
 | Lisibilité mobile (390 px) | Toutes les routes publiques : 0 débordement, cibles ≥ 40 px | Coach authentifié non audité |
 | Awards hebdo V1 + V1.1 + vue visiteurs | Récap Hebdo, accueil (`8f0be9a`, `b4e251c`) : MVP titulaires/banc par poste, efficacité de lineup après match | IR historique non fournie par Sleeper (documenté) |
 | Probabilités de playoffs calibrées, Trade Finder (préférences, contre-offres), waiver v2, War Room, journal de décisions, modèle d’enchères FAAB | voir CLAUDE.md « Current State » | Calibration (ci-dessous) |

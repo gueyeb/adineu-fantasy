@@ -61,9 +61,14 @@ test("default and overridden position/FLEX limits, shared ranks, and pure inputs
     assert.ok(rows.every(row => row.rank === 1 && row.tier === 1));
   }
   assert.equal(report.flex.length, 100);
+  const owned = buildWeeklyRankings({ ...options, players, projections, owners: new Map([["WR99", { teamName: "Boukki", rosterId: 1 }]]) });
+  const tail = owned.byPosition.WR.at(-1);
+  assert.equal(owned.byPosition.WR.length, RANKINGS_LIMITS.WR + 1);
+  assert.deepEqual([tail.sleeperId, tail.beyondLimit, tail.rank], ["WR99", true, 1]);
+  assert.ok(owned.byPosition.WR.slice(0, -1).every(row => !row.beyondLimit));
   const small = buildWeeklyRankings({ ...options, limits: { WR: 1, FLEX: 2 } });
-  assert.equal(small.byPosition.WR.length, 1);
-  assert.equal(small.flex.length, 2);
+  assert.equal(small.byPosition.WR.filter(row => !row.beyondLimit).length, 1);
+  assert.equal(small.flex.filter(row => !row.beyondLimit).length, 2);
   assert.equal(options.players.get("healthy").tier, undefined);
 });
 
