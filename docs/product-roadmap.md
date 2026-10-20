@@ -22,7 +22,7 @@ Les quatre branches `codex/*` du 07/10 sont fusionnées dans `main`.
 
 Suivi daté (à cocher ici) :
 
-- [x] 20/10 — job du mardi (08:00 UTC = 10:00 Paris) : snapshots S7 WR+RB et hebdo, recalibration FAAB, feedback S6. Évaluation SOS WR S6 : 28 matchs, MAE 8,5 pts PPR concédés — **sans base de comparaison** (moyenne ligue), à ajouter avant la décision SOS QB. Enchères S6 non notées par le modèle rival (`NO_ARCHIVED_MODEL` : snapshot S6 antérieur au modèle du 14/10) ; attendu dès S7.
+- [x] 20/10 — job du mardi (08:00 UTC = 10:00 Paris) : snapshots S7 WR+RB et hebdo, recalibration FAAB, feedback S6. Évaluation SOS WR S6 : 28 matchs, MAE 8,5 pts PPR concédés contre 7,8 pour la base « moyenne ligue » (32,2) → skill −9,5 % (échantillon trop petit). `baselineMae` + `skill` ajoutés à l’évaluation (20/10) ; critère SOS QB = skill > 0 sur WR **et** RB avec n ≥ 100. Enchères S6 non notées par le modèle rival (`NO_ARCHIVED_MODEL` : snapshot S6 antérieur au modèle du 14/10) ; attendu dès S7.
 - [x] 20/10 — awards S6 : 12 équipes couvertes, efficacité 84–100 %, 390 px sans débordement.
 - [x] Utilisateur — fuseau Europe/Paris : mardi confirmé (exécution 08:00 UTC). Jeudi à confirmer le 22/10 (attendu 07:00 UTC).
 - [ ] Après S8 (~03/11) — scorecard Adineu vs Sleeper, probabilité FAAB vs taux constant, verdicts du journal, échantillons des profils de rôle (20 fenêtres requises).

@@ -58,6 +58,8 @@ test('feedback evaluates archived forecasts only against completed results, no i
   const result = evaluateSos(bundle, observations, '2026-10-16T12:00:00Z');
   assert.equal(result.sample, 1);
   assert.equal(result.mae, 3.75);
+  assert.equal(result.baselineMae, Math.abs(bundle.horizons.NFL_ROS.leagueAverage - 30));
+  assert.equal(result.skill, result.baselineMae > 0 ? 1 - result.mae / result.baselineMae : null);
   assert.equal(result.exclusions.MISSING_RESULT, 1);
   assert.equal(result.reliability, 'INSUFFICIENT_SAMPLE');
   observations[0].kickoff = '2026-10-15T11:00:00Z';

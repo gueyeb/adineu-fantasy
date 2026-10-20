@@ -30,9 +30,14 @@ export function evaluateSos(bundle, observations, evaluatedAt) {
     const key = `${category(row.predictedAllowedPpr, forecast.leagueAverage)}:${category(row.actualAllowedPpr, forecast.leagueAverage)}`;
     confusion[key] = (confusion[key] ?? 0) + 1;
   }
-  return { snapshotId: bundle.snapshotId, methodologyVersion: bundle.methodologyVersion, position: bundle.methodologyVersion === 'RB_TEMPORAL_V1' ? 'RB' : 'WR', evaluatedAt, sample: pairs.length, total: rows.length,
+  const result = { snapshotId: bundle.snapshotId, methodologyVersion: bundle.methodologyVersion, position: bundle.methodologyVersion === 'RB_TEMPORAL_V1' ? 'RB' : 'WR', evaluatedAt, sample: pairs.length, total: rows.length,
     coveragePct: rows.length ? pairs.length / rows.length * 100 : 0, exclusions,
-    mae: mean(pairs.map(row => row.absoluteError)), spearman: spearman(pairs.map(r => r.predictedAllowedPpr), pairs.map(r => r.actualAllowedPpr)),
+    mae: mean(pairs.map(row => row.absoluteError)),
+    // Naive baseline: every defense allows the league average. skill > 0 means the forecast beats it.
+    baselineMae: forecast.leagueAverage > 0 ? mean(pairs.map(row => Math.abs(forecast.leagueAverage - row.actualAllowedPpr))) : null,
+    spearman: spearman(pairs.map(r => r.predictedAllowedPpr), pairs.map(r => r.actualAllowedPpr)),
     classificationAccuracy: forecast.leagueAverage > 0 ? mean(pairs.map(row => Number(category(row.predictedAllowedPpr, forecast.leagueAverage) === category(row.actualAllowedPpr, forecast.leagueAverage)))) : null,
     confusion, reliability: pairs.length < 30 ? 'INSUFFICIENT_SAMPLE' : 'DESCRIPTIVE_ONLY', rows };
+  result.skill = result.mae !== null && result.baselineMae > 0 ? 1 - result.mae / result.baselineMae : null;
+  return result;
 }
