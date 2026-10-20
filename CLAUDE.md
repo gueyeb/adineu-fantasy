@@ -6,6 +6,8 @@ Read `AGENTS.md` first — its repository, testing, identity, and security rules
 
 ## Current State (not derivable from code)
 
+- **Private expert benchmark** (`docs/prd-expert-benchmark.md`): `POST /api/model/experts/capture` (bearer `MODEL_JOB_TOKEN`), CLI `experts:capture[:production]`, first capture wins; FantasyPros six weekly pages + optional Firecrawl HTTP providers, native PPR, future kickoffs only. Tuesday feedback includes paired/common cohorts and sample-weighted weekly season metrics, with isolated scoring failures. Adineu equals Sleeper at horizon zero. No public rankings. Supabase payloads are encrypted because `model_snapshots` has public-read RLS: keep `EXPERT_BENCHMARK_KEY` (fallback `MODEL_JOB_TOKEN`) stable to read history. Without Supabase, private atomic files in `EXPERT_DATA_DIR` (default `.cache/experts`); mount persistently. Sunday 05:00 ET n8n scheduling still needs deployment configuration.
+
 - **Awards V1.1 locale** : MVP titulaires/banc par poste et « efficacité de lineup après match » dans Récap Hebdo ; optimiseur partagé, roster historique uniquement, ratio n/d si couverture/score incohérent. Sleeper S4 ne fournit pas de réserve historique : limite IR documentée dans `docs/prd-public-weekly-awards.md`.
 
 - **Classements de la semaine** : onglet Classements du Game Center, `GET /api/rankings?week=`, projections au barème de la ligue pour les 12 managers et agents libres, postes + FLEX, tiers et fourchettes calibrées ; absents/bye à zéro, projections inconnues non classées.

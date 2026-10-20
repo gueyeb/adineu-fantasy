@@ -16,6 +16,7 @@
  * CLI : npm run track:weekly[:production] [-- --dry-run]
  * n8n : POST /api/model/weekly (Authorization: Bearer $MODEL_JOB_TOKEN).
  */
+import { scoreExperts, formatExpertBenchmark } from "./expert-benchmark.js";
 import { createSupabaseSosStore } from "./sos-store.js";
 import { createSosService, sosService } from "./sos-service.js";
 import { loadSosSources } from "./sos-sources.js";
@@ -219,6 +220,7 @@ export function formatFeedbackMessage(report) {
     lines.push("", "ALGO FEEDBACK :");
     for (const item of report.algoFeedback) lines.push(`• ${item}`);
   }
+  if (report.experts) lines.push("", ...formatExpertBenchmark(report.experts));
   return lines.join("\n");
 }
 
@@ -330,7 +332,7 @@ export async function takeSnapshot({ supabase, fetchImpl = fetch, season, week, 
  */
 export const faabLegForSnapshotWeek = week => week - 1;
 
-export async function buildWeeklyFeedback({ supabase, fetchImpl = fetch, season, week, dryRun = false }) {
+export async function buildWeeklyFeedback({ supabase, fetchImpl = fetch, season, week, dryRun = false, scoreExpertBenchmark = scoreExperts }) {
   // 1. FAAB outcomes of the waivers that ran right after this week's snapshot (leg week - 1).
   const leg = faabLegForSnapshotWeek(week);
   const transactions = leg >= 1 ? await getJson(`/league/${LEAGUE_ID}/transactions/${leg}`, fetchImpl).catch(() => []) : [];
@@ -398,7 +400,8 @@ export async function buildWeeklyFeedback({ supabase, fetchImpl = fetch, season,
     signals = signalOutcomes((data || []).map(row => ({ ...row, snapshot_week: weekBySnapshot.get(row.snapshot_id) })), pointsByPlayerWeek, week);
   }
 
-  const report = { season, week, faabLeg: leg, generatedAt: new Date().toISOString(), modelVersion: MODEL_VERSION, faab, faabAuction, projections, scorecard, signals };
+  const experts = await scoreExpertBenchmark({ season, week, supabase, fetchImpl }).catch(() => ({ status: "SCORING_FAILED" }));
+  const report = { experts, season, week, faabLeg: leg, generatedAt: new Date().toISOString(), modelVersion: MODEL_VERSION, faab, faabAuction, projections, scorecard, signals };
   report.algoFeedback = buildAlgoFeedback(report);
   const message = formatFeedbackMessage(report);
   if (!dryRun) {

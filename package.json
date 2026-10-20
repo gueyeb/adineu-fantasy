@@ -35,7 +35,9 @@
     "wopr:validate": "node scripts/wopr-evidence.js validate",
     "wopr:compare": "node scripts/wopr-evidence.js compare",
     "sos:track": "node scripts/sos-tracking.js",
-    "sos:track:production": "node --env-file=.env.production scripts/sos-tracking.js"
+    "sos:track:production": "node --env-file=.env.production scripts/sos-tracking.js",
+    "experts:capture": "node scripts/expert-benchmark.js",
+    "experts:capture:production": "node --env-file=.env.production scripts/expert-benchmark.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.0"
