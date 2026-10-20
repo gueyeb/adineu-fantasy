@@ -22,11 +22,11 @@ Les quatre branches `codex/*` du 07/10 sont fusionnées dans `main`.
 
 Suivi daté (à cocher ici) :
 
-- [ ] 20/10 — job du mardi : snapshot SOS RB, recalibration FAAB, évaluation SOS S6 ; bulletin Coach 10:30 publié.
-- [ ] 20/10 — awards S6 (après le MNF) : 12 équipes couvertes dans Récap Hebdo.
-- [ ] Utilisateur — fuseau Europe/Paris sur les workflows n8n mardi/jeudi.
+- [x] 20/10 — job du mardi (08:00 UTC = 10:00 Paris) : snapshots S7 WR+RB et hebdo, recalibration FAAB, feedback S6. Évaluation SOS WR S6 : 28 matchs, MAE 8,5 pts PPR concédés — **sans base de comparaison** (moyenne ligue), à ajouter avant la décision SOS QB. Enchères S6 non notées par le modèle rival (`NO_ARCHIVED_MODEL` : snapshot S6 antérieur au modèle du 14/10) ; attendu dès S7.
+- [x] 20/10 — awards S6 : 12 équipes couvertes, efficacité 84–100 %, 390 px sans débordement.
+- [x] Utilisateur — fuseau Europe/Paris : mardi confirmé (exécution 08:00 UTC). Jeudi à confirmer le 22/10 (attendu 07:00 UTC).
 - [ ] Après S8 (~03/11) — scorecard Adineu vs Sleeper, probabilité FAAB vs taux constant, verdicts du journal, échantillons des profils de rôle (20 fenêtres requises).
-- [ ] Proposé 19/10 — benchmark privé vs experts (FantasyPros ECR, autres sources) : capture figée avant kickoff, notée après les matchs comme le scorecard Sleeper. Décision utilisateur en attente.
+- [ ] Benchmark privé vs experts (option a, 20/10, [PRD](prd-expert-benchmark.md)) : en développement ; première capture dimanche 25/10, premier score mardi 27/10, décision après 4 semaines.
 - [ ] S8–S10 — décision SOS QB sur le feedback WR/RB.
 - [ ] Utilisateur connecté — contrôle visuel Coach mobile/production.
 - [ ] Après S17 — bilan de draft ; kit draft 2027.
