@@ -20,7 +20,7 @@ import { scoreExperts, formatExpertBenchmark } from "./expert-benchmark.js";
 import { createSupabaseSosStore } from "./sos-store.js";
 import { createSosService, sosService } from "./sos-service.js";
 import { loadSosSources } from "./sos-sources.js";
-import { trackSos } from "./sos-tracking.js";
+import { trackSos, formatSosLines } from "./sos-tracking.js";
 import { pathToFileURL } from "node:url";
 import { getFreeAgents, getUsageReport, getWeeklyProjections, getWeeklyStats, loadAuctionCalibration, primeAuctionCalibration } from "./league-context.js";
 import { calibrateFaab, formatCalibrationLine, saveCalibration } from "./calibrate-faab.js";
@@ -468,7 +468,8 @@ export async function runWeeklyJob({ supabase, fetchImpl = fetch, dryRun = false
   const feedback = week > 1 ? await buildWeeklyFeedback({ supabase, fetchImpl, season, week: week - 1, dryRun }) : null;
   const snapshot = await takeSnapshot({ supabase, fetchImpl, season, week, dryRun, force });
   const journal = dryRun ? null : await recordDecisionJournal({ supabase, fetchImpl, week }).catch(error => ({ error: error.message }));
-  const message = feedback?.message ? `${feedback.message}\n\n${auction.line}` : auction.line;
+  const sosLines = formatSosLines(sos);
+  const message = [feedback?.message, auction.line, sosLines.length ? ["Calendrier (SOS, cumul des archives, pts PPR concédés) :", ...sosLines].join("\n") : null].filter(Boolean).join("\n\n");
   return { season, week, auction, snapshot, journal, sos, feedback: feedback?.report || null, message };
 }
 

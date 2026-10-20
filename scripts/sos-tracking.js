@@ -13,7 +13,8 @@ async function trackPosition({ service = sosService, store = sosStore, dryRun = 
     const historical = await store.load(archive.snapshotId);
     if (historical.methodologyVersion !== bundle.methodologyVersion) continue;
     const result = evaluateSos(historical, bundle.inputs.dvp.observations, bundle.asOf);
-    evaluations.push(await store.saveEvaluation(archive.snapshotId, result));
+    const revision = await store.saveEvaluation(archive.snapshotId, result);
+    evaluations.push({ snapshotId: archive.snapshotId, revision, sample: result.sample, mae: result.mae, baselineMae: result.baselineMae });
   }
   if (bundle.week > 18) return { skipped: 'NO_REMAINING_REGULAR_SEASON_GAMES', evaluations };
   return { ...await store.save(bundle), evaluations };
@@ -25,6 +26,17 @@ export async function trackSos(options = {}) {
     catch (error) { results[position] = { error: error.message }; }
   }
   return { ...results.WR, positions: results };
+}
+/** One Tuesday-message line per position: archived forecasts vs the league-average baseline. */
+export function formatSosLines(sos) {
+  return Object.entries(sos?.positions ?? {}).flatMap(([position, result]) => {
+    const rows = (result?.evaluations ?? []).filter(row => row.sample > 0 && Number.isFinite(row.mae) && Number.isFinite(row.baselineMae));
+    const n = rows.reduce((sum, row) => sum + row.sample, 0);
+    if (!n) return [`SOS ${position} : aucune prévision évaluée (n=0).`];
+    const weighted = key => rows.reduce((sum, row) => sum + row[key] * row.sample, 0) / n;
+    const mae = weighted('mae'), base = weighted('baselineMae');
+    return [`SOS ${position} : ${n} prévisions · MAE ${mae.toFixed(1)} vs ${base.toFixed(1)} (moyenne ligue) · skill ${base > 0 ? `${Math.round((1 - mae / base) * 100)} %` : 'n/d'}`];
+  });
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const replay = process.argv.indexOf('--replay');

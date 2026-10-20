@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { buildSosBundle, createSosService, replaySosBundle } from '../scripts/sos-service.js';
 import { createSosStore } from '../scripts/sos-store.js';
 import { buildSosDvp, hashSos } from '../scripts/sos-sources.js';
-import { trackSos } from '../scripts/sos-tracking.js';
+import { trackSos, formatSosLines } from '../scripts/sos-tracking.js';
 import { buildCoachSos, formatCoachSos } from '../scripts/sos-coach.js';
 import { buildSosAiContext } from '../public/assets/sos-ai-context.js';
 import { calculatePositionSos, calculateWrSos } from '../public/assets/wr-ros-sos.js';
@@ -179,4 +179,12 @@ test('RB coverage, tied ranks and frozen history retain the positional gates', a
   assert.deepEqual(past.archiveIds, [tied.snapshotId]);
   assert.equal(past.teams.find(t => t.team === 'ARI').opponents[0].opponentRbPprAllowed, 15);
   assert.equal(past.teams.find(t => t.team === 'ARI').opponents[0].opponentWrPprAllowed, undefined);
+});
+
+test('Tuesday SOS lines weight archives by sample and compare with the league-average baseline', () => {
+  const lines = formatSosLines({ positions: {
+    WR: { evaluations: [{ sample: 28, mae: 8.5, baselineMae: 7.8 }, { sample: 0, mae: null, baselineMae: null }] },
+    RB: { evaluations: [] }, TE: { skipped: 'POSITION_UNAVAILABLE' } } });
+  assert.deepEqual(lines, ['SOS WR : 28 prévisions · MAE 8.5 vs 7.8 (moyenne ligue) · skill -9 %', 'SOS RB : aucune prévision évaluée (n=0).', 'SOS TE : aucune prévision évaluée (n=0).']);
+  assert.deepEqual(formatSosLines({ error: 'SOS_TRACKING_UNAVAILABLE' }), []);
 });
