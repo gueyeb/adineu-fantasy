@@ -26,7 +26,7 @@ Suivi daté (à cocher ici) :
 - [x] 20/10 — awards S6 : 12 équipes couvertes, efficacité 84–100 %, 390 px sans débordement.
 - [x] Utilisateur — fuseau Europe/Paris : mardi confirmé (exécution 08:00 UTC). Jeudi à confirmer le 22/10 (attendu 07:00 UTC).
 - [ ] Après S8 (~03/11) — scorecard Adineu vs Sleeper, probabilité FAAB vs taux constant, verdicts du journal, échantillons des profils de rôle (20 fenêtres requises).
-- [ ] Benchmark privé vs experts (option a, 20/10, [PRD](prd-expert-benchmark.md)) : en développement ; première capture dimanche 25/10, premier score mardi 27/10, décision après 4 semaines.
+- [ ] Benchmark privé vs experts (option a, 20/10, [PRD](prd-expert-benchmark.md)) : livré (`6ad0ace`, n8n `pUUl9Ftq3OU4at8o`) ; FantasyPros seul (Draft Sharks/CBS si `FIRECRAWL_API_KEY`) ; première capture dimanche 25/10, premier score mardi 27/10, décision après 4 semaines.
 - [ ] S8–S10 — décision SOS QB sur le feedback WR/RB.
 - [ ] Utilisateur connecté — contrôle visuel Coach mobile/production.
 - [ ] Après S17 — bilan de draft ; kit draft 2027.
