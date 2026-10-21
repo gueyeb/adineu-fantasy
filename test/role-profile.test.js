@@ -95,10 +95,13 @@ test("progression vs rental: the cut needs a documented net gain above the organ
   assert.equal(unpriced.progressionGuard, "UNPRICED");
   assert.equal(unpriced.progressionSacrificeTotal, null);
 
-  // Acquisition durable : la comparaison location/progression ne s'applique pas.
+  // Acquisition durable : la coupe reste définitive, la progression organique se paie aussi.
   const seasonLong = rentalFixture();
   seasonLong.marketRow.events.roleWeeks = 0;
-  assert.equal(evaluateRosterFit(seasonLong).progressionGuard, "NOT_APPLICABLE");
+  const durable = evaluateRosterFit(seasonLong);
+  assert.notEqual(durable.progressionGuard, "NOT_APPLICABLE");
+  assert.ok(durable.progressionSacrificeTotal > 0);
+  assert.equal(durable.selectionScore, Number((durable.netGainTotal - durable.progressionSacrificeTotal).toFixed(1)));
 });
 
 test("an unjustified or unpriced progression sacrifice downgrades an actionable move to WATCH with a blocker", () => {
@@ -154,5 +157,5 @@ test("a promotion on top of an existing role is valued on the rest of the season
   assert.deepEqual([rental.horizonWeeks, rental.horizonBasis], [1, "TEMPORARY_ROLE_WINDOW"]);
   const existing = evaluateRosterFit({ ...fixture, marketRow: { ...fixture.marketRow, roleProfile: { profile: "INJURY_PROMOTION_WITH_EXISTING_ROLE" } } });
   assert.deepEqual([existing.horizonWeeks, existing.horizonBasis], [LAST_REGULAR_WEEK - 3, "EXISTING_ROLE_REST_OF_SEASON"]);
-  assert.equal(existing.progressionGuard, "NOT_APPLICABLE");
+  assert.notEqual(existing.progressionGuard, "NOT_APPLICABLE"); // cutting the organic riser is charged on either horizon
 });

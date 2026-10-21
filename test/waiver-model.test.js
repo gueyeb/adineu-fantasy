@@ -181,3 +181,29 @@ test("an injured player with a projected return is never offered as a cut", () =
   assert.ok(fit.dropCandidates.every(row => row.sleeperId !== "ir"));
   assert.equal(fit.comparedCutCount, 2);
 });
+
+test("an injured player worth less than every healthy cut is compared, not excluded (Coleman case)", () => {
+  const myPlayers = [
+    { sleeperId: "love", name: "Love", position: "RB", injuryStatus: "Out", rosPpg: 8.2 },
+    { sleeperId: "coleman", name: "Coleman", position: "RB", injuryStatus: "IR", rosPpg: 3.2 },
+    { sleeperId: "washington", name: "Washington", position: "RB", rosPpg: 5.2 },
+    { sleeperId: "kamara", name: "Kamara", position: "RB", rosPpg: 6.2 }
+  ];
+  const fit = evaluateRosterFit({ marketRow: { sleeperId: "fa", name: "FA", position: "RB", surplusPoints: 10 }, myPlayers,
+    paceOf: p => p.rosPpg ?? 0, week: 6, faabRemaining: 100 });
+  assert.deepEqual(fit.cutExclusions, [{ playerId: "love", name: "Love", reason: "INJURED_RETURN_EXPECTED" }]);
+  assert.ok(fit.dropCandidates.some(row => row.sleeperId === "coleman"));
+  assert.equal(fit.comparedCutCount, 3);
+});
+
+test("a season-long add does not make cutting an organic riser free (Washington case)", () => {
+  const riser = { sleeperId: "riser", name: "Riser", position: "RB", rosPpg: 4, emergingRole: { progression: "RISING", progressionSource: "ORGANIC", optionValuePerWeek: 2.5 } };
+  const flat = { sleeperId: "flat", name: "Flat", position: "RB", rosPpg: 4.2, emergingRole: { progression: "STABLE", optionValuePerWeek: 0 } };
+  const fit = evaluateRosterFit({ marketRow: { sleeperId: "fa", name: "FA", position: "RB", surplusPoints: 10, events: {} }, myPlayers: [riser, flat],
+    paceOf: p => p.rosPpg ?? 6, week: 6, faabRemaining: 100 });
+  assert.equal(fit.horizonBasis, "REST_OF_SEASON");
+  assert.equal(fit.dropCandidate.sleeperId, "flat");
+  const riserRow = fit.dropCandidates.find(row => row.sleeperId === "riser");
+  assert.ok(riserRow.progressionSacrificeTotal > 0);
+  assert.ok(riserRow.netGainTotal >= fit.dropCandidates.find(row => row.sleeperId === "flat").netGainTotal); // the gain itself is unchanged
+});

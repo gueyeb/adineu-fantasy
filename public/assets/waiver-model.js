@@ -223,11 +223,16 @@ export function evaluateRosterFit({ marketRow, myPlayers, paceOf, week, faabRema
   const activePlayers = startable(myPlayers);
   const beforeRos = buildProjectedLineup(activePlayers, { estimate: paceOf });
   // An absent player with a projected return is not a free cut: his missing week projection and
-  // usage say nothing about his value once back (A.J. Brown on IR was offered at 0 cost).
-  const injuredWithReturn = player => ABSENT.has(player.injuryStatus) && Number.isFinite(player.rosPpg) && player.rosPpg > 0;
-  const candidates = myPlayers.filter(player => !lockedIds.has(String(player.sleeperId)) &&
-    !protectedIds.has(String(player.sleeperId)) && !injuredWithReturn(player) &&
-    (!starterIds.has(String(player.sleeperId)) || player.position === marketRow.position));
+  // usage say nothing about his value once back (A.J. Brown on IR was offered at 0 cost). He is
+  // compared only when his rest-of-season value is below every healthy eligible cut's (Coleman at
+  // 3.2 behind Washington at 5.2): cheaper on every reading, so a 0 option cost cannot mislead.
+  const eligible = player => !lockedIds.has(String(player.sleeperId)) && !protectedIds.has(String(player.sleeperId)) &&
+    (!starterIds.has(String(player.sleeperId)) || player.position === marketRow.position);
+  const absentWithReturn = player => ABSENT.has(player.injuryStatus) && Number.isFinite(player.rosPpg) && player.rosPpg > 0;
+  const healthyCutRos = myPlayers.filter(player => eligible(player) && !absentWithReturn(player) && Number.isFinite(player.rosPpg)).map(player => player.rosPpg);
+  const weakestHealthyRos = healthyCutRos.length ? Math.min(...healthyCutRos) : -Infinity;
+  const injuredWithReturn = player => absentWithReturn(player) && player.rosPpg >= weakestHealthyRos;
+  const candidates = myPlayers.filter(player => eligible(player) && !injuredWithReturn(player));
   // Why a roster player was never compared as a cut: a lone eligible cut is a constraint, not a ranking.
   const cutExclusions = myPlayers.filter(player => !candidates.includes(player)).map(player => ({ playerId: String(player.sleeperId), name: player.name ?? null,
     reason: protectedIds.has(String(player.sleeperId)) ? (reserveIds.has(String(player.sleeperId)) ? "RESERVE_SLOT" : "PROTECTED")
@@ -306,12 +311,13 @@ export function evaluateRosterFit({ marketRow, myPlayers, paceOf, week, faabRema
     const netGainTotal = grossGainTotal === null ? null : round(grossGainTotal - dropCostTotal - postRoleCutCostTotal);
     const preference = rosterPreferences.find(row => row.playerId === String(cut?.sleeperId));
     const preferencePenaltyTotal = preference?.penaltyPoints ?? 0;
-    // A rental ends; the cut does not. Cutting an organic riser for it must be paid for by the
-    // documented net gain. Uncalibrated, so it only orders cuts: netGainTotal keeps its definition.
+    // A cut is permanent. Cutting an organic riser, for a rental or for a season-long add, must be
+    // paid for by the documented net gain: projections lag a rising role (Washington was the cut on
+    // 32 of 37 rows with xFP +2.5/w). Uncalibrated, so it only orders cuts: netGainTotal keeps its definition.
     const emerging = cut?.emergingRole ?? null;
     const unpricedCutPotential = Boolean(cut) && (emerging?.opportunitiesDelta > 0 || emerging?.snapShareDelta > 0) &&
       (cut.usageTrend > 0 || emerging?.progression === "RISING");
-    const organicRiser = Boolean(cut) && horizonWeeks < remaining && emerging?.progression === "RISING" && emerging.progressionSource === "ORGANIC";
+    const organicRiser = Boolean(cut) && emerging?.progression === "RISING" && emerging.progressionSource === "ORGANIC";
     const progressionSacrificeTotal = !organicRiser ? 0 : Number.isFinite(emerging.optionValuePerWeek) ? round(emerging.optionValuePerWeek * remaining) : null;
     const progressionGuard = !organicRiser ? "NOT_APPLICABLE" : progressionSacrificeTotal === null ? "UNPRICED"
       : netGainTotal !== null && netGainTotal - progressionSacrificeTotal > 0 ? "JUSTIFIED" : netGainTotal === null ? "UNPRICED" : "NOT_JUSTIFIED";
