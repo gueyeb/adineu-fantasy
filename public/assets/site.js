@@ -1,4 +1,4 @@
-import { renderSosExplorer } from "./sos-explorer.js?v=97a7d6cb96";
+import { renderSosExplorer } from "./sos-explorer.js?v=017782925f";
 import { renderPublicWeek } from "./public-week.js?v=e1f660c8b4";
 import { buildSharedPlayoffContext } from "./playoff-context.js?v=ebd0c909f3";
 import { calculatePowerRankings, MINIMUM_COMPLETED_WEEKS, POWER_WEIGHTS } from "./power-rankings.js?v=86d062a9e8";
@@ -20,7 +20,7 @@ import { renderTeamsHub } from "./teams.js?v=74759b10f3";
 import { buildYahooRecordBook } from "./record-book.js?v=0ebb2a4e56";
 import { listRosterIdentities } from "./roster-view.js?v=120de9d74d";
 import { GENERAL_SETTINGS_2026 } from "./league-settings.js?v=f6d1bf5212";
-import { appendManagerPreferences, getPageAiContext } from "./ai-context-client.js?v=fa8bdebc75";
+import { appendManagerPreferences, copyTextFrom, getPageAiContext } from "./ai-context-client.js?v=d42756c77d";
 import {
   simulatePlayoffProbabilities,
   formatProjectedRecord,
@@ -123,30 +123,39 @@ const copyContextBtn = document.getElementById("copy-context-btn");
 const copyContextIcon = copyContextBtn?.querySelector(".context-copy-icon");
 const copyContextLabel = copyContextBtn?.querySelector(".context-copy-label");
 
-copyContextBtn?.addEventListener("click", async () => {
+async function fetchDecisionContextText() {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 60000);
   try {
-    const pageText = getPageAiContext();
-    if (pageText !== null) {
-      await navigator.clipboard.writeText(pageText);
-      copyContextLabel.textContent = "Copié !";
-      return;
-    }
-    const response = await fetch("/api/context?mode=decision");
+    const response = await fetch("/api/context?mode=decision", { signal: controller.signal });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const context = await response.json();
     let preferences = {};
     try {
       preferences = JSON.parse(localStorage.getItem(`adineu:trade-preferences:2026:${SLEEPER_LEAGUE_ID}:${context.myTeam.rosterId}`) || "{}");
     } catch {}
-    const text = appendManagerPreferences(context.message, context, preferences);
-    await navigator.clipboard.writeText(text);
+    return appendManagerPreferences(context.message, context, preferences);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+copyContextBtn?.addEventListener("click", async () => {
+  if (copyContextBtn.dataset.state === "loading") return;
+  try {
+    const pageText = getPageAiContext();
+    copyContextBtn.dataset.state = "loading";
+    copyContextIcon.textContent = "⏳";
+    copyContextLabel.textContent = "Préparation…";
+    await copyTextFrom(pageText !== null ? pageText : fetchDecisionContextText());
     copyContextBtn.dataset.state = "done";
     copyContextIcon.textContent = "✅";
     copyContextLabel.textContent = "Copié !";
   } catch (error) {
     console.warn("Impossible de copier le contexte IA", error);
+    copyContextBtn.dataset.state = "error";
     copyContextIcon.textContent = "⚠️";
-    copyContextLabel.textContent = "Erreur";
+    copyContextLabel.textContent = error?.name === "AbortError" ? "Délai dépassé" : String(error?.message).startsWith("HTTP") ? `Erreur serveur (${error.message})` : "Copie refusée";
   } finally {
     setTimeout(() => {
       copyContextBtn.removeAttribute("data-state");

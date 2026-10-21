@@ -24,3 +24,19 @@ export function appendManagerPreferences(message, context, preferences = {}) {
 let pageContextProvider = null;
 export function registerPageAiContext(provider) { pageContextProvider = provider; }
 export function getPageAiContext() { return pageContextProvider ? pageContextProvider() : null; }
+
+// Safari (and Chrome once the tab loses focus) drop the click's permission while a slow fetch runs:
+// a ClipboardItem built synchronously in the click keeps it, writeText is the fallback.
+export async function copyTextFrom(textPromise) {
+  if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
+    const blob = Promise.resolve(textPromise).then(text => new Blob([text], { type: "text/plain" }));
+    try {
+      await navigator.clipboard.write([new ClipboardItem({ "text/plain": blob })]);
+      return;
+    } catch (error) {
+      await blob; // a failed fetch must surface as itself, not as a clipboard error
+      if (error?.name !== "NotAllowedError" && error?.name !== "TypeError") throw error;
+    }
+  }
+  await navigator.clipboard.writeText(await textPromise);
+}

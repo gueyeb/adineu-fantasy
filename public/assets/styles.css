@@ -146,6 +146,10 @@ button, select { font: inherit; }
 }
 .context-copy-btn:hover, .context-copy-btn:focus-visible { color: var(--grass); opacity: 1; outline: none; }
 .context-copy-btn[data-state="done"] { color: var(--gold); opacity: 1; }
+.context-copy-btn[data-state="loading"] { color: var(--grass); opacity: 1; cursor: progress; }
+.context-copy-btn[data-state="loading"] .context-copy-icon { animation: adineu-spin 1s linear infinite; }
+.context-copy-btn[data-state="error"] { color: #ff8a7a; opacity: 1; }
+@keyframes adineu-spin { to { transform: rotate(360deg); } }
 
 main { min-height: calc(100vh - 150px); }
 .shell { width: min(1180px, calc(100% - 48px)); margin: 0 auto; }
@@ -901,7 +905,12 @@ tr.compare-best td { background: rgba(184, 255, 61, .08); }
 .coach-primary, .coach-secondary, .coach-quiet { padding: 12px 16px; border: 1px solid var(--grass); border-radius: 0; background: var(--grass); color: #111a0e; font: 800 .72rem var(--body); letter-spacing: .08em; text-transform: uppercase; cursor: pointer; }
 .coach-secondary { background: transparent; color: var(--grass); }
 .coach-quiet { border-color: transparent; background: transparent; color: var(--muted); }
-.coach-status { min-height: 24px; color: var(--muted); font-size: .78rem; }
+.coach-status { display: flex; align-items: center; gap: 10px; min-height: 24px; color: var(--muted); font-size: .78rem; }
+.coach-status[data-tone="busy"]::before { content: ""; width: 14px; height: 14px; flex: none; border: 2px solid var(--line); border-top-color: var(--grass); border-radius: 50%; animation: adineu-spin .8s linear infinite; }
+.coach-status[data-tone="error"] { color: #ff8a7a; font-weight: 700; }
+.coach-status[data-tone="ok"] { color: var(--grass); font-weight: 700; }
+.coach-primary:disabled { opacity: .6; cursor: progress; }
+@media (prefers-reduced-motion: reduce) { .coach-status[data-tone="busy"]::before, .context-copy-btn[data-state="loading"] .context-copy-icon { animation-duration: 3s; } }
 .coach-report-head { display: flex; justify-content: space-between; align-items: end; gap: 30px; padding: 64px 0 36px; }
 .coach-report-head h1 { font-size: clamp(3.8rem, 9vw, 8rem); }
 .coach-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }

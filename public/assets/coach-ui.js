@@ -1,5 +1,5 @@
 import { readSosHandoff, formatSosHandoff, SOS_HANDOFF_KEY } from './sos-ai-context.js?v=b1eb756fb9';
-import { registerPageAiContext } from './ai-context-client.js?v=fa8bdebc75';
+import { copyTextFrom, registerPageAiContext } from './ai-context-client.js?v=d42756c77d';
 let explorerContext = null;
 try { explorerContext = readSosHandoff(globalThis.sessionStorage); } catch { /* Private browsing may deny storage. */ }
 const appendExplorerContext = text => explorerContext ? `${text}
@@ -146,7 +146,7 @@ function renderPlan(plan) {
   }
   gate.hidden = true;
   report.hidden = false;
-  status.textContent = `Données jusqu’à S${plan.dataThroughWeek ?? "—"} · actualisé ${new Date(plan.generatedAt).toLocaleString("fr-FR")}${Object.keys(plan.preferences || {}).length ? " · préférences Trade Finder appliquées" : ""}`;
+  setStatus(`Données jusqu’à S${plan.dataThroughWeek ?? "—"} · actualisé ${new Date(plan.generatedAt).toLocaleString("fr-FR")}${Object.keys(plan.preferences || {}).length ? " · préférences Trade Finder appliquées" : ""}`);
 }
 
 const JOURNAL_KIND = { CLAIM_WON: "Claim gagné", CLAIM_LOST: "Claim perdu", FREE_ADD: "Ajout libre", DROP: "Coupe", TRADE: "Trade", LINEUP: "Lineup" };
@@ -193,8 +193,14 @@ async function fetchCoach(preferences = {}, watchIds = "") {
   return response.json();
 }
 
+// tone: busy (spinner), error, ok, or none.
+function setStatus(text, tone = "") {
+  status.textContent = text;
+  if (tone) status.dataset.tone = tone; else delete status.dataset.tone;
+}
+
 async function loadCoach() {
-  status.textContent = "Analyse de la lineup, du marché et des trades…";
+  setStatus("Analyse de la lineup, du marché et des trades…", "busy");
   try {
     // The roster is only known from a first answer: remember it so the next load is a single request.
     let hint = null;
@@ -203,7 +209,7 @@ async function loadCoach() {
     let plan = await fetchCoach(sent.preferences, sent.watchIds);
     if (!plan) {
       gate.hidden = false; login.hidden = false; report.hidden = true; message.textContent = "";
-      status.textContent = "Identifie-toi pour consulter ton coaching.";
+      setStatus("Identifie-toi pour consulter ton coaching.");
       return;
     }
     try { localStorage.setItem(ROSTER_HINT_KEY, String(plan.rosterId)); } catch {}
@@ -213,7 +219,7 @@ async function loadCoach() {
     const watchIds = watchIdsHeader(loadWatchlist(plan.rosterId));
     if (JSON.stringify(preferences) !== JSON.stringify(sent.preferences) || watchIds !== sent.watchIds) plan = await fetchCoach(preferences, watchIds);
     renderPlan(plan);
-  } catch (error) { status.textContent = error.message; }
+  } catch (error) { setStatus(error.message, "error"); }
 }
 
 login.addEventListener("submit", async event => {
@@ -221,18 +227,27 @@ login.addEventListener("submit", async event => {
   const field = document.getElementById("coach-password");
   const button = login.querySelector("button");
   button.disabled = true;
+  setStatus("Vérification du mot de passe…", "busy");
   try {
     const response = await fetch("/api/coach-session", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: field.value }), credentials: "same-origin" });
     field.value = "";
-    if (!response.ok) { status.textContent = response.status === 429 ? "Trop de tentatives. Réessaie dans 15 minutes." : response.status === 503 ? "Accès privé non configuré." : "Mot de passe incorrect."; return; }
+    if (!response.ok) { setStatus(response.status === 429 ? "Trop de tentatives. Réessaie dans 15 minutes." : response.status === 503 ? "Accès privé non configuré." : "Mot de passe incorrect.", "error"); field.focus(); return; }
     await loadCoach();
-  } catch { status.textContent = "Connexion impossible. Réessaie."; } finally { button.disabled = false; }
+  } catch { setStatus("Connexion impossible. Réessaie.", "error"); } finally { button.disabled = false; }
 });
 document.getElementById("coach-refresh").addEventListener("click", loadCoach);
 document.getElementById("coach-copy").addEventListener("click", async event => {
   if (!currentPlan) return;
-  await navigator.clipboard.writeText(appendExplorerContext(currentPlan.message));
-  const button = event.currentTarget; button.textContent = "Plan copié"; setTimeout(() => { button.textContent = "Copier le plan"; }, 1800);
+  const button = event.currentTarget;
+  try {
+    await copyTextFrom(appendExplorerContext(currentPlan.message));
+    button.textContent = "✓ Plan copié";
+    setStatus("Plan copié dans le presse-papiers.", "ok");
+  } catch {
+    button.textContent = "Copie refusée";
+    setStatus("Copie impossible : autorise le presse-papiers ou copie la version texte en bas de page.", "error");
+  }
+  setTimeout(() => { button.textContent = "Copier le plan"; }, 2200);
 });
 // War Room: follow asks for a dated reason inline, then re-evaluates; nothing is sent to Sleeper.
 document.getElementById("coach-grid").addEventListener("click", async event => {
@@ -264,7 +279,7 @@ document.getElementById("coach-grid").addEventListener("submit", event => {
   const saved = saveWatchlist(currentPlan.rosterId, addToWatchlist(loadWatchlist(currentPlan.rosterId),
     { playerId: form.dataset.followForm, name: form.dataset.name, position: form.dataset.position },
     { reason, now: new Date().toISOString(), week: currentPlan.week }));
-  if (!saved) { status.textContent = "Stockage local indisponible : la watchlist ne peut pas être enregistrée."; return; }
+  if (!saved) { setStatus("Stockage local indisponible : la watchlist ne peut pas être enregistrée.", "error"); return; }
   // A followed player outside the displayed top needs a server evaluation.
   if ((currentPlan.warRoom?.rows ?? []).some(row => String(row.sleeperId) === form.dataset.followForm) || currentWarRoom.lines.some(line => line.playerId === form.dataset.followForm)) renderPlan(currentPlan);
   else loadCoach();
@@ -273,8 +288,8 @@ document.getElementById("coach-logout").addEventListener("click", async () => {
   try {
     const response = await fetch("/api/coach-session?logout=1", { method: "POST", credentials: "same-origin" });
     if (!response.ok) throw new Error();
-    currentPlan = null; registerPageAiContext(null); message.textContent = ""; report.hidden = true; gate.hidden = false; login.hidden = false; status.textContent = "Déconnecté.";
-  } catch { status.textContent = "Déconnexion impossible. Réessaie."; }
+    currentPlan = null; registerPageAiContext(null); message.textContent = ""; report.hidden = true; gate.hidden = false; login.hidden = false; setStatus("Déconnecté.");
+  } catch { setStatus("Déconnexion impossible. Réessaie.", "error"); }
 });
 document.getElementById("coach-journal-details")?.addEventListener("toggle", event => { if (event.currentTarget.open) loadJournal(); });
 document.getElementById("coach-journal")?.addEventListener("submit", async event => {
