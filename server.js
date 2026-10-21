@@ -127,8 +127,11 @@ export function createAppServer({
   decisionLogStore = createDecisionLogStore(),
   coachToken = process.env.COACH_API_TOKEN || "",
   coachPassword = process.env.COACH_WEB_PASSWORD || "",
-  secureCookies = process.env.NODE_ENV !== "development"
+  secureCookies = process.env.NODE_ENV !== "development",
+  // The decision context takes seconds (every add × cut × week): reused briefly, production wiring only.
+  contextCacheMs = getContext === getLeagueContext ? 3 * 60_000 : 0
 } = {}) {
+  const contextCache = new Map();
   const loadSos = getSosBundle || (getContext === getLeagueContext ? position => sosService.getBundle(position) : async () => null);
   const coachAuth = createCoachAuth({ password: coachPassword, secure: secureCookies });
   return createServer(async (request, response) => {
@@ -318,48 +321,60 @@ export function createAppServer({
           sendJson(response, 400, { error: "Mode inconnu. Valeurs acceptées : compact, decision." });
           return;
         }
-        const compactContext = await getContext({ team });
-        let context = compactContext;
-        let sosWaivers = null;
-        let message = formatContextText(compactContext);
-        if (mode === "decision") {
-          const playerIds = [
-            ...compactContext.myTeam.starters.map(entry => entry.player?.sleeperId),
-            ...compactContext.myTeam.bench.map(player => player.sleeperId),
-            ...compactContext.myTeam.ir.map(player => player.sleeperId)
-          ].filter(Boolean);
-          const [valuesResult, statusesResult, waiversResult, matchupResult, playoffResult] = await Promise.allSettled([
-            getPlayerValues({ week: compactContext.week, playerIds }),
-            getInjuryStatuses(),
-            getFreeAgents({ team, limitPerPosition: 5 }),
-            getMatchupContext({ team, week: compactContext.week }),
-            getPlayoffContext({ week: compactContext.week, rosterId: compactContext.myTeam.rosterId, leagueId: compactContext.league.id })
-          ]);
-          const playerValues = valuesResult.status === "fulfilled" ? valuesResult.value : { byId: new Map(), weeklyProjections: {} };
-          const statuses = statusesResult.status === "fulfilled" ? statusesResult.value : new Map();
-          const waivers = waiversResult.status === "fulfilled" ? waiversResult.value : null;
-          sosWaivers = waivers;
-          const matchup = matchupResult.status === "fulfilled" ? matchupResult.value : null;
-          const lineup = diagnoseLineup({
-            myTeam: compactContext.myTeam,
-            playerStatuses: statuses,
-            freeAgentsByPosition: waivers?.byPosition || {},
-            byeWeeks: BYE_WEEKS_2026,
-            currentWeek: compactContext.week,
-            acquisitionPlan: waivers?.acquisitionPlan ?? null
-          });
-          try {
-            lineup.optimal = compareWithOptimalLineup({
+        const buildContext = async () => {
+          const compactContext = await getContext({ team });
+          let context = compactContext;
+          let sosWaivers = null;
+          let message = formatContextText(compactContext);
+          if (mode === "decision") {
+            const playerIds = [
+              ...compactContext.myTeam.starters.map(entry => entry.player?.sleeperId),
+              ...compactContext.myTeam.bench.map(player => player.sleeperId),
+              ...compactContext.myTeam.ir.map(player => player.sleeperId)
+            ].filter(Boolean);
+            const [valuesResult, statusesResult, waiversResult, matchupResult, playoffResult] = await Promise.allSettled([
+              getPlayerValues({ week: compactContext.week, playerIds }),
+              getInjuryStatuses(),
+              getFreeAgents({ team, limitPerPosition: 5 }),
+              getMatchupContext({ team, week: compactContext.week }),
+              getPlayoffContext({ week: compactContext.week, rosterId: compactContext.myTeam.rosterId, leagueId: compactContext.league.id })
+            ]);
+            const playerValues = valuesResult.status === "fulfilled" ? valuesResult.value : { byId: new Map(), weeklyProjections: {} };
+            const statuses = statusesResult.status === "fulfilled" ? statusesResult.value : new Map();
+            const waivers = waiversResult.status === "fulfilled" ? waiversResult.value : null;
+            sosWaivers = waivers;
+            const matchup = matchupResult.status === "fulfilled" ? matchupResult.value : null;
+            const lineup = diagnoseLineup({
               myTeam: compactContext.myTeam,
-              projections: playerValues.weeklyProjections || {},
-              playerStatuses: statuses
+              playerStatuses: statuses,
+              freeAgentsByPosition: waivers?.byPosition || {},
+              byeWeeks: BYE_WEEKS_2026,
+              currentWeek: compactContext.week,
+              acquisitionPlan: waivers?.acquisitionPlan ?? null
             });
-          } catch { lineup.optimal = null; }
-          context = buildDecisionContext({ context: compactContext, playerValues, statuses, waivers, lineup, matchup, playoffContext: playoffResult.status === "fulfilled" ? playoffResult.value : { ready: false, reason: "SOURCE_UNAVAILABLE" } });
-          message = formatDecisionContext(context);
+            try {
+              lineup.optimal = compareWithOptimalLineup({
+                myTeam: compactContext.myTeam,
+                projections: playerValues.weeklyProjections || {},
+                playerStatuses: statuses
+              });
+            } catch { lineup.optimal = null; }
+            context = buildDecisionContext({ context: compactContext, playerValues, statuses, waivers, lineup, matchup, playoffContext: playoffResult.status === "fulfilled" ? playoffResult.value : { ready: false, reason: "SOURCE_UNAVAILABLE" } });
+            message = formatDecisionContext(context);
+          }
+          context = { ...context, sos: buildCoachSos({ context: compactContext, waivers: sosWaivers, bundle: await loadSos().catch(() => null), rbBundle: await loadSos('RB').catch(() => null) }) };
+          message += formatCoachSos(context.sos);
+          return { context, message };
+        };
+        const key = `${team}|${mode}`;
+        const cached = contextCache.get(key);
+        // ?fresh=1 bypasses the cache (e.g. right after a transaction).
+        if (!cached || Date.now() - cached.at > contextCacheMs || url.searchParams.get("fresh") === "1") {
+          const entry = { at: Date.now(), promise: buildContext() };
+          contextCache.set(key, entry);
+          entry.promise.catch(() => { if (contextCache.get(key) === entry) contextCache.delete(key); });
         }
-        context = { ...context, sos: buildCoachSos({ context: compactContext, waivers: sosWaivers, bundle: await loadSos().catch(() => null), rbBundle: await loadSos('RB').catch(() => null) }) };
-        message += formatCoachSos(context.sos);
+        let { context, message } = await contextCache.get(key).promise;
         if (url.searchParams.get("requirePublishable") === "1" && refuseUnpublishable(response, context.coherence)) return;
         if (url.searchParams.get("format") === "text") {
           response.writeHead(200, { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" });

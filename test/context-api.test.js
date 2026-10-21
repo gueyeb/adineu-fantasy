@@ -232,3 +232,19 @@ test("a starter dropped from the roster is an empty matchup slot, not a projecti
   assert.equal(matchup.opponentProjection.total, 27);
   assert.deepEqual(matchup.opponentProjection.staleStarters, []);
 });
+
+test("context API reuses a recent context and recomputes on ?fresh=1", async t => {
+  let calls = 0;
+  const server = createAppServer({ getContext: async () => { calls++; return sampleContext; }, contextCacheMs: 60_000 });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(() => server.close());
+  const { port } = server.address();
+  const base = `http://127.0.0.1:${port}/api/context?team=t0z&mode=compact`;
+  await Promise.all([fetch(base), fetch(`${base}&view=copy`)]);
+  assert.equal(calls, 1); // concurrent requests share one computation
+  assert.equal((await fetch(`${base}&format=text`)).status, 200);
+  assert.equal(calls, 1);
+  await fetch(`${base}&fresh=1`);
+  assert.equal(calls, 2);
+});
