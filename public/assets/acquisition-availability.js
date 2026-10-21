@@ -31,12 +31,18 @@ export function findRecentDrops(transactions, { asOf, windowHours = 72 } = {}) {
 }
 
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+// Building an Intl formatter is costly and this runs once per board row: one per zone.
+const offsetFormatters = new Map();
+function offsetFormatter(timeZone) {
+  if (!offsetFormatters.has(timeZone)) offsetFormatters.set(timeZone, new Intl.DateTimeFormat("en-US", { timeZone, timeZoneName: "longOffset" }));
+  return offsetFormatters.get(timeZone);
+}
 /** UTC instant of a wall-clock time in an IANA zone (Intl handles daylight saving). */
 function zonedInstant(day, time, timeZone) {
   const localAsUtc = Date.parse(`${day}T${time}:00Z`);
   if (!Number.isFinite(localAsUtc)) return null;
   let offset;
-  try { offset = new Intl.DateTimeFormat("en-US", { timeZone, timeZoneName: "longOffset" }).formatToParts(new Date(localAsUtc)).find(part => part.type === "timeZoneName")?.value; } catch { return null; }
+  try { offset = offsetFormatter(timeZone).formatToParts(new Date(localAsUtc)).find(part => part.type === "timeZoneName")?.value; } catch { return null; }
   const match = offset === "GMT" ? ["", "+", "00", "00"] : offset?.match(/^GMT([+-])(\d{2}):(\d{2})$/);
   if (!match) return null;
   return localAsUtc - (Number(match[2]) * 60 + Number(match[3])) * (match[1] === "+" ? 1 : -1) * 60_000;

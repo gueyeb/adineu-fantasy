@@ -7,7 +7,7 @@
  * Two separate answers, never merged: marketScore/faabMarket (what the player is worth to the
  * league) and fitScore/faabMaxForMe (what he is worth to one roster). Estimates, labeled as such.
  */
-import { buildProjectedLineup } from "./trade-score.js?v=58e23d308f";
+import { buildProjectedLineup } from "./trade-score.js?v=ab767c5c44";
 import { BYE_WEEKS_2026, GENERAL_SETTINGS_2026 } from "./league-settings.js?v=f6d1bf5212";
 
 export const LAST_REGULAR_WEEK = GENERAL_SETTINGS_2026.playoffWeekStart - 1;
@@ -237,6 +237,9 @@ export function evaluateRosterFit({ marketRow, myPlayers, paceOf, week, faabRema
   // counted as 0 and listed, instead of blocking every comparison (A.J. Brown on IR blocked all
   // 93 board rows in week 6). A candidate without a projection still blocks.
   const absentAssumedOut = new Map();
+  // The roster's own lineup for a week does not depend on the cut: computed once per week, not once per cut.
+  const beforeByWeek = new Map();
+  const rosterLineup = (key, build) => { if (!beforeByWeek.has(key)) beforeByWeek.set(key, build()); return beforeByWeek.get(key); };
   const absentUnprojected = (p, w) => p !== marketRow && Boolean(projectionCovered) && ABSENT.has(p.injuryStatus) && !projectionCovered(p, w);
   const simulate = cut => {
     const pool = [...activePlayers.filter(p => !cut || String(p.sleeperId) !== String(cut.sleeperId)), marketRow];
@@ -260,7 +263,7 @@ export function evaluateRosterFit({ marketRow, myPlayers, paceOf, week, faabRema
       const fixedSlots = w === week ? frozenSlots : {};
       // Unknown values are used only to construct a diagnostic lineup, never a publishable gain.
       const safeEstimate = p => absentUnprojected(p, w) ? 0 : Number.isFinite(estimate(p)) ? estimate(p) : 0;
-      const before = buildProjectedLineup(activePlayers, { estimate: safeEstimate, fixedSlots });
+      const before = rosterLineup(`fit:${w}`, () => buildProjectedLineup(activePlayers, { estimate: safeEstimate, fixedSlots }));
       const after = buildProjectedLineup(pool, { estimate: safeEstimate, fixedSlots });
       const blockers = projectionCovered ? blockersFor([...activePlayers, marketRow], w) : [];
       const projectionsCovered = !blockers.length;
@@ -290,7 +293,7 @@ export function evaluateRosterFit({ marketRow, myPlayers, paceOf, week, faabRema
         const covered = priorRolesCovered(w) && projectionsCovered;
         if (!projectionsCovered) { coverageIssues.add(`MISSING_POST_ROLE_PROJECTIONS_WEEK_${w}`); coverageBlockers.push(...blockers); }
         const safeEstimate = p => absentUnprojected(p, w) ? 0 : Number.isFinite(estimate(p)) ? estimate(p) : 0;
-        const before = buildProjectedLineup(activePlayers, { estimate: safeEstimate });
+        const before = rosterLineup(`post:${w}`, () => buildProjectedLineup(activePlayers, { estimate: safeEstimate }));
         const after = buildProjectedLineup(retained, { estimate: safeEstimate });
         postRoleCutDeltas.push({ week: w, lostPoints: covered ? round(Math.max(0, before.total - after.total)) : null });
       }

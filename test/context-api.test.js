@@ -68,6 +68,11 @@ test("context API exposes JSON and a copy-pasteable text format", async t => {
   assert.equal(textResponse.status, 200);
   assert.match(textResponse.headers.get("content-type"), /text\/plain/);
   assert.match(await textResponse.text(), /MON ROSTER/);
+
+  const copy = await (await fetch(`http://127.0.0.1:${port}/api/context?team=t0z&mode=compact&view=copy`)).json();
+  assert.deepEqual(Object.keys(copy).sort(), ["message", "myTeam"]);
+  assert.deepEqual(Object.keys(copy.myTeam).sort(), ["bench", "ir", "rosterId", "starters"]);
+  assert.match(copy.message, /MON ROSTER/);
 });
 
 test("context API rejects an unknown team instead of guessing a roster", async t => {

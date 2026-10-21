@@ -366,6 +366,12 @@ export function createAppServer({
           response.end(message);
           return;
         }
+        // The footer copy button only needs the text and the roster (to name saved preferences): ~1 MB less.
+        if (url.searchParams.get("view") === "copy") {
+          const { rosterId, starters, bench, ir } = context.myTeam;
+          sendJson(response, 200, { message, myTeam: { rosterId, starters, bench, ir } });
+          return;
+        }
         sendJson(response, 200, { ...context, message });
       } catch (error) {
         const isUnknownTeam = error.message.startsWith("Équipe Sleeper inconnue");

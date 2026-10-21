@@ -59,21 +59,22 @@ export function restOfSeasonEstimate(week) {
 
 /** Optimal lineup from a pool. An empty slot is a real 0 (it scores nothing), not missing data. */
 export function buildProjectedLineup(players = [], { estimate = weeklyEstimate, fixedSlots = {} } = {}) {
-  const pool = [...new Map(players.map(player => [identity(player), player])).values()];
-  const value = new Map(pool.map(player => [identity(player), estimate(player)]));
+  // Hot path of every waiver/cut simulation: ids and values are computed once, not inside the sort.
+  const byId = new Map(players.map(player => [identity(player), player]));
+  const entries = [...byId].map(([id, player]) => ({ id, player, value: estimate(player) }));
   const used = new Set();
   const reserved = new Set(Object.values(fixedSlots).map(String));
   const slots = [];
   for (const [position, count] of Object.entries(ROSTER_SETTINGS_2026.starters)) {
-    const candidates = pool.filter(player => !used.has(identity(player)) && !reserved.has(identity(player)) && (position === "FLEX"
+    const candidates = entries.filter(({ id, player }) => !used.has(id) && !reserved.has(id) && (position === "FLEX"
       ? ["RB", "WR", "TE"].includes(player.position)
-      : player.position === position)).sort((a, b) =>
-      value.get(identity(b)) - value.get(identity(a)) || identity(a).localeCompare(identity(b)));
+      : player.position === position)).sort((a, b) => b.value - a.value || a.id.localeCompare(b.id));
     for (let i = 0; i < count; i++) {
       const slotName = count > 1 ? `${position}${i + 1}` : position;
-      const player = fixedSlots[slotName] ? pool.find(p => identity(p) === String(fixedSlots[slotName])) : candidates.shift();
-      if (player) used.add(identity(player));
-      slots.push({ slot: count > 1 ? `${position}${i + 1}` : position, name: player?.name || "Slot vide", sleeperId: player ? identity(player) : null, projectedPpg: player ? value.get(identity(player)) : 0, empty: !player });
+      const fixedId = fixedSlots[slotName] ? String(fixedSlots[slotName]) : null;
+      const entry = fixedId ? entries.find(e => e.id === fixedId) : candidates.shift();
+      if (entry) used.add(entry.id);
+      slots.push({ slot: slotName, name: entry?.player.name || "Slot vide", sleeperId: entry ? entry.id : null, projectedPpg: entry ? entry.value : 0, empty: !entry });
     }
   }
   return { slots, emptySlots: slots.filter(slot => slot.empty).map(slot => slot.slot), total: round(slots.reduce((sum, slot) => sum + slot.projectedPpg, 0)) };
