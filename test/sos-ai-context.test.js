@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildSosAiContext, readSosHandoff, formatSosHandoff } from '../public/assets/sos-ai-context.js';
+import { buildSosAiContext, combineSosAiContexts, readSosHandoff, formatSosHandoff } from '../public/assets/sos-ai-context.js';
 import { sosDifficultyFields } from '../public/assets/sos-insights.js';
 import { evaluateSos } from '../scripts/sos-feedback.js';
 import { buildSosBundle } from '../scripts/sos-service.js';
@@ -121,4 +121,18 @@ test('evaluation API includes immutable forecast and separately dated observatio
   assert.equal(data.forecast.window.viewMode, 'AS_OF_SNAPSHOT');
   assert.equal(data.observationSources.dvp.fetchedAt, input.dvp.fetchedAt);
   assert.equal(data.sample, 0);
+});
+
+test('combined SOS export keeps WR then RB reports separate, whatever the displayed position', () => {
+  const wr = buildSosAiContext(snapshot, { exportedAt: '2026-10-15T13:00:00Z' });
+  const rb = wr.replace(/Position: WR/, 'Position: RB');
+  const markdown = combineSosAiContexts([{ position: 'RB', text: rb }, { position: 'WR', text: wr }]);
+  assert.match(markdown, /^# ADINEU FANTASY — SOS COMBINÉ \(WR \+ RB\)/);
+  assert.ok(markdown.indexOf('Position: WR') < markdown.indexOf('Position: RB'));
+  assert.equal((markdown.match(/^# /gm) || []).length, 1); // Each report's headings are nested under the combined title.
+  assert.match(markdown, /^## ADINEU FANTASY — SOS CONTEXT/m);
+  const json = JSON.parse(combineSosAiContexts([{ position: 'RB', text: buildSosAiContext(snapshot, { format: 'JSON' }) }, { position: 'WR', text: buildSosAiContext(snapshot, { format: 'JSON' }) }], 'JSON'));
+  assert.equal(json.schema, 'adineu.sos.combined.v1');
+  assert.deepEqual(json.positions, ['WR', 'RB']);
+  assert.equal(json.reports.WR.schema, 'adineu.sos.v1');
 });

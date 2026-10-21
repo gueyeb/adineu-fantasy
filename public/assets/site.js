@@ -1,4 +1,4 @@
-import { renderSosExplorer } from "./sos-explorer.js?v=017782925f";
+import { renderSosExplorer } from "./sos-explorer.js?v=9ede5b597e";
 import { renderPublicWeek } from "./public-week.js?v=e1f660c8b4";
 import { buildSharedPlayoffContext } from "./playoff-context.js?v=ebd0c909f3";
 import { calculatePowerRankings, MINIMUM_COMPLETED_WEEKS, POWER_WEIGHTS } from "./power-rankings.js?v=86d062a9e8";
@@ -11,7 +11,7 @@ import {
   buildSleeperSeasonMeetings,
   sleeperManager
 } from "./rivalry-week.js?v=714a861458";
-import { renderTradesPage } from "./trade-ui.js?v=8922e333a7";
+import { renderTradesPage } from "./trade-ui.js?v=cf24d58cb0";
 import { renderMatchupsHub } from "./matchups-live.js?v=571a52c134";
 import { calculatePlayoffRace } from "./playoff-race.js?v=52283bf11a";
 import { calculateLuck, calculateRankHistory } from "./standings-luck.js?v=7363afbb9e";
@@ -127,7 +127,7 @@ async function fetchDecisionContextText() {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 60000);
   try {
-    const response = await fetch("/api/context?mode=decision", { signal: controller.signal });
+    const response = await fetch("/api/context?mode=decision&view=copy", { signal: controller.signal });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const context = await response.json();
     let preferences = {};

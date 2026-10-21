@@ -9,7 +9,7 @@ import { buildTiers } from "./value-tiers.js?v=32f5359873";
 import { buildWaiverDisplayTiers } from "./waiver-board.js?v=8889a568a8";
 
 import { calculatePlayerTradeValue, calculatePlayerTradeProfile, evaluateTrade } from "./trade-value.js?v=2c9caa87cf";
-import { diagnoseRoster, findTradeProposals, findCounterOffers } from "./trade-recommender.js?v=073d387759";
+import { diagnoseRoster, findTradeProposals, findCounterOffers } from "./trade-recommender.js?v=83d80b9cc2";
 import { addToWatchlist, removeFromWatchlist, REASON_MAX } from "./war-room.js?v=e9eae48675";
 import { loadWatchlist, saveWatchlist } from "./war-room-store.js?v=7fbca3341a";
 import { PLAYER_STATUSES, playerKey, playerStatus } from "./trade-preferences.js?v=c5fec5ce56";
@@ -22,7 +22,7 @@ import { resolveOperationalWeek } from "./nfl-week.js?v=8f9fa3f5b2";
 import { listRosterIdentities } from "./roster-view.js?v=120de9d74d";
 import { calculateFaabRemaining } from "./team-metrics.js?v=e47db97055";
 import { compactAuction, formatAuction } from "./faab-auction.js?v=1eea51c520";
-import { buildProjectedLineup, restOfSeasonEstimate } from "./trade-score.js?v=58e23d308f";
+import { buildProjectedLineup, restOfSeasonEstimate } from "./trade-score.js?v=ab767c5c44";
 
 import { SLEEPER_API, SLEEPER_LEAGUE_ID, sleeperGet } from "./sleeper-client.js?v=3f75d48ec5";
 const SUPABASE_URL = "https://juosrzsffvjprqhdyado.supabase.co";

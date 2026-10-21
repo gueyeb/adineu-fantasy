@@ -1,4 +1,4 @@
-import { readSosHandoff, formatSosHandoff, SOS_HANDOFF_KEY } from './sos-ai-context.js?v=b1eb756fb9';
+import { readSosHandoff, formatSosHandoff, SOS_HANDOFF_KEY } from './sos-ai-context.js?v=4f44f5a9de';
 import { copyTextFrom, registerPageAiContext } from './ai-context-client.js?v=d42756c77d';
 let explorerContext = null;
 try { explorerContext = readSosHandoff(globalThis.sessionStorage); } catch { /* Private browsing may deny storage. */ }

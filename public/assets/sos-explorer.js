@@ -1,6 +1,6 @@
 import { sosDifficultyFields } from './sos-insights.js?v=c553d8c0f3';
-import { buildSosAiContext, SOS_HANDOFF_KEY } from './sos-ai-context.js?v=b1eb756fb9';
-import { registerPageAiContext } from './ai-context-client.js?v=d42756c77d';
+import { buildSosAiContext, combineSosAiContexts, SOS_HANDOFF_KEY } from './sos-ai-context.js?v=4f44f5a9de';
+import { copyTextFrom, registerPageAiContext } from './ai-context-client.js?v=d42756c77d';
 import { SOS_TEAM_CODES } from './wr-ros-sos.js?v=718476d9fa';
 const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const number = value => Number.isFinite(value) ? value.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) : '—';
@@ -29,7 +29,7 @@ export async function renderSosExplorer(app) {
     <label>Couverture<select id="sos-coverage"><option value="">Toutes</option>${options({ COMPLETE: 'Complète', PARTIAL: 'Partielle', UNAVAILABLE: 'Indisponible' })}</select></label>
     <label>Semaines affichées<select id="sos-weeks"><option value="">Tout l’horizon</option>${options(Object.fromEntries(Array.from({ length: 18 }, (_, i) => [i + 1, `Semaine ${i + 1}`])))}</select></label></div>
     <p class="sos-note">Les filtres réduisent l’affichage, jamais le score ni le rang de l’horizon.</p>
-    <div class="sos-ai"><button type="button" id="sos-copy" disabled>Copier pour l’IA</button> <button type="button" id="sos-coach" disabled>Analyser dans le Coach</button><details><summary>Options d’export IA</summary><div class="sos-filters"><label>Équipes<select id="sos-scope"><option value="ALL">32 équipes</option><option value="SELECTED">Équipe sélectionnée</option><option value="EXTREMES">Top 10 + Bottom 10</option></select></label><label>Détail<select id="sos-detail"><option value="FULL">Adversaires et méthode</option><option value="COMPACT">Résumé compact</option></select></label><label>Format<select id="sos-format"><option value="MARKDOWN">Markdown</option><option value="JSON">JSON versionné</option></select></label><label><input type="checkbox" id="sos-compare"> Comparer passé et futur</label></div></details><p id="sos-ai-status" role="status" aria-live="polite"></p></div><p class="sos-scroll-hint">Faites défiler le tableau pour voir le score et la couverture.</p><div id="sos-results" aria-busy="true"></div><details class="sos-method"><summary>Méthode, sources et limites</summary><div id="sos-sources"></div><p><span data-sos-position>${position}</span> PPR concédés par match, ajustés : production de tous les <span data-sos-position>${position}</span> adverses, pas une projection individuelle. Moyenne des adversaires de la fenêtre, régression vers la moyenne NFL (k = 3). Rang 1 = plus favorable. Byes hors dénominateur ; matchs commencés exclus des fenêtres futures. PAST courant utilise les données actuelles ; seul le passé figé conserve les prévisions authentiques.</p><p>La difficulté relative suit le rang (1–10 favorable, 11–22 intermédiaire, 23–32 difficile), égalités conservées. La difficulté absolue compare le score à la moyenne NFL (±12 %). Un rang extrême peut rester neutre. La couverture mesure les données disponibles, pas la précision prédictive.</p><p>Un calendrier favorable ne constitue pas une recommandation ADD ou START. Rôle, routes, targets, disponibilité et coût de coupe restent prioritaires. Aucune projection Sleeper n’est modifiée.</p></details></div></section>`;
+    <div class="sos-ai"><button type="button" id="sos-copy" disabled>Copier WR + RB pour l’IA</button> <button type="button" id="sos-coach" disabled>Analyser dans le Coach</button><details><summary>Options d’export IA</summary><div class="sos-filters"><label>Équipes<select id="sos-scope"><option value="ALL">32 équipes</option><option value="SELECTED">Équipe sélectionnée</option><option value="EXTREMES">Top 10 + Bottom 10</option></select></label><label>Détail<select id="sos-detail"><option value="FULL">Adversaires et méthode</option><option value="COMPACT">Résumé compact</option></select></label><label>Format<select id="sos-format"><option value="MARKDOWN">Markdown</option><option value="JSON">JSON versionné</option></select></label><label><input type="checkbox" id="sos-compare"> Comparer passé et futur</label></div></details><p id="sos-ai-status" role="status" aria-live="polite"></p></div><p class="sos-scroll-hint">Faites défiler le tableau pour voir le score et la couverture.</p><div id="sos-results" aria-busy="true"></div><details class="sos-method"><summary>Méthode, sources et limites</summary><div id="sos-sources"></div><p><span data-sos-position>${position}</span> PPR concédés par match, ajustés : production de tous les <span data-sos-position>${position}</span> adverses, pas une projection individuelle. Moyenne des adversaires de la fenêtre, régression vers la moyenne NFL (k = 3). Rang 1 = plus favorable. Byes hors dénominateur ; matchs commencés exclus des fenêtres futures. PAST courant utilise les données actuelles ; seul le passé figé conserve les prévisions authentiques.</p><p>La difficulté relative suit le rang (1–10 favorable, 11–22 intermédiaire, 23–32 difficile), égalités conservées. La difficulté absolue compare le score à la moyenne NFL (±12 %). Un rang extrême peut rester neutre. La couverture mesure les données disponibles, pas la précision prédictive.</p><p>Un calendrier favorable ne constitue pas une recommandation ADD ou START. Rôle, routes, targets, disponibilité et coût de coupe restent prioritaires. Aucune projection Sleeper n’est modifiée.</p></details></div></section>`;
   const el = id => app.querySelector(`#sos-${id}`);
   let capturedHorizons = null;
   let feedback = null;
@@ -44,12 +44,57 @@ export async function renderSosExplorer(app) {
     comparisons: el('compare').checked ? Object.values(capturedHorizons ?? {}).filter(row => row.window.horizon !== response?.window.horizon && row.window.horizon !== 'NFL_ROS') : []
     });
   };
-  registerPageAiContext(() => exportContext());
+  // The other position for the combined export, same horizon and perspective. Archives and
+  // evaluations are position-specific snapshots: those views export the displayed position only.
+  const otherCache = new Map();
+  const loadOtherPosition = (other, horizon, perspective) => {
+    const key = `${other}:${horizon}:${perspective}`;
+    if (!otherCache.has(key)) otherCache.set(key, (async () => {
+      const query = new URLSearchParams({ position: other, horizon });
+      if (perspective === 'FROZEN') query.set('perspective', 'FROZEN');
+      const json = url => fetch(url, { signal: AbortSignal.timeout(15000) }).then(r => r.ok ? r.json() : null);
+      const [loaded, trendData, snapshots] = await Promise.all([
+        json(`/api/sos${perspective === 'FROZEN' ? '' : '/bundle'}?${query}`),
+        perspective === 'FROZEN' ? null : json(`/api/sos/trends?position=${other}&horizon=${encodeURIComponent(horizon)}`).catch(() => null),
+        perspective === 'FROZEN' ? null : json(`/api/sos/snapshots?position=${other}`).catch(() => null)
+      ]);
+      if (!loaded) throw Error(`Données ${other} indisponibles.`);
+      const feedbackId = snapshots?.snapshots?.[0]?.snapshotId;
+      const otherFeedback = feedbackId ? await json(`/api/sos/evaluation?position=${other}&snapshotId=${encodeURIComponent(feedbackId)}`).catch(() => null) : null;
+      return { snapshot: loaded.horizons ? loaded.horizons[horizon] : loaded, horizons: loaded.horizons ?? null, feedback: otherFeedback,
+        trends: (trendData?.snapshots ?? []).map(row => ({ ...row, methodologyVersion: trendData.methodologyVersion, horizon: trendData.horizon })) };
+    })().catch(error => { otherCache.delete(key); throw error; }));
+    return otherCache.get(key);
+  };
+  let combinedNote = '';
+  const exportCombined = async () => {
+    const format = el('format').value;
+    const current = exportContext(format);
+    const perspective = el('perspective').value;
+    const other = position === 'RB' ? 'WR' : 'RB';
+    if (!['CURRENT', 'FROZEN'].includes(perspective)) { combinedNote = `Vue archive : seul ${position} est exporté (snapshots propres à chaque position).`; return current; }
+    try {
+      const data = await loadOtherPosition(other, el('horizon').value, perspective);
+      const text = buildSosAiContext(data.snapshot, {
+        scope: el('scope').value, team: el('team').value, detail: el('detail').value, format,
+        filters: { ...state(), displayedWeek: el('weeks').value || null, perspective }, modelFeedback: data.feedback, trends: data.trends,
+        comparisons: el('compare').checked ? Object.values(data.horizons ?? {}).filter(row => row.window.horizon !== data.snapshot?.window.horizon && row.window.horizon !== 'NFL_ROS') : []
+      });
+      combinedNote = 'Rapport combiné WR + RB copié.';
+      return combineSosAiContexts([{ position, text: current }, { position: other, text }], format);
+    } catch (error) {
+      combinedNote = `${error.message} Seul ${position} a été copié.`;
+      return current;
+    }
+  };
+  registerPageAiContext(() => exportCombined());
   for (const action of ['copy', 'coach']) el(action).addEventListener('click', async () => {
     try {
-      if (action === 'copy') await navigator.clipboard.writeText(exportContext());
-      else { sessionStorage.setItem(SOS_HANDOFF_KEY, exportContext('JSON')); location.assign('/coach/'); }
-      el('ai-status').textContent = 'Contexte copié depuis le snapshot affiché.';
+      if (action === 'copy') {
+        el('ai-status').textContent = 'Préparation du rapport WR + RB…';
+        await copyTextFrom(exportCombined());
+        el('ai-status').textContent = combinedNote;
+      } else { sessionStorage.setItem(SOS_HANDOFF_KEY, exportContext('JSON')); location.assign('/coach/'); }
     } catch (error) { el('ai-status').textContent = error.message; }
   });
   function draw() {

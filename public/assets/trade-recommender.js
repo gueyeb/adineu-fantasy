@@ -8,7 +8,7 @@
  */
 
 import { calculatePlayerTradeValue, evaluateTrade } from "./trade-value.js?v=2c9caa87cf";
-import { buildProjectedLineup, restOfSeasonEstimate, scoreTradeRecommendation } from "./trade-score.js?v=58e23d308f";
+import { buildProjectedLineup, restOfSeasonEstimate, scoreTradeRecommendation } from "./trade-score.js?v=ab767c5c44";
 import { playerKey, preferenceAdjustment } from "./trade-preferences.js?v=c5fec5ce56";
 
 export const KNOWN_HANDCUFFS = [

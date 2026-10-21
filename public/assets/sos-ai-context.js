@@ -66,6 +66,14 @@ export function buildSosAiContext(snapshot, options = {}) {
   ];
   return ['# ADINEU FANTASY — SOS CONTEXT', `Schema: adineu.sos.v1\nPosition: ${position}\nScoring: Full PPR`, `Consultation / export: ${exportedAt}\nSource: ${data.source}\nSélection: ${scope} · ${detail}\nFiltres affichés: ${JSON.stringify(filters)} (sans recalcul des rangs ni scores)`, ...sections, '## MODEL_FEEDBACK', ...feedbackLines, '## Règles d’interprétation', rules.map(rule => `- ${rule}`).join('\n')].join('\n\n');
 }
+/** WR and RB exports side by side. Each keeps its own methodology, snapshot and ranks; nothing is merged. */
+export function combineSosAiContexts(parts, format = 'MARKDOWN') {
+  const ordered = [...parts].sort((a, b) => ['WR', 'RB'].indexOf(a.position) - ['WR', 'RB'].indexOf(b.position));
+  if (format === 'JSON') return JSON.stringify({ schema: 'adineu.sos.combined.v1', positions: ordered.map(part => part.position),
+    reports: Object.fromEntries(ordered.map(part => [part.position, JSON.parse(part.text)])) }, null, 2);
+  return [`# ADINEU FANTASY — SOS COMBINÉ (${ordered.map(part => part.position).join(' + ')})\n\nRapports indépendants par position : méthodologie, snapshot et rangs propres à chacune. Ne pas comparer un score WR à un score RB ; croiser les deux seulement par équipe (ex. calendrier favorable aux RB, difficile aux WR).`,
+    ...ordered.map(part => part.text.replace(/^(#+) /gm, '#$1 '))].join('\n\n---\n\n');
+}
 export const SOS_HANDOFF_KEY = 'adineu:sos-ai-context:v1';
 export function readSosHandoff(storage, now = Date.now()) {
   try {
