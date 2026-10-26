@@ -551,7 +551,7 @@ tbody tr:hover td { background: rgba(184, 255, 61, 0.045); }
 }
 .matchup-refresh button { color: var(--grass); cursor: pointer; font-size: 0.75rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
 .matchup-refresh button:hover, .matchup-refresh button:focus-visible { border-color: var(--grass); outline: none; }
-.live-matchup-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.live-matchup-grid { align-items: start; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
 .live-matchup-grid > .state, .live-matchup-grid > .matchup-empty { grid-column: 1 / -1; }
 .live-matchup-card { position: relative; overflow: hidden; border: 1px solid var(--line); background: var(--paper-soft); }
 .live-matchup-card::before { position: absolute; top: 0; bottom: 0; left: 50%; width: 1px; background: rgba(184, 255, 61, 0.055); content: ""; }
@@ -1150,3 +1150,28 @@ span.war-followed { cursor: default; }
 #recap-content .table-wrap { max-width: 100%; }
 .weekly-details summary { min-height: 40px; display: flex; align-items: center; }
 .recap-bench .award-team { display: block; color: var(--muted); white-space: normal; }
+
+/* Live standings remain descriptive; the estimate is a separate scenario. */
+.live-standing-panel { margin: 0 0 32px; padding: 20px; border: 1px solid var(--line); background: var(--paper-soft); }
+.live-standing-toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.live-standing-toolbar button { min-height: 44px; }
+.live-standing-toolbar button[aria-pressed="true"] { background: var(--grass); color: var(--ink-inverse, #101810); }
+.live-standing-table { width: 100%; }
+.live-standing-table td small, .live-player-table td small { display: block; color: var(--muted); font-size: 0.72rem; }
+.live-standing-table td, .live-standing-table th { white-space: nowrap; }
+.live-card-note { padding: 0 16px; color: var(--muted); font-size: 0.76rem; }
+.live-lineup-detail { position: relative; background: var(--paper-soft); border-top: 1px solid var(--line); padding: 14px; }
+.live-lineup-detail summary, .live-nfl-games summary { cursor: pointer; min-height: 40px; font-weight: 700; }
+.live-lineup-detail h4 { margin: 18px 0 8px; }
+.live-player-table { width: 100%; font-size: 0.76rem; }
+.live-player-table td, .live-player-table th { white-space: nowrap; }
+.live-nfl-games { margin: 20px 0; padding: 16px; border: 1px solid var(--line); }
+.live-nfl-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.live-nfl-grid small { display: block; color: var(--muted); }
+@media (max-width: 600px) { .live-standing-panel { padding: 12px; } .live-nfl-grid { grid-template-columns: 1fr; } }
+
+.live-standing-table td { padding: 8px 12px; }
+.live-lineup-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.live-lineup-grid > section { min-width: 0; }
+.live-matchup-card:has(.live-lineup-detail[open]) { grid-column: 1 / -1; }
+@media (max-width: 760px) { .live-lineup-grid { grid-template-columns: 1fr; } }

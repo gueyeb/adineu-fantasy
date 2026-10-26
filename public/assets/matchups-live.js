@@ -1,3 +1,4 @@
+import { renderLiveStandings, renderLiveTrackerCards, renderNflLiveGames } from "./live-tracker-view.js?v=356c5aef87";
 import { tierChip, tierSeparator } from "./tier-view.js?v=d3a45b4046";
 import { sleeperManager } from "./rivalry-week.js?v=714a861458";
 import { buildWeeklyAwards, resolveCompletedAwardsWeek } from "./weekly-awards.js?v=b8a7dc8708";
@@ -165,7 +166,7 @@ function historyLabel(matchup) {
 function renderTeam(team, chance, side) {
   const projection = team.projection.total === null
     ? `<small>Projection en attente</small>`
-    : `<small>Proj. ${team.projection.total.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} pts${Number.isFinite(chance) ? ` · ${chance}%` : ""}</small>`;
+    : `<small>Avant-match : ${team.projection.total.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} pts${Number.isFinite(chance) ? ` · ${chance}%` : ""}</small>`;
   return `<div class="matchup-team matchup-team-${side}">
     <span class="matchup-manager">${escapeHtml(team.manager)}</span>
     <strong>${escapeHtml(team.teamName)}</strong>
@@ -179,10 +180,11 @@ function renderMatchupCards(matchups, status) {
   if (!matchups.length) return `<div class="matchup-empty"><strong>Calendrier incomplet</strong><p>Sleeper n’a pas encore publié les six affiches de cette semaine.</p></div>`;
   return matchups.map((matchup, index) => {
     const [teamA, teamB] = matchup.teams;
-    const chanceA = matchup.chances?.teamA ?? null;
-    const chanceB = matchup.chances?.teamB ?? null;
+    const showPregame = ["À venir", "Programmé"].includes(status);
+    const chanceA = showPregame ? matchup.chances?.teamA ?? null : null;
+    const chanceB = showPregame ? matchup.chances?.teamB ?? null : null;
     const lineupIncomplete = teamA.starters < 9 || teamB.starters < 9;
-    const pendingCopy = lineupIncomplete
+    const pendingCopy = !showPregame ? "Probabilités d’avant-match masquées : aucun pourcentage live calculé." : lineupIncomplete
       ? "Probabilité suspendue : au moins une lineup est incomplète."
       : "Probabilité publiée dès que les projections Sleeper couvrent les deux lineups.";
     return `<article class="live-matchup-card">
@@ -192,7 +194,7 @@ function renderMatchupCards(matchups, status) {
         <i>VS</i>
         ${renderTeam(teamB, chanceB, "b")}
       </div>
-      ${matchup.chances ? `<div class="win-meter" aria-label="Estimation pré-match : ${chanceA}% pour ${escapeHtml(teamA.manager)}, ${chanceB}% pour ${escapeHtml(teamB.manager)}"><span style="width:${chanceA}%"></span></div>` : `<div class="projection-pending${lineupIncomplete ? " lineup-alert" : ""}">${pendingCopy}</div>`}
+      ${showPregame && matchup.chances ? `<div class="win-meter" aria-label="Estimation pré-match : ${chanceA}% pour ${escapeHtml(teamA.manager)}, ${chanceB}% pour ${escapeHtml(teamB.manager)}"><span style="width:${chanceA}%"></span></div>` : `<div class="projection-pending${lineupIncomplete ? " lineup-alert" : ""}">${pendingCopy}</div>`}
       <footer><span>${escapeHtml(historyLabel(matchup))}</span><small class="${lineupIncomplete ? "lineup-alert" : ""}">${teamA.starters}/9 · ${teamB.starters}/9 titulaires</small></footer>
     </article>`;
   }).join("");
@@ -310,10 +312,6 @@ function weekStatus(week, currentWeek, hasScores) {
   return hasScores ? "En cours" : "À venir";
 }
 
-function formatRefreshTime() {
-  return new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit" }).format(new Date());
-}
-
 export async function renderMatchupsHub(container, {
   leagueId = DEFAULT_LEAGUE_ID,
   renderArchive
@@ -336,11 +334,15 @@ export async function renderMatchupsHub(container, {
   </div></div>
   <div id="matchups-panel-live" class="matchups-panel" role="tabpanel">
     <section class="section"><div class="shell">
-      <div class="section-head matchup-live-head"><div><p class="eyebrow" id="live-eyebrow">Sleeper · semaine courante</p><h2>Les six affiches.</h2></div>
+      <div class="section-head matchup-live-head"><div><p class="eyebrow" id="live-eyebrow">Sleeper · semaine courante</p><h2>La ligue, en direct.</h2></div>
         <div class="matchup-refresh"><small id="live-updated">Synchronisation…</small><button type="button" id="refresh-matchups">Actualiser</button></div>
       </div>
+      <p id="live-update-status" class="note" role="status"></p>
+      <section class="live-standing-panel" id="live-standing-panel" aria-live="polite"></section>
+      <h3>Les six affiches.</h3>
       <div class="live-matchup-grid" id="live-matchup-grid" aria-live="polite"><div class="state">Chargement des scores Sleeper…</div></div>
-      <p class="note"><strong>Lecture :</strong> scores et lineups viennent directement de Sleeper. La probabilité, lorsqu’elle est disponible, est une estimation pré-match Adineu fondée sur les projections et non une cote officielle.</p>
+      <div id="live-nfl-games"></div>
+      <p class="note"><strong>Lecture :</strong> scores et lineups Sleeper ; horloges NFL ESPN. Classement provisoire et estimation Adineu séparés du classement officiel. Actualisation toutes les 30 secondes tant que cette vue est visible.</p>
     </div></section>
   </div>
   <div id="matchups-panel-schedule" class="matchups-panel" role="tabpanel" hidden>
@@ -391,7 +393,7 @@ export async function renderMatchupsHub(container, {
     fetchJson(urls.history, { optional: true })
   ]);
   const historicalRecords = buildHistoricalRecords(archive);
-  const currentWeek = resolveOperationalWeek(nflState);
+  let currentWeek = resolveOperationalWeek(nflState);
   const season = nflState.season || league.season || "2026";
   const regularWeekCount = Math.max(1, Number(league.settings?.playoff_week_start || 15) - 1);
   document.getElementById("hub-week").textContent = String(currentWeek).padStart(2, "0");
@@ -402,14 +404,73 @@ export async function renderMatchupsHub(container, {
     .map(week => `<option value="${week}"${week === currentWeek ? " selected" : ""}>Semaine ${week}${week === currentWeek ? " · actuelle" : ""}</option>`).join("");
 
   const recapSelect = document.getElementById("recap-week");
-  const completedThroughWeek = resolveCompletedAwardsWeek({ league, state: nflState });
+  let completedThroughWeek = resolveCompletedAwardsWeek({ league, state: nflState });
   const requestedWeek = Number(new URLSearchParams(window.location.search).get("week"));
   const defaultRecapWeek = Number.isInteger(requestedWeek) && requestedWeek >= 1 && requestedWeek <= regularWeekCount
     ? requestedWeek : completedThroughWeek || 1;
   recapSelect.innerHTML = Array.from({ length: regularWeekCount }, (_, index) => index + 1)
     .map(week => `<option value="${week}"${week === defaultRecapWeek ? " selected" : ""}>Semaine ${week}</option>`).join("");
 
+  let liveReport = null;
+  let standingMode = "live";
+  let liveLoading = false;
+  function showStandings() {
+    const panel = document.getElementById("live-standing-panel");
+    const methodOpen = panel.querySelector("details")?.open;
+    const focusedMode = panel.contains(document.activeElement) ? document.activeElement.dataset.standingMode : null;
+    panel.innerHTML = renderLiveStandings(liveReport, standingMode);
+    if (methodOpen && panel.querySelector("details")) panel.querySelector("details").open = true;
+    if (focusedMode) panel.querySelector(`[data-standing-mode="${focusedMode}"]`)?.focus();
+    panel.querySelectorAll("[data-standing-mode]").forEach(button => button.addEventListener("click", () => {
+      standingMode = button.dataset.standingMode;
+      showStandings();
+    }));
+  }
+  async function refreshLive() {
+    if (liveLoading) return;
+    liveLoading = true;
+    const button = document.getElementById("refresh-matchups");
+    button.disabled = true;
+    try {
+      const report = await fetchJson("/api/live-standings", { timeoutMs: 25_000 });
+      if (!container.isConnected) return;
+      if (report.season && report.season !== String(season)) throw new Error("Season changed; reload required");
+      if (Number.isInteger(report.week) && report.week !== currentWeek) {
+        currentWeek = report.week;
+        completedThroughWeek = Math.min(regularWeekCount, Math.max(0, currentWeek - 1));
+        for (const option of scheduleSelect.options) option.textContent = `Semaine ${option.value}${Number(option.value) === currentWeek ? " · actuelle" : ""}`;
+      }
+      liveReport = report;
+      document.getElementById("hub-week").textContent = String(report.week || currentWeek).padStart(2, "0");
+      document.getElementById("live-eyebrow").textContent = `Sleeper · semaine ${report.week || currentWeek} · ${report.completed ? "scores publiés" : "suivi en cours"}`;
+      const cards = document.getElementById("live-matchup-grid");
+      const openDuels = new Set([...cards.querySelectorAll("details[open]")].map(detail => detail.dataset.matchupId));
+      const focusedDuel = cards.contains(document.activeElement) ? document.activeElement.closest("details")?.dataset.matchupId : null;
+      const historyCards = buildSeasonMatchups({ rows: (report.matchups || []).flatMap(pair => pair.teams.map(team => ({
+        matchup_id: pair.matchupId, roster_id: team.rosterId, points: team.points, starters: team.starters.map(player => player.playerId)
+      }))), rosters, users, historicalRecords });
+      const labels = new Map(historyCards.map(pair => [String(pair.matchupId), historyLabel(pair)]));
+      cards.innerHTML = renderLiveTrackerCards({ ...report, matchups: (report.matchups || []).map(pair => ({ ...pair, historyLabel: labels.get(String(pair.matchupId)) })) });
+      for (const detail of cards.querySelectorAll("details")) {
+        if (openDuels.has(detail.dataset.matchupId)) detail.open = true;
+        if (detail.dataset.matchupId === focusedDuel) detail.querySelector("summary")?.focus();
+      }
+      document.getElementById("live-nfl-games").innerHTML = renderNflLiveGames(report.nfl);
+      showStandings();
+      document.getElementById("live-updated").textContent = `Données au ${new Date(report.asOf).toLocaleTimeString("fr-FR", { timeZone: "Europe/Paris" })} · Paris`;
+      document.getElementById("live-update-status").textContent = "";
+    } catch {
+      if (!container.isConnected) return;
+      document.getElementById("live-update-status").textContent = liveReport ? "Actualisation impossible. Les dernières données affichées sont conservées avec leur heure de lecture." : "Scores live indisponibles. Réessaie avec Actualiser.";
+      if (!liveReport) document.getElementById("live-matchup-grid").innerHTML = '<p class="state">Aucune donnée live chargée.</p>';
+    } finally {
+      liveLoading = false;
+      if (button.isConnected) button.disabled = false;
+    }
+  }
+
   async function loadWeek(week, targetId, { live = false } = {}) {
+    if (live) return refreshLive();
     const target = document.getElementById(targetId);
     target.innerHTML = `<div class="state">Lecture de la semaine ${week}…</div>`;
     try {
@@ -426,12 +487,7 @@ export async function renderMatchupsHub(container, {
       const hasScores = matchups.some(matchup => matchup.teams.some(team => team.points > 0));
       const status = weekStatus(week, currentWeek, hasScores);
       target.innerHTML = renderMatchupCards(matchups, status);
-      if (live) {
-        document.getElementById("live-eyebrow").textContent = `Sleeper · semaine ${week} · ${status}`;
-        document.getElementById("live-updated").textContent = `Actualisé à ${formatRefreshTime()}`;
-      } else {
-        document.getElementById("schedule-status").textContent = `${status} · ${matchups.length} affiches`;
-      }
+      document.getElementById("schedule-status").textContent = `${status} · ${matchups.length} affiches`;
     } catch (error) {
       target.innerHTML = `<div class="matchup-empty"><strong>Impossible de joindre Sleeper</strong><p>${escapeHtml(error.message)}. Réessayez dans quelques instants.</p></div>`;
     }
@@ -618,4 +674,8 @@ export async function renderMatchupsHub(container, {
 
   await loadWeek(currentWeek, "live-matchup-grid", { live: true });
   await selectView(viewFromHash(), { updateUrl: false });
+  const liveTimer = window.setInterval(() => {
+    if (!container.isConnected) { window.clearInterval(liveTimer); return; }
+    if (!document.hidden && !document.getElementById("matchups-panel-live").hidden) refreshLive();
+  }, 30_000);
 }

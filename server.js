@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { getLiveStandings as getLiveStandingsDefault } from "./scripts/live-standings.js";
 import { TRADE_TARGET_POSITIONS, LAST_TRADE_TARGET_WEEK } from "./public/assets/trade-target.js";
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
@@ -121,6 +122,7 @@ export function createAppServer({
   getUsage = getUsageReportDefault,
   getLeaders = getWeeklyLeadersDefault,
   getRankings = getWeeklyRankingsDefault,
+  getLiveStandings = getLiveStandingsDefault,
   getSeasonLeaders = getSeasonLeadersDefault,
   getDefenseMatchups = getDefenseMatchupsDefault,
   getPlayerValues = loadPlayerValues,
@@ -500,6 +502,15 @@ export function createAppServer({
         sendJson(response, 200, await getDefenseMatchups({ week }));
       } catch (error) {
         sendJson(response, 502, { error: error.message });
+      }
+      return;
+    }
+
+    if (url.pathname === "/api/live-standings") {
+      try {
+        sendJson(response, 200, await getLiveStandings());
+      } catch {
+        sendJson(response, 502, { error: "Scores live indisponibles ; aucun classement provisoire recalculé." });
       }
       return;
     }

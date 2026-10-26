@@ -217,3 +217,10 @@ Incrément local : vue comparative actuel/proposé, mouvements groupés par coup
 ### 07/10 — Livraison Coach vérifiée et export compact
 
 PR #1 fusionnée ; les neuf empreintes de production correspondent au commit fusionné. Validation visuelle du roster privé encore ouverte (connexion requise). Incrément suivant : résumé de provenance borné, diagnostics candidats dans Coach/n8n, avertissement explicite sur le potentiel de coupe non valorisé. Chiffres et sélection inchangés ; calibration ouverte. [Contrat et preuve de livraison](decision-compact-provenance-2026-10-07.md).
+
+
+### 26/10 — Mini StatTracker demandé pour le Game Center
+
+Livré localement : classement provisoire selon les scores actuels, scénario distinct d’estimation de fin de semaine, détail titulaires/banc et scores NFL. Rafraîchissement toutes les 30 secondes. Estimation Adineu déterministe, non calibrée ; données insuffisantes signalées sans remplacement silencieux. [Contrat et vérifications](prd-live-standings.md). Vérification mobile 390 px et observation pendant un match NFL encore ouvertes. Aucun déploiement.
+
+Le projet Linear Quality & Consistency existe ; la création du ticket de ce lot est bloquée par la limite gratuite d’issues du workspace. Le suivi reste conservé ici.
