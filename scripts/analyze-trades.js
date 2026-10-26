@@ -10,6 +10,7 @@
  *   node scripts/analyze-trades.js --give=5859 --receive=4046,12519   (une offre précise)
  */
 
+import { formatTradeTiming } from "../public/assets/trade-timing.js";
 import { buildLeagueRosterSnapshot, buildLeagueTradeIntelligence } from "../public/assets/league-trade-intelligence.js";
 import { normalizeTradeIntent, targetWeekTradeImpact, compareTargetWeekImpacts } from "../public/assets/trade-target.js";
 import { readFile } from "node:fs/promises";
@@ -20,7 +21,7 @@ import { resolveOperationalWeek } from "../public/assets/nfl-week.js";
 import { usageAdjustedRosPpg, projectedRosOnly } from "../public/assets/rest-of-season.js";
 import { BYE_WEEKS_2026, GENERAL_SETTINGS_2026 } from "../public/assets/league-settings.js";
 import { buildLiveMarketValues } from "../public/assets/trade-value.js";
-import { getInjuryStatuses, getPlayersIndex, getUsageReport, getWeeklyProjections } from "./league-context.js";
+import { getInjuryStatuses, getPlayersIndex, getUsageReport, getWeeklyProjections, getSchedule } from "./league-context.js";
 
 export const DEFAULT_SLEEPER_LEAGUE_ID = process.env.SLEEPER_LEAGUE_ID || "1392715510830878721";
 const SLEEPER_API = "https://api.sleeper.app/v1";
@@ -59,6 +60,15 @@ export async function loadPlayerValues({ leagueId = DEFAULT_SLEEPER_LEAGUE_ID, f
       season = nflState?.season || season;
     } catch { week = 1; }
   }
+  const timingContext = await Promise.all([
+    sleeperGet(`/league/${leagueId}`, { fetchImpl }), getSchedule({ season, fetchImpl })
+  ]).then(([league, games]) => {
+    if (String(league.season) !== String(season)) throw new Error("Trade timing season mismatch");
+    return { asOf: new Date().toISOString(), season: Number(season),
+    reviewDays: league.settings?.trade_review_days, deadlineWeek: league.settings?.trade_deadline,
+    disabled: [0, 1].includes(league.settings?.disable_trades) ? league.settings.disable_trades === 1 : null, ruleSource: `https://api.sleeper.app/v1/league/${leagueId}`,
+    games: games.map(({ season, week, home_team, away_team, kickoffAt, source, sourceFetchedAt }) => ({ season, week, home_team, away_team, kickoffAt, source, sourceFetchedAt }))
+  }; }).catch(() => null);
   const catalog = playerMap || await loadPlayerCatalog();
   const projectionsByWeek = {};
   await Promise.all(Array.from({ length: Math.max(0, GENERAL_SETTINGS_2026.playoffWeekStart - week) }, (_, index) => week + index).map(async w => {
@@ -107,7 +117,7 @@ export async function loadPlayerValues({ leagueId = DEFAULT_SLEEPER_LEAGUE_ID, f
   };
   const { values: market } = buildLiveMarketValues([...byId].map(([playerId, values]) => ({ playerId, position: infoOf(playerId).position, rosPpg: perGame(values.rosPpg, infoOf(playerId).nflTeam) })));
   for (const [playerId, entry] of market) Object.assign(byId.get(playerId), entry, { marketSource: "LIVE_VALUE_OVER_REPLACEMENT" });
-  return { week, byId, weeklyProjections: projectionsByWeek[week] || {}, projectionsByWeek };
+  return { week, byId, weeklyProjections: projectionsByWeek[week] || {}, projectionsByWeek, timingContext };
 }
 
 /** Live rosters with every player's catalog info, injury status, projection, rest-of-season and
@@ -239,7 +249,7 @@ export async function analyzeTrades({
         surpluses: diagnosis.surpluses,
         deficits: diagnosis.deficits
       },
-      leagueTradeIntelligence: buildLeagueTradeIntelligence({ snapshot: leagueRosters, targetRosterId: target.roster_id, week: currentWeek, playerPreferences, preferredPosition, targetWeek, projectionsByWeek: playerValues.projectionsByWeek }),
+      leagueTradeIntelligence: buildLeagueTradeIntelligence({ snapshot: leagueRosters, targetRosterId: target.roster_id, week: currentWeek, playerPreferences, preferredPosition, targetWeek, projectionsByWeek: playerValues.projectionsByWeek, timingContext: playerValues.timingContext }),
       proposals: findTradeProposals({
         targetRosterId: target.roster_id,
         rosters: formattedRosters,
@@ -248,7 +258,7 @@ export async function analyzeTrades({
         currentWeek, limit: null
       }).filter(proposal => !intent.preferredPosition || proposal.receive.some(player => player.position === intent.preferredPosition)).map(proposal => ({ ...proposal,
         targetWeekImpact: targetWeekTradeImpact({ myPlayers: target.players, theirPlayers: formattedRosters.find(roster => String(roster.roster_id) === String(proposal.partnerRosterId)).players,
-          give: proposal.give, receive: proposal.receive, currentWeek, targetWeek: intent.targetWeek, projectionsByWeek: playerValues.projectionsByWeek }) }))
+          give: proposal.give, receive: proposal.receive, currentWeek, targetWeek: intent.targetWeek, projectionsByWeek: playerValues.projectionsByWeek, timingContext: playerValues.timingContext }) }))
         .sort((a, b) => intent.targetWeek === null ? 0 : compareTargetWeekImpacts(a.targetWeekImpact, b.targetWeekImpact) || b.score - a.score).slice(0, 15)
     };
   });
@@ -351,7 +361,7 @@ export function formatTradeBulletin(analysis, { proposalLimit = 5 } = {}) {
         `Pourquoi : ${proposal.pitchTarget}`,
         ...(analysis.tradeIntent?.targetWeek ? [`S${analysis.tradeIntent.targetWeek} : ${proposal.targetWeekImpact?.status === "PROJECTED"
           ? `toi ${proposal.targetWeekImpact.myDelta > 0 ? "+" : ""}${proposal.targetWeekImpact.myDelta}, partenaire ${proposal.targetWeekImpact.theirDelta > 0 ? "+" : ""}${proposal.targetWeekImpact.theirDelta} pts estimés`
-          : "gain non disponible (projections insuffisantes ou retour incertain)"}`] : [])
+          : "gain non disponible (projections, disponibilité ou fenêtre insuffisantes)"}. ${formatTradeTiming(proposal.targetWeekImpact?.lineupTiming?.status === "BLOCKED" ? proposal.targetWeekImpact.lineupTiming : proposal.targetWeekImpact?.timing)}`] : [])
       );
     });
 

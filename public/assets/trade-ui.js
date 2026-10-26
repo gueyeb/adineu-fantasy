@@ -1,6 +1,7 @@
+import { formatTradeTiming } from "./trade-timing.js?v=cdcd6605a3";
 import { formatWaiverSchedule } from "./waiver-schedule.js?v=967a249e30";
-import { normalizeTradeIntent, tradeIntentStorageKey, targetWeekTradeImpact, compareTargetWeekImpacts, LAST_TRADE_TARGET_WEEK } from "./trade-target.js?v=dc0c02750c";
-import { buildLeagueRosterSnapshot, buildLeagueTradeIntelligence } from "./league-trade-intelligence.js?v=b6df87fbd9";
+import { normalizeTradeIntent, tradeIntentStorageKey, targetWeekTradeImpact, compareTargetWeekImpacts, LAST_TRADE_TARGET_WEEK } from "./trade-target.js?v=1f35805070";
+import { buildLeagueRosterSnapshot, buildLeagueTradeIntelligence } from "./league-trade-intelligence.js?v=c1695a1687";
 import { tierChip, tierSeparator } from "./tier-view.js?v=d3a45b4046";
 /**
  * Adineu Fantasy — Interface Utilisateur Trade Hub
@@ -95,6 +96,7 @@ export async function renderTradesPage(container) {
 
   const playerValues = valuesResponse.players || {};
   const projectionsByWeek = valuesResponse.projectionsByWeek || {};
+  const timingContext = valuesResponse.timingContext || null;
 
   try {
     const [rosterData, userData, nflState] = await Promise.all([
@@ -240,9 +242,9 @@ export async function renderTradesPage(container) {
     }).filter(proposal => !intent.preferredPosition || proposal.receive.some(player => player.position === intent.preferredPosition))
       .map(proposal => ({ ...proposal, targetWeekImpact: targetWeekTradeImpact({ myPlayers: currentRoster.players,
         theirPlayers: formattedRosters.find(roster => String(roster.roster_id) === String(proposal.partnerRosterId))?.players || [],
-        give: proposal.give, receive: proposal.receive, targetWeek: intent.targetWeek, currentWeek, projectionsByWeek }) }))
+        give: proposal.give, receive: proposal.receive, targetWeek: intent.targetWeek, currentWeek, projectionsByWeek, timingContext }) }))
       .sort((a, b) => intent.targetWeek === null ? 0 : compareTargetWeekImpacts(a.targetWeekImpact, b.targetWeekImpact) || b.score - a.score).slice(0, 15);
-    const leagueFit = buildLeagueTradeIntelligence({ snapshot: leagueSnapshot, targetRosterId: selectedRosterId, week: currentWeek, playerPreferences: preferences, ...intent, projectionsByWeek });
+    const leagueFit = buildLeagueTradeIntelligence({ snapshot: leagueSnapshot, targetRosterId: selectedRosterId, week: currentWeek, playerPreferences: preferences, ...intent, projectionsByWeek, timingContext });
     const myLineup = buildProjectedLineup(currentRoster.players, { estimate: restOfSeasonEstimate(currentWeek) });
 
     content.innerHTML = `
@@ -291,7 +293,7 @@ export async function renderTradesPage(container) {
         <details class="trade-lineup-detail"><summary>Partenaires selon les besoins réciproques (${leagueFit.topPartners.length})</summary>
           <p class="note">Analyse des ${leagueFit.partners.length} autres équipes : échanges simples et packages du Finder améliorant les deux lineups, avec contrôle du marché et des données. Un classement vide est possible ; ce ne sont pas des probabilités d’acceptation.</p>
           ${leagueFit.partners.map(partner => `<div class="card" style="padding:12px;margin:8px 0;"><strong>${escapeHtml(partner.teamName)}</strong> · ${escapeHtml({ MUTUAL_FIT: "Intérêt réciproque", INCOMPLETE: "Données à vérifier", NO_QUALIFIED_TRADE: "Aucun échange qualifié" }[partner.status])}
-            ${partner.examples.map(example => `<p class="note">${example.give.map(player => escapeHtml(player.name)).join(" + ")} → ${example.receive.map(player => escapeHtml(player.name)).join(" + ")} : moyenne ROS toi +${example.myDeltaPerWeek}, partenaire +${example.theirDeltaPerWeek} pts/sem estimés.${intent.targetWeek !== null ? ` S${intent.targetWeek} : ${example.targetWeekImpact.myDelta === null ? "gain non disponible" : `toi ${example.targetWeekImpact.myDelta > 0 ? "+" : ""}${example.targetWeekImpact.myDelta}, partenaire ${example.targetWeekImpact.theirDelta > 0 ? "+" : ""}${example.targetWeekImpact.theirDelta} pts estimés`}.` : ""}</p>`).join("")}
+            ${partner.examples.map(example => `<p class="note">${example.give.map(player => escapeHtml(player.name)).join(" + ")} → ${example.receive.map(player => escapeHtml(player.name)).join(" + ")} : moyenne ROS toi +${example.myDeltaPerWeek}, partenaire +${example.theirDeltaPerWeek} pts/sem estimés.${intent.targetWeek !== null ? ` S${intent.targetWeek} : ${example.targetWeekImpact.myDelta === null ? "gain non disponible" : `toi ${example.targetWeekImpact.myDelta > 0 ? "+" : ""}${example.targetWeekImpact.myDelta}, partenaire ${example.targetWeekImpact.theirDelta > 0 ? "+" : ""}${example.targetWeekImpact.theirDelta} pts estimés`}. ${escapeHtml(formatTradeTiming(example.targetWeekImpact.lineupTiming?.status === "BLOCKED" ? example.targetWeekImpact.lineupTiming : example.targetWeekImpact.timing))}` : ""}</p>`).join("")}
             ${partner.blockers.length ? `<p class="note">${[...new Set(partner.blockers.map(issue => ({ PLAYER_METADATA_UNAVAILABLE: "Informations de joueur incomplètes", OWNERSHIP_UNAVAILABLE: "Roster indisponible", OWNERSHIP_CONFLICT: "Propriété d’un joueur contradictoire", DECLARED_LINEUP_INCOMPLETE: "Lineup déclarée incomplète", STALE_STARTER: "Titulaire absent du roster actuel", STALE_RESERVE: "Joueur IR absent du roster actuel", DUPLICATE_PLAYER: "Joueur en double dans le roster", DUPLICATE_STARTER: "Titulaire déclaré deux fois", STARTER_ON_RESERVE: "Titulaire également placé en IR" }[issue.split(":")[0]] || "Données de roster à vérifier")))].map(escapeHtml).join(" · ")}</p>` : ""}</div>`).join("")}
         </details>
         <h3 style="margin:24px 0 16px; font-size:1.2rem;">${{ RECOMMENDED: "Trades recommandés", NEGOTIATE: "Trades à négocier", EXPLORATION: "Exploration du marché" }[tradeView]} (${proposals.length})</h3>
@@ -342,7 +344,7 @@ export async function renderTradesPage(container) {
                     ${[["Ton équipe", score.lineups.mine], [p.partnerName, score.lineups.theirs]].map(([name, lineups]) => `<h5>${escapeHtml(name)}</h5><div class="table-wrap"><table><thead><tr><th>Slot</th><th>Avant</th><th>Après</th></tr></thead><tbody>${lineups.before.slots.map((slot, i) => `<tr><td>${escapeHtml(slot.slot)}</td><td>${escapeHtml(slot.name)} · ${slot.projectedPpg ?? "—"}</td><td>${escapeHtml(lineups.after.slots[i].name)} · ${lineups.after.slots[i].projectedPpg ?? "—"}</td></tr>`).join("")}</tbody></table></div>`).join("")}
                   </details>
                   ${p.selection.reasons.length ? `<p class="note">${p.selection.reasons.map(escapeHtml).join(" · ")}</p>` : ""}
-                  ${intent.targetWeek !== null ? `<p class="note">S${intent.targetWeek} : ${p.targetWeekImpact.myDelta === null ? "gain non disponible (projections insuffisantes ou retour incertain)" : `toi ${delta(p.targetWeekImpact.myDelta)}, partenaire ${delta(p.targetWeekImpact.theirDelta)} pts estimés`}. Scénario de lineup avant match, délai de trade non vérifié.</p>` : ""}
+                  ${intent.targetWeek !== null ? `<p class="note">S${intent.targetWeek} : ${p.targetWeekImpact.myDelta === null ? "gain non disponible (projections, disponibilité ou fenêtre insuffisantes)" : `toi ${delta(p.targetWeekImpact.myDelta)}, partenaire ${delta(p.targetWeekImpact.theirDelta)} pts estimés`}. Scénario de lineup avant match. ${escapeHtml(formatTradeTiming(p.targetWeekImpact.lineupTiming?.status === "BLOCKED" ? p.targetWeekImpact.lineupTiming : p.targetWeekImpact.timing))}</p>` : ""}
                   <p class="note">Intérêt adverse : ${score.their_lineup_delta > 0 ? `gain estimé de lineup de +${score.their_lineup_delta} pts/sem` : "aucun gain de lineup démontré"}. Estimation Adineu, sans probabilité d’acceptation.</p>
                   <div id="counter-offers-${index}" aria-live="polite"></div>
                   <div class="tf-actions">

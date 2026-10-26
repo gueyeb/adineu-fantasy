@@ -11,7 +11,7 @@ import {
   buildSleeperSeasonMeetings,
   sleeperManager
 } from "./rivalry-week.js?v=714a861458";
-import { renderTradesPage } from "./trade-ui.js?v=22ccf1d8ea";
+import { renderTradesPage } from "./trade-ui.js?v=3ad99c06e3";
 import { renderMatchupsHub } from "./matchups-live.js?v=eb3f776e92";
 import { calculatePlayoffRace } from "./playoff-race.js?v=52283bf11a";
 import { calculateLuck, calculateRankHistory } from "./standings-luck.js?v=7363afbb9e";

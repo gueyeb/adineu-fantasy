@@ -233,3 +233,12 @@ hypothèses (projection future positive ou durée forfaitaire), y compris les jo
 conservés. Zéro ou projection négative ne déclenche plus un retour. Disponibilité,
 activation IR et délai du trade restent non confirmés. 616 tests réussis ; première
 semaine réellement affectable encore ouverte. [Détail et limites](quality-consistency-2026-10-26.md).
+
+### 26/10 — QC-01 : fenêtres conditionnelles des trades
+
+Règles de revue/deadline lues dans Sleeper, kickoffs nflverse partagés avec le Finder,
+les partenaires et les exports. Gain cible masqué lorsque l’optimisation avant match
+suppose de recomposer une lineup dont la fenêtre est déjà dépassée. Prochaines semaines
+candidates affichées sous hypothèse d’accord maintenant ; traitement exact et disponibilité
+restent non confirmés. 620 tests réussis, cas Boukki S7 vérifié localement.
+[Contrat et travaux restant ouverts](quality-consistency-2026-10-26.md).

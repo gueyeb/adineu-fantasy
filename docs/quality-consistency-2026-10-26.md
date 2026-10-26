@@ -242,3 +242,50 @@ médical, changement de règles Sleeper ou workflow n8n. Push du lot précédent
 
 Prochain incrément : sourcer la revue/échéance de trade et les kickoffs, puis distinguer
 la semaine cible de la première semaine réellement affectable.
+
+## QC-01 — Troisième incrément : fenêtres conditionnelles des trades
+
+26/10/2026. Lecture publique datée des réglages Sleeper : `trade_review_days=1`,
+`trade_deadline=12`, `disable_trades=0`, saison 2026. Les kickoffs réutilisent le
+chargeur nflverse existant (272 matchs réguliers), sans nouveau fournisseur.
+Le contexte borné aux règles et au calendrier public est partagé dans
+`/api/player-values`, Finder, partenaires et analyse CLI/n8n ; aucun workflow modifié.
+
+La cible reste un scénario, jamais une confirmation d’exécution. Sous hypothèse
+conditionnelle d’un accord maintenant, on modélise la revue en tranches de 24 heures.
+L’heure exacte de traitement après revue n’est pas déduite : la documentation Sleeper
+évoque un passage ultérieur et le commissaire peut intervenir. Une candidate n’est
+ni un retour médical ni une activation IR. Le calendrier conserve sa provenance/date.
+Le contexte est refusé après cinq minutes pour ce contrôle ; recharger le Finder
+permet de récupérer les réglages. Les données de calendrier gardent le cache existant
+(12 heures), donc un changement tardif d’horaire reste une limite.
+
+Pour chaque joueur : kickoff cible et première semaine candidate après la fin de
+revue modélisée. Une fenêtre dépassée masque le gain chiffré cible. Le contrôle
+porte aussi sur les autres joueurs des deux rosters : l’optimisation avant match
+ne peut pas être présentée comme une recomposition réalisable si des matchs ont
+commencé ou commencent avant la fin de revue supposée. Ce contrôle conservateur
+ne tente pas de reconstruire les lineups figées ni les points « Off Roster ».
+Les byes des joueurs conservés sont exclus de ce contrôle ; les projections et
+hypothèses de blessure restent vérifiées séparément. La fermeture des nouveaux
+trades est reconnue lorsque désactivés ou après la semaine limite ; aucune
+transaction déjà acceptée n’est supposée. La frontière exacte de fin du dernier
+match de la semaine limite reste à confirmer ; on ne transforme pas un kickoff
+en heure de fin de match.
+
+Sources : [effet des trades pendant les matchs](https://support.sleeper.com/en/articles/3351190-how-could-a-weekend-trade-impact-my-team),
+[revue et traitement](https://support.sleeper.com/en/articles/3188802-how-to-trade),
+[deadline](https://support.sleeper.com/en/articles/2435411-when-is-my-trade-deadline),
+[API](https://docs.sleeper.com/). Un joueur déjà passé reste à l’ancienne équipe
+pour cette semaine ; l’acquéreur ne récupère pas ses points. Les règles Yahoo
+ne sont pas transposées à Sleeper.
+
+Evals : revue franchissant un kickoff, frontière exacte du kickoff, contexte périmé,
+règles absentes, calendrier ambigu, deadline désactivée, fermeture, lineup conservée
+verrouillée et transmission API. 620 tests réussis, syntaxe et contrôles statiques
+valides. Navigateur local : Boukki S7 affiche gain indisponible et fenêtres dépassées.
+Pas de preuve de déploiement. Aucun nouveau coefficient de valeur marché.
+
+Reste ouvert : observation d’un trade réellement accepté, instant de traitement
+publié, cas des points figés et limite de deadline en cours. La première semaine
+alignable confirmée ne doit pas être cochée sur ce seul contrôle conditionnel.

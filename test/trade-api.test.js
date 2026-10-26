@@ -113,12 +113,13 @@ test("trade API validates and forwards explicit position and target-week prefere
 
 test("player values expose only rostered target-week PPR projections", async t => {
   const server = createAppServer({ getPlayerValues: async () => ({ week: 7, byId: new Map([["owned", { rosPpg: 12 }]]),
-    projectionsByWeek: { 8: { owned: { pts_ppr: 0, rush_att: 12 }, free: { pts_ppr: 20 } }, 9: {} } }) });
+    projectionsByWeek: { 8: { owned: { pts_ppr: 0, rush_att: 12 }, free: { pts_ppr: 20 } }, 9: {} }, timingContext: { reviewDays: 1, season: 2026, games: [] } }) });
   server.listen(0, "127.0.0.1"); await once(server, "listening"); t.after(() => server.close());
   const response = await fetch(`http://127.0.0.1:${server.address().port}/api/player-values`);
   assert.equal(response.status, 200);
   const body = await response.json();
   assert.deepEqual(body.projectionsByWeek, { 8: { owned: { pts_ppr: 0 } }, 9: {} });
+  assert.deepEqual(body.timingContext, { reviewDays: 1, season: 2026, games: [] });
 });
 
 

@@ -1,4 +1,4 @@
-import { normalizeTradeIntent, targetWeekTradeImpact, compareTargetWeekImpacts } from "./trade-target.js?v=dc0c02750c";
+import { normalizeTradeIntent, targetWeekTradeImpact, compareTargetWeekImpacts } from "./trade-target.js?v=1f35805070";
 import { listRosterIdentities, buildStarterSlotOrder } from "./roster-view.js?v=120de9d74d";
 import { BYE_WEEKS_2026, ROSTER_SETTINGS_2026 } from "./league-settings.js?v=886f353394";
 import { buildProjectedLineup, restOfSeasonEstimate } from "./trade-score.js?v=4f6742e813";
@@ -41,7 +41,7 @@ export function buildLeagueRosterSnapshot({ rosters = [], users = [], playerFor,
 
 /** Pure mutual-fit screen, using the same lineup, confidence and selection rules as the Finder.
  * Finder packages are evaluated before any output cap; fit is never acceptance odds. */
-export function buildLeagueTradeIntelligence({ snapshot, targetRosterId, week = null, playerPreferences = {}, preferredPosition = null, targetWeek = null, projectionsByWeek = {} } = {}) {
+export function buildLeagueTradeIntelligence({ snapshot, targetRosterId, week = null, playerPreferences = {}, preferredPosition = null, targetWeek = null, projectionsByWeek = {}, timingContext = null } = {}) {
   if (!snapshot) return { status: "UNAVAILABLE", teams: [], partners: [], topPartners: [] };
   const intent = normalizeTradeIntent({ preferredPosition, targetWeek }, week);
   preferredPosition = intent.preferredPosition;
@@ -91,7 +91,7 @@ export function buildLeagueTradeIntelligence({ snapshot, targetRosterId, week = 
         confidence: score.confidence, group: proposal.selection.group,
         fitScore: Math.min(score.my_lineup_delta, score.their_lineup_delta),
         targetWeekImpact: targetWeekTradeImpact({ myPlayers: mine.players, theirPlayers: team.players,
-          give: proposal.give, receive: proposal.receive, currentWeek: week, targetWeek, projectionsByWeek }) };
+          give: proposal.give, receive: proposal.receive, currentWeek: week, targetWeek, projectionsByWeek, timingContext }) };
     });
     // A configured target prioritizes demonstrable immediate gains, then mutual ROS fit.
     // Unknown target-week gains are kept distinct and never treated as a numerical zero.

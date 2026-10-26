@@ -473,11 +473,11 @@ export function createAppServer({
 
     if (url.pathname === "/api/player-values") {
       try {
-        const { week, byId, projectionsByWeek = {} } = await getPlayerValues();
+        const { week, byId, projectionsByWeek = {}, timingContext = null } = await getPlayerValues();
         // The browser needs the real per-week window, limited to rostered players and PPR points.
         const window = Object.fromEntries(Object.entries(projectionsByWeek).map(([week, projections]) => [week,
           Object.fromEntries([...byId.keys()].filter(id => Number.isFinite(projections[id]?.pts_ppr)).map(id => [id, { pts_ppr: projections[id].pts_ppr }]))]));
-        sendJson(response, 200, { week, players: Object.fromEntries(byId), projectionsByWeek: window });
+        sendJson(response, 200, { week, players: Object.fromEntries(byId), projectionsByWeek: window, timingContext });
       } catch (error) {
         sendJson(response, 502, { error: error.message });
       }
