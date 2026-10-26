@@ -3,6 +3,10 @@
 Date : 26/10/2026. Statut : première version TF-01 implémentée localement ; suite du chantier ouverte, aucun déploiement.
 Source : retour utilisateur sur les 15 propositions Boukki et débrief waivers S7 → S8.
 
+Priorité révisée après l'audit du 26/10 : [Quality & Consistency](quality-consistency-2026-10-26.md).
+Les contrats de cohérence et les correctifs opérationnels QC-01 précèdent désormais
+le scanner post-match. Les annonces de « prochain lot » plus bas sont historiques.
+
 ## Objectif
 
 Produire moins de propositions, mais des échanges défendables pour les deux managers.

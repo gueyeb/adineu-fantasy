@@ -1,6 +1,36 @@
 # Approved in-season roadmap
 
+## Priorité actuelle — ADINEU Quality & Consistency (26/10/2026)
+
+**Consolider l'existant avant de construire davantage.** Cette phase remplace
+l'ordre des travaux annoncé précédemment : les correctifs de cohérence et de
+temps effectif passent avant le scanner post-match et les nouvelles fonctionnalités.
+[Audit intégré, preuves, lots et critères de réussite](quality-consistency-2026-10-26.md).
+
+- [ ] **P0 QC-01 — Cohérence et exactitude opérationnelle** : reproduire les anomalies
+  puis corriger all-play, identités/métriques, semaines affectables/IR/locks,
+  horaires de waivers et probabilités pré-match près des scores live.
+- [ ] **P1 QC-02 — Qualité des recommandations de trade** : équité marché, gains et
+  crédibilité séparés ; « fiabilité du calcul » explicite ; trois à cinq meilleures
+  offres au maximum, motifs adverses, coupes et scénarios. Comparaison avant/après
+  sur Boukki et plusieurs rosters, sans changer arbitrairement les valeurs.
+- [ ] **P1/P2 QC-03 — Décisions et feedback** : exécuter maintenant / préparer / surveiller,
+  contrat de présentation commun Coach/Start-Sit/Waiver/IA, transactions nominatives,
+  notifications utiles, journal à 2/4 semaines, mobile authentifié et exploitation.
+
+Les observations publiques de l'audit sont datées et doivent être reproduites ;
+les commits locaux `16732b6`, `2abe8d0`, `7fe3ff6` ne sont pas des preuves de correction
+en production. Réconcilier les cases historiques et les preuves de livraison,
+notamment le snapshot RB du 20/10 et les fuseaux n8n, avant de cocher.
+
+Différés : SOS QB/TE, nouveau moteur de projection, nouveaux indicateurs de trade,
+refonte frontend et multi-ligues. Préserver les calculs partagés, la War Room et
+les snapshots existants. Pas de probabilité synthétique d'acceptation ; pas de
+modification de coefficients motivée par une seule semaine décevante.
+
 ## Nouveau chantier — 26/10/2026 : pertinence des trades et décisions S8
+
+Ordre d'exécution désormais subordonné à la phase Quality & Consistency ci-dessus.
 
 Retour utilisateur enregistré ; TF-01 V1 et LI-01 V2 implémentés et vérifiés localement, non déployés.
 [Lots, état existant et critères de réussite](prd-trade-decision-intelligence.md).
