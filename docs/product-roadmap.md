@@ -224,3 +224,12 @@ PR #1 fusionnée ; les neuf empreintes de production correspondent au commit fus
 Livré localement : classement provisoire selon les scores actuels, scénario distinct d’estimation de fin de semaine, détail titulaires/banc et scores NFL. Rafraîchissement toutes les 30 secondes. Estimation Adineu déterministe, non calibrée ; données insuffisantes signalées sans remplacement silencieux. [Contrat et vérifications](prd-live-standings.md). Vérification mobile 390 px et observation pendant un match NFL encore ouvertes. Aucun déploiement.
 
 Le projet Linear Quality & Consistency existe ; la création du ticket de ce lot est bloquée par la limite gratuite d’issues du workspace. Le suivi reste conservé ici.
+
+
+### 26/10 — QC-01 : simulations de trades et hypothèses IR
+
+Lineups ROS explicitement simulées, hypothèses de retour datées et sourcées comme
+hypothèses (projection future positive ou durée forfaitaire), y compris les joueurs
+conservés. Zéro ou projection négative ne déclenche plus un retour. Disponibilité,
+activation IR et délai du trade restent non confirmés. 616 tests réussis ; première
+semaine réellement affectable encore ouverte. [Détail et limites](quality-consistency-2026-10-26.md).

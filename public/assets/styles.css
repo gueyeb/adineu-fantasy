@@ -754,6 +754,7 @@ tbody tr:hover td { background: rgba(184, 255, 61, 0.045); }
 .trade-lineup-detail { margin: 16px 0; }
 .trade-lineup-detail summary { cursor: pointer; font-weight: 700; }
 .trade-lineup-detail table { font-size: .75rem; }
+.tf-card:has(.trade-lineup-detail[open]) { grid-column: 1 / -1; }
 
 /* Team profile (/teams/) */
 .team-profile-head { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 18px; padding-bottom: 24px; border-bottom: 1px solid var(--line); }

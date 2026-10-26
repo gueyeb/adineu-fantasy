@@ -165,3 +165,16 @@ test("tradeReturnScenarios flags a starter slot at 0 on one side only (bye witho
   assert.deepEqual(result.evidence.emptySlotWeeks.filter(row => row.week === 8), [{ team: "mine", week: 8, slots: ["QB"] }]); // NYG bye week 8
   assert.equal(result.evidence.quality, "MEDIUM");
 });
+
+test("return assumptions never certify IR activation and ignore zero or negative future projections", async () => {
+  const { returnWeekAssumption, tradeReturnScenarios } = await import("../public/assets/trade-score.js");
+  const injured = { sleeperId: "ir", name: "IR player", position: "RB", nflTeam: "NYJ", injuryStatus: "IR" };
+  const context = { week: 7, projectionsByWeek: { 8: { ir: { pts_ppr: 0 } }, 9: { ir: { pts_ppr: -1 } }, 10: { ir: { pts_ppr: 15 } } } };
+  assert.deepEqual(returnWeekAssumption(injured, context), { week: 10, basis: "FUTURE_PROJECTION_ASSUMPTION", availability: "UNVERIFIED" });
+  assert.deepEqual(returnWeekAssumption(injured, { week: 7 }), { week: 10, basis: "STATUS_DURATION_ASSUMPTION", availability: "UNVERIFIED" });
+  const result = tradeReturnScenarios({ myPlayers: [injured], theirPlayers: [], give: [], receive: [], ...context });
+  assert.equal(result.evidence.returnAssumptions[0].traded, false, "retained injured players carry the same explicit assumption");
+  assert.equal(result.evidence.lineupAvailability, "UNVERIFIED");
+  assert.equal(result.evidence.transactionTiming, "UNVERIFIED");
+  assert.match(result.evidence.notes.join(" "), /pas une lineup alignable/);
+});

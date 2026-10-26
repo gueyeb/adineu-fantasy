@@ -217,3 +217,28 @@ Kuro vérifiés, ainsi que le libellé du Waiver Wire. Coach authentifié et mob
 Prochain incrément QC-01 : première semaine réellement affectable des trades
 (revue, kickoffs, locks, IR) et présentation des probabilités pré-match en live.
 Le scanner post-match reste différé après les correctifs P0.
+
+
+## QC-01 — Deuxième incrément : hypothèses IR et lineups simulées
+
+26/10/2026. Les détails Finder désignent maintenant les lineups comme des simulations
+ROS et précisent que leur composition n’est pas une lineup alignable confirmée.
+Le calculateur et son export texte partagent la semaine supposée de retour, sa base
+(projection future positive ou durée forfaitaire), et une disponibilité non vérifiée.
+Les blessés conservés dans les rosters sont inclus dans cette provenance, pas seulement
+les actifs échangés. Une projection n’est jamais une preuve d’activation IR.
+
+Les projections futures nulles ou négatives ne déclenchent plus une hypothèse de retour.
+Les scénarios et leurs rampes restent non calibrés ; valeurs marché inchangées.
+Les champs de compatibilité `expectedReturnWeek` sont conservés comme hypothèses de
+modèle, accompagnés de la nouvelle provenance. Délai de trade, kickoffs et locks sont
+explicitement non vérifiés ; ce lot ne prétend pas déterminer la première semaine
+affectable. La case opérationnelle correspondante reste ouverte.
+
+Vérification : 616 tests réussis, dont provenance IR et absence de retour déclenché
+par zéro/négatif ; syntaxe, archives/routes et versions d’assets valides. Aucun contrôle
+médical, changement de règles Sleeper ou workflow n8n. Push du lot précédent jusqu’à
+`03e9793` confirmé sur origin/main ; cela ne constitue pas une preuve de déploiement.
+
+Prochain incrément : sourcer la revue/échéance de trade et les kickoffs, puis distinguer
+la semaine cible de la première semaine réellement affectable.

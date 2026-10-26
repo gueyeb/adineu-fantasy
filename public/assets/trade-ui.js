@@ -1,6 +1,6 @@
 import { formatWaiverSchedule } from "./waiver-schedule.js?v=967a249e30";
-import { normalizeTradeIntent, tradeIntentStorageKey, targetWeekTradeImpact, compareTargetWeekImpacts, LAST_TRADE_TARGET_WEEK } from "./trade-target.js?v=cb0b6d0556";
-import { buildLeagueRosterSnapshot, buildLeagueTradeIntelligence } from "./league-trade-intelligence.js?v=67d42c22f9";
+import { normalizeTradeIntent, tradeIntentStorageKey, targetWeekTradeImpact, compareTargetWeekImpacts, LAST_TRADE_TARGET_WEEK } from "./trade-target.js?v=dc0c02750c";
+import { buildLeagueRosterSnapshot, buildLeagueTradeIntelligence } from "./league-trade-intelligence.js?v=b6df87fbd9";
 import { tierChip, tierSeparator } from "./tier-view.js?v=d3a45b4046";
 /**
  * Adineu Fantasy — Interface Utilisateur Trade Hub
@@ -12,7 +12,7 @@ import { buildTiers } from "./value-tiers.js?v=32f5359873";
 import { buildWaiverDisplayTiers } from "./waiver-board.js?v=8889a568a8";
 
 import { calculatePlayerTradeValue, calculatePlayerTradeProfile, evaluateTrade } from "./trade-value.js?v=2c9caa87cf";
-import { diagnoseRoster, findTradeProposals, findCounterOffers } from "./trade-recommender.js?v=472a87f38e";
+import { diagnoseRoster, findTradeProposals, findCounterOffers } from "./trade-recommender.js?v=69a6bfa3be";
 import { addToWatchlist, removeFromWatchlist, REASON_MAX } from "./war-room.js?v=e9eae48675";
 import { loadWatchlist, saveWatchlist } from "./war-room-store.js?v=679685c790";
 import { PLAYER_STATUSES, playerKey, playerStatus } from "./trade-preferences.js?v=c5fec5ce56";
@@ -25,7 +25,7 @@ import { resolveOperationalWeek } from "./nfl-week.js?v=8f9fa3f5b2";
 import { listRosterIdentities } from "./roster-view.js?v=120de9d74d";
 import { calculateFaabRemaining } from "./team-metrics.js?v=e47db97055";
 import { compactAuction, formatAuction } from "./faab-auction.js?v=1eea51c520";
-import { buildProjectedLineup, restOfSeasonEstimate } from "./trade-score.js?v=4f143525ae";
+import { buildProjectedLineup, restOfSeasonEstimate } from "./trade-score.js?v=4f6742e813";
 
 import { SLEEPER_API, SLEEPER_LEAGUE_ID, sleeperGet } from "./sleeper-client.js?v=3f75d48ec5";
 const SUPABASE_URL = "https://juosrzsffvjprqhdyado.supabase.co";
@@ -338,7 +338,7 @@ export async function renderTradesPage(container) {
                   <p class="tf-status">Faisabilité <strong>${escapeHtml(score.tradeability)}</strong> · Confiance <strong>${{ HIGH: "bonne", MEDIUM: "moyenne", LOW: "faible" }[score.confidence]}</strong>${score.usageAdjustment ? ` · Usage ${score.usageAdjustment > 0 ? "+" : ""}${score.usageAdjustment}` : ""}</p>
                   ${score.warnings.length ? `<p class="note">⚠ ${score.warnings.map(escapeHtml).join(" · ")}</p>` : ""}
                   ${score.notes?.length ? `<p class="note">ℹ ${score.notes.map(escapeHtml).join(" · ")}</p>` : ""}
-                  <details class="trade-lineup-detail"><summary>Lineups avant → après</summary>
+                  <details class="trade-lineup-detail"><summary>Lineups simulées ROS avant → après</summary><p class="note">Moyennes de reste de saison, pas une composition alignable cette semaine. Retour des blessés, activation IR, délai de trade et locks non confirmés.</p>
                     ${[["Ton équipe", score.lineups.mine], [p.partnerName, score.lineups.theirs]].map(([name, lineups]) => `<h5>${escapeHtml(name)}</h5><div class="table-wrap"><table><thead><tr><th>Slot</th><th>Avant</th><th>Après</th></tr></thead><tbody>${lineups.before.slots.map((slot, i) => `<tr><td>${escapeHtml(slot.slot)}</td><td>${escapeHtml(slot.name)} · ${slot.projectedPpg ?? "—"}</td><td>${escapeHtml(lineups.after.slots[i].name)} · ${lineups.after.slots[i].projectedPpg ?? "—"}</td></tr>`).join("")}</tbody></table></div>`).join("")}
                   </details>
                   ${p.selection.reasons.length ? `<p class="note">${p.selection.reasons.map(escapeHtml).join(" · ")}</p>` : ""}
@@ -535,8 +535,9 @@ export async function renderTradesPage(container) {
       const signed = value => `${value > 0 ? "+" : ""}${value}`;
       const ev = offer.scenarios.evidence;
       box.innerHTML = `
-        <h3 style="margin:0 0 8px; font-size:1rem;">Impact sur la lineup optimale (S${offer.scenarios.weeks?.from}–S${offer.scenarios.weeks?.to})</h3>
+        <h3 style="margin:0 0 8px; font-size:1rem;">Simulation future de lineup (S${offer.scenarios.weeks?.from}–S${offer.scenarios.weeks?.to})</h3>
         <p style="margin:0 0 10px; font-size:0.85rem;">Moyenne reste de saison : <strong>${escapeHtml(offer.mine.team)} ${signed(offer.seasonAverage.myDeltaPerWeek)} pts/sem</strong> · ${escapeHtml(offer.theirs.team)} ${signed(offer.seasonAverage.theirDeltaPerWeek)} pts/sem</p>
+        ${ev.returnAssumptions?.length ? `<p class="note">${ev.returnAssumptions.map(row => `${escapeHtml(row.name)} (${escapeHtml(row.status)}) : hypothèse S${row.week}, ${row.basis === "FUTURE_PROJECTION_ASSUMPTION" ? "projection future publiée" : "durée forfaitaire du modèle"}, retour et activation non confirmés${row.traded ? "" : " (joueur conservé dans le roster)"}`).join(" · ")}</p>` : ""}
         <table style="width:100%; font-size:0.85rem;"><thead><tr><th style="text-align:left;">Scénario</th><th>${escapeHtml(offer.mine.team)}</th><th>${escapeHtml(offer.theirs.team)}</th></tr></thead><tbody>
           ${offer.scenarios.scenarios.map(row => `<tr><td>${escapeHtml(row.label)}${Object.keys(row.returnWeeks).length ? ` <small style="color:var(--muted);">(${Object.entries(row.returnWeeks).map(([name, week]) => `${escapeHtml(name)} S${week}`).join(", ")})</small>` : ""}</td><td style="text-align:center;">${signed(row.myTotal)} pts</td><td style="text-align:center;">${signed(row.theirTotal)} pts</td></tr>`).join("")}
         </tbody></table>

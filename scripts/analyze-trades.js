@@ -294,8 +294,9 @@ export function formatTradeOffer(result) {
   const lines = [
     `Offre S${result.week} : ${result.mine.team} donne ${names(result.mine)} · ${result.theirs.team} donne ${names(result.theirs)}`,
     `Moyenne reste de saison : ${result.mine.team} ${signed(result.seasonAverage.myDeltaPerWeek)} pts/sem · ${result.theirs.team} ${signed(result.seasonAverage.theirDeltaPerWeek)} pts/sem (lineup optimale)`,
-    `Semaine par semaine S${scenarios.weeks?.from}–S${scenarios.weeks?.to} :`,
+    `Simulation future, disponibilité et délai de trade non confirmés. Semaine par semaine S${scenarios.weeks?.from}–S${scenarios.weeks?.to} :`,
     ...scenarios.scenarios.map(row => `• ${row.label}${Object.keys(row.returnWeeks).length ? ` (${Object.entries(row.returnWeeks).map(([name, week]) => `${name} S${week}`).join(", ")})` : ""} : ${result.mine.team} ${signed(row.myTotal)} pts · ${result.theirs.team} ${signed(row.theirTotal)} pts`),
+    ...(scenarios.evidence.returnAssumptions || []).map(row => `⚠ ${row.name} (${row.status}) : hypothèse S${row.week}, ${row.basis === "FUTURE_PROJECTION_ASSUMPTION" ? "projection future" : "durée forfaitaire"} ; retour et activation IR non confirmés${row.traded ? "" : " (joueur conservé)"}.`),
     `Marché (valeur au-dessus du remplacement, pas ta lineup) : ${result.market.give} ↔ ${result.market.receive}`,
     ...scenarios.evidence.emptySlotWeeks.map(row => `⚠ ${row.team === "mine" ? result.mine.team : result.theirs.team} S${row.week} : ${row.slots.join(", ")} à 0 d'un seul côté de l'échange (bye/absent sans remplaçant) — l'écart inclut un streamer qu'on ajouterait de toute façon.`),
     `Preuve ${scenarios.evidence.quality}${scenarios.evidence.projectionGaps.length ? ` · semaines sans projection Sleeper comblées par le rythme sain : ${scenarios.evidence.projectionGaps.join(", ")}` : ""} · ${scenarios.evidence.notes.join(" ")}`

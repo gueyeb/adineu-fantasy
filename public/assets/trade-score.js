@@ -82,22 +82,28 @@ export function buildProjectedLineup(players = [], { estimate = weeklyEstimate, 
 
 /** Return-week hypotheses for an injured asset of a trade. Ramp factors are uncalibrated. */
 export const RETURN_SCENARIOS = [
-  { id: "IMMEDIATE", label: "retour immédiat", shift: weeks => weeks.next, ramp: [] },
-  { id: "PROGRESSIVE", label: "retour attendu, progressif", shift: weeks => weeks.expected, ramp: [0.75, 0.75] },
-  { id: "LONG", label: "absence prolongée", shift: weeks => weeks.expected + 3, ramp: [0.75] }
+  { id: "IMMEDIATE", label: "hypothèse : retour dès la semaine suivante", shift: weeks => weeks.next, ramp: [] },
+  { id: "PROGRESSIVE", label: "hypothèse : retour progressif", shift: weeks => weeks.expected, ramp: [0.75, 0.75] },
+  { id: "LONG", label: "hypothèse : absence prolongée", shift: weeks => weeks.expected + 3, ramp: [0.75] }
 ];
 
-/** Expected return of an Out/IR player: the first later week Sleeper projects him again (its
- * absence before that is information), else the status' expected games missed. */
-export function expectedReturnWeek(player, { week, projectionsByWeek = {} }) {
+/** Modeling assumption only: future projections never establish medical clearance or IR activation. */
+export function returnWeekAssumption(player, { week, projectionsByWeek = {} }) {
   const missed = GAMES_MISSED_BY_STATUS[injuryStatus(player)] || 0;
-  if (missed < 1) return week;
+  if (missed < 1) return { week, basis: "CURRENT_STATUS", availability: "UNVERIFIED" };
   const id = identity(player);
   const bye = BYE_WEEKS_2026[player.nflTeam];
   for (let w = week + 1; w <= LAST_REGULAR_WEEK; w++) {
-    if (w !== bye && Number.isFinite(projectionsByWeek[w]?.[id]?.pts_ppr)) return w;
+    const points = projectionsByWeek[w]?.[id]?.pts_ppr;
+    if (w !== bye && Number.isFinite(points) && points > 0) {
+      return { week: w, basis: "FUTURE_PROJECTION_ASSUMPTION", availability: "UNVERIFIED" };
+    }
   }
-  return week + Math.ceil(missed);
+  return { week: week + Math.ceil(missed), basis: "STATUS_DURATION_ASSUMPTION", availability: "UNVERIFIED" };
+}
+
+export function expectedReturnWeek(player, context) {
+  return returnWeekAssumption(player, context).week;
 }
 
 /** Healthy weekly rate: mean of the player's published weekly projections, else rosPpg / estimate. */
@@ -179,10 +185,15 @@ export function tradeReturnScenarios({ myPlayers = [], theirPlayers = [], give =
     evidence: {
       basis: "SLEEPER_WEEKLY_PROJECTIONS",
       injuredAssets: injuredAssets.map(player => ({ name: player.name, status: injuryStatus(player), expectedReturnWeek: expectedReturnWeek(player, context) })),
+      returnAssumptions: [...new Map([...myPlayers, ...theirPlayers].map(player => [identity(player), player])).values()]
+        .filter(player => isOutThisWeek(player))
+        .map(player => ({ name: player.name, status: injuryStatus(player), traded: assets.has(identity(player)), ...returnWeekAssumption(player, context) })),
+      lineupAvailability: "UNVERIFIED",
+      transactionTiming: "UNVERIFIED",
       projectionGaps,
       emptySlotWeeks,
       quality: projectionGaps.length > 2 || injuredAssets.length || emptySlotWeeks.length ? "MEDIUM" : "HIGH",
-      notes: ["Rampe de retour (75 %) et absence prolongée (+3 sem.) : hypothèses non calibrées."]
+      notes: ["Simulation future, pas une lineup alignable confirmée. Délai de trade, kickoffs, locks et activation IR non vérifiés.", "Une projection future ne confirme pas un retour de blessure. Rampe de retour (75 %) et absence prolongée (+3 sem.) : hypothèses non calibrées."]
     }
   };
 }
@@ -231,7 +242,7 @@ export function scoreTradeRecommendation({ myPlayers = [], theirPlayers = [], gi
     if (injuryStatus(player) && !Object.hasOwn(GAMES_MISSED_BY_STATUS, injuryStatus(player))) warnings.push(`${player.name} : statut de blessure non reconnu`);
   }
   const injured = assets.filter(player => GAMES_MISSED_BY_STATUS[injuryStatus(player)]);
-  const notes = injured.map(player => `${player.name} : ${injuryStatus(player)} (≈${GAMES_MISSED_BY_STATUS[injuryStatus(player)]} match(s) manqué(s) intégré(s))`);
+  const notes = injured.map(player => `${player.name} : ${injuryStatus(player)} (hypothèse non calibrée : ≈${GAMES_MISSED_BY_STATUS[injuryStatus(player)]} match(s) manqué(s), retour non confirmé)`);
   for (const [who, after, players] of [["Tu", myAfter, myAfterPlayers], ["Il", theirAfter, theirAfterPlayers]]) {
     const newlyEmpty = after.emptySlots.filter(slot => !(who === "Tu" ? myBefore : theirBefore).emptySlots.includes(slot));
     if (newlyEmpty.length) notes.push(`${who === "Tu" ? "Ta" : "Sa"} lineup perd son ${newlyEmpty.join(", ")} : slot vide = 0 pt.`);
@@ -239,7 +250,7 @@ export function scoreTradeRecommendation({ myPlayers = [], theirPlayers = [], gi
     const inReserve = Math.min(ROSTER_SETTINGS_2026.reserveSlots, players.filter(player => IR_ELIGIBLE.has(injuryStatus(player))).length);
     if (players.length - inReserve > ROSTER_SETTINGS_2026.totalRosterSize) {
       const cut = likelyCut(players, after, estimate);
-      if (cut) notes.push(`${who} devra libérer une place : coupe probable ${cut.name} (sans impact lineup).`);
+      if (cut) notes.push(`${who === "Tu" ? "Tu devras" : "Il devra"} libérer une place : coupe probable ${cut.name} (sans impact lineup).`);
     }
   }
   const myDelta = round(myAfter.total - myBefore.total);
@@ -253,6 +264,7 @@ export function scoreTradeRecommendation({ myPlayers = [], theirPlayers = [], gi
     horizon: Number.isFinite(week) ? "ROS" : "WEEK",
     confidence: warnings.length ? "LOW" : injured.length ? "MEDIUM" : "HIGH", tradeability,
     winWin: bilateral, warnings, notes,
+    lineupAvailability: "UNVERIFIED", transactionTiming: "UNVERIFIED",
     lineups: { mine: { before: myBefore, after: myAfter }, theirs: { before: theirBefore, after: theirAfter } },
     rankScore: round(Math.min(myDelta, theirDelta) * 10 + myDelta + theirDelta - market.pctDiff - warnings.length * 10 - injured.length * 3)
   };
