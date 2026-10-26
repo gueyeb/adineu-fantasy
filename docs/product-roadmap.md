@@ -2,6 +2,8 @@
 
 ## Priorité actuelle — ADINEU Quality & Consistency (26/10/2026)
 
+Suivi Linear : [ADINEU — Quality & Consistency · P-DAK-18](https://linear.app/dakhine/project/adineu-quality-and-consistency-f2cd499a6e00), équipe Dakhine, en cours, jalons QC-01 / QC-02 / QC-03. Les correctifs locaux et les déploiements y restent distingués.
+
 **Consolider l'existant avant de construire davantage.** Cette phase remplace
 l'ordre des travaux annoncé précédemment : les correctifs de cohérence et de
 temps effectif passent avant le scanner post-match et les nouvelles fonctionnalités.
