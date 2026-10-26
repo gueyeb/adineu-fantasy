@@ -1,5 +1,21 @@
 # Approved in-season roadmap
 
+## Nouveau chantier — 26/10/2026 : pertinence des trades et décisions S8
+
+Retour utilisateur enregistré ; première version TF-01 implémentée et vérifiée localement, non déployée.
+[Lots, état existant et critères de réussite](prd-trade-decision-intelligence.md).
+
+- [ ] P0 TF-01 — V1 locale : dominance, confiance de couverture, protection premium et gains significatifs ; trois vues. Restent provenance médicale/équipes datée, diagnostics globaux et validation mobile dédiée.
+- [ ] P0 LI-01 — exporter les 12 rosters et classer les partenaires par besoins réciproques, en réutilisant le moteur existant.
+- [ ] P0 WK-01 — distinguer semaine terminée/live/cible et détecter les opportunités post-match au-delà du top par poste.
+- [ ] P1 MV-01 — valeurs planchers, packages et coût de coupe/conservation/trade ; calibration historique séparant Yahoo et Sleeper.
+- [ ] P1 WR-01 — enrichir la War Room et sortir trois décisions privées : ajouter, couper, proposer un trade.
+
+Premier lot : TF-01, puis contexte de ligue et semaine cible. Les seuils 1,5/2 pts et
+les poids du score proposés sont à tester, pas des paramètres déjà adoptés.
+La préférence Boukki RB S8 est datée ; les exemples NFL joints restent à vérifier.
+Conserver l'interdiction des probabilités synthétiques d'acceptation et des usages inventés.
+
 ## Triage du 18/10/2026 (semaine 6)
 
 Source de vérité courte ; le détail historique suit plus bas. Un élément « livré » est en production sur `main`.

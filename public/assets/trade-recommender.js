@@ -8,8 +8,8 @@
  */
 
 import { calculatePlayerTradeValue, evaluateTrade } from "./trade-value.js?v=2c9caa87cf";
-import { buildProjectedLineup, restOfSeasonEstimate, scoreTradeRecommendation } from "./trade-score.js?v=ab767c5c44";
-import { playerKey, preferenceAdjustment } from "./trade-preferences.js?v=c5fec5ce56";
+import { buildProjectedLineup, restOfSeasonEstimate, scoreTradeRecommendation } from "./trade-score.js?v=8773b08bd5";
+import { playerKey, playerStatus, preferenceAdjustment } from "./trade-preferences.js?v=c5fec5ce56";
 
 export const KNOWN_HANDCUFFS = [
   { starter: "Breece Hall", handcuff: "Braelon Allen", nflTeam: "NYJ" },
@@ -46,7 +46,43 @@ function decorateProposal(proposal, myPlayers, theirPlayers, week = null) {
 
 const FAIR_VERDICTS = new Set(["FAIR", "SLIGHT_ADVANTAGE_A", "SLIGHT_ADVANTAGE_B"]);
 const TRADEABLE = new Set(["QB", "RB", "WR", "TE"]);
-const LINEUP_SEARCH_PER_PARTNER = 3;
+// Initial, uncalibrated selection thresholds; market values remain unchanged.
+export const TRADE_SELECTION_DEFAULTS = Object.freeze({ minimumGain: 1.5, premiumGain: 2, premiumValue: 70, premiumRank: 24 });
+
+export function classifyTradeProposal(proposal, { playerPreferences = {}, selection = {} } = {}) {
+  const policy = { ...TRADE_SELECTION_DEFAULTS, ...selection };
+  for (const key of Object.keys(TRADE_SELECTION_DEFAULTS)) {
+    if (!Number.isFinite(policy[key]) || policy[key] < 0) throw new Error(`Invalid trade selection: ${key}`);
+  }
+  const score = proposal.recommendationScore;
+  const reasons = [];
+  if (score.confidence === "LOW") reasons.push("Données insuffisantes pour recommander");
+  if (score.my_lineup_delta < policy.minimumGain) reasons.push(`Gain inférieur au seuil expérimental de ${policy.minimumGain} pts/sem`);
+  if (score.their_lineup_delta <= 0) reasons.push("Aucun gain de lineup adverse démontré");
+  const protectedPlayers = proposal.give.filter(player => playerStatus(player, playerPreferences) === "KEEP" ||
+    ((calculatePlayerTradeValue(player) >= policy.premiumValue ||
+      (Number.isFinite(player.quality?.expertRank ?? player.expertRank) && (player.quality?.expertRank ?? player.expertRank) <= policy.premiumRank)) && playerStatus(player, playerPreferences) !== "SHOP"));
+  if (protectedPlayers.length && score.my_lineup_delta < policy.premiumGain) reasons.push(`Protection premium/Keep : ${protectedPlayers.map(player => player.name).join(", ")}`);
+  const group = reasons.length ? "EXPLORATION" : score.confidence === "HIGH" && score.tradeability === "Naturelle" ? "RECOMMENDED" : "NEGOTIATE";
+  return { group, reasons };
+}
+
+/** Same partner and receipt, strictly fewer assets surrendered, no smaller own lineup gain.
+ * Keep the extra asset even when it is on the bench: depth has option value. */
+export function removeDominatedProposals(proposals) {
+  const groups = new Map();
+  for (const proposal of proposals) {
+    const key = JSON.stringify([String(proposal.partnerRosterId), proposal.receive.map(playerKey).sort()]);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(proposal);
+  }
+  return [...groups.values()].flatMap(group => group.filter(proposal => !group.some(other =>
+    other !== proposal && other.give.length < proposal.give.length &&
+    other.give.every(player => proposal.give.some(asset => playerKey(asset) === playerKey(player))) &&
+    ({ LOW: 0, MEDIUM: 1, HIGH: 2 }[other.recommendationScore.confidence] >= { LOW: 0, MEDIUM: 1, HIGH: 2 }[proposal.recommendationScore.confidence]) &&
+    other.recommendationScore.their_lineup_delta > 0 &&
+    other.recommendationScore.my_lineup_delta >= proposal.recommendationScore.my_lineup_delta)));
+}
 export const MAX_PROPOSALS_PER_PARTNER = 2;
 
 /** Exhaustive 1-for-1, 2-for-1 and 1-for-2 search between two rosters, kept only when BOTH optimal
@@ -94,7 +130,7 @@ function findLineupUpgrades({ myPlayers, theirPlayers, partnerRosterId, partnerN
       score: Math.min(myGain, theirGain) * 10 + myGain
     });
   }
-  return found.sort((a, b) => b.score - a.score).slice(0, LINEUP_SEARCH_PER_PARTNER);
+  return found; // Apply selection and dominance before any per-partner/output cap.
 }
 
 function isCurrentHandcuffPair(link, starterPlayer, handcuffPlayer) {
@@ -181,7 +217,8 @@ export function diagnoseRoster(players = []) {
  * @param {Map<string, Object>|Object} options.playerCatalog Map ou dict des joueurs par ID ou nom
  * @returns {Array<Object>} Propositions de trades triées par pertinence
  */
-export function findTradeProposals({ targetRosterId, rosters = [], playerCatalog = {}, playerPreferences = {}, currentWeek = null }) {
+export function findTradeProposals({ targetRosterId, rosters = [], playerCatalog = {}, playerPreferences = {}, currentWeek = null, view = "RECOMMENDED", selection = {} }) {
+  if (!["RECOMMENDED", "NEGOTIATE", "EXPLORATION"].includes(view)) throw new Error("Invalid trade view");
   const getPlayerInfo = (idOrName) => {
     if (playerCatalog instanceof Map) {
       return playerCatalog.get(idOrName) || { name: idOrName };
@@ -369,7 +406,10 @@ export function findTradeProposals({ targetRosterId, rosters = [], playerCatalog
 
   // Diversité : d'abord les 2 meilleures propositions de chaque partenaire (par score), puis le reste.
   // Une liste variée vaut mieux que 4 variantes du même deal ; rien n'est supprimé s'il y a de la place.
-  const sorted = uniqueProposals.sort((a, b) => b.score - a.score);
+  const sorted = removeDominatedProposals(uniqueProposals)
+    .map(proposal => ({ ...proposal, selection: classifyTradeProposal(proposal, { playerPreferences, selection }) }))
+    .filter(proposal => proposal.selection.group === view)
+    .sort((a, b) => b.score - a.score);
   const perPartner = new Map();
   const head = [];
   const tail = [];
@@ -394,12 +434,17 @@ export function findCounterOffers({ proposal, myPlayers = [], theirPlayers = [],
     for (let j = i + 1; j < eligible.length; j++) packages.push([eligible[i], eligible[j]]);
   }
   const original = proposal.give.map(playerKey).sort().join("|");
-  return packages.filter(give => give.map(playerKey).sort().join("|") !== original).map(give => {
+  const offers = packages.filter(give => give.map(playerKey).sort().join("|") !== original).map(give => {
     const evaluation = evaluateTrade({ sideA: give, sideB: proposal.receive });
     const decorated = decorateProposal({ ...proposal, give, evaluation }, myPlayers, theirPlayers, currentWeek);
     return { ...decorated, score: decorated.score + preferenceAdjustment(give, playerPreferences) };
   }).filter(offer => ["FAIR", "SLIGHT_ADVANTAGE_A", "SLIGHT_ADVANTAGE_B"].includes(offer.evaluation.verdict) &&
     offer.recommendationScore.my_lineup_delta > 0 && offer.recommendationScore.their_lineup_delta >= 0 &&
     offer.recommendationScore.confidence !== "LOW")
+    .map(offer => ({ ...offer, selection: classifyTradeProposal(offer, { playerPreferences }) }))
+    .filter(offer => offer.selection.group !== "EXPLORATION");
+  // Include the original so a strictly worse counter-offer cannot survive its exclusion.
+  const originalOffer = decorateProposal(proposal, myPlayers, theirPlayers, currentWeek);
+  return removeDominatedProposals([...offers, originalOffer]).filter(offer => offer !== originalOffer)
     .sort((a, b) => b.score - a.score).slice(0, 3);
 }

@@ -216,9 +216,20 @@ export function scoreTradeRecommendation({ myPlayers = [], theirPlayers = [], gi
   const theirAfter = lineup(theirAfterPlayers);
   const assets = [...give, ...receive];
   const warnings = assets.flatMap(player => [
-    ...(projection(player) === null && !injuryStatus(player) ? [`${player.name} : projection de la semaine absente (estimation par rang)`] : []),
+    ...(projection(player) === null && !isOutThisWeek(player) ? [`${player.name} : projection de la semaine absente (estimation par rang)`] : []),
     ...(!Number.isFinite(player.quality?.expertRank ?? player.expertRank ?? player.market?.sleeperAdp ?? player.sleeperAdp) ? [`${player.name} : rang marché indisponible`] : [])
   ]);
+  // Missing projections on a starter/replacement affect the delta even outside the package.
+  const relevantIds = new Set([myBefore, myAfter, theirBefore, theirAfter].flatMap(row => row.slots.filter(slot => !slot.empty).map(slot => slot.sleeperId)));
+  const relevant = [...new Map([...myPlayers, ...theirPlayers].map(player => [identity(player), player])).values()];
+  for (const player of relevant) {
+    if (!assets.some(asset => identity(asset) === identity(player)) && relevantIds.has(identity(player)) && projection(player) === null && !isOutThisWeek(player)) {
+      warnings.push(`${player.name} : projection absente dans une lineup comparée`);
+    }
+  }
+  for (const player of assets) {
+    if (injuryStatus(player) && !Object.hasOwn(GAMES_MISSED_BY_STATUS, injuryStatus(player))) warnings.push(`${player.name} : statut de blessure non reconnu`);
+  }
   const injured = assets.filter(player => GAMES_MISSED_BY_STATUS[injuryStatus(player)]);
   const notes = injured.map(player => `${player.name} : ${injuryStatus(player)} (≈${GAMES_MISSED_BY_STATUS[injuryStatus(player)]} match(s) manqué(s) intégré(s))`);
   for (const [who, after, players] of [["Tu", myAfter, myAfterPlayers], ["Il", theirAfter, theirAfterPlayers]]) {

@@ -33,7 +33,7 @@ test("diagnoseRoster accurately detects WR surplus and RB deficit", () => {
   assert.equal(diag.counts.RB, 3);
 });
 
-test("findTradeProposals generates win-win and handcuff proposals", () => {
+test("rank-only trade and handcuff scenarios require explicit exploration", () => {
   const team1Roster = {
     roster_id: 1,
     name: "Team 1",
@@ -67,7 +67,8 @@ test("findTradeProposals generates win-win and handcuff proposals", () => {
 
   const proposals = findTradeProposals({
     targetRosterId: 1,
-    rosters: [team1Roster, team2Roster]
+    rosters: [team1Roster, team2Roster],
+    view: "EXPLORATION"
   });
 
   assert.ok(proposals.length > 0, "Expected at least 1 trade proposal");

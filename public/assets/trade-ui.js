@@ -9,7 +9,7 @@ import { buildTiers } from "./value-tiers.js?v=32f5359873";
 import { buildWaiverDisplayTiers } from "./waiver-board.js?v=8889a568a8";
 
 import { calculatePlayerTradeValue, calculatePlayerTradeProfile, evaluateTrade } from "./trade-value.js?v=2c9caa87cf";
-import { diagnoseRoster, findTradeProposals, findCounterOffers } from "./trade-recommender.js?v=83d80b9cc2";
+import { diagnoseRoster, findTradeProposals, findCounterOffers } from "./trade-recommender.js?v=2c7f958555";
 import { addToWatchlist, removeFromWatchlist, REASON_MAX } from "./war-room.js?v=e9eae48675";
 import { loadWatchlist, saveWatchlist } from "./war-room-store.js?v=7fbca3341a";
 import { PLAYER_STATUSES, playerKey, playerStatus } from "./trade-preferences.js?v=c5fec5ce56";
@@ -22,7 +22,7 @@ import { resolveOperationalWeek } from "./nfl-week.js?v=8f9fa3f5b2";
 import { listRosterIdentities } from "./roster-view.js?v=120de9d74d";
 import { calculateFaabRemaining } from "./team-metrics.js?v=e47db97055";
 import { compactAuction, formatAuction } from "./faab-auction.js?v=1eea51c520";
-import { buildProjectedLineup, restOfSeasonEstimate } from "./trade-score.js?v=ab767c5c44";
+import { buildProjectedLineup, restOfSeasonEstimate } from "./trade-score.js?v=8773b08bd5";
 
 import { SLEEPER_API, SLEEPER_LEAGUE_ID, sleeperGet } from "./sleeper-client.js?v=3f75d48ec5";
 const SUPABASE_URL = "https://juosrzsffvjprqhdyado.supabase.co";
@@ -193,6 +193,8 @@ export async function renderTradesPage(container) {
     || formattedRosters[0]?.roster_id
     || 1;
 
+  let tradeView = "RECOMMENDED";
+
   function renderCurrentTab() {
     if (currentTab === "finder") renderFinderView();
     else if (currentTab === "calc") renderCalculatorView();
@@ -221,6 +223,7 @@ export async function renderTradesPage(container) {
       rosters: formattedRosters,
       playerCatalog: playerMap,
       playerPreferences: preferences,
+      view: tradeView,
       currentWeek
     });
     const myLineup = buildProjectedLineup(currentRoster.players, { estimate: restOfSeasonEstimate(currentWeek) });
@@ -257,11 +260,16 @@ export async function renderTradesPage(container) {
           ${currentRoster.players.map(player => `<tr><td>${escapeHtml(player.name)}</td><td><select class="player-preference" data-player="${escapeHtml(playerKey(player))}" aria-label="Préférence pour ${escapeHtml(player.name)}">${Object.entries(PLAYER_STATUSES).map(([status, label]) => `<option value="${status}" ${playerStatus(player, preferences) === status ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}</select></td></tr>`).join("")}
           </tbody></table></div><p class="note" id="preference-status" role="status"></p></details>
         ${myLineup.emptySlots.length ? `<div class="card" style="padding:14px 18px; margin:16px 0; border-left:4px solid var(--red);">⚠ Aucun joueur éligible pour ${myLineup.emptySlots.map(escapeHtml).join(", ")} : ce slot vaut 0 pt chaque semaine. Priorité au <a href="#waivers" id="empty-slot-waivers">Waiver Wire</a> avant tout trade.</div>` : ""}
-        <h3 style="margin:24px 0 16px; font-size:1.2rem;">Opportunités de Trades Détectées (${proposals.length})</h3>
+        <h3 style="margin:24px 0 16px; font-size:1.2rem;">${{ RECOMMENDED: "Trades recommandés", NEGOTIATE: "Trades à négocier", EXPLORATION: "Exploration du marché" }[tradeView]} (${proposals.length})</h3>
 
+        <label for="trade-view">Afficher</label>
+        <select id="trade-view" class="filter-btn" style="max-width:100%;min-height:40px;">
+          ${Object.entries({ RECOMMENDED: "Trades recommandés", NEGOTIATE: "À négocier", EXPLORATION: "Exploration du marché" }).map(([value, label]) => `<option value="${value}" ${tradeView === value ? "selected" : ""}>${label}</option>`).join("")}
+        </select>
+        <p class="note">Sélection expérimentale : gain minimum 1,5 pt/sem, protection premium/Keep sous 2 pts/sem. Les scénarios à faible gain, sans gain adverse ou avec données insuffisantes restent en exploration. Premium = valeur ≥ 70 ou rang expert ≤ 24. Shop lève cette protection, en conservant les autres critères.</p>
         ${proposals.length === 0 ? `
           <div class="card" style="padding:24px; text-align:center; color:var(--muted);">
-            Aucun trade bilatéral évident n'a été détecté pour cette configuration d'équipe.
+            Aucun trade ne satisfait les critères de cette vue. Un résultat vide est possible ; consulte les autres vues pour explorer le marché.
           </div>
         ` : `
           <p class="note" style="margin:0 0 8px;">Compare le gain estimé de lineup et la valeur d’échange pour chaque équipe.</p><details class="method-note"><summary>Comment lire les gains et le marché</summary><div><p>Gains = moyenne hebdo de la <strong>lineup optimale</strong> projetée, semaines ${currentWeek ?? "?"}→${GENERAL_SETTINGS_2026.playoffWeekStart - 1} (projections Sleeper + usage, blessures et byes inclus). « Marché » compare la valeur d'échange des deux côtés. Estimations Adineu, pas des garanties.</p></div></details>
@@ -299,10 +307,12 @@ export async function renderTradesPage(container) {
                   <details class="trade-lineup-detail"><summary>Lineups avant → après</summary>
                     ${[["Ton équipe", score.lineups.mine], [p.partnerName, score.lineups.theirs]].map(([name, lineups]) => `<h5>${escapeHtml(name)}</h5><div class="table-wrap"><table><thead><tr><th>Slot</th><th>Avant</th><th>Après</th></tr></thead><tbody>${lineups.before.slots.map((slot, i) => `<tr><td>${escapeHtml(slot.slot)}</td><td>${escapeHtml(slot.name)} · ${slot.projectedPpg ?? "—"}</td><td>${escapeHtml(lineups.after.slots[i].name)} · ${lineups.after.slots[i].projectedPpg ?? "—"}</td></tr>`).join("")}</tbody></table></div>`).join("")}
                   </details>
+                  ${p.selection.reasons.length ? `<p class="note">${p.selection.reasons.map(escapeHtml).join(" · ")}</p>` : ""}
+                  <p class="note">Intérêt adverse : ${score.their_lineup_delta > 0 ? `gain estimé de lineup de +${score.their_lineup_delta} pts/sem` : "aucun gain de lineup démontré"}. Estimation Adineu, sans probabilité d’acceptation.</p>
                   <div id="counter-offers-${index}" aria-live="polite"></div>
                   <div class="tf-actions">
                     <button type="button" class="counter-offer-btn filter-btn" data-index="${index}">Contre-offres</button>
-                    <button type="button" class="copy-pitch-btn filter-btn" data-pitch="${escapeHtml(`Salut ! Que penses-tu de cet échange : je te propose ${p.give.map(g => g.name).join(" + ")} contre ${p.receive.map(r => r.name).join(" + ")} ? ${p.pitchPartner}`)}">📋 Copier le message</button>
+                    <button type="button" class="copy-pitch-btn filter-btn" data-pitch="${escapeHtml(`Salut ! Que penses-tu de cet échange : je te propose ${p.give.map(g => g.name).join(" + ")} contre ${p.receive.map(r => r.name).join(" + ")} ? ${score.their_lineup_delta > 0 ? p.pitchPartner : "À discuter selon tes besoins."}`)}">📋 Copier le message</button>
                   </div>
                 </article>
               `;
@@ -312,6 +322,10 @@ export async function renderTradesPage(container) {
       </div>
     `;
 
+    document.getElementById("trade-view")?.addEventListener("change", event => {
+      tradeView = event.target.value;
+      renderFinderView();
+    });
     document.getElementById("roster-select")?.addEventListener("change", (e) => {
       selectedRosterId = e.target.value;
       renderFinderView();
