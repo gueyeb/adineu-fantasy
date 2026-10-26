@@ -1,3 +1,4 @@
+import { buildTeamSeasonContext, teamSeasonKey, allPlayUnavailableMessage, canonicalManagerForRoster } from "./team-season-context.js?v=743d40f6f3";
 /**
  * Adineu Fantasy — Team Profile (/teams/)
  *
@@ -34,10 +35,8 @@ import {
   buildRosterSlots,
   resolvePlayer
 } from "./roster-view.js?v=120de9d74d";
-import { ROSTER_SETTINGS_2026, GENERAL_SETTINGS_2026 } from "./league-settings.js?v=f6d1bf5212";
+import { ROSTER_SETTINGS_2026, GENERAL_SETTINGS_2026 } from "./league-settings.js?v=886f353394";
 import { calculateLeagueRosterStrength } from "./roster-strength.js?v=cb7fcc6e3d";
-import { calculatePowerRankings } from "./power-rankings.js?v=86d062a9e8";
-import { calculateAllPlayRecords } from "./all-play.js?v=99514b7ee6";
 import { calculateFaabRemaining, formatStreak, streakWinCount } from "./team-metrics.js?v=e47db97055";
 import { buildYahooRecordBook } from "./record-book.js?v=0ebb2a4e56";
 import { highestCompletedScore, buildRecordWatchEntries } from "./record-watch.js?v=280b27d476";
@@ -95,9 +94,9 @@ async function loadLiveStandings() {
   });
 }
 
-/** Same query as site.js's Power Rankings page — one Supabase call for every regular-season matchup row. */
+/** Same scores as Power Rankings, with the public season roster ID for exact identity binding. */
 async function loadSleeperMatchups() {
-  const select = "week,points,opponent_points,is_playoff,team:teams!matchups_team_id_fkey(team_name,season:seasons!inner(year,platform),owner:owners(display_name))";
+  const select = "week,points,opponent_points,is_playoff,team:teams!matchups_team_id_fkey(team_name,external_roster_id,season:seasons!inner(year,platform),owner:owners(display_name))";
   const query = new URLSearchParams({ select, "team.season.year": `eq.${CURRENT_SEASON}`, "team.season.platform": "eq.sleeper" });
   const rows = await fetchJson(`${SUPABASE_URL}/rest/v1/matchups?${query}`, {
     headers: { apikey: SUPABASE_PUBLISHABLE_KEY, Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}` }
@@ -105,6 +104,7 @@ async function loadSleeperMatchups() {
   return rows.map(row => ({
     week: row.week,
     manager: row.team?.owner?.display_name,
+    rosterId: row.team?.external_roster_id,
     team: row.team?.team_name,
     points: row.points,
     opponentPoints: row.opponent_points,
@@ -117,24 +117,19 @@ async function loadLineupAdvisory(team) {
 }
 
 /**
- * Same gate and inputs as site.js's renderPowerRankings() — never publishes a rank before it's
+ * Same gate and score inputs as site.js's renderPowerRankings() — never publishes a rank before it's
  * ready. All-Play reuses the exact same matchupRows/currentWeek fetch (one Supabase call, not two)
  * since both derive from the identical completed-weeks window. currentWeek/matchupRows are also
- * returned as-is for Record Watch's per-manager weekly-high lookup.
+ * keyed by the season roster for Record Watch's weekly-high lookup.
  */
-async function loadSeasonContext(expectedManagers) {
+async function loadSeasonContext(rosterIds) {
   const [league, nflState, matchupRows] = await Promise.all([
     sleeperGet(`/league/${SLEEPER_LEAGUE_ID}`),
     sleeperGet("/state/nfl"),
     loadSleeperMatchups()
   ]);
   const currentWeek = league.status === "in_season" && nflState.season_type === "regular" ? Number(nflState.week) : null;
-  return {
-    currentWeek,
-    matchupRows,
-    powerRankings: calculatePowerRankings(matchupRows, { currentWeek, expectedManagers }),
-    allPlay: calculateAllPlayRecords(matchupRows, { currentWeek, expectedManagers })
-  };
+  return buildTeamSeasonContext({ rows: matchupRows, rosterIds, currentWeek });
 }
 
 /**
@@ -217,13 +212,13 @@ function strengthBlock(strength) {
     <p class="note">Percentile de valeur de trade (0-100) par poste face aux 11 autres rosters — estimation Adineu basée sur le rang expert/ADP, pas une note officielle.</p>`;
 }
 
-function allPlayBlock(allPlay, ownerName) {
+function allPlayBlock(allPlay, rosterId) {
   if (!allPlay?.ready) {
-    return `<p class="team-roster-empty">Pas encore assez de semaines complètes pour calculer le record all-play.</p>`;
+    return `<p class="team-roster-empty">${escapeHtml(allPlayUnavailableMessage(allPlay))}</p>`;
   }
-  const row = allPlay.records.find(record => record.manager === ownerName);
+  const row = allPlay.records.find(record => record.manager === teamSeasonKey(rosterId));
   if (!row) return `<p class="team-roster-empty">Record all-play indisponible pour cette équipe.</p>`;
-  return `<p><strong>${row.wins}—${row.losses}${row.ties ? `—${row.ties}` : ""}</strong> sur ${row.games} confrontations hypothétiques (${(row.winPct * 100).toFixed(0)}%)</p>
+  return `<p><strong>${row.wins}—${row.losses}${row.ties ? `—${row.ties}` : ""}</strong> sur ${row.wins + row.losses + row.ties} confrontations hypothétiques en ${row.games} semaines terminées (${(row.winPct * 100).toFixed(0)}%)</p>
     <p class="note">Si cette équipe avait joué contre les 11 autres chaque semaine, au lieu de son seul adversaire — mesure de régularité, pas le classement officiel.</p>`;
 }
 
@@ -312,7 +307,7 @@ export async function renderTeamsHub(container) {
   let currentWeek = null;
   let matchupRows = [];
   try {
-    const seasonContext = await loadSeasonContext(identities.map(entry => entry.ownerName));
+    const seasonContext = await loadSeasonContext(identities.map(entry => entry.roster.roster_id));
     powerRankings = seasonContext.powerRankings;
     allPlay = seasonContext.allPlay;
     currentWeek = seasonContext.currentWeek;
@@ -371,11 +366,12 @@ export async function renderTeamsHub(container) {
       return;
     }
 
+    const canonicalManager = canonicalManagerForRoster(matchupRows, entry.roster.roster_id);
     const { starters, bench, ir } = buildRosterSlots({ roster: entry.roster, playerMap, starterSlotOrder: STARTER_SLOT_ORDER });
     const strength = strengthByRoster.get(entry.roster.roster_id) || null;
     const teamTransactions = filterTeamTransactions(recentTransactions, entry.roster.roster_id)
       .map(row => describeTransaction(row, { rosterId: entry.roster.roster_id, playerMap }));
-    const powerRow = powerRankings?.ready ? powerRankings.rankings.find(row => row.manager === entry.ownerName) : null;
+    const powerRow = powerRankings?.ready ? powerRankings.rankings.find(row => row.manager === teamSeasonKey(entry.roster.roster_id)) : null;
     const faabRemaining = calculateFaabRemaining(GENERAL_SETTINGS_2026.waiver.budget, entry.roster.settings?.waiver_budget_used);
     const streakLabel = formatStreak(entry.roster.metadata?.streak);
 
@@ -385,7 +381,7 @@ export async function renderTeamsHub(container) {
     ]);
 
     const standingsRow = standingsResult.status === "fulfilled"
-      ? standingsResult.value.find(row => row.owner_name === entry.ownerName) || null
+      ? standingsResult.value.find(row => canonicalManager !== null && row.owner_name === canonicalManager) || null
       : null;
     const standingsError = standingsResult.status === "rejected" ? standingsResult.reason.message : null;
 
@@ -394,7 +390,7 @@ export async function renderTeamsHub(container) {
     const recordWatchEntries = (recordWatchContext && standingsRow) ? buildRecordWatchEntries({
       recordBook: recordWatchContext.recordBook,
       seasonPointsRecord: recordWatchContext.seasonPointsRecord,
-      liveHighScore: highestCompletedScore(matchupRows, entry.ownerName, currentWeek),
+      liveHighScore: highestCompletedScore(matchupRows, teamSeasonKey(entry.roster.roster_id), currentWeek),
       liveStreakWins: streakWinCount(entry.roster.metadata?.streak),
       livePointsFor: standingsRow.points_for
     }) : [];
@@ -409,7 +405,7 @@ export async function renderTeamsHub(container) {
         <div>
           <span class="franchise-kicker">${standingsRow ? `#${standingsRow.live_rank} · ` : ""}Saison 2026</span>
           <h2>${escapeHtml(entry.teamName)}</h2>
-          <p>Manager · ${escapeHtml(entry.ownerName)}</p>
+          <p>${canonicalManager ? `Manager · ${escapeHtml(canonicalManager)}` : `Compte Sleeper · @${escapeHtml(entry.ownerName)}`}${canonicalManager && canonicalManager !== entry.ownerName ? `<br><small>Compte Sleeper · @${escapeHtml(entry.ownerName)}</small>` : ""}</p>
         </div>
         ${standingsRow ? `<div class="team-record">
             <strong>${standingsRow.wins}—${standingsRow.losses}${standingsRow.ties ? `—${standingsRow.ties}` : ""}</strong>
@@ -438,7 +434,7 @@ export async function renderTeamsHub(container) {
 
       <div class="team-all-play">
         <h3>Record all-play</h3>
-        ${allPlayBlock(allPlay, entry.ownerName)}
+        ${allPlayBlock(allPlay, entry.roster.roster_id)}
       </div>
 
       <div class="team-record-watch">

@@ -1,7 +1,7 @@
 # ADINEU Quality & Consistency
 
 26/10/2026 — feedback utilisateur intégré à la roadmap. Statut : consolidation
-priorisée ; aucun correctif de cette phase ni contrôle de production livré par ce cadrage.
+priorisée ; premier incrément QC-01 implémenté et vérifié localement, non déployé.
 
 ## Direction et portée
 
@@ -45,7 +45,7 @@ ces versions locales, ni déclarer la production corrigée grâce aux tests loca
 
 - [ ] Reproduire chaque anomalie prioritaire avec source, date, semaine, couverture
   et version du modèle ; convertir la reproduction en test de non-régression.
-- [ ] All-play : partager les matchups et la règle de semaines complètes ; distinguer
+- [x] All-play (correctif local, non déployé) : partager les matchups et la règle de semaines complètes ; distinguer
   absence de données, couverture incomplète et seuil réellement non atteint.
 - [ ] Identités : distinguer manager canonique, équipe actuelle et alias historique.
   Utiliser les identités confirmées et la réconciliation existante, sans guessing.
@@ -58,7 +58,7 @@ ces versions locales, ni déclarer la production corrigée grâce aux tests loca
 - [ ] IR : séparer simulation future, lineup optimale projetée et lineup alignable.
   Afficher semaine et hypothèse de retour, sans clearance médicale inventée ni
   retour automatique d'un joueur parce qu'il a une projection ROS.
-- [ ] Heure de waivers : une source opérationnelle datée et vérifiée prime sur le
+- [x] Heure de waivers (correctif local, non déployé) : une source opérationnelle datée et vérifiée prime sur le
   libellé habituel. Tester le décalage de changements d'heure Europe/États-Unis du
   26–28 octobre ; conserver « estimé / à confirmer » si la preuve manque.
 - [ ] Vérifier les fuseaux et exécutions réelles n8n mardi/jeudi ; aucune modification
@@ -164,3 +164,56 @@ la War Room, les rosters partagés, le journal ou le système de snapshots.
 Pour chaque livraison, consigner les tests exécutés, les contrôles manuels, les
 limites, le commit et la preuve de déploiement lorsqu'il existe. Les vérifications
 de compilation/type/lint ne sont pas inventées si aucun outil n'est configuré.
+
+
+## QC-01 — Premier incrément local : all-play et horaires
+
+26/10/2026. Les autres cases QC-01 restent ouvertes ; aucune publication en production.
+
+**Reproduction all-play sur les sources publiques actuelles.** La requête de la page
+renvoyait 84 lignes (S1–S7), dont six semaines terminées pour les 12 équipes. Le calcul
+était bloqué avec `incomplete_coverage`, mais l'UI affichait « pas assez de semaines ».
+Cause : comparaison des noms canoniques Supabase aux pseudos Sleeper actuels. Les
+écarts Birama/bmb22 et MouhammadAT/Shiro00 empêchaient la validation globale ; ce
+n'était pas une absence des scores de Boukki.
+
+Le chargement inclut désormais `teams.external_roster_id`, colonne existante et
+publique. All-play, badge Power et Record Watch du dossier sont reliés au roster
+exact de la saison. Aucune identité n'est déduite d'un surnom et aucune table, policy
+ou donnée Supabase n'est modifiée. La page distingue aussi nom canonique et compte
+Sleeper lorsqu'ils diffèrent ; le classement du dossier est retrouvé par cette
+liaison explicite. L'harmonisation des autres pages reste à faire.
+
+Les états « source indisponible », « rattachement manquant », « couverture incomplète »
+et « seuil de semaines non atteint » ont des messages distincts. Le total affiché
+est le nombre de confrontations hypothétiques, avec le nombre de semaines à part.
+Sur la lecture datée du 26/10 : Boukki **19–47 sur 66 confrontations en six semaines** ;
+Ethan Hunt **34–32**, Kuro **29–37**. S7 live exclue, formules Power inchangées.
+Ces chiffres sont une vérification datée, pas une fixture de scores à maintenir.
+
+**Horaires.** `waiver-schedule.js` reprend la règle dérivée des réglages Sleeper et
+validée par au moins deux batches historiques, déjà utilisée pour la disponibilité.
+Une seule représentation source/date/UTC alimente le libellé Europe/Paris du Waiver
+Wire, du contexte décisionnel, du bulletin waivers et du Coach (plan, texte, UI).
+Le créneau de traitement en cours est distingué du passage hebdomadaire suivant.
+Le libellé fixe 09:00 est retiré de la configuration et de l'onglet règles ; sans
+preuve suffisante, le contexte compact indique un horaire non vérifié.
+
+L'heure future reste **déduite et à confirmer dans Sleeper**, pas une observation
+opérateur ni une confirmation de disponibilité de chaque joueur. Les échéances
+propres aux coupes récentes peuvent différer du passage hebdomadaire. La vue locale
+sur données réelles affiche mercredi **28/10 à 08:00 Europe/Paris**, cohérente avec
+les échéances des lignes candidats. Tests de fuseaux : 21/10 à 09:00, 28/10 à 08:00,
+04/11 à 09:00 pour la règle testée. Aucun workflow n8n ni horaire de production modifié.
+
+**Vérification.** Suite complète de 602 tests et tests ciblés ; contrôles statiques,
+versions d'assets et syntaxe valides. Reproduction avant/après sur les données
+publiques, fixtures synthétiques sans identifiants de compte privés, tests du
+rattachement de 12 rosters, des motifs d'indisponibilité, de l'invariance Power et
+du même horaire en sortie waiver/IA/Coach. Navigateur local : Boukki, Ethan Hunt et
+Kuro vérifiés, ainsi que le libellé du Waiver Wire. Coach authentifié et mobile
+390 px non audités. Aucun recalibrage de modèle ni accès élargi aux données.
+
+Prochain incrément QC-01 : première semaine réellement affectable des trades
+(revue, kickoffs, locks, IR) et présentation des probabilités pré-match en live.
+Le scanner post-match reste différé après les correctifs P0.

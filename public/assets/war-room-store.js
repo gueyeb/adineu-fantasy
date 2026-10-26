@@ -2,7 +2,7 @@
  * localStorage first, so every page works offline and signed out; a signed-in Coach session also
  * mirrors it on the server (`/api/coach/war-room`) to follow the user across devices. Every access
  * tolerates a blocked storage, and a failed sync never blocks a local write. */
-import { LEAGUE_METADATA_2026 } from "./league-settings.js?v=f6d1bf5212";
+import { LEAGUE_METADATA_2026 } from "./league-settings.js?v=886f353394";
 import { mergeBidHistory, normalizeBidHistory, normalizeWatchlist, warRoomStorageKey } from "./war-room.js?v=e9eae48675";
 
 const key = (kind, rosterId) => warRoomStorageKey(kind, { season: LEAGUE_METADATA_2026.season, leagueId: LEAGUE_METADATA_2026.leagueId, rosterId });

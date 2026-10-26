@@ -1,7 +1,7 @@
 import { sosDifficultyFields } from './sos-insights.js?v=c553d8c0f3';
 import { buildSosAiContext, combineSosAiContexts, SOS_HANDOFF_KEY } from './sos-ai-context.js?v=4f44f5a9de';
 import { copyTextFrom, registerPageAiContext } from './ai-context-client.js?v=d42756c77d';
-import { SOS_TEAM_CODES } from './wr-ros-sos.js?v=718476d9fa';
+import { SOS_TEAM_CODES } from './wr-ros-sos.js?v=147c348b5d';
 const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const number = value => Number.isFinite(value) ? value.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) : '—';
 const date = value => value ? new Date(value).toLocaleString('fr-FR', { timeZone: 'Europe/Paris' }) : '—';

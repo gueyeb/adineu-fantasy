@@ -25,7 +25,7 @@ export const GENERAL_SETTINGS_2026 = {
     budget: 1000,
     bidMinimum: 0,
     clearDay: "Wednesday",
-    clearTime: "09:00 Europe/Paris",
+    clearTime: null, // Operational time comes from history-validated Sleeper rules, never a fixed Paris hour.
     clearDays: 1
   },
   trades: {

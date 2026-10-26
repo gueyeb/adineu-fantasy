@@ -14,7 +14,7 @@
  */
 
 import { calculatePowerRankings } from "./power-rankings.js?v=86d062a9e8";
-import { calculatePlayerFantasyPoints, GENERAL_SETTINGS_2026 } from "./league-settings.js?v=f6d1bf5212";
+import { calculatePlayerFantasyPoints, GENERAL_SETTINGS_2026 } from "./league-settings.js?v=886f353394";
 
 export const DEFAULT_PLAYOFF_SPOTS = 8;
 export const DEFAULT_SIMULATIONS = 3000;

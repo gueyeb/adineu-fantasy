@@ -1,5 +1,6 @@
-import { normalizeTradeIntent, tradeIntentStorageKey, targetWeekTradeImpact, compareTargetWeekImpacts, LAST_TRADE_TARGET_WEEK } from "./trade-target.js?v=6bc24f94b2";
-import { buildLeagueRosterSnapshot, buildLeagueTradeIntelligence } from "./league-trade-intelligence.js?v=549ebda402";
+import { formatWaiverSchedule } from "./waiver-schedule.js?v=967a249e30";
+import { normalizeTradeIntent, tradeIntentStorageKey, targetWeekTradeImpact, compareTargetWeekImpacts, LAST_TRADE_TARGET_WEEK } from "./trade-target.js?v=cb0b6d0556";
+import { buildLeagueRosterSnapshot, buildLeagueTradeIntelligence } from "./league-trade-intelligence.js?v=67d42c22f9";
 import { tierChip, tierSeparator } from "./tier-view.js?v=d3a45b4046";
 /**
  * Adineu Fantasy — Interface Utilisateur Trade Hub
@@ -11,20 +12,20 @@ import { buildTiers } from "./value-tiers.js?v=32f5359873";
 import { buildWaiverDisplayTiers } from "./waiver-board.js?v=8889a568a8";
 
 import { calculatePlayerTradeValue, calculatePlayerTradeProfile, evaluateTrade } from "./trade-value.js?v=2c9caa87cf";
-import { diagnoseRoster, findTradeProposals, findCounterOffers } from "./trade-recommender.js?v=badb781381";
+import { diagnoseRoster, findTradeProposals, findCounterOffers } from "./trade-recommender.js?v=472a87f38e";
 import { addToWatchlist, removeFromWatchlist, REASON_MAX } from "./war-room.js?v=e9eae48675";
-import { loadWatchlist, saveWatchlist } from "./war-room-store.js?v=7fbca3341a";
+import { loadWatchlist, saveWatchlist } from "./war-room-store.js?v=679685c790";
 import { PLAYER_STATUSES, playerKey, playerStatus } from "./trade-preferences.js?v=c5fec5ce56";
 import {
   GENERAL_SETTINGS_2026,
   ROSTER_SETTINGS_2026,
   SCORING_SETTINGS_2026
-} from "./league-settings.js?v=f6d1bf5212";
+} from "./league-settings.js?v=886f353394";
 import { resolveOperationalWeek } from "./nfl-week.js?v=8f9fa3f5b2";
 import { listRosterIdentities } from "./roster-view.js?v=120de9d74d";
 import { calculateFaabRemaining } from "./team-metrics.js?v=e47db97055";
 import { compactAuction, formatAuction } from "./faab-auction.js?v=1eea51c520";
-import { buildProjectedLineup, restOfSeasonEstimate } from "./trade-score.js?v=8773b08bd5";
+import { buildProjectedLineup, restOfSeasonEstimate } from "./trade-score.js?v=4f143525ae";
 
 import { SLEEPER_API, SLEEPER_LEAGUE_ID, sleeperGet } from "./sleeper-client.js?v=3f75d48ec5";
 const SUPABASE_URL = "https://juosrzsffvjprqhdyado.supabase.co";
@@ -672,6 +673,7 @@ export async function renderTradesPage(container) {
       <div class="shell">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; margin-bottom:20px;">
           <div>
+            <p class="note">${escapeHtml(formatWaiverSchedule(report.waiverSchedule))}</p>
             <label for="waiver-roster-select" style="font-size:0.78rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--muted); font-weight:700; display:block; margin-bottom:6px;">Équipe analysée :</label>
             <select id="waiver-roster-select" style="padding:10px 14px; background:var(--panel); border:1px solid var(--line); color:var(--ink); font-weight:600; border-radius:4px;">
               ${formattedRosters.map(r => `
@@ -1147,7 +1149,7 @@ export async function renderTradesPage(container) {
             <h3 style="margin:0 0 12px; font-size:1.1rem;">FAAB 1 000 $</h3>
             <ul style="padding-left:18px; margin:0; font-size:0.85rem; color:var(--muted); line-height:1.6;">
               <li>Enchère minimum : 0 $</li>
-              <li>Déblocage : Mercredi à 09:00 Paris (traitement continu)</li>
+              <li>Passage des waivers : consulter la date estimée dans le Waiver Wire et confirmer dans Sleeper. L’heure de Paris varie avec les changements d’heure.</li>
               <li><strong>Trade Deadline : Semaine 12</strong></li>
               <li>Veto : 6 votes · Review : 1 jour · Pick trading : Oui</li>
             </ul>

@@ -1,6 +1,6 @@
 import { tierChip, tierSeparator } from "./tier-view.js?v=d3a45b4046";
 import { sleeperManager } from "./rivalry-week.js?v=714a861458";
-import { buildWeeklyAwards, resolveCompletedAwardsWeek } from "./weekly-awards.js?v=fbde8903ab";
+import { buildWeeklyAwards, resolveCompletedAwardsWeek } from "./weekly-awards.js?v=b8a7dc8708";
 import { renderWeeklyAwards } from "./weekly-awards-view.js?v=ead74e2c71";
 import { resolveOperationalWeek } from "./nfl-week.js?v=8f9fa3f5b2";
 import { estimateBaselineProjectedPpg } from "./trade-value.js?v=2c9caa87cf";
@@ -8,7 +8,7 @@ import { estimatePregameWinProbability } from "./win-probability.js?v=78dcaa4abd
 
 import { SLEEPER_API, SLEEPER_LEAGUE_ID as DEFAULT_LEAGUE_ID, sleeperGet } from "./sleeper-client.js?v=3f75d48ec5";
 import { addToWatchlist, removeFromWatchlist, REASON_MAX } from "./war-room.js?v=e9eae48675";
-import { loadWatchlist, saveWatchlist } from "./war-room-store.js?v=7fbca3341a";
+import { loadWatchlist, saveWatchlist } from "./war-room-store.js?v=679685c790";
 
 const LEADER_POSITION_LABELS = { QB: "Quarterbacks", RB: "Running backs", WR: "Receveurs", TE: "Tight ends", K: "Kickers", DEF: "Défenses" };
 const USAGE_SIGNAL_LABELS = { BUY_LOW: "Buy low", SELL_HIGH: "Sell high" };

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { buildWaiverSchedule, formatWaiverSchedule } from "../public/assets/waiver-schedule.js";
 import { buildLeagueRosterSnapshot } from "../public/assets/league-trade-intelligence.js";
 import { buildWeeklyRankings } from "../public/assets/weekly-rankings.js";
 import { buildOpponents, buildDefenseVsPosition } from "../public/assets/defense-vs-position.js";
@@ -221,7 +222,8 @@ export async function getLeagueContext({
       // Kept for backwards compatibility. This is the league's initial budget, not the balance.
       faab: faabBudget,
       faabBudget,
-      waiverClear: `${GENERAL_SETTINGS_2026.waiver.clearDay} ${GENERAL_SETTINGS_2026.waiver.clearTime}`,
+      waiverClear: formatWaiverSchedule(null),
+      waiverSchedule: null,
       tradeDeadlineWeek: GENERAL_SETTINGS_2026.trades.deadlineWeek
     },
     myTeam: {
@@ -879,6 +881,7 @@ export async function getFreeAgents({
     ...transactionSummary, availabilityAsOf: asOf, ownershipAsOf, transactionsFetchedAt, ownershipRechecked, snapshotSynchronized: false,
     transactionCoverage: `${transactionsByWeek.length}/${week}`,
     snapshotIssues,
+    waiverSchedule: buildWaiverSchedule({ waiverRules, asOf }),
     generatedAt: new Date().toISOString(), week, lastCompletedWeek, rankingModel: "WAIVER_V2", degraded, coverage,
     pricePerPoint: PRICE_PER_POINT, team: team || null, faabRemaining: fitContext?.faabRemaining ?? null, byPosition,
     watchRows, watchMissing,
@@ -922,8 +925,8 @@ export function formatPoolCoverage(pool) {
 }
 
 /** Rend la liste de free agents en un bulletin texte, groupé par poste. */
-export function formatWaiverReport({ byPosition, week, faabRemaining = null, degraded = false, coverage = null, recentTransactions = [], transactionsTruncatedCount = 0, availabilityAsOf = null, snapshotIssues = [], acquisitionPlan = null, rosterPreferences = [], poolCoverage = null, coherence = null, leagueBidReference = null }) {
-  const lines = [`📋 WAIVER WIRE REPORT — ADINEU${week ? ` (Semaine ${week})` : ""}`];
+export function formatWaiverReport({ byPosition, week, waiverSchedule = null, faabRemaining = null, degraded = false, coverage = null, recentTransactions = [], transactionsTruncatedCount = 0, availabilityAsOf = null, snapshotIssues = [], acquisitionPlan = null, rosterPreferences = [], poolCoverage = null, coherence = null, leagueBidReference = null }) {
+  const lines = [`📋 WAIVER WIRE REPORT — ADINEU${week ? ` (Semaine ${week})` : ""}`, formatWaiverSchedule(waiverSchedule)];
   if (Number.isFinite(faabRemaining)) lines.push(`FAAB restant : ${faabRemaining} $ / ${GENERAL_SETTINGS_2026.waiver.budget} $`);
   if (degraded) lines.push(`Couverture dégradée : projections ${coverage?.projectionWeeks || "n/d"}, usage ${coverage?.statsWeeks || "n/d"}.`);
 

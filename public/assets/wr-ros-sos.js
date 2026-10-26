@@ -1,6 +1,6 @@
 /** Pure positional schedule explorer. Input contract and delivery scope: docs/prd-fantasy-sos-explorer.md. */
 import { SHRINK_GAMES } from './defense-vs-position.js?v=aa50fb77c1';
-import { GENERAL_SETTINGS_2026 } from './league-settings.js?v=f6d1bf5212';
+import { GENERAL_SETTINGS_2026 } from './league-settings.js?v=886f353394';
 
 export const SOS_METHODOLOGY_VERSION = 'WR_TEMPORAL_V1';
 export const SOS_POSITIONS = ['WR', 'RB'];

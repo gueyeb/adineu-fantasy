@@ -7,7 +7,7 @@
  */
 
 import { estimatePregameWinProbability } from "./win-probability.js?v=78dcaa4abd";
-import { ROSTER_SETTINGS_2026 } from "./league-settings.js?v=f6d1bf5212";
+import { ROSTER_SETTINGS_2026 } from "./league-settings.js?v=886f353394";
 
 function resolvePosition(playerCatalog, playerId) {
   const player = playerCatalog?.get ? playerCatalog.get(playerId) : playerCatalog?.[playerId];

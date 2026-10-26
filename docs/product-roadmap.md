@@ -7,9 +7,11 @@ l'ordre des travaux annoncé précédemment : les correctifs de cohérence et de
 temps effectif passent avant le scanner post-match et les nouvelles fonctionnalités.
 [Audit intégré, preuves, lots et critères de réussite](quality-consistency-2026-10-26.md).
 
-- [ ] **P0 QC-01 — Cohérence et exactitude opérationnelle** : reproduire les anomalies
-  puis corriger all-play, identités/métriques, semaines affectables/IR/locks,
-  horaires de waivers et probabilités pré-match près des scores live.
+- [ ] **P0 QC-01 — Cohérence et exactitude opérationnelle** : premier incrément local
+  vérifié (all-play lié aux rosters de saison, noms canoniques/comptes dans les dossiers,
+  horaire de waivers partagé et daté, DST testé). Restent déploiement, cohérence des
+  autres pages/métriques, semaines affectables/IR/locks, horaires n8n et probabilités
+  pré-match près des scores live. [Preuves et limites](quality-consistency-2026-10-26.md#qc-01--premier-incrément-local--all-play-et-horaires).
 - [ ] **P1 QC-02 — Qualité des recommandations de trade** : équité marché, gains et
   crédibilité séparés ; « fiabilité du calcul » explicite ; trois à cinq meilleures
   offres au maximum, motifs adverses, coupes et scénarios. Comparaison avant/après

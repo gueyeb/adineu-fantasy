@@ -1,6 +1,6 @@
-import { renderSosExplorer } from "./sos-explorer.js?v=9ede5b597e";
-import { renderPublicWeek } from "./public-week.js?v=e1f660c8b4";
-import { buildSharedPlayoffContext } from "./playoff-context.js?v=ebd0c909f3";
+import { renderSosExplorer } from "./sos-explorer.js?v=a82891ac6f";
+import { renderPublicWeek } from "./public-week.js?v=f34a2bcbf4";
+import { buildSharedPlayoffContext } from "./playoff-context.js?v=b115eb2a39";
 import { calculatePowerRankings, MINIMUM_COMPLETED_WEEKS, POWER_WEIGHTS } from "./power-rankings.js?v=86d062a9e8";
 import {
   ACTIVE_MANAGERS_2026,
@@ -11,15 +11,15 @@ import {
   buildSleeperSeasonMeetings,
   sleeperManager
 } from "./rivalry-week.js?v=714a861458";
-import { renderTradesPage } from "./trade-ui.js?v=24c24d1d61";
-import { renderMatchupsHub } from "./matchups-live.js?v=571a52c134";
+import { renderTradesPage } from "./trade-ui.js?v=b2e2d791a8";
+import { renderMatchupsHub } from "./matchups-live.js?v=cf72085dc4";
 import { calculatePlayoffRace } from "./playoff-race.js?v=52283bf11a";
 import { calculateLuck, calculateRankHistory } from "./standings-luck.js?v=7363afbb9e";
 import { resolveOperationalWeek } from "./nfl-week.js?v=8f9fa3f5b2";
-import { renderTeamsHub } from "./teams.js?v=74759b10f3";
+import { renderTeamsHub } from "./teams.js?v=6b02cefec4";
 import { buildYahooRecordBook } from "./record-book.js?v=0ebb2a4e56";
 import { listRosterIdentities } from "./roster-view.js?v=120de9d74d";
-import { GENERAL_SETTINGS_2026 } from "./league-settings.js?v=f6d1bf5212";
+import { GENERAL_SETTINGS_2026 } from "./league-settings.js?v=886f353394";
 import { appendManagerPreferences, copyTextFrom, getPageAiContext } from "./ai-context-client.js?v=d42756c77d";
 import {
   simulatePlayoffProbabilities,
@@ -27,7 +27,7 @@ import {
   NEAR_WEEKS,
   FAR_WEEK_SHRINK,
   DEFAULT_SIMULATIONS
-} from "./playoff-probabilities.js?v=763d3e9cf9";
+} from "./playoff-probabilities.js?v=93b4a27819";
 
 const SUPABASE_URL = "https://juosrzsffvjprqhdyado.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_7Bu9q2dKz0WEol94OGVhHw_xjSwHeHu";

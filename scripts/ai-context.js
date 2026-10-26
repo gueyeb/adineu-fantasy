@@ -1,3 +1,4 @@
+import { formatWaiverSchedule } from "../public/assets/waiver-schedule.js";
 import { buildLeagueTradeIntelligence, formatLeagueTradeIntelligence } from "../public/assets/league-trade-intelligence.js";
 import { formatLineupMovements } from "./lineup-movements.js";
 import { summarizeDecisionProvenance, formatProvenanceSummary } from './decision-provenance.js';
@@ -223,6 +224,7 @@ export function buildDecisionContext({ context, playerValues = {}, statuses = ne
   return {
     ...context,
     mode: "decision",
+    league: { ...context.league, waiverSchedule: waivers?.waiverSchedule ?? null, waiverClear: formatWaiverSchedule(waivers?.waiverSchedule) },
     decisionScope: waivers?.decisionScope ?? null,
     acquisitionPlan: waivers?.acquisitionPlan ?? null,
     projectionComparison: waivers?.projectionComparison ?? null,

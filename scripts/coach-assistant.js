@@ -1,3 +1,4 @@
+import { formatWaiverSchedule } from "../public/assets/waiver-schedule.js";
 import { formatLineupMovements } from "./lineup-movements.js";
 import { summarizeDecisionProvenance, formatProvenanceSummary } from './decision-provenance.js';
 import { formatTeRosterUtility } from './te-roster-utility.js';
@@ -124,6 +125,7 @@ export function buildCoachPlan({ decisionContext, trades, preferences = {} }) {
     scenariosAreAlternatives: true,
     recentTransactions: context.recentTransactions ?? [],
     snapshotIssues: [...(context.snapshotIssues ?? []), ...(tradeConflict ? ['TRADE_RECEIVE_ALREADY_OWNED'] : [])],
+    waiverSchedule: context.league?.waiverSchedule ?? null,
     watchlist: waiverActions.WATCH,
     // Engine WATCH above; the user's own dated watchlist lives in the browser and joins these rows there.
     warRoom: { rows: (context.watched?.rows ?? []).map(row => ({ ...compactWaiver(row), maxBidStatus: row.maxBidStatus ?? null, note: blockerNote(compactWaiver(row)) })), missing: context.watched?.missing ?? [] },
@@ -142,6 +144,7 @@ export function formatCoachPlan(plan) {
     `🧠 COACH ${plan.team.toUpperCase()} — SEMAINE ${plan.week}`,
     `${record.wins}-${record.losses}${record.ties ? `-${record.ties}` : ""} · #${plan.teamState.rank}/${plan.teamState.leagueTeams} · FAAB ${plan.teamState.faab?.remaining ?? "n/d"} $ · urgence playoffs ${plan.teamState.playoffUrgency}`
   ];
+  lines.push(formatWaiverSchedule(plan.waiverSchedule));
   const optimal = plan.lineup.optimal;
   if (plan.coherence?.decisionStatus?.status === "DEGRADED") {
     lines.push(`⚠ Décision dégradée : ${plan.coherence.warnings.filter(row => plan.coherence.decisionStatus.reasons.includes(row.code)).map(row => row.message).join(" ") || plan.coherence.decisionStatus.reasons.join(", ")}`);
