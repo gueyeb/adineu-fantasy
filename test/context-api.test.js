@@ -248,3 +248,26 @@ test("context API reuses a recent context and recomputes on ?fresh=1", async t =
   await fetch(`${base}&fresh=1`);
   assert.equal(calls, 2);
 });
+
+test("decision context requests opponent values too and caches trade intents independently", async t => {
+  const calls = [];
+  const context = { ...sampleContext, week: 7, leagueRosters: { source: "fixture", asOf: "2026-10-26T09:00:00Z", teams: [
+    { rosterId: 5, owner: "t0z", teamName: "Boukki", players: [{ sleeperId: "mine", name: "Mine", position: "RB" }], declaredStarters: [], reserveIds: [], issues: ["DECLARED_LINEUP_INCOMPLETE"] },
+    { rosterId: 6, owner: "rival", teamName: "Rival", players: [{ sleeperId: "theirs", name: "Theirs", position: "RB" }], declaredStarters: [], reserveIds: [], issues: ["DECLARED_LINEUP_INCOMPLETE"] }
+  ] } };
+  const server = createAppServer({ getContext: async () => context, contextCacheMs: 60_000,
+    getPlayerValues: async options => { calls.push(options); return { byId: new Map([["theirs", { rosPpg: 14 }]]), weeklyProjections: {} }; },
+    getInjuryStatuses: async () => new Map(), getFreeAgents: async () => ({ byPosition: {} }), getMatchupContext: async () => null,
+    getPlayoffContext: async () => ({ ready: false, reason: "FIXTURE" }) });
+  server.listen(0, "127.0.0.1"); await once(server, "listening"); t.after(() => server.close());
+  const base = `http://127.0.0.1:${server.address().port}/api/context`;
+  const first = await (await fetch(`${base}?tradePosition=RB&targetWeek=8`)).json();
+  assert.ok(calls[0].playerIds.includes("mine") && calls[0].playerIds.includes("theirs"));
+  assert.equal(first.leagueTradeIntelligence.targetWeek, 8);
+  assert.equal(first.leagueTradeIntelligence.teams[1].players[0].rosPpg, 14);
+  const second = await (await fetch(`${base}?tradePosition=RB&targetWeek=9`)).json();
+  assert.equal(second.leagueTradeIntelligence.targetWeek, 9);
+  await fetch(`${base}?tradePosition=RB&targetWeek=8`);
+  assert.equal(calls.length, 2);
+  assert.equal((await fetch(`${base}?tradePosition=INVALID`)).status, 400);
+});

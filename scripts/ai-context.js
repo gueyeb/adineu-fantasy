@@ -187,7 +187,7 @@ function buildStrategyState(context, playoffContext) {
   return { playoffUrgency, faabPosture, benchFlexibility, urgencyMethod: "RULE_BASED_STANDINGS", playoffProbability: playoffContext?.ready ? playoffContext.probability : null, playoffContext: playoffContext ?? { ready: false, reason: "NOT_LOADED" } };
 }
 
-export function buildDecisionContext({ context, playerValues = {}, statuses = new Map(), waivers = null, lineup = null, matchup = null, playoffContext = null }) {
+export function buildDecisionContext({ context, playerValues = {}, statuses = new Map(), waivers = null, lineup = null, matchup = null, playoffContext = null, tradeIntent = {} }) {
   const valuesById = playerValues.byId || new Map();
   const projections = playerValues.weeklyProjections || {};
   const enrich = player => playerDecisionView(player, valuesById, projections, statuses);
@@ -243,7 +243,7 @@ export function buildDecisionContext({ context, playerValues = {}, statuses = ne
     myTeam: enrichedTeam,
     leagueTradeIntelligence: buildLeagueTradeIntelligence({
       snapshot: context.leagueRosters ? { ...context.leagueRosters, teams: context.leagueRosters.teams.map(team => ({ ...team, players: team.players.map(enrich) })) } : null,
-      targetRosterId: context.myTeam.rosterId, week: context.week
+      targetRosterId: context.myTeam.rosterId, week: context.week, preferredPosition: tradeIntent.preferredPosition, targetWeek: tradeIntent.targetWeek, projectionsByWeek: playerValues.projectionsByWeek || {}
     }),
     lineup: lineup || { alerts: [], optimal: null },
     nextMatchup: matchup,

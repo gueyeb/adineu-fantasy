@@ -1,8 +1,9 @@
+import { normalizeTradeIntent, targetWeekTradeImpact, compareTargetWeekImpacts } from "./trade-target.js?v=6bc24f94b2";
 import { listRosterIdentities, buildStarterSlotOrder } from "./roster-view.js?v=120de9d74d";
 import { BYE_WEEKS_2026, ROSTER_SETTINGS_2026 } from "./league-settings.js?v=f6d1bf5212";
-import { buildProjectedLineup, restOfSeasonEstimate, scoreTradeRecommendation } from "./trade-score.js?v=8773b08bd5";
-import { diagnoseRoster, classifyTradeProposal } from "./trade-recommender.js?v=2c7f958555";
-import { playerKey, preferenceAdjustment } from "./trade-preferences.js?v=c5fec5ce56";
+import { buildProjectedLineup, restOfSeasonEstimate } from "./trade-score.js?v=8773b08bd5";
+import { diagnoseRoster, findTradeProposals } from "./trade-recommender.js?v=badb781381";
+import { playerKey } from "./trade-preferences.js?v=c5fec5ce56";
 
 const positions = new Set(["QB", "RB", "WR", "TE", "K", "DEF"]);
 const tradePositions = new Set(["QB", "RB", "WR", "TE"]);
@@ -39,9 +40,12 @@ export function buildLeagueRosterSnapshot({ rosters = [], users = [], playerFor,
 }
 
 /** Pure mutual-fit screen, using the same lineup, confidence and selection rules as the Finder.
- * One-for-one examples only; a partner score is a lineup fit, never acceptance odds. */
-export function buildLeagueTradeIntelligence({ snapshot, targetRosterId, week = null, playerPreferences = {}, preferredPosition = null } = {}) {
+ * Finder packages are evaluated before any output cap; fit is never acceptance odds. */
+export function buildLeagueTradeIntelligence({ snapshot, targetRosterId, week = null, playerPreferences = {}, preferredPosition = null, targetWeek = null, projectionsByWeek = {} } = {}) {
   if (!snapshot) return { status: "UNAVAILABLE", teams: [], partners: [], topPartners: [] };
+  const intent = normalizeTradeIntent({ preferredPosition, targetWeek }, week);
+  preferredPosition = intent.preferredPosition;
+  targetWeek = intent.targetWeek;
   const estimate = restOfSeasonEstimate(week);
   const owners = new Map();
   for (const team of snapshot.teams) for (const player of team.players) {
@@ -71,29 +75,37 @@ export function buildLeagueTradeIntelligence({ snapshot, targetRosterId, week = 
   });
   const mine = teams.find(team => String(team.rosterId) === String(targetRosterId));
   if (!mine) return { status: "TARGET_UNAVAILABLE", source: snapshot.source, asOf: snapshot.asOf, teams, partners: [], topPartners: [] };
+  const eligibleTeams = teams.filter(team => !team.coverage.issues.length);
+  const proposals = mine.coverage.issues.length ? [] : findTradeProposals({ targetRosterId,
+    rosters: eligibleTeams.map(team => ({ roster_id: team.rosterId, name: team.teamName, players: team.players })),
+    currentWeek: week, playerPreferences, view: "ALL", limit: null });
+  const brief = player => ({ playerId: playerKey(player), name: player.name, position: player.position });
   const partners = teams.filter(team => team !== mine).map(team => {
     const blockers = [...mine.coverage.issues, ...team.coverage.issues];
-    const examples = [];
-    if (!blockers.length) for (const give of mine.players.filter(player => tradePositions.has(player.position) && preferenceAdjustment([player], playerPreferences) !== null)) {
-      for (const receive of team.players.filter(player => tradePositions.has(player.position) && (!preferredPosition || player.position === preferredPosition))) {
-        const recommendationScore = scoreTradeRecommendation({ myPlayers: mine.players, theirPlayers: team.players, give: [give], receive: [receive], week });
-        if (recommendationScore.my_lineup_delta <= 0 || recommendationScore.their_lineup_delta <= 0 || recommendationScore.market_value.gapPct > 18) continue;
-        const proposal = { give: [give], receive: [receive], recommendationScore };
-        const selection = classifyTradeProposal(proposal, { playerPreferences });
-        if (selection.group === "EXPLORATION") continue;
-        examples.push({ give: { playerId: playerKey(give), name: give.name, position: give.position }, receive: { playerId: playerKey(receive), name: receive.name, position: receive.position },
-          myDeltaPerWeek: recommendationScore.my_lineup_delta, theirDeltaPerWeek: recommendationScore.their_lineup_delta,
-          confidence: recommendationScore.confidence, group: selection.group,
-          fitScore: Math.min(recommendationScore.my_lineup_delta, recommendationScore.their_lineup_delta) });
-      }
-    }
-    examples.sort((a, b) => b.fitScore - a.fitScore || b.myDeltaPerWeek - a.myDeltaPerWeek || a.give.playerId.localeCompare(b.give.playerId));
-    return { rosterId: team.rosterId, teamName: team.teamName, status: blockers.length ? "INCOMPLETE" : examples.length ? "MUTUAL_FIT" : "NO_QUALIFIED_ONE_FOR_ONE",
-      fitScore: examples[0]?.fitScore ?? null, examples: examples.slice(0, 3), blockers,
-      reason: examples.length ? "Les deux lineups optimales gagnent des points estimés ; équité marché contrôlée." : "Aucun échange simple qualifié démontré ; les packages ne sont pas évalués ici." };
-  }).sort((a, b) => (b.fitScore ?? -1) - (a.fitScore ?? -1) || String(a.rosterId).localeCompare(String(b.rosterId)));
+    const examples = proposals.filter(proposal => String(proposal.partnerRosterId) === String(team.rosterId) &&
+      proposal.selection.group !== "EXPLORATION" && proposal.recommendationScore.their_lineup_delta > 0 &&
+      (!preferredPosition || proposal.receive.some(player => player.position === preferredPosition))).map(proposal => {
+      const score = proposal.recommendationScore;
+      return { proposalId: proposal.id, give: proposal.give.map(brief), receive: proposal.receive.map(brief),
+        myDeltaPerWeek: score.my_lineup_delta, theirDeltaPerWeek: score.their_lineup_delta,
+        confidence: score.confidence, group: proposal.selection.group,
+        fitScore: Math.min(score.my_lineup_delta, score.their_lineup_delta),
+        targetWeekImpact: targetWeekTradeImpact({ myPlayers: mine.players, theirPlayers: team.players,
+          give: proposal.give, receive: proposal.receive, currentWeek: week, targetWeek, projectionsByWeek }) };
+    });
+    // A configured target prioritizes demonstrable immediate gains, then mutual ROS fit.
+    // Unknown target-week gains are kept distinct and never treated as a numerical zero.
+    examples.sort((a, b) => targetWeek !== null
+      ? compareTargetWeekImpacts(a.targetWeekImpact, b.targetWeekImpact) || b.fitScore - a.fitScore || b.myDeltaPerWeek - a.myDeltaPerWeek
+      : b.fitScore - a.fitScore || b.myDeltaPerWeek - a.myDeltaPerWeek);
+    return { rosterId: team.rosterId, teamName: team.teamName, status: blockers.length ? "INCOMPLETE" : examples.length ? "MUTUAL_FIT" : "NO_QUALIFIED_TRADE",
+      fitScore: examples[0]?.fitScore ?? null, targetWeekDelta: examples[0]?.targetWeekImpact.myDelta ?? null,
+      examples: examples.slice(0, 3), blockers,
+      reason: examples.length ? "Les deux lineups optimales gagnent des points estimés ; équité marché contrôlée." : "Aucun échange qualifié démontré parmi les propositions du Finder." };
+  }).sort((a, b) => (targetWeek !== null ? compareTargetWeekImpacts({ myDelta: a.targetWeekDelta }, { myDelta: b.targetWeekDelta }) : 0) ||
+    (b.fitScore ?? -1) - (a.fitScore ?? -1) || String(a.rosterId).localeCompare(String(b.rosterId)));
   return { status: "AVAILABLE", source: snapshot.source, asOf: snapshot.asOf, week, horizon: Number.isFinite(week) ? "ROS_WEEKLY_AVERAGE" : "WEEK",
-    method: "BILATERAL_ONE_FOR_ONE_V1", preferredPosition, teams, partners, topPartners: partners.filter(partner => partner.status === "MUTUAL_FIT").slice(0, 3) };
+    method: "SHARED_FINDER_PACKAGES_V2", preferredPosition, targetWeek, intentExpired: intent.expired, teams, partners, topPartners: partners.filter(partner => partner.status === "MUTUAL_FIT").slice(0, 3) };
 }
 
 export function formatLeagueTradeIntelligence(report) {
@@ -106,10 +118,11 @@ export function formatLeagueTradeIntelligence(report) {
     lines.push(...team.declaredStarters.map(slot => `DECLARED ${slot.slot}: ${line(slot.player)}`), ...team.bench.map(player => `BENCH: ${line(player)}`), ...team.ir.map(player => `IR: ${line(player)}`));
     lines.push(`OPTIMAL (model): ${team.optimalLineup.slots.map(slot => `${slot.slot}=${slot.name}`).join("; ")}`);
   }
-  lines.push("PARTNERS — mutual lineup fit (one-for-one screen only)");
+  lines.push("PARTNERS — mutual lineup fit (shared Finder packages)");
+  lines.push(`Trade intent: position=${report.preferredPosition || "ANY"}; targetWeek=${report.targetWeek ?? "none"}; expired=${report.intentExpired}. Target-week gains require published projections; trade processing time unverified.`);
   for (const partner of report.partners) {
     lines.push(`${partner.teamName}: ${partner.status}${partner.blockers.length ? ` (${partner.blockers.join(",")})` : ""}`);
-    for (const example of partner.examples) lines.push(`Give ${example.give.name} → receive ${example.receive.name}; own +${example.myDeltaPerWeek}, partner +${example.theirDeltaPerWeek} pts/week; ${example.group}; confidence=${example.confidence}`);
+    for (const example of partner.examples) lines.push(`Give ${example.give.map(player => player.name).join(" + ")} → receive ${example.receive.map(player => player.name).join(" + ")}; ROS average own +${example.myDeltaPerWeek}, partner +${example.theirDeltaPerWeek} pts/week; ${example.group}; confidence=${example.confidence}; target W${report.targetWeek ?? "n/d"}: own ${example.targetWeekImpact.myDelta ?? "n/d"}, partner ${example.targetWeekImpact.theirDelta ?? "n/d"}; ${example.targetWeekImpact.status}`);
   }
   return lines;
 }

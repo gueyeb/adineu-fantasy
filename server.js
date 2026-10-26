@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { TRADE_TARGET_POSITIONS, LAST_TRADE_TARGET_WEEK } from "./public/assets/trade-target.js";
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { createServer } from "node:http";
@@ -95,6 +96,15 @@ function resolvePublicPath(publicRoot, pathname) {
   const filePath = resolve(publicRoot, `.${requestedPath}`);
   if (filePath !== publicRoot && !filePath.startsWith(`${publicRoot}${sep}`)) return null;
   return filePath;
+}
+
+function tradeIntentFromUrl(url) {
+  const preferredPosition = url.searchParams.get("tradePosition");
+  const rawWeek = url.searchParams.get("targetWeek");
+  const targetWeek = rawWeek === null ? null : Number(rawWeek);
+  if ((preferredPosition !== null && !TRADE_TARGET_POSITIONS.includes(preferredPosition)) ||
+      (rawWeek !== null && (!Number.isInteger(targetWeek) || targetWeek < 1 || targetWeek > LAST_TRADE_TARGET_WEEK))) return null;
+  return { preferredPosition, targetWeek };
 }
 
 export function createAppServer({
@@ -304,7 +314,9 @@ export function createAppServer({
 
     if (url.pathname === "/api/trades") {
       try {
-        const analysis = await analyze({ team: url.searchParams.get("team") || "t0z" });
+        const tradeIntent = tradeIntentFromUrl(url);
+        if (!tradeIntent) return sendJson(response, 400, { error: "Priorité de trade invalide : tradePosition QB/RB/WR/TE et targetWeek de 1 à 14." });
+        const analysis = await analyze({ team: url.searchParams.get("team") || "t0z", ...tradeIntent });
         sendJson(response, 200, { ...analysis, message: formatTradeBulletin(analysis) });
       } catch (error) {
         const isUnknownTeam = error.message.startsWith("Équipe Sleeper inconnue");
@@ -316,6 +328,8 @@ export function createAppServer({
     if (url.pathname === "/api/context") {
       try {
         const team = url.searchParams.get("team") || "t0z";
+        const tradeIntent = tradeIntentFromUrl(url);
+        if (!tradeIntent) return sendJson(response, 400, { error: "Priorité de trade invalide : tradePosition QB/RB/WR/TE et targetWeek de 1 à 14." });
         const mode = url.searchParams.get("mode") || "decision";
         if (!["compact", "decision"].includes(mode)) {
           sendJson(response, 400, { error: "Mode inconnu. Valeurs acceptées : compact, decision." });
@@ -327,11 +341,12 @@ export function createAppServer({
           let sosWaivers = null;
           let message = formatContextText(compactContext);
           if (mode === "decision") {
-            const playerIds = [
+            const playerIds = [...new Set([
+              ...(compactContext.leagueRosters?.teams || []).flatMap(team => team.players.map(player => player.sleeperId)),
               ...compactContext.myTeam.starters.map(entry => entry.player?.sleeperId),
               ...compactContext.myTeam.bench.map(player => player.sleeperId),
               ...compactContext.myTeam.ir.map(player => player.sleeperId)
-            ].filter(Boolean);
+            ].filter(Boolean))];
             const [valuesResult, statusesResult, waiversResult, matchupResult, playoffResult] = await Promise.allSettled([
               getPlayerValues({ week: compactContext.week, playerIds }),
               getInjuryStatuses(),
@@ -359,14 +374,14 @@ export function createAppServer({
                 playerStatuses: statuses
               });
             } catch { lineup.optimal = null; }
-            context = buildDecisionContext({ context: compactContext, playerValues, statuses, waivers, lineup, matchup, playoffContext: playoffResult.status === "fulfilled" ? playoffResult.value : { ready: false, reason: "SOURCE_UNAVAILABLE" } });
+            context = buildDecisionContext({ context: compactContext, playerValues, statuses, waivers, lineup, matchup, tradeIntent, playoffContext: playoffResult.status === "fulfilled" ? playoffResult.value : { ready: false, reason: "SOURCE_UNAVAILABLE" } });
             message = formatDecisionContext(context);
           }
           context = { ...context, sos: buildCoachSos({ context: compactContext, waivers: sosWaivers, bundle: await loadSos().catch(() => null), rbBundle: await loadSos('RB').catch(() => null) }) };
           message += formatCoachSos(context.sos);
           return { context, message };
         };
-        const key = `${team}|${mode}`;
+        const key = `${team}|${mode}|${tradeIntent.preferredPosition || ""}|${tradeIntent.targetWeek ?? ""}`;
         const cached = contextCache.get(key);
         // ?fresh=1 bypasses the cache (e.g. right after a transaction).
         if (!cached || Date.now() - cached.at > contextCacheMs || url.searchParams.get("fresh") === "1") {
@@ -456,8 +471,11 @@ export function createAppServer({
 
     if (url.pathname === "/api/player-values") {
       try {
-        const { week, byId } = await getPlayerValues();
-        sendJson(response, 200, { week, players: Object.fromEntries(byId) });
+        const { week, byId, projectionsByWeek = {} } = await getPlayerValues();
+        // The browser needs the real per-week window, limited to rostered players and PPR points.
+        const window = Object.fromEntries(Object.entries(projectionsByWeek).map(([week, projections]) => [week,
+          Object.fromEntries([...byId.keys()].filter(id => Number.isFinite(projections[id]?.pts_ppr)).map(id => [id, { pts_ppr: projections[id].pts_ppr }]))]));
+        sendJson(response, 200, { week, players: Object.fromEntries(byId), projectionsByWeek: window });
       } catch (error) {
         sendJson(response, 502, { error: error.message });
       }

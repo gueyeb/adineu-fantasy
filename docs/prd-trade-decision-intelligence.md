@@ -205,3 +205,51 @@ Le texte compact historique garde son format ; le texte en mode décision inclut
 ligue complète. L'IR peut contribuer à l'estimation ROS mais ne vaut pas confirmation
 d'éligibilité immédiate. Mobile 390 px et calibration sur archives restent ouverts.
 Le scanner post-match et la distinction complète semaine live/cible restent WK-01.
+
+
+## Livraison locale LI-01 V2 / cible de trade — 26/10/2026
+
+- Le classement des partenaires reprend désormais `findTradeProposals` avec les
+  packages 1-pour-1, 1-pour-2 et 2-pour-1 du Finder, avant son plafond d'affichage.
+  Suppression du deuxième moteur de recherche d'échanges simples. Le mode interne
+  `ALL` et `limit: null` permettent d'évaluer chaque partenaire avant de limiter
+  ses exemples. Les explorations restent exclues du classement qualifié.
+- Contrat V2 : `method=SHARED_FINDER_PACKAGES_V2`, `give` et `receive` sont des listes
+  dans les exemples de partenaires. Gain moyen ROS et `targetWeekImpact` séparés.
+  Préférence de poste : le package reçu doit inclure ce poste ; ce filtre ne prouve
+  pas à lui seul une amélioration du slot de ce poste en semaine cible.
+- UI : poste et semaine cible sauvegardés par saison/ligue/roster dans le navigateur,
+  sans synchronisation Coach/n8n. Une priorité de semaine passée expire sans être
+  renouvelée automatiquement. Aucune préférence RB S8 codée en dur pour Boukki.
+- Les gains cible sont des scénarios pré-match calculés sur les projections publiées
+  de cette semaine, avec FLEX et bye à zéro. Pas de réutilisation du ROS, du rang ou
+  de la projection d'une autre semaine. Coverage exigée aussi sur le banc : une
+  projection absente, une équipe NFL inconnue, une propriété contradictoire ou un
+  retour futur Out/IR non vérifié rendent les deltas nuls (`null`), pas zéro.
+  Ce garde conservateur peut supprimer un gain lorsque la lacune concerne un joueur
+  peu pertinent. Il ne certifie ni les blessures ni la faisabilité avant kickoff.
+- Avec cible configurée, gain cible positif démontré d'abord, puis estimations
+  couvertes et fit ROS. Une cible sans couverture reste distincte d'un gain nul.
+  La sélection qualifiée garde les garde-fous ROS existants : elle ne cherche pas
+  encore des locations S8 au gain ROS négatif. Délai d'acceptation/traitement du
+  trade explicitement `UNVERIFIED` ; aucun échange réel envoyé ni appliqué.
+- `/api/trades?team=t0z&tradePosition=RB&targetWeek=8` et
+  `/api/context?team=t0z&tradePosition=RB&targetWeek=8` acceptent les paramètres
+  explicites. Paramètres invalides → 400 ; clés de cache séparées par priorité.
+  Le bulletin montre la cible demandée et distingue son gain de la moyenne ROS.
+  Le bouton contexte générique et le Coach ne lisent pas encore la priorité locale
+  du navigateur ; l'appel API paramétré permet de l'exporter explicitement.
+- Correction d'intégration LI-01 : `/api/context` demande maintenant les valeurs de
+  tous les joueurs des rosters collectés, et pas seulement de l'équipe sélectionnée.
+  `/api/player-values` expose la fenêtre hebdomadaire limitée aux joueurs rostés et
+  à `pts_ppr`, afin que le navigateur utilise les mêmes projections que le serveur.
+- Vérification : 596 tests passent ; contrôles statiques, versions d'assets et syntaxe
+  passent. Tests de package 1-pour-2 avec gains cible et ROS différents, expiration,
+  byes/FLEX, couverture/retour/propriété, ordre des cibles, paramètres API, isolation
+  du cache et enrichissement adverse. UI locale : RB/S8 sauvegardés et conservés
+  après rechargement, Ethan Hunt présent via Puka → Nabers + Swift, gain S8 absent
+  avec la couverture réelle et donc étiqueté indisponible. Mobile 390 px non audité.
+
+Prochain lot : WK-01 (semaines terminée/live/cible et scanner post-match sourcé).
+Les anciens chapitres décrivent les incréments précédents ; la limitation aux seuls
+échanges simples de LI-01 V1 est levée. Aucun push ni déploiement.

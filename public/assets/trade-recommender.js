@@ -217,8 +217,9 @@ export function diagnoseRoster(players = []) {
  * @param {Map<string, Object>|Object} options.playerCatalog Map ou dict des joueurs par ID ou nom
  * @returns {Array<Object>} Propositions de trades triées par pertinence
  */
-export function findTradeProposals({ targetRosterId, rosters = [], playerCatalog = {}, playerPreferences = {}, currentWeek = null, view = "RECOMMENDED", selection = {} }) {
-  if (!["RECOMMENDED", "NEGOTIATE", "EXPLORATION"].includes(view)) throw new Error("Invalid trade view");
+export function findTradeProposals({ targetRosterId, rosters = [], playerCatalog = {}, playerPreferences = {}, currentWeek = null, view = "RECOMMENDED", selection = {}, limit = 15 }) {
+  if (!["RECOMMENDED", "NEGOTIATE", "EXPLORATION", "ALL"].includes(view)) throw new Error("Invalid trade view");
+  if (limit !== null && (!Number.isInteger(limit) || limit < 0)) throw new Error("Invalid trade limit");
   const getPlayerInfo = (idOrName) => {
     if (playerCatalog instanceof Map) {
       return playerCatalog.get(idOrName) || { name: idOrName };
@@ -408,7 +409,7 @@ export function findTradeProposals({ targetRosterId, rosters = [], playerCatalog
   // Une liste variée vaut mieux que 4 variantes du même deal ; rien n'est supprimé s'il y a de la place.
   const sorted = removeDominatedProposals(uniqueProposals)
     .map(proposal => ({ ...proposal, selection: classifyTradeProposal(proposal, { playerPreferences, selection }) }))
-    .filter(proposal => proposal.selection.group === view)
+    .filter(proposal => view === "ALL" || proposal.selection.group === view)
     .sort((a, b) => b.score - a.score);
   const perPartner = new Map();
   const head = [];
@@ -418,7 +419,7 @@ export function findTradeProposals({ targetRosterId, rosters = [], playerCatalog
     perPartner.set(proposal.partnerRosterId, count + 1);
     (count < MAX_PROPOSALS_PER_PARTNER ? head : tail).push(proposal);
   }
-  return [...head, ...tail].slice(0, 15);
+  return limit === null ? [...head, ...tail] : [...head, ...tail].slice(0, limit);
 }
 
 /** Bounded neighboring offers for the same target; never fabricate a beneficial deal. */

@@ -11,6 +11,7 @@
  */
 
 import { buildLeagueRosterSnapshot, buildLeagueTradeIntelligence } from "../public/assets/league-trade-intelligence.js";
+import { normalizeTradeIntent, targetWeekTradeImpact, compareTargetWeekImpacts } from "../public/assets/trade-target.js";
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { diagnoseRoster, findTradeProposals } from "../public/assets/trade-recommender.js";
@@ -205,10 +206,11 @@ export async function analyzeTrades({
   leagueId = DEFAULT_SLEEPER_LEAGUE_ID,
   fetchImpl = fetch,
   catalogUrl = DEFAULT_CATALOG_URL,
-  getStatuses = getInjuryStatuses
+  getStatuses = getInjuryStatuses,
+  preferredPosition = null, targetWeek = null
 } = {}) {
   const normalizedTeam = String(team).trim().toLowerCase();
-  const { formattedRosters, currentWeek, playerMap, leagueRosters } = await loadLeagueRosters({ leagueId, fetchImpl, catalogUrl, getStatuses });
+  const { formattedRosters, currentWeek, playerMap, leagueRosters, playerValues } = await loadLeagueRosters({ leagueId, fetchImpl, catalogUrl, getStatuses });
 
   let targets;
   if (normalizedTeam === "all") {
@@ -225,6 +227,7 @@ export async function analyzeTrades({
     targets = [target];
   }
 
+  const intent = normalizeTradeIntent({ preferredPosition, targetWeek }, currentWeek);
   const results = targets.map(target => {
     const diagnosis = diagnoseRoster(target.players);
     return {
@@ -236,18 +239,21 @@ export async function analyzeTrades({
         surpluses: diagnosis.surpluses,
         deficits: diagnosis.deficits
       },
-      leagueTradeIntelligence: buildLeagueTradeIntelligence({ snapshot: leagueRosters, targetRosterId: target.roster_id, week: currentWeek, playerPreferences }),
+      leagueTradeIntelligence: buildLeagueTradeIntelligence({ snapshot: leagueRosters, targetRosterId: target.roster_id, week: currentWeek, playerPreferences, preferredPosition, targetWeek, projectionsByWeek: playerValues.projectionsByWeek }),
       proposals: findTradeProposals({
         targetRosterId: target.roster_id,
         rosters: formattedRosters,
         playerCatalog: playerMap,
         playerPreferences,
-        currentWeek
-      })
+        currentWeek, limit: null
+      }).filter(proposal => !intent.preferredPosition || proposal.receive.some(player => player.position === intent.preferredPosition)).map(proposal => ({ ...proposal,
+        targetWeekImpact: targetWeekTradeImpact({ myPlayers: target.players, theirPlayers: formattedRosters.find(roster => String(roster.roster_id) === String(proposal.partnerRosterId)).players,
+          give: proposal.give, receive: proposal.receive, currentWeek, targetWeek: intent.targetWeek, projectionsByWeek: playerValues.projectionsByWeek }) }))
+        .sort((a, b) => intent.targetWeek === null ? 0 : compareTargetWeekImpacts(a.targetWeekImpact, b.targetWeekImpact) || b.score - a.score).slice(0, 15)
     };
   });
 
-  return { generatedAt: new Date().toISOString(), week: currentWeek, results };
+  return { generatedAt: new Date().toISOString(), week: currentWeek, tradeIntent: intent, results };
 }
 
 /**
@@ -321,6 +327,9 @@ export function formatTradeBulletin(analysis, { proposalLimit = 5 } = {}) {
       `💡 ${result.proposals.length} opportunité(s) détectée(s)`
     ];
 
+    if (analysis.tradeIntent?.preferredPosition || analysis.tradeIntent?.targetWeek) {
+      lines.push(`Priorité : ${analysis.tradeIntent.preferredPosition || "tous postes"} · semaine cible ${analysis.tradeIntent.targetWeek ?? "non définie"} (délai de trade non vérifié)`);
+    }
     if (result.proposals.length === 0) {
       lines.push("Aucun trade équitable évident pour l'instant.");
     }
@@ -330,7 +339,7 @@ export function formatTradeBulletin(analysis, { proposalLimit = 5 } = {}) {
         proposal.category === "WIN_WIN" ? "🤝" : proposal.category === "LINEUP_UPGRADE" ? "📈" : "⚡";
       const weeklyDiff = proposal.targetWeeklyGain;
       const weeklyStr = (typeof weeklyDiff === "number" && weeklyDiff !== 0)
-        ? ` (Diff hebdo: ${weeklyDiff > 0 ? "+" : ""}${weeklyDiff} pts/sem)`
+        ? ` (Moyenne ROS: ${weeklyDiff > 0 ? "+" : ""}${weeklyDiff} pts/sem)`
         : "";
 
       lines.push(
@@ -338,7 +347,10 @@ export function formatTradeBulletin(analysis, { proposalLimit = 5 } = {}) {
         `${index + 1}. ${icon} ${proposal.partnerName} — ${proposal.evaluation.label}${weeklyStr}`,
         `Tu donnes : ${formatPlayers(proposal.give)}`,
         `Tu reçois : ${formatPlayers(proposal.receive)}`,
-        `Pourquoi : ${proposal.pitchTarget}`
+        `Pourquoi : ${proposal.pitchTarget}`,
+        ...(analysis.tradeIntent?.targetWeek ? [`S${analysis.tradeIntent.targetWeek} : ${proposal.targetWeekImpact?.status === "PROJECTED"
+          ? `toi ${proposal.targetWeekImpact.myDelta > 0 ? "+" : ""}${proposal.targetWeekImpact.myDelta}, partenaire ${proposal.targetWeekImpact.theirDelta > 0 ? "+" : ""}${proposal.targetWeekImpact.theirDelta} pts estimés`
+          : "gain non disponible (projections insuffisantes ou retour incertain)"}`] : [])
       );
     });
 

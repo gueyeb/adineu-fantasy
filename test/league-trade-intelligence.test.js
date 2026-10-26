@@ -40,12 +40,12 @@ test("rank partners by mutual marginal gains with FLEX and honor untouchables", 
   const { snapshot } = fixture();
   const report = buildLeagueTradeIntelligence({ snapshot, targetRosterId: 1 });
   assert.equal(report.topPartners[0].rosterId, 2);
-  assert.ok(report.topPartners[0].examples.some(example => example.give.position === "RB" && example.receive.position === "WR" && example.myDeltaPerWeek >= 7 && example.theirDeltaPerWeek >= 7));
+  assert.ok(report.topPartners[0].examples.some(example => example.give.some(player => player.position === "RB") && example.receive.some(player => player.position === "WR") && example.myDeltaPerWeek >= 7 && example.theirDeltaPerWeek >= 7));
   assert.ok(report.topPartners.every(partner => partner.examples.every(example => example.myDeltaPerWeek >= 1.5 && example.theirDeltaPerWeek > 0)));
   const locked = buildLeagueTradeIntelligence({ snapshot, targetRosterId: 1, playerPreferences: Object.fromEntries(snapshot.teams[0].players.map(p => [p.sleeperId, "UNTOUCHABLE"])) });
   assert.equal(locked.topPartners.length, 0);
   const rb = buildLeagueTradeIntelligence({ snapshot, targetRosterId: 1, preferredPosition: "RB" });
-  assert.ok(rb.partners.every(partner => partner.examples.every(example => example.receive.position === "RB")));
+  assert.ok(rb.partners.every(partner => partner.examples.every(example => example.receive.some(player => player.position === "RB"))));
 });
 
 test("stale starter, missing ownership/metadata and duplicate ownership block qualified partners", () => {
@@ -80,4 +80,36 @@ test("decision export enriches every roster with model facts and includes full l
   assert.match(text, /TEAM Team11/);
   assert.match(text, /PARTNERS — mutual lineup fit/);
   assert.match(text, /TWR4 WR NYJ/);
+});
+
+test("partner screen includes shared Finder packages and never labels a ROS delta as target-week points", () => {
+  const { snapshot } = fixture();
+  const report = buildLeagueTradeIntelligence({ snapshot, targetRosterId: 1, week: 7, targetWeek: 8, preferredPosition: "WR" });
+  assert.equal(report.method, "SHARED_FINDER_PACKAGES_V2");
+  assert.equal(report.targetWeek, 8);
+  assert.ok(report.partners.every(partner => partner.examples.every(example => Array.isArray(example.give) && Array.isArray(example.receive))));
+  assert.ok(report.topPartners.length > 0);
+  assert.ok(report.topPartners[0].examples.every(example => example.targetWeekImpact.myDelta === null));
+});
+
+test("qualified 1-for-2 package appears at the partner with its real target-week delta", () => {
+  const core = prefix => [player(`${prefix}QB`, "QB", 18, 80), player(`${prefix}TE`, "TE", 9, 90), player(`${prefix}K`, "K", 8, 150), player(`${prefix}DEF`, "DEF", 8, 150)];
+  const asset = (name, position, points, marketValue) => ({ ...player(name, position, points), marketValue });
+  const mine = [...core("M"), asset("star", "WR", 20, 60), asset("mw2", "WR", 17, 30), asset("mw3", "WR", 16, 20), asset("mw4", "WR", 15, 20), asset("mr1", "RB", 14, 30), asset("mr2", "RB", 5, 1)];
+  const theirs = [...core("T"), asset("tr1", "RB", 18, 50), asset("tr2", "RB", 17, 40), asset("tr3", "RB", 13, 30), asset("tr4", "RB", 12, 20), asset("tw1", "WR", 15, 30), asset("tw2", "WR", 10, 10), asset("tw3", "WR", 7, 1)];
+  const players = new Map([...mine, ...theirs].map(p => [p.sleeperId, p]));
+  const rosters = [mine, theirs].map((list, i) => ({ roster_id: i + 1, players: list.map(p => p.sleeperId), starters: Array(9).fill("0"), reserve: [] }));
+  const snapshot = buildLeagueRosterSnapshot({ rosters, playerFor: id => players.get(id) });
+  const playerPreferences = Object.fromEntries(mine.filter(p => p.name !== "star").map(p => [p.sleeperId, "UNTOUCHABLE"]));
+  const projectionsByWeek = { 8: Object.fromEntries([...players].map(([id, p]) => [id, { pts_ppr: p.projectedPpg }])) };
+  const report = buildLeagueTradeIntelligence({ snapshot, targetRosterId: 1, week: 7, targetWeek: 8, preferredPosition: "RB", playerPreferences, projectionsByWeek });
+  assert.equal(report.topPartners.length, 1);
+  const packages = report.topPartners[0].examples.filter(example => example.receive.length === 2);
+  assert.ok(packages.length > 0);
+  assert.ok(packages.every(example => example.give.length === 1 && example.give[0].name === "star"));
+  const packageWithWr = packages.find(example => example.receive.some(p => p.name === "tw2") && example.receive.some(p => p.name === "tr1"));
+  assert.ok(packageWithWr);
+  assert.equal(packageWithWr.myDeltaPerWeek, 7);
+  assert.equal(packageWithWr.targetWeekImpact.myDelta, 8);
+  assert.equal(packageWithWr.targetWeekImpact.theirDelta, 4);
 });
