@@ -2,11 +2,11 @@
 
 ## Nouveau chantier — 26/10/2026 : pertinence des trades et décisions S8
 
-Retour utilisateur enregistré ; première version TF-01 implémentée et vérifiée localement, non déployée.
+Retour utilisateur enregistré ; premières versions TF-01 et LI-01 implémentées et vérifiées localement, non déployée.
 [Lots, état existant et critères de réussite](prd-trade-decision-intelligence.md).
 
 - [ ] P0 TF-01 — V1 locale : dominance, confiance de couverture, protection premium et gains significatifs ; trois vues. Restent provenance médicale/équipes datée, diagnostics globaux et validation mobile dédiée.
-- [ ] P0 LI-01 — exporter les 12 rosters et classer les partenaires par besoins réciproques, en réutilisant le moteur existant.
+- [ ] P0 LI-01 — V1 locale : contexte des 12 rosters et classement partagé des partenaires sur échanges simples ; diagnostics de propriété et de couverture. Restent packages et préférence de position/semaine persistante.
 - [ ] P0 WK-01 — distinguer semaine terminée/live/cible et détecter les opportunités post-match au-delà du top par poste.
 - [ ] P1 MV-01 — valeurs planchers, packages et coût de coupe/conservation/trade ; calibration historique séparant Yahoo et Sleeper.
 - [ ] P1 WR-01 — enrichir la War Room et sortir trois décisions privées : ajouter, couper, proposer un trade.

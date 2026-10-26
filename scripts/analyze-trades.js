@@ -10,6 +10,7 @@
  *   node scripts/analyze-trades.js --give=5859 --receive=4046,12519   (une offre précise)
  */
 
+import { buildLeagueRosterSnapshot, buildLeagueTradeIntelligence } from "../public/assets/league-trade-intelligence.js";
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { diagnoseRoster, findTradeProposals } from "../public/assets/trade-recommender.js";
@@ -74,7 +75,7 @@ export async function loadPlayerValues({ leagueId = DEFAULT_SLEEPER_LEAGUE_ID, f
   }
   // Players drafted or signed after the pre-draft catalog still have a position and team in Sleeper.
   const index = await getPlayersIndex({ fetchImpl }).catch(() => new Map());
-  const infoOf = playerId => catalog.get(playerId) || index.get(playerId) || {};
+  const infoOf = playerId => ({ ...catalog.get(playerId), ...index.get(playerId) });
   const byId = new Map();
   for (const playerId of ids) {
     const info = infoOf(playerId);
@@ -82,7 +83,8 @@ export async function loadPlayerValues({ leagueId = DEFAULT_SLEEPER_LEAGUE_ID, f
     // Same rule as the waiver engine: a player Sleeper does not project keeps the catalog-based
     // estimate (with its injury discount) instead of a value built from past volume alone.
     const ros = projectedRosOnly(usageAdjustedRosPpg({ playerId, position: info.position, nflTeam: info.nflTeam, projectionsByWeek, week, xfp: usage?.xfp }));
-    const values = {};
+    // Share live identity/team metadata with browser, CLI and decision context as well as values.
+    const values = Object.fromEntries(["name", "position", "nflTeam"].filter(key => Object.hasOwn(info, key)).map(key => [key, info[key]]));
     if (ros) { values.rosPpg = ros.ppg; values.rosSource = ros.source; }
     if (usage) {
       values.usageScore = usage.usageScore;
@@ -115,6 +117,7 @@ async function loadLeagueRosters({ leagueId = DEFAULT_SLEEPER_LEAGUE_ID, fetchIm
     sleeperGet(`/league/${leagueId}/rosters`, { fetchImpl }),
     sleeperGet(`/league/${leagueId}/users`, { fetchImpl })
   ]);
+  const rosterFetchedAt = new Date().toISOString();
   const userById = new Map(users.map(user => [user.user_id, user]));
 
   // Récupération facultative de l'état NFL, des projections et des scores hebdomadaires
@@ -191,7 +194,9 @@ async function loadLeagueRosters({ leagueId = DEFAULT_SLEEPER_LEAGUE_ID, fetchIm
     };
   });
 
-  return { formattedRosters, currentWeek, playerMap, playerValues };
+  const enrichedById = new Map(formattedRosters.flatMap(roster => roster.players).map(player => [String(player.sleeperId), player]));
+  const leagueRosters = buildLeagueRosterSnapshot({ rosters, users, asOf: rosterFetchedAt, playerFor: id => enrichedById.get(id) });
+  return { formattedRosters, currentWeek, playerMap, playerValues, leagueRosters };
 }
 
 export async function analyzeTrades({
@@ -203,7 +208,7 @@ export async function analyzeTrades({
   getStatuses = getInjuryStatuses
 } = {}) {
   const normalizedTeam = String(team).trim().toLowerCase();
-  const { formattedRosters, currentWeek, playerMap } = await loadLeagueRosters({ leagueId, fetchImpl, catalogUrl, getStatuses });
+  const { formattedRosters, currentWeek, playerMap, leagueRosters } = await loadLeagueRosters({ leagueId, fetchImpl, catalogUrl, getStatuses });
 
   let targets;
   if (normalizedTeam === "all") {
@@ -231,6 +236,7 @@ export async function analyzeTrades({
         surpluses: diagnosis.surpluses,
         deficits: diagnosis.deficits
       },
+      leagueTradeIntelligence: buildLeagueTradeIntelligence({ snapshot: leagueRosters, targetRosterId: target.roster_id, week: currentWeek, playerPreferences }),
       proposals: findTradeProposals({
         targetRosterId: target.roster_id,
         rosters: formattedRosters,

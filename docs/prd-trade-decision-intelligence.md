@@ -169,3 +169,39 @@ desktop/mobile si UI modifiée. Aucun suivi quotidien ni changement n8n créé p
 
 Restant TF-01 : provenance sourcée/date/contradictions, diagnostic global des exclusions,
 validation mobile dédiée et mesures reproductibles sur snapshot. Puis LI-01/WK-01.
+
+
+## Livraison locale LI-01 — 26/10/2026
+
+- Snapshot des rosters réels ajouté au contexte, avec source et date de collecte,
+  joueurs détenus, titulaires déclarés réconciliés avec la propriété, banc et IR.
+  Aucun `owner_id` ni identifiant de compte privé exporté dans ce snapshot.
+- Contexte décisionnel JSON et texte : toutes les équipes et leurs joueurs enrichis
+  (projection cible, ROS, statut plateforme, bye), lineup optimale distincte de la
+  lineup déclarée, profondeur RB/WR/TE/QB et diagnostic de besoins existant, étiqueté
+  comme heuristique de marché. Les identités/équipes NFL live alimentent aussi les
+  valeurs partagées lorsque disponibles ; repli catalogue sinon, dont la provenance
+  détaillée par joueur reste à exposer.
+- `league-trade-intelligence.js` : calcul pur commun au contexte IA, à l'API trades
+  et au Finder. Écran initial 1-pour-1 avec gains strictement positifs des deux côtés,
+  seuils TF-01, préférences et écart marché ≤ 18 % (seuil existant du calculateur).
+  Classement par plus petit gain des deux équipes, puis gain propre ; ce score est
+  un gain de lineup en points, pas une probabilité d'acceptation.
+- Les 11 partenaires restent visibles ; jusqu'à trois partenaires qualifiés, sans
+  forcer de résultat. Chaque exemple expose les deux gains, son groupe et sa confiance.
+  Métadonnées/propriété absentes, joueur détenu par plusieurs équipes, titulaire
+  transféré, doublon ou incohérence IR : aucun exemple qualifié pour la comparaison.
+- Vérification : 585 tests passent, dont quatre nouveaux tests de ligue synthétique
+  (12 équipes/11 partenaires, FLEX, banc/IR/byes, préférences, récupération des données
+  absentes et conflits de propriété, export IA complet). Contrôles statiques et
+  versions d'assets passent. UI locale contrôlée : liste des onze partenaires,
+  diagnostics explicites et absence de résultat forcé. Aucun déploiement/push.
+
+Limites : comparaison des partenaires sur échanges simples uniquement ; pas encore
+le classement des packages ni la préférence RB S8 persistante, ni le recoupement de
+propriété entre deux collectes à des heures différentes. La date du snapshot indique
+la collecte des rosters, pas la date de mise à jour de chaque blessure ou projection.
+Le texte compact historique garde son format ; le texte en mode décision inclut la
+ligue complète. L'IR peut contribuer à l'estimation ROS mais ne vaut pas confirmation
+d'éligibilité immédiate. Mobile 390 px et calibration sur archives restent ouverts.
+Le scanner post-match et la distinction complète semaine live/cible restent WK-01.

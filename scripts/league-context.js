@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { buildLeagueRosterSnapshot } from "../public/assets/league-trade-intelligence.js";
 import { buildWeeklyRankings } from "../public/assets/weekly-rankings.js";
 import { buildOpponents, buildDefenseVsPosition } from "../public/assets/defense-vs-position.js";
 import { selectWaiverBoard } from "../public/assets/waiver-board.js";
@@ -172,11 +173,13 @@ export async function getLeagueContext({
   catalogUrl = DEFAULT_CATALOG_URL
 } = {}) {
   const { playerMap } = await loadPlayerCatalog(catalogUrl);
-  const [rosters, users] = await Promise.all([
+  const [rosters, users, liveIndex] = await Promise.all([
     sleeperGet(`/league/${leagueId}/rosters`, { fetchImpl }),
-    sleeperGet(`/league/${leagueId}/users`, { fetchImpl })
+    sleeperGet(`/league/${leagueId}/users`, { fetchImpl }),
+    getPlayersIndex({ fetchImpl }).catch(() => new Map())
   ]);
 
+  const rosterFetchedAt = new Date().toISOString();
   const { roster, ownerName, teamName } = findRosterByTeam(rosters, users, team);
   const settings = roster.settings || {};
   const points = (whole, decimal) => {
@@ -205,6 +208,8 @@ export async function getLeagueContext({
   return {
     generatedAt: new Date().toISOString(),
     week,
+    leagueRosters: buildLeagueRosterSnapshot({ rosters, users, asOf: rosterFetchedAt,
+      playerFor: id => { const catalog = playerMap.get(id); const live = liveIndex.get(id); return catalog || live ? { ...catalog, ...live } : null; } }),
     league: {
       id: leagueId,
       name: LEAGUE_METADATA_2026.name,

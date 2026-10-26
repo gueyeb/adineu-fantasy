@@ -1,3 +1,4 @@
+import { buildLeagueRosterSnapshot, buildLeagueTradeIntelligence } from "./league-trade-intelligence.js?v=f6dc5ba543";
 import { tierChip, tierSeparator } from "./tier-view.js?v=d3a45b4046";
 /**
  * Adineu Fantasy — Interface Utilisateur Trade Hub
@@ -193,6 +194,8 @@ export async function renderTradesPage(container) {
     || formattedRosters[0]?.roster_id
     || 1;
 
+  const enrichedPlayers = new Map(formattedRosters.flatMap(roster => roster.players).map(player => [String(player.sleeperId), player]));
+  const leagueSnapshot = buildLeagueRosterSnapshot({ rosters, users, playerFor: id => enrichedPlayers.get(id), asOf: new Date().toISOString() });
   let tradeView = "RECOMMENDED";
 
   function renderCurrentTab() {
@@ -226,6 +229,7 @@ export async function renderTradesPage(container) {
       view: tradeView,
       currentWeek
     });
+    const leagueFit = buildLeagueTradeIntelligence({ snapshot: leagueSnapshot, targetRosterId: selectedRosterId, week: currentWeek, playerPreferences: preferences });
     const myLineup = buildProjectedLineup(currentRoster.players, { estimate: restOfSeasonEstimate(currentWeek) });
 
     content.innerHTML = `
@@ -260,6 +264,12 @@ export async function renderTradesPage(container) {
           ${currentRoster.players.map(player => `<tr><td>${escapeHtml(player.name)}</td><td><select class="player-preference" data-player="${escapeHtml(playerKey(player))}" aria-label="Préférence pour ${escapeHtml(player.name)}">${Object.entries(PLAYER_STATUSES).map(([status, label]) => `<option value="${status}" ${playerStatus(player, preferences) === status ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}</select></td></tr>`).join("")}
           </tbody></table></div><p class="note" id="preference-status" role="status"></p></details>
         ${myLineup.emptySlots.length ? `<div class="card" style="padding:14px 18px; margin:16px 0; border-left:4px solid var(--red);">⚠ Aucun joueur éligible pour ${myLineup.emptySlots.map(escapeHtml).join(", ")} : ce slot vaut 0 pt chaque semaine. Priorité au <a href="#waivers" id="empty-slot-waivers">Waiver Wire</a> avant tout trade.</div>` : ""}
+        <details class="trade-lineup-detail"><summary>Partenaires selon les besoins réciproques (${leagueFit.topPartners.length})</summary>
+          <p class="note">Analyse des ${leagueFit.partners.length} autres équipes : échanges simples améliorant les deux lineups, avec contrôle du marché et des données. Les packages sont étudiés dans le Finder. Un classement vide est possible ; ce ne sont pas des probabilités d’acceptation.</p>
+          ${leagueFit.partners.map(partner => `<div class="card" style="padding:12px;margin:8px 0;"><strong>${escapeHtml(partner.teamName)}</strong> · ${escapeHtml({ MUTUAL_FIT: "Intérêt réciproque", INCOMPLETE: "Données à vérifier", NO_QUALIFIED_ONE_FOR_ONE: "Aucun échange simple qualifié" }[partner.status])}
+            ${partner.examples.map(example => `<p class="note">${escapeHtml(example.give.name)} → ${escapeHtml(example.receive.name)} : toi +${example.myDeltaPerWeek}, partenaire +${example.theirDeltaPerWeek} pts/sem estimés.</p>`).join("")}
+            ${partner.blockers.length ? `<p class="note">${[...new Set(partner.blockers.map(issue => ({ PLAYER_METADATA_UNAVAILABLE: "Informations de joueur incomplètes", OWNERSHIP_UNAVAILABLE: "Roster indisponible", OWNERSHIP_CONFLICT: "Propriété d’un joueur contradictoire", DECLARED_LINEUP_INCOMPLETE: "Lineup déclarée incomplète", STALE_STARTER: "Titulaire absent du roster actuel", STALE_RESERVE: "Joueur IR absent du roster actuel", DUPLICATE_PLAYER: "Joueur en double dans le roster", DUPLICATE_STARTER: "Titulaire déclaré deux fois", STARTER_ON_RESERVE: "Titulaire également placé en IR" }[issue.split(":")[0]] || "Données de roster à vérifier")))].map(escapeHtml).join(" · ")}</p>` : ""}</div>`).join("")}
+        </details>
         <h3 style="margin:24px 0 16px; font-size:1.2rem;">${{ RECOMMENDED: "Trades recommandés", NEGOTIATE: "Trades à négocier", EXPLORATION: "Exploration du marché" }[tradeView]} (${proposals.length})</h3>
 
         <label for="trade-view">Afficher</label>

@@ -1,3 +1,4 @@
+import { buildLeagueTradeIntelligence, formatLeagueTradeIntelligence } from "../public/assets/league-trade-intelligence.js";
 import { formatLineupMovements } from "./lineup-movements.js";
 import { summarizeDecisionProvenance, formatProvenanceSummary } from './decision-provenance.js';
 import { formatTeRosterUtility } from './te-roster-utility.js';
@@ -20,6 +21,9 @@ function playerDecisionView(player, valuesById, projections, statuses) {
   const projection = projections[player.sleeperId]?.pts_ppr;
   return {
     ...player,
+    ...values,
+    projectedPpg: round(projection),
+    injuryStatus: statuses.get?.(player.sleeperId) || statuses[player.sleeperId] || player.injuryStatus || null,
     status: statuses.get?.(player.sleeperId) || statuses[player.sleeperId] || null,
     weekProjection: round(projection),
     rosPpg: round(values.rosPpg),
@@ -237,6 +241,10 @@ export function buildDecisionContext({ context, playerValues = {}, statuses = ne
     poolCoverage: waivers?.poolCoverage ?? null,
     coherence: waivers?.coherence ?? null,
     myTeam: enrichedTeam,
+    leagueTradeIntelligence: buildLeagueTradeIntelligence({
+      snapshot: context.leagueRosters ? { ...context.leagueRosters, teams: context.leagueRosters.teams.map(team => ({ ...team, players: team.players.map(enrich) })) } : null,
+      targetRosterId: context.myTeam.rosterId, week: context.week
+    }),
     lineup: lineup || { alerts: [], optimal: null },
     nextMatchup: matchup,
     teamDiagnosis: buildTeamDiagnosis({ ...context, myTeam: enrichedTeam }, available),
@@ -383,6 +391,7 @@ export function formatDecisionContext(context) {
     ...context.myTeam.bench.map(player => player.sleeperId), ...context.topAvailable.map(player => player.sleeperId)].filter(Boolean);
   const comparisonLines = formatProjectionComparison(context.projectionComparison, comparisonIds);
   if (comparisonLines.length) lines.push('', ...comparisonLines);
+  lines.push("", ...formatLeagueTradeIntelligence(context.leagueTradeIntelligence));
   const coverage = context.modelCoverage;
   lines.push(
     "",
