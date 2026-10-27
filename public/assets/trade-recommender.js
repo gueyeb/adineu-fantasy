@@ -8,7 +8,7 @@
  */
 
 import { calculatePlayerTradeValue, evaluateTrade } from "./trade-value.js?v=2c9caa87cf";
-import { buildProjectedLineup, restOfSeasonEstimate, scoreTradeRecommendation } from "./trade-score.js?v=716e1880af";
+import { buildProjectedLineup, restOfSeasonEstimate, scoreTradeRecommendation } from "./trade-score.js?v=4c142e788e";
 import { playerKey, playerStatus, preferenceAdjustment } from "./trade-preferences.js?v=c5fec5ce56";
 
 export const KNOWN_HANDCUFFS = [
@@ -47,6 +47,8 @@ function decorateProposal(proposal, myPlayers, theirPlayers, week = null) {
 const FAIR_VERDICTS = new Set(["FAIR", "SLIGHT_ADVANTAGE_A", "SLIGHT_ADVANTAGE_B"]);
 const TRADEABLE = new Set(["QB", "RB", "WR", "TE"]);
 // Initial, uncalibrated selection thresholds; market values remain unchanged.
+export const MAX_PRIMARY_TRADE_OFFERS = 5;
+
 export const TRADE_SELECTION_DEFAULTS = Object.freeze({ minimumGain: 1.5, premiumGain: 2, premiumValue: 70, premiumRank: 24 });
 
 export function classifyTradeProposal(proposal, { playerPreferences = {}, selection = {} } = {}) {
@@ -63,7 +65,13 @@ export function classifyTradeProposal(proposal, { playerPreferences = {}, select
     ((calculatePlayerTradeValue(player) >= policy.premiumValue ||
       (Number.isFinite(player.quality?.expertRank ?? player.expertRank) && (player.quality?.expertRank ?? player.expertRank) <= policy.premiumRank)) && playerStatus(player, playerPreferences) !== "SHOP"));
   if (protectedPlayers.length && score.my_lineup_delta < policy.premiumGain) reasons.push(`Protection premium/Keep : ${protectedPlayers.map(player => player.name).join(", ")}`);
-  const group = reasons.length ? "EXPLORATION" : score.confidence === "HIGH" && (score.structure?.id === "BILATERAL_MARKET_CLOSE" || (!score.structure && score.tradeability === "Naturelle")) ? "RECOMMENDED" : "NEGOTIATE";
+  const consequences = Object.values(score.rosterConsequences || {});
+  for (const side of consequences) {
+    if (side.cutsNeeded > side.cutCandidates.length) reasons.push("Coupe hors titulaires non démontrée");
+    if (side.cutCandidates.some(player => ["KEEP", "UNTOUCHABLE"].includes(playerStatus(player, playerPreferences)))) reasons.push("La coupe candidate contredit une préférence de conservation");
+  }
+  const needsCutReview = consequences.some(side => side.cutsNeeded > 0);
+  const group = reasons.length ? "EXPLORATION" : !needsCutReview && score.confidence === "HIGH" && (score.structure?.id === "BILATERAL_MARKET_CLOSE" || (!score.structure && score.tradeability === "Naturelle")) ? "RECOMMENDED" : "NEGOTIATE";
   return { group, reasons };
 }
 

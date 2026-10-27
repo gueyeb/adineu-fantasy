@@ -1,7 +1,7 @@
 import { formatTradeTiming } from "./trade-timing.js?v=cdcd6605a3";
 import { formatWaiverSchedule } from "./waiver-schedule.js?v=967a249e30";
-import { normalizeTradeIntent, tradeIntentStorageKey, targetWeekTradeImpact, compareTargetWeekImpacts, LAST_TRADE_TARGET_WEEK } from "./trade-target.js?v=e8117b11e7";
-import { buildLeagueRosterSnapshot, buildLeagueTradeIntelligence } from "./league-trade-intelligence.js?v=de9d5481b4";
+import { normalizeTradeIntent, tradeIntentStorageKey, targetWeekTradeImpact, compareTargetWeekImpacts, LAST_TRADE_TARGET_WEEK } from "./trade-target.js?v=009026e62e";
+import { buildLeagueRosterSnapshot, buildLeagueTradeIntelligence } from "./league-trade-intelligence.js?v=ddf05417f5";
 import { tierChip, tierSeparator } from "./tier-view.js?v=d3a45b4046";
 /**
  * Adineu Fantasy — Interface Utilisateur Trade Hub
@@ -13,7 +13,7 @@ import { buildTiers } from "./value-tiers.js?v=32f5359873";
 import { buildWaiverDisplayTiers } from "./waiver-board.js?v=8889a568a8";
 
 import { calculatePlayerTradeValue, calculatePlayerTradeProfile, evaluateTrade } from "./trade-value.js?v=2c9caa87cf";
-import { diagnoseRoster, findTradeProposals, findCounterOffers } from "./trade-recommender.js?v=6ba13bae8e";
+import { diagnoseRoster, findTradeProposals, findCounterOffers, MAX_PRIMARY_TRADE_OFFERS } from "./trade-recommender.js?v=c51480ff52";
 import { addToWatchlist, removeFromWatchlist, REASON_MAX } from "./war-room.js?v=e9eae48675";
 import { loadWatchlist, saveWatchlist } from "./war-room-store.js?v=679685c790";
 import { PLAYER_STATUSES, playerKey, playerStatus } from "./trade-preferences.js?v=c5fec5ce56";
@@ -26,7 +26,7 @@ import { resolveOperationalWeek } from "./nfl-week.js?v=8f9fa3f5b2";
 import { listRosterIdentities } from "./roster-view.js?v=120de9d74d";
 import { calculateFaabRemaining } from "./team-metrics.js?v=e47db97055";
 import { compactAuction, formatAuction } from "./faab-auction.js?v=1eea51c520";
-import { buildProjectedLineup, restOfSeasonEstimate } from "./trade-score.js?v=716e1880af";
+import { buildProjectedLineup, restOfSeasonEstimate } from "./trade-score.js?v=4c142e788e";
 
 import { SLEEPER_API, SLEEPER_LEAGUE_ID, sleeperGet } from "./sleeper-client.js?v=3f75d48ec5";
 const SUPABASE_URL = "https://juosrzsffvjprqhdyado.supabase.co";
@@ -243,7 +243,7 @@ export async function renderTradesPage(container) {
       .map(proposal => ({ ...proposal, targetWeekImpact: targetWeekTradeImpact({ myPlayers: currentRoster.players,
         theirPlayers: formattedRosters.find(roster => String(roster.roster_id) === String(proposal.partnerRosterId))?.players || [],
         give: proposal.give, receive: proposal.receive, targetWeek: intent.targetWeek, currentWeek, projectionsByWeek, timingContext }) }))
-      .sort((a, b) => intent.targetWeek === null ? 0 : compareTargetWeekImpacts(a.targetWeekImpact, b.targetWeekImpact) || b.score - a.score).slice(0, 15);
+      .sort((a, b) => intent.targetWeek === null ? 0 : compareTargetWeekImpacts(a.targetWeekImpact, b.targetWeekImpact) || b.score - a.score).slice(0, tradeView === "RECOMMENDED" ? MAX_PRIMARY_TRADE_OFFERS : 15);
     const leagueFit = buildLeagueTradeIntelligence({ snapshot: leagueSnapshot, targetRosterId: selectedRosterId, week: currentWeek, playerPreferences: preferences, ...intent, projectionsByWeek, timingContext });
     const myLineup = buildProjectedLineup(currentRoster.players, { estimate: restOfSeasonEstimate(currentWeek) });
 
@@ -340,6 +340,7 @@ export async function renderTradesPage(container) {
                   <p class="tf-status">Structure estimée <strong>${escapeHtml(score.tradeability)}</strong> · Fiabilité du calcul <strong>${{ HIGH: "bonne", MEDIUM: "moyenne", LOW: "faible" }[score.calculationReliability || score.confidence]}</strong>${score.usageAdjustment ? ` · Usage ${score.usageAdjustment > 0 ? "+" : ""}${score.usageAdjustment}` : ""}</p>
                   <p class="note">Couverture des données et hypothèses du calcul ; aucune probabilité d’acceptation.</p>
                   ${score.lineupChanges?.theirs?.length ? `<p class="note">Changements simulés chez le partenaire : ${score.lineupChanges.theirs.map(change => `${escapeHtml(change.slot)} : ${escapeHtml(change.before)} → ${escapeHtml(change.after)}`).join(" · ")}. Les coupes et blessures restent à examiner.</p>` : ""}
+                  ${score.rosterConsequences ? `<p class="note">Profondeur cédée depuis le banc : toi ${score.rosterConsequences.mine.outgoingBench.map(player => escapeHtml(player.name)).join(", ") || "aucun joueur"} ; partenaire ${score.rosterConsequences.theirs.outgoingBench.map(player => escapeHtml(player.name)).join(", ") || "aucun joueur"}. Les points de lineup ne valorisent pas cette couverture perdue.</p>` : ""}
                   ${score.warnings.length ? `<p class="note">⚠ ${score.warnings.map(escapeHtml).join(" · ")}</p>` : ""}
                   ${score.notes?.length ? `<p class="note">ℹ ${score.notes.map(escapeHtml).join(" · ")}</p>` : ""}
                   <details class="trade-lineup-detail"><summary>Lineups simulées ROS avant → après</summary><p class="note">Moyennes de reste de saison, pas une composition alignable cette semaine. Retour des blessés, activation IR, délai de trade et locks non confirmés.</p>

@@ -415,3 +415,36 @@ probabilité inventée ; sélection historique et contrôles statiques valides. 
 la revue manuelle multi-rosters sur snapshots fixes, profondeur perdue/coupes réelles,
 risques de retour et réduction des opportunités principales à 3–5 quand nécessaire.
 QC-02 n’est pas déclaré terminé ; publication en production non confirmée.
+
+## QC-02 — Deuxième incrément : coupes, profondeur et cinq offres principales
+
+27/10/2026. Les conséquences sont structurées pour les deux côtés : nombre de places
+à libérer, candidats hors titulaires simulés et hors joueurs reçus, joueurs cédés
+qui étaient sur le banc simulé. Le nombre de coupes couvre aussi un roster déjà
+au-dessus de la capacité ; l’ancien message ne nommait qu’une seule coupe.
+La capacité IR reste une hypothèse tirée des statuts, pas la réserve réelle certifiée.
+Aucun candidat n’est une instruction de drop, aucun lock/activation n’est confirmé.
+
+Une offre nécessitant une coupe reste À négocier. Candidat protégé Keep/Untouchable
+ou nombre de candidats insuffisant : Exploration. Aucun remplacement automatique
+de la coupe protégée n’est inventé. Profondeur cédée nommée séparément des gains de
+lineup ; son optionalité n’est pas monétisée. Valeurs, projections et seuils inchangés.
+Le Finder principal et l’analyse CLI/API sont plafonnés à cinq offres ; les vues
+secondaires gardent leurs quinze résultats. Aucun objectif de remplir cinq places.
+
+Capture réelle commune du 27/10 à 15:46 UTC, S8, puis réanalyse hors réseau des douze
+rosters : zéro offre principale ; Boukki a une offre À négocier, Estocade cinq.
+Les autres offres restent en exploration. Ce n’est pas une validation humaine de
+chaque combinaison, ni une comparaison numérique avec les quinze offres historiques.
+Exemples inspectés :
+- Boukki : DJ Moore contre Carnell Tate + Rhamondre Stevenson, +1,9/+0,2 pts/sem ;
+  coupe candidate Alvin Kamara sous hypothèse de capacité IR. Retour de DJ Moore,
+  bye de Kamara, couverture perdue et préférence de conservation à examiner.
+- Estocade : Kyle Pitts + Stevenson contre Luther Burden, +1,7/+1,0 ; Pitts sort du
+  banc simulé, et une coupe Kamara apparaît côté partenaire. Variante Aaron Rodgers :
+  même gain mais profondeur QB cédée au lieu de TE. Aucun accord adverse déduit.
+
+630 tests réussis, dont deux coupes sur roster déjà surchargé, préférence protégée,
+candidats insuffisants et sélection existante. La revue ne justifie aucun changement
+arbitraire de coefficient. Restent : réserve officielle/coupes réellement exécutables,
+sensibilité des rosters conservés aux blessures et évaluation sur plusieurs captures.

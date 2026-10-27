@@ -15,7 +15,7 @@ import { buildLeagueRosterSnapshot, buildLeagueTradeIntelligence } from "../publ
 import { normalizeTradeIntent, targetWeekTradeImpact, compareTargetWeekImpacts } from "../public/assets/trade-target.js";
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
-import { diagnoseRoster, findTradeProposals } from "../public/assets/trade-recommender.js";
+import { diagnoseRoster, findTradeProposals, MAX_PRIMARY_TRADE_OFFERS } from "../public/assets/trade-recommender.js";
 import { scoreTradeRecommendation, tradeReturnScenarios } from "../public/assets/trade-score.js";
 import { resolveOperationalWeek } from "../public/assets/nfl-week.js";
 import { usageAdjustedRosPpg, projectedRosOnly } from "../public/assets/rest-of-season.js";
@@ -259,7 +259,7 @@ export async function analyzeTrades({
       }).filter(proposal => !intent.preferredPosition || proposal.receive.some(player => player.position === intent.preferredPosition)).map(proposal => ({ ...proposal,
         targetWeekImpact: targetWeekTradeImpact({ myPlayers: target.players, theirPlayers: formattedRosters.find(roster => String(roster.roster_id) === String(proposal.partnerRosterId)).players,
           give: proposal.give, receive: proposal.receive, currentWeek, targetWeek: intent.targetWeek, projectionsByWeek: playerValues.projectionsByWeek, timingContext: playerValues.timingContext }) }))
-        .sort((a, b) => intent.targetWeek === null ? 0 : compareTargetWeekImpacts(a.targetWeekImpact, b.targetWeekImpact) || b.score - a.score).slice(0, 15)
+        .sort((a, b) => intent.targetWeek === null ? 0 : compareTargetWeekImpacts(a.targetWeekImpact, b.targetWeekImpact) || b.score - a.score).slice(0, MAX_PRIMARY_TRADE_OFFERS)
     };
   });
 
@@ -291,7 +291,7 @@ export async function evaluateTradeOffer({ give = [], receive = [], leagueId = D
     week: currentWeek,
     mine: { rosterId: mine.roster_id, team: mine.name, gives: args.give.map(brief) },
     theirs: { rosterId: theirs.roster_id, team: theirs.name, gives: args.receive.map(brief) },
-    seasonAverage: { myDeltaPerWeek: season.my_lineup_delta, theirDeltaPerWeek: season.their_lineup_delta, confidence: season.confidence, calculationReliability: season.calculationReliability, structure: season.structure, lineupChanges: season.lineupChanges, notes: season.notes },
+    seasonAverage: { myDeltaPerWeek: season.my_lineup_delta, theirDeltaPerWeek: season.their_lineup_delta, confidence: season.confidence, calculationReliability: season.calculationReliability, structure: season.structure, rosterConsequences: season.rosterConsequences, lineupChanges: season.lineupChanges, notes: season.notes },
     market: season.market_value,
     scenarios: tradeReturnScenarios({ ...args, projectionsByWeek: playerValues.projectionsByWeek || {} })
   };
@@ -305,6 +305,7 @@ export function formatTradeOffer(result) {
     `Offre S${result.week} : ${result.mine.team} donne ${names(result.mine)} · ${result.theirs.team} donne ${names(result.theirs)}`,
     `Moyenne reste de saison : ${result.mine.team} ${signed(result.seasonAverage.myDeltaPerWeek)} pts/sem · ${result.theirs.team} ${signed(result.seasonAverage.theirDeltaPerWeek)} pts/sem (lineup optimale)`,
     ...(result.seasonAverage.structure ? [`Structure estimée : ${result.seasonAverage.structure.label} · fiabilité du calcul ${result.seasonAverage.calculationReliability}. Aucune probabilité d’acceptation.`] : []),
+    ...(result.seasonAverage.notes || []).map(note => `À examiner : ${note}`),
     `Simulation future, disponibilité et délai de trade non confirmés. Semaine par semaine S${scenarios.weeks?.from}–S${scenarios.weeks?.to} :`,
     ...scenarios.scenarios.map(row => `• ${row.label}${Object.keys(row.returnWeeks).length ? ` (${Object.entries(row.returnWeeks).map(([name, week]) => `${name} S${week}`).join(", ")})` : ""} : ${result.mine.team} ${signed(row.myTotal)} pts · ${result.theirs.team} ${signed(row.theirTotal)} pts`),
     ...(scenarios.evidence.returnAssumptions || []).map(row => `⚠ ${row.name} (${row.status}) : hypothèse S${row.week}, ${row.basis === "FUTURE_PROJECTION_ASSUMPTION" ? "projection future" : "durée forfaitaire"} ; retour et activation IR non confirmés${row.traded ? "" : " (joueur conservé)"}.`),
@@ -360,6 +361,7 @@ export function formatTradeBulletin(analysis, { proposalLimit = 5 } = {}) {
         `Tu donnes : ${formatPlayers(proposal.give)}`,
         `Tu reçois : ${formatPlayers(proposal.receive)}`,
         ...(proposal.recommendationScore?.structure ? [`Structure estimée : ${proposal.recommendationScore.structure.label} · fiabilité du calcul ${proposal.recommendationScore.calculationReliability}. Aucune probabilité d’acceptation.`] : []),
+        ...(proposal.recommendationScore?.notes || []).map(note => `À examiner : ${note}`),
         `Pourquoi : ${proposal.pitchTarget}`,
         ...(analysis.tradeIntent?.targetWeek ? [`S${analysis.tradeIntent.targetWeek} : ${proposal.targetWeekImpact?.status === "PROJECTED"
           ? `toi ${proposal.targetWeekImpact.myDelta > 0 ? "+" : ""}${proposal.targetWeekImpact.myDelta}, partenaire ${proposal.targetWeekImpact.theirDelta > 0 ? "+" : ""}${proposal.targetWeekImpact.theirDelta} pts estimés`

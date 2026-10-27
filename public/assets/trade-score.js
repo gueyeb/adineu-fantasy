@@ -203,13 +203,6 @@ function exchange(players, give, receive) {
   return [...players.filter(player => !outgoing.has(identity(player))), ...receive];
 }
 
-/** Lowest-value player outside the optimal lineup: who a manager over the roster limit would cut. */
-function likelyCut(players, lineup, estimate) {
-  const starters = new Set(lineup.slots.map(slot => slot.sleeperId));
-  return players.filter(player => !starters.has(identity(player)) && !isOutThisWeek(player))
-    .sort((a, b) => estimate(a) - estimate(b))[0] || null;
-}
-
 /** Three separate dimensions. Deltas compare optimal lineups over the rest of the regular season
  * (weekly average), not asset sums. Injury statuses are modeled (games missed), so they are notes,
  * not missing data; only a missing market rank or an unexplained missing projection lowers
@@ -242,16 +235,24 @@ export function scoreTradeRecommendation({ myPlayers = [], theirPlayers = [], gi
     if (injuryStatus(player) && !Object.hasOwn(GAMES_MISSED_BY_STATUS, injuryStatus(player))) warnings.push(`${player.name} : statut de blessure non reconnu`);
   }
   const injured = assets.filter(player => GAMES_MISSED_BY_STATUS[injuryStatus(player)]);
+  const rosterConsequences = {};
   const notes = injured.map(player => `${player.name} : ${injuryStatus(player)} (hypothèse non calibrée : ≈${GAMES_MISSED_BY_STATUS[injuryStatus(player)]} match(s) manqué(s), retour non confirmé)`);
-  for (const [who, after, players] of [["Tu", myAfter, myAfterPlayers], ["Il", theirAfter, theirAfterPlayers]]) {
+  for (const [who, after, players, before, outgoing, incoming, side] of [["Tu", myAfter, myAfterPlayers, myBefore, give, receive, "mine"], ["Il", theirAfter, theirAfterPlayers, theirBefore, receive, give, "theirs"]]) {
     const newlyEmpty = after.emptySlots.filter(slot => !(who === "Tu" ? myBefore : theirBefore).emptySlots.includes(slot));
     if (newlyEmpty.length) notes.push(`${who === "Tu" ? "Ta" : "Sa"} lineup perd son ${newlyEmpty.join(", ")} : slot vide = 0 pt.`);
     // Sleeper's flat players list includes IR; only IR-eligible players can sit in the reserve slot.
     const inReserve = Math.min(ROSTER_SETTINGS_2026.reserveSlots, players.filter(player => IR_ELIGIBLE.has(injuryStatus(player))).length);
-    if (players.length - inReserve > ROSTER_SETTINGS_2026.totalRosterSize) {
-      const cut = likelyCut(players, after, estimate);
-      if (cut) notes.push(`${who === "Tu" ? "Tu devras" : "Il devra"} libérer une place : coupe probable ${cut.name} (sans impact lineup).`);
-    }
+    const cutsNeeded = Math.max(0, players.length - inReserve - ROSTER_SETTINGS_2026.totalRosterSize);
+    const starterIds = new Set(after.slots.map(slot => slot.sleeperId));
+    const incomingIds = new Set(incoming.map(identity));
+    const candidates = players.filter(player => !starterIds.has(identity(player)) && !incomingIds.has(identity(player)) && !isOutThisWeek(player))
+      .sort((a, b) => estimate(a) - estimate(b)).slice(0, cutsNeeded);
+    const beforeStarterIds = new Set(before.slots.map(slot => slot.sleeperId));
+    const brief = player => ({ sleeperId: identity(player), name: player.name, position: player.position });
+    rosterConsequences[side] = { cutsNeeded, cutCandidates: candidates.map(brief),
+      outgoingBench: outgoing.filter(player => !beforeStarterIds.has(identity(player))).map(brief),
+      capacityBasis: "STATUS_BASED_RESERVE_ASSUMPTION", execution: "UNVERIFIED" };
+    if (cutsNeeded) notes.push(`${who === "Tu" ? "Tu devras" : "Il devra"} libérer ${cutsNeeded} place(s) selon l’hypothèse IR : ${candidates.length ? `coupe(s) candidate(s) ${candidates.map(player => player.name).join(", ")}` : "aucune coupe hors titulaires identifiée"}. Profondeur perdue, places réelles et locks à vérifier.`);
   }
   const myDelta = round(myAfter.total - myBefore.total);
   const theirDelta = round(theirAfter.total - theirBefore.total);
@@ -271,6 +272,7 @@ export function scoreTradeRecommendation({ myPlayers = [], theirPlayers = [], gi
     confidence: calculationReliability, tradeability,
     calculationReliability,
     structure: { id: structureId, label: tradeability, acceptanceProbability: null, note: "Heuristique de structure et couverture du calcul ; intentions adverses non observées." },
+    rosterConsequences,
     lineupChanges: { mine: changes(myBefore, myAfter), theirs: changes(theirBefore, theirAfter) },
     winWin: bilateral, warnings, notes,
     lineupAvailability: "UNVERIFIED", transactionTiming: "UNVERIFIED",

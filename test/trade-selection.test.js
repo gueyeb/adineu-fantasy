@@ -53,3 +53,12 @@ test("Questionable without projection and missing replacement evidence lower con
   const unknown = { ...target, injuryStatus: "UNVERIFIED" };
   assert.equal(scoreTradeRecommendation({ ...args, theirPlayers: [unknown], receive: [unknown] }).confidence, "LOW");
 });
+
+test("cuts require review and protected cut candidates keep an offer out of primary recommendations", () => {
+  const proposal = offer();
+  proposal.recommendationScore.rosterConsequences = { mine: { cutsNeeded: 1, cutCandidates: [{ sleeperId: "cut", name: "Cut" }] } };
+  assert.equal(classifyTradeProposal(proposal).group, "NEGOTIATE");
+  assert.equal(classifyTradeProposal(proposal, { playerPreferences: { cut: "KEEP" } }).group, "EXPLORATION");
+  proposal.recommendationScore.rosterConsequences.mine.cutCandidates = [];
+  assert.equal(classifyTradeProposal(proposal).group, "EXPLORATION");
+});

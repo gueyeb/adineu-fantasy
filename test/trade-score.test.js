@@ -105,7 +105,7 @@ test("losing your only QB is priced as a 0-point slot", () => {
   assert.equal(score.tradeability, "Perte de lineup estimée");
 });
 
-test("a 2-for-1 that overflows the partner roster names their likely cut instead of blocking", () => {
+test("an already over-capacity partner receives two cut candidates, excluding incoming players", () => {
   const give = [player("Give A", "WR", 11), player("Give B", "RB", 10)];
   const receive = [player("Stud", "WR", 19)];
   const mine = [...core("M"), player("RB1", "RB", 14), player("RB2", "RB", 12), player("WR1", "WR", 18), player("WR2", "WR", 17), ...give];
@@ -113,7 +113,9 @@ test("a 2-for-1 that overflows the partner roster names their likely cut instead
     ...Array.from({ length: 7 }, (_, i) => player(`Bench${i}`, "WR", 2 + i))];
   assert.equal(theirs.length, 16);
   const score = scoreTradeRecommendation({ myPlayers: mine, theirPlayers: theirs, give, receive });
-  assert.ok(score.notes.some(n => /Il devra libérer une place : coupe probable Bench0/.test(n)));
+  assert.equal(score.rosterConsequences.theirs.cutsNeeded, 2);
+  assert.deepEqual(score.rosterConsequences.theirs.cutCandidates.map(player => player.name), ["Bench0", "Bench1"]);
+  assert.equal(score.rosterConsequences.theirs.cutCandidates[0].name, "Bench0");
   assert.ok(!score.warnings.some(w => /coupe/.test(w)));
 });
 
@@ -126,7 +128,7 @@ test("roster overflow ignores the IR slot for healthy players", () => {
     ...Array.from({ length: 6 }, (_, i) => player(`Bench${i}`, "WR", 2 + i))];
   assert.equal(theirs.length, 15);
   const score = scoreTradeRecommendation({ myPlayers: mine, theirPlayers: theirs, give, receive });
-  assert.ok(score.notes.some(n => /Il devra libérer une place/.test(n)));
+  assert.equal(score.rosterConsequences.theirs.cutsNeeded, 1);
 });
 
 test("tradeReturnScenarios: injured asset valued week by week under three return hypotheses", async () => {

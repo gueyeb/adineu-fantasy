@@ -274,3 +274,11 @@ logs n8n toujours non inspectés. Recommandations : structure heuristique et fia
 du calcul distinguées de l’acceptation ; changements de titulaires adverses nommés.
 Valeurs et seuils inchangés, 629 tests réussis. Revue multi-rosters et motifs complets
 restent ouverts. [Preuves et limites](quality-consistency-2026-10-26.md).
+
+### 27/10 — QC-02 : conséquences de roster et cinq offres principales
+
+Coupes candidates des deux côtés, profondeur cédée nommée ; coupes requises en
+À négocier, protection Keep/Untouchable respectée dans la qualification. Cinq offres
+principales maximum, sans remplissage. Capture S8 des douze rosters : aucune offre
+principale ; exemples Boukki/Estocade examinés avec leurs limites. 630 tests réussis.
+[Détail de la revue](quality-consistency-2026-10-26.md).
