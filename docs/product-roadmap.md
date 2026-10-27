@@ -297,3 +297,11 @@ Filtre prudent sur kickoff et mouvements désactivés ; candidats exclus traçab
 Avant-match ne vaut jamais autorisation de drop, AutoSubs et exécution restent à
 vérifier. Capacité dépassée distinguée du blocage de trade : réduction nécessaire
 pour modifier la lineup. 635 tests réussis. [Sources et limites](quality-consistency-2026-10-26.md).
+
+### 28/10 — QC-03 : trois parcours Waiver Wire
+
+Actions vérifiées, préparation avec confirmation et surveillance séparées à partir
+du moteur existant. Rapport périmé/absent jamais promu en action maintenant ; aucun
+bid ou gain recalculé. Tableau détaillé conservé, codes de disponibilité traduits.
+Boukki S8 vérifié localement ; aucune acquisition exécutée.
+[Contrat et limites](quality-consistency-2026-10-26.md).

@@ -1,3 +1,4 @@
+import { renderWaiverDecisionBoard, waiverAvailabilityLabel } from "./waiver-decision-view.js?v=1bd7bc1775";
 import { formatTradeTiming } from "./trade-timing.js?v=cdcd6605a3";
 import { formatWaiverSchedule } from "./waiver-schedule.js?v=967a249e30";
 import { normalizeTradeIntent, tradeIntentStorageKey, targetWeekTradeImpact, compareTargetWeekImpacts, LAST_TRADE_TARGET_WEEK } from "./trade-target.js?v=4feccd46df";
@@ -649,7 +650,7 @@ export async function renderTradesPage(container) {
         : `Prochain déblocage : ${next.status}`);
       return notes.join(" · ");
     };
-    const availabilityText = p => [`${p.availability?.availability || "UNKNOWN"}${p.availability?.availabilitySource === "LEAGUE_RULES_INFERRED" ? " (déduite — à confirmer dans Sleeper)" : ""} · ${p.waiver?.decision?.recommendedAction || "WATCH"}`, engineNotes(p)].filter(Boolean).join(" · ");
+    const availabilityText = p => [waiverAvailabilityLabel(p), engineNotes(p)].filter(Boolean).join(" · ");
     const money = range => range && range[1] > 0 ? `${range[0]}–${range[1]} $` : "—";
     const usageCell = w => Number.isFinite(w.usageScore) ? `${w.usageScore}${w.usageSignal === "BUY_LOW" ? " 🟢" : w.usageSignal === "SELL_HIGH" ? " 🔥" : ""}` : "—";
     // War Room watchlist of the analysed roster (shared with /coach/, browser only).
@@ -702,6 +703,8 @@ export async function renderTradesPage(container) {
         <details class="card" style="padding:12px 16px; margin-bottom:16px;"><summary>Transactions récentes · 72 h (${report.recentTransactions?.length || 0})</summary><p>Propriété relue après transactions : ${report.ownershipRechecked ? "oui" : "non"}. Snapshot non atomique. Disponibilité au ${escapeHtml(date(report.availabilityAsOf))}. ${report.transactionsTruncatedCount || 0} transaction(s) non affichée(s).</p>${(report.recentTransactions || []).map(t => `<p>${escapeHtml(date(Number(t.status_updated ?? t.created)))} · ${escapeHtml(t.status)} · ajouts ${escapeHtml(Object.keys(t.adds || {}).join(", ") || "—")} · coupes ${escapeHtml(Object.keys(t.drops || {}).join(", ") || "—")}${t.relevant ? " · touche le roster ou les candidats" : ""}</p>`).join("")}</details>
         ${(report.rosterPreferences || []).length ? `<details class="card" style="padding:12px 16px; margin-bottom:16px;"><summary>Préférences temporaires (${report.rosterPreferences.length})</summary>${report.rosterPreferences.map(pref => `<p>${escapeHtml(pref.playerId)} · ${escapeHtml(pref.reason)} · jusqu’au ${escapeHtml(date(pref.expiresAt))} · pénalité de préférence ${pref.penaltyPoints} points d’utilité (pas des points fantasy)</p>`).join("")}</details>` : ""}
         ${report.acquisitionPlan ? `<details class="card" style="padding:12px 16px; margin-bottom:16px;"><summary>Plan conditionnel d’acquisition (${report.acquisitionPlan.steps.length}) · ${report.acquisitionPlan.reservedFaab} $ réservés</summary><p>Gains recalculés après chaque ajout prévu. Suppose les succès précédents ; vérifier les résultats, le roster et les déblocages avant chaque action. Plan glouton, sans garantie d’optimalité ni de gagner une enchère.</p><ol>${report.acquisitionPlan.steps.map(step => `<li>${escapeHtml(step.name)} · coupe ${escapeHtml(step.dropCandidate?.name || "place libre")} · enchère ${step.suggestedBid} $ · budget après ${step.budgetAfter} $ · gain marginal ${step.netGainTotal} pts${step.preferenceOverridden ? ` · préférence temporaire dépassée (${step.preferencePenaltyTotal} points d’utilité)` : ""}</li>`).join("")}</ol>${report.acquisitionPlan.conflicts.length ? `<p>${report.acquisitionPlan.conflicts.length} conflit(s) de coupe entre les options individuelles ; le plan affecte des coupes distinctes.</p>` : ""}</details>` : ""}
+        <div id="waiver-decision-board">${renderWaiverDecisionBoard(report, { available: !opportunityError })}</div>
+        <details class="trade-lineup-detail"><summary>Comparaison chiffrée des scénarios ajout–coupe</summary>
         <h3 style="margin:0 0 6px; font-size:1.2rem;">Scénarios ajout–coupe pour ton équipe${currentWeek ? ` · Semaine ${currentWeek}` : ""}</h3>
         <p class="note" style="margin:0 0 8px;">Compare l’ajout, la coupe et le gain net estimé. Les scénarios sont des alternatives, pas des claims à cumuler.</p><details class="method-note"><summary>Comprendre le gain net et le plafond FAAB</summary><div><p>« Capture » = part du surplus marché qui atteint ta lineup, pas une note de fit. Chaque scénario recalcule la lineup après ajout et coupe. Le gain net retire une estimation de la valeur d’option du banc sur le même horizon. « Max pour toi » tient compte de ce coût et reste plafonné par ton FAAB. Estimations Adineu, jamais une probabilité de gagner l'enchère. Deux claims partageant une coupe ne peuvent pas être exécutés ensemble.</p></div></details>
         ${opportunityError ? `
@@ -730,6 +733,7 @@ export async function renderTradesPage(container) {
           </div>
         `}
 
+        </details>
         ${(report.trending || []).length ? `<details class="trade-lineup-detail fold-section"><summary>Tendances Sleeper · 48 h — ${report.trending.filter(t => !t.rostered).length} joueur(s) encore libre(s)</summary>
           <p class="note" style="margin:0 0 12px;">Joueurs les plus ajoutés sur toute la plateforme Sleeper, croisés avec la ligue Adineu et le modèle waiver.</p>
           <div class="table-wrap" style="margin-bottom:28px;"><table>
@@ -769,6 +773,17 @@ export async function renderTradesPage(container) {
         </div>
       </div>
     `;
+
+    const decisionBoard = content.querySelector("#waiver-decision-board");
+    const boardAgeTimer = setInterval(() => {
+      if (!decisionBoard?.isConnected || currentTab !== "waivers") { clearInterval(boardAgeTimer); return; }
+      const captured = Date.parse(report.availabilityAsOf);
+      if (Number.isFinite(captured) && Date.now() - captured <= 300000) return;
+      const openSections = new Map([...decisionBoard.querySelectorAll("[data-waiver-section]")].map(detail => [detail.dataset.waiverSection, detail.open]));
+      decisionBoard.innerHTML = renderWaiverDecisionBoard(report, { available: !opportunityError });
+      decisionBoard.querySelectorAll("[data-waiver-section]").forEach(detail => { detail.open = openSections.get(detail.dataset.waiverSection) ?? false; });
+      clearInterval(boardAgeTimer);
+    }, 30000);
 
     document.getElementById("waiver-roster-select")?.addEventListener("change", (e) => {
       selectedRosterId = e.target.value;

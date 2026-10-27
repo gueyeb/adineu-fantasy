@@ -506,3 +506,40 @@ des affectations dans Sleeper avant coupe. Pas de récupération de session priv
 verrouillés, AutoSubs non observés et absence de permission inventée. Contrôles statiques
 valides. Les filtres de sélection conservent les préférences et relèguent les offres
 sans assez de candidats en exploration. Aucune coupe ni notification exécutée.
+
+## QC-03 — Premier incrément : parcours Waiver Wire
+
+28/10/2026. Trois sections de lecture réutilisent les décisions du moteur : actions
+possibles maintenant, préparation des waivers/confirmation d’ajout, surveillance ou
+données à compléter. Aucun gain ni bid recalculé. Un ADD_NOW ne rejoint « maintenant »
+qu’avec contexte de roster/horizon couvert, aucun blocker, disponibilité FREE_AGENT
+vérifiée par observation opérateur et rapport daté de cinq minutes au plus.
+Disponibilité déduite : préparation avec confirmation explicite dans Sleeper.
+CLAIM_IF_CHEAP couvert avec enchère déterminée (zéro compris) : préparation, jamais
+acquisition acquise. Autres états ou blocages : surveillance, sans verdict inventé.
+
+La date du rapport est affichée en Europe/Paris. Le contrôle de péremption est réévalué
+localement toutes les 30 secondes jusqu’à expiration, sans appel réseau additionnel ;
+les trois sections conservent leur ouverture. Il faut recharger pour une nouvelle
+observation. Un chargement raté se distingue d’un vrai résultat vide.
+
+Coupes candidates, gains nets sur la période et bid/plafond estimés gardent leurs
+valeurs originales et les claims partageant une coupe sont étiquetés comme alternatives.
+Cinq candidats visibles par section, autres candidats accessibles dans un détail ;
+aucun candidat supprimé du rapport. Comparaison chiffrée conservée dans un détail.
+Disponibilité et action dans le catalogue sont traduites ; codes de contrôle bruts
+consultables dans un détail technique. Les autres notes historiques peuvent encore
+contenir des profils/codes et ne sont pas déclarées intégralement harmonisées.
+
+Navigateur local, Boukki S8 : zéro ajout libre vérifié, deux préparations et cinquante
+candidats à surveiller/compléter. Les deux préparations du moteur nomment Hockenson
+et Cincinnati avec la même coupe Kamara : le board précise qu’elles ne sont pas
+cumulables. Chiffres datés, pas une validation des coupes ou une consigne d’exécution.
+Aucun claim, message ou notification envoyé. Coach/IA/n8n ne sont pas modifiés.
+
+Evals : ajout observé versus inféré, claim à zéro versus bid absent, blockers et
+couverture manquante, rapport périmé/absent, indisponibilité versus zéro opportunité,
+échappement HTML et conservation des inputs. Restent : cohérence de présentation
+Coach/Start-Sit/IA, transactions nominatives, ergonomie mobile et fraîcheur mesurée.
+
+Vérification du lot : 639 tests réussis, syntaxe et contrôles statiques valides.
