@@ -282,3 +282,11 @@ Coupes candidates des deux côtés, profondeur cédée nommée ; coupes requises
 principales maximum, sans remplissage. Capture S8 des douze rosters : aucune offre
 principale ; exemples Boukki/Estocade examinés avec leurs limites. 630 tests réussis.
 [Détail de la revue](quality-consistency-2026-10-26.md).
+
+### 27/10 — QC-02 : réserves réelles et candidats de coupe
+
+Réserves/titulaires Sleeper transmis aux calculs de trades. Capacité basée sur les
+réserves conservées valides, sans placement IR automatique d’un joueur reçu ; titulaires
+déclarés exclus des candidats à la coupe. Source absente ou contradictoire explicitement
+non vérifiée. 631 tests réussis ; locks de coupe et exécution restent ouverts.
+[Preuves et limites](quality-consistency-2026-10-26.md).

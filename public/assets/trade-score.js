@@ -209,7 +209,7 @@ function exchange(players, give, receive) {
  * confidence. Roster overflow is resolved by cutting the lowest bench value. Tradeability is a
  * heuristic, not odds.
  */
-export function scoreTradeRecommendation({ myPlayers = [], theirPlayers = [], give = [], receive = [], week = null }) {
+export function scoreTradeRecommendation({ myPlayers = [], theirPlayers = [], give = [], receive = [], week = null, myRoster = null, theirRoster = null }) {
   const estimate = restOfSeasonEstimate(week);
   const lineup = players => buildProjectedLineup(players, { estimate });
   const myAfterPlayers = exchange(myPlayers, give, receive);
@@ -237,22 +237,28 @@ export function scoreTradeRecommendation({ myPlayers = [], theirPlayers = [], gi
   const injured = assets.filter(player => GAMES_MISSED_BY_STATUS[injuryStatus(player)]);
   const rosterConsequences = {};
   const notes = injured.map(player => `${player.name} : ${injuryStatus(player)} (hypothèse non calibrée : ≈${GAMES_MISSED_BY_STATUS[injuryStatus(player)]} match(s) manqué(s), retour non confirmé)`);
-  for (const [who, after, players, before, outgoing, incoming, side] of [["Tu", myAfter, myAfterPlayers, myBefore, give, receive, "mine"], ["Il", theirAfter, theirAfterPlayers, theirBefore, receive, give, "theirs"]]) {
+  for (const [who, after, players, before, outgoing, incoming, side, roster, original] of [["Tu", myAfter, myAfterPlayers, myBefore, give, receive, "mine", myRoster, myPlayers], ["Il", theirAfter, theirAfterPlayers, theirBefore, receive, give, "theirs", theirRoster, theirPlayers]]) {
     const newlyEmpty = after.emptySlots.filter(slot => !(who === "Tu" ? myBefore : theirBefore).emptySlots.includes(slot));
     if (newlyEmpty.length) notes.push(`${who === "Tu" ? "Ta" : "Sa"} lineup perd son ${newlyEmpty.join(", ")} : slot vide = 0 pt.`);
     // Sleeper's flat players list includes IR; only IR-eligible players can sit in the reserve slot.
-    const inReserve = Math.min(ROSTER_SETTINGS_2026.reserveSlots, players.filter(player => IR_ELIGIBLE.has(injuryStatus(player))).length);
+    const originalIds = new Set(original.map(identity));
+    const reserve = Array.isArray(roster?.reserve) ? roster.reserve.map(String) : null;
+    const reserveVerified = reserve !== null && new Set(reserve).size === reserve.length && reserve.every(id => originalIds.has(id)) && reserve.length <= ROSTER_SETTINGS_2026.reserveSlots && !reserve.some(id => (roster?.starters || []).map(String).includes(id));
+    const outgoingIds = new Set(outgoing.map(identity));
+    const retainedReserve = reserveVerified ? reserve.filter(id => !outgoingIds.has(id)) : [];
+    const inReserve = reserveVerified ? retainedReserve.length : Math.min(ROSTER_SETTINGS_2026.reserveSlots, players.filter(player => IR_ELIGIBLE.has(injuryStatus(player))).length);
+    const declaredStarters = new Set((roster?.starters || []).map(String));
     const cutsNeeded = Math.max(0, players.length - inReserve - ROSTER_SETTINGS_2026.totalRosterSize);
     const starterIds = new Set(after.slots.map(slot => slot.sleeperId));
     const incomingIds = new Set(incoming.map(identity));
-    const candidates = players.filter(player => !starterIds.has(identity(player)) && !incomingIds.has(identity(player)) && !isOutThisWeek(player))
+    const candidates = players.filter(player => !starterIds.has(identity(player)) && !incomingIds.has(identity(player)) && !retainedReserve.includes(identity(player)) && !declaredStarters.has(identity(player)) && !isOutThisWeek(player))
       .sort((a, b) => estimate(a) - estimate(b)).slice(0, cutsNeeded);
     const beforeStarterIds = new Set(before.slots.map(slot => slot.sleeperId));
     const brief = player => ({ sleeperId: identity(player), name: player.name, position: player.position });
     rosterConsequences[side] = { cutsNeeded, cutCandidates: candidates.map(brief),
       outgoingBench: outgoing.filter(player => !beforeStarterIds.has(identity(player))).map(brief),
-      capacityBasis: "STATUS_BASED_RESERVE_ASSUMPTION", execution: "UNVERIFIED" };
-    if (cutsNeeded) notes.push(`${who === "Tu" ? "Tu devras" : "Il devra"} libérer ${cutsNeeded} place(s) selon l’hypothèse IR : ${candidates.length ? `coupe(s) candidate(s) ${candidates.map(player => player.name).join(", ")}` : "aucune coupe hors titulaires identifiée"}. Profondeur perdue, places réelles et locks à vérifier.`);
+      capacityBasis: reserveVerified ? "DECLARED_SLEEPER_RESERVE" : "STATUS_BASED_RESERVE_ASSUMPTION", retainedReserveIds: retainedReserve, incomingReservePlacement: "NOT_ASSUMED", cutAvailability: "UNVERIFIED", execution: "UNVERIFIED" };
+    if (cutsNeeded) notes.push(`${who === "Tu" ? "Tu devras" : "Il devra"} libérer ${cutsNeeded} place(s) (${reserveVerified ? "réserve Sleeper déclarée conservée" : "hypothèse IR, réserve non vérifiée"}) : ${candidates.length ? `coupe(s) candidate(s) ${candidates.map(player => player.name).join(", ")}` : "aucune coupe hors titulaires identifiée"}. Profondeur perdue, places réelles et locks à vérifier.`);
   }
   const myDelta = round(myAfter.total - myBefore.total);
   const theirDelta = round(theirAfter.total - theirBefore.total);

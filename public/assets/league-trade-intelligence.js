@@ -1,8 +1,8 @@
-import { normalizeTradeIntent, targetWeekTradeImpact, compareTargetWeekImpacts } from "./trade-target.js?v=009026e62e";
+import { normalizeTradeIntent, targetWeekTradeImpact, compareTargetWeekImpacts } from "./trade-target.js?v=8bb88a51d9";
 import { listRosterIdentities, buildStarterSlotOrder } from "./roster-view.js?v=120de9d74d";
 import { BYE_WEEKS_2026, ROSTER_SETTINGS_2026 } from "./league-settings.js?v=886f353394";
-import { buildProjectedLineup, restOfSeasonEstimate } from "./trade-score.js?v=4c142e788e";
-import { diagnoseRoster, findTradeProposals } from "./trade-recommender.js?v=c51480ff52";
+import { buildProjectedLineup, restOfSeasonEstimate } from "./trade-score.js?v=81e00d1e43";
+import { diagnoseRoster, findTradeProposals } from "./trade-recommender.js?v=fb61bf0211";
 import { playerKey } from "./trade-preferences.js?v=c5fec5ce56";
 
 const positions = new Set(["QB", "RB", "WR", "TE", "K", "DEF"]);
@@ -32,7 +32,7 @@ export function buildLeagueRosterSnapshot({ rosters = [], users = [], playerFor,
         if (!info || !positions.has(info.position)) issues.push(`PLAYER_METADATA_UNAVAILABLE:${id}`);
         return { ...info, sleeperId: id, name: info?.name || `Player #${id}`, position: info?.position || null };
       });
-      return { rosterId: roster.roster_id, owner: ownerName, teamName, players, reserveIds,
+      return { rosterId: roster.roster_id, owner: ownerName, teamName, players, reserveIds, reserveVerified: Array.isArray(roster.reserve) && roster.reserve.length === reserveIds.length && new Set(reserveIds).size === reserveIds.length,
         declaredStarters: slotOrder.map((slot, index) => ({ slot, playerId: owned.has(starterIds[index]) ? starterIds[index] : null })),
         issues };
     })
@@ -64,8 +64,8 @@ export function buildLeagueTradeIntelligence({ snapshot, targetRosterId, week = 
     const issues = [...team.issues];
     for (const player of players) if (owners.get(playerKey(player)).size > 1) issues.push(`OWNERSHIP_CONFLICT:${playerKey(player)}`);
     const missingProjectionIds = players.filter(player => !Number.isFinite(player.projectedPpg)).map(playerKey);
-    return { rosterId: team.rosterId, owner: team.owner, teamName: team.teamName, players,
-      declaredStarters: team.declaredStarters.map(slot => ({ slot: slot.slot, player: byId.get(slot.playerId) || null })),
+    return { rosterId: team.rosterId, owner: team.owner, teamName: team.teamName, players, reserveIds: team.reserveIds, reserveVerified: team.reserveVerified,
+      declaredStarters: team.declaredStarters.map(slot => ({ slot: slot.slot, playerId: slot.playerId, player: byId.get(slot.playerId) || null })),
       bench: players.filter(player => !declared.has(playerKey(player)) && !reserve.has(playerKey(player))),
       ir: players.filter(player => reserve.has(playerKey(player))),
       optimalLineup, diagnosis: { counts: diagnosis.counts, needs: diagnosis.deficits, surplus: diagnosis.surpluses, method: "MARKET_THRESHOLDS_HEURISTIC" },
@@ -77,7 +77,7 @@ export function buildLeagueTradeIntelligence({ snapshot, targetRosterId, week = 
   if (!mine) return { status: "TARGET_UNAVAILABLE", source: snapshot.source, asOf: snapshot.asOf, teams, partners: [], topPartners: [] };
   const eligibleTeams = teams.filter(team => !team.coverage.issues.length);
   const proposals = mine.coverage.issues.length ? [] : findTradeProposals({ targetRosterId,
-    rosters: eligibleTeams.map(team => ({ roster_id: team.rosterId, name: team.teamName, players: team.players })),
+    rosters: eligibleTeams.map(team => ({ roster_id: team.rosterId, name: team.teamName, players: team.players, reserve: team.reserveVerified ? team.reserveIds : null, starters: team.declaredStarters.map(slot => slot.playerId).filter(Boolean) })),
     currentWeek: week, playerPreferences, view: "ALL", limit: null });
   const brief = player => ({ playerId: playerKey(player), name: player.name, position: player.position });
   const partners = teams.filter(team => team !== mine).map(team => {

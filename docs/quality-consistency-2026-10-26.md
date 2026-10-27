@@ -448,3 +448,29 @@ Exemples inspectés :
 candidats insuffisants et sélection existante. La revue ne justifie aucun changement
 arbitraire de coefficient. Restent : réserve officielle/coupes réellement exécutables,
 sensibilité des rosters conservés aux blessures et évaluation sur plusieurs captures.
+
+## QC-02 — Troisième incrément : réserves Sleeper déclarées
+
+27/10/2026. Finder, contre-offres, partenaires et évaluation d’une offre précise
+transmettent désormais les listes de réserve et de titulaires déclarées dans Sleeper.
+La capacité déduit uniquement les joueurs conservés dans une réserve valide : liste
+sans doublon, appartenant au roster, sans conflit avec les titulaires et dans la
+limite configurée. Le départ d’un joueur IR retire sa place occupée de la déduction.
+Un joueur reçu n’est jamais placé automatiquement en réserve, même avec statut IR.
+Un joueur Out présent sur le roster actif ne vaut pas une place IR occupée.
+
+La provenance expose `DECLARED_SLEEPER_RESERVE` ou, faute de preuve suffisante,
+`STATUS_BASED_RESERVE_ASSUMPTION`. La compatibilité du calcul hypothétique est conservée
+mais les notes identifient clairement ce dernier cas. Les candidats à la coupe excluent
+les titulaires déclarés, ceux de la simulation, les joueurs reçus et la réserve conservée.
+Disponibilité de coupe et exécution restent UNVERIFIED : aucun lock ni activation
+médicale n’est déduit de la réserve. Les gains ROS restent des simulations futures.
+
+Lecture publique des douze rosters : dix listes de réserve, dix places occupées,
+aucun conflit titulaire/réserve. Les deux rosters sans tableau ne sont pas silencieusement
+certifiés vides. Aucune donnée Sleeper ou Supabase modifiée.
+
+631 tests réussis : réserve réelle versus blessure sur roster actif, joueur IR reçu,
+départ de réserve, identifiant contradictoire, exclusion d’un titulaire déclaré et
+régressions de sélection. Contrôles statiques valides. Restent : verrous de coupe
+sourcés et fraîcheur d’exécution, sans assimilation à une acquisition déjà réalisable.

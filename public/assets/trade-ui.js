@@ -1,7 +1,7 @@
 import { formatTradeTiming } from "./trade-timing.js?v=cdcd6605a3";
 import { formatWaiverSchedule } from "./waiver-schedule.js?v=967a249e30";
-import { normalizeTradeIntent, tradeIntentStorageKey, targetWeekTradeImpact, compareTargetWeekImpacts, LAST_TRADE_TARGET_WEEK } from "./trade-target.js?v=009026e62e";
-import { buildLeagueRosterSnapshot, buildLeagueTradeIntelligence } from "./league-trade-intelligence.js?v=ddf05417f5";
+import { normalizeTradeIntent, tradeIntentStorageKey, targetWeekTradeImpact, compareTargetWeekImpacts, LAST_TRADE_TARGET_WEEK } from "./trade-target.js?v=8bb88a51d9";
+import { buildLeagueRosterSnapshot, buildLeagueTradeIntelligence } from "./league-trade-intelligence.js?v=875bcf1d73";
 import { tierChip, tierSeparator } from "./tier-view.js?v=d3a45b4046";
 /**
  * Adineu Fantasy — Interface Utilisateur Trade Hub
@@ -13,7 +13,7 @@ import { buildTiers } from "./value-tiers.js?v=32f5359873";
 import { buildWaiverDisplayTiers } from "./waiver-board.js?v=8889a568a8";
 
 import { calculatePlayerTradeValue, calculatePlayerTradeProfile, evaluateTrade } from "./trade-value.js?v=2c9caa87cf";
-import { diagnoseRoster, findTradeProposals, findCounterOffers, MAX_PRIMARY_TRADE_OFFERS } from "./trade-recommender.js?v=c51480ff52";
+import { diagnoseRoster, findTradeProposals, findCounterOffers, MAX_PRIMARY_TRADE_OFFERS } from "./trade-recommender.js?v=fb61bf0211";
 import { addToWatchlist, removeFromWatchlist, REASON_MAX } from "./war-room.js?v=e9eae48675";
 import { loadWatchlist, saveWatchlist } from "./war-room-store.js?v=679685c790";
 import { PLAYER_STATUSES, playerKey, playerStatus } from "./trade-preferences.js?v=c5fec5ce56";
@@ -26,7 +26,7 @@ import { resolveOperationalWeek } from "./nfl-week.js?v=8f9fa3f5b2";
 import { listRosterIdentities } from "./roster-view.js?v=120de9d74d";
 import { calculateFaabRemaining } from "./team-metrics.js?v=e47db97055";
 import { compactAuction, formatAuction } from "./faab-auction.js?v=1eea51c520";
-import { buildProjectedLineup, restOfSeasonEstimate } from "./trade-score.js?v=4c142e788e";
+import { buildProjectedLineup, restOfSeasonEstimate } from "./trade-score.js?v=81e00d1e43";
 
 import { SLEEPER_API, SLEEPER_LEAGUE_ID, sleeperGet } from "./sleeper-client.js?v=3f75d48ec5";
 const SUPABASE_URL = "https://juosrzsffvjprqhdyado.supabase.co";
@@ -164,6 +164,8 @@ export async function renderTradesPage(container) {
     return {
       roster_id: r.roster_id,
       owner_id: r.owner_id,
+      reserve: Array.isArray(r.reserve) ? r.reserve : null,
+      starters: r.starters || [],
       ownerName,
       name: teamName,
       players: (r.players || []).map(pid => {
@@ -396,7 +398,7 @@ export async function renderTradesPage(container) {
       button.addEventListener("click", () => {
         const proposal = proposals[Number(button.dataset.index)];
         const partner = formattedRosters.find(roster => String(roster.roster_id) === String(proposal.partnerRosterId));
-        const offers = findCounterOffers({ proposal, myPlayers: currentRoster.players, theirPlayers: partner?.players, playerPreferences: preferences, currentWeek });
+        const offers = findCounterOffers({ proposal, myPlayers: currentRoster.players, theirPlayers: partner?.players, playerPreferences: preferences, currentWeek, myRoster: currentRoster, theirRoster: partner });
         const container = document.getElementById(`counter-offers-${button.dataset.index}`);
         container.innerHTML = offers.length ? offers.map(offer => `<p class="note"><strong>${offer.give.map(player => escapeHtml(player.name)).join(" + ")} → ${offer.receive.map(player => escapeHtml(player.name)).join(" + ")}</strong><br>Ta lineup : +${offer.recommendationScore.my_lineup_delta} · Sa lineup : +${offer.recommendationScore.their_lineup_delta} pts/sem<br>Marché : ${offer.evaluation.sideA.netTotal} ↔ ${offer.evaluation.sideB.netTotal} · Structure : ${escapeHtml(offer.recommendationScore.tradeability)}. Aucune probabilité d’acceptation.</p>`).join("") : '<p class="note">Aucune alternative fiable avec gain pour toi et sans perte adverse. Les joueurs Untouchable restent exclus.</p>';
       });

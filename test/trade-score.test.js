@@ -185,3 +185,20 @@ test("return assumptions never certify IR activation and ignore zero or negative
   assert.equal(result.evidence.transactionTiming, "UNVERIFIED");
   assert.match(result.evidence.notes.join(" "), /pas une lineup alignable/);
 });
+
+test("declared reserve, not injury eligibility, determines capacity; received IR is not auto-placed", () => {
+  const players = Array.from({ length: 16 }, (_, i) => ({ ...player(`P${i}`, "WR", i + 1), sleeperId: `p${i}` }));
+  players[0].injuryStatus = "IR";
+  const run = (reserve, outgoing = []) => scoreTradeRecommendation({ myPlayers: players, theirPlayers: [], give: outgoing, receive: [], myRoster: { reserve, starters: ["p1"] } }).rosterConsequences.mine;
+  assert.equal(run([]).cutsNeeded, 1, "IR tag in active roster does not create an occupied reserve slot");
+  assert.equal(run(["p0"]).cutsNeeded, 0);
+  assert.equal(run(["p0"], [players[0]]).cutsNeeded, 0, "traded-away reserve is no longer deducted");
+  assert.equal(run(["unknown"]).capacityBasis, "STATUS_BASED_RESERVE_ASSUMPTION");
+  const active = run([]);
+  assert.ok(active.cutCandidates.every(p => p.sleeperId !== "p1"), "declared starter excluded even outside projected starters");
+  assert.equal(active.cutAvailability, "UNVERIFIED");
+  const incoming = { ...player("Incoming IR", "RB", 20), sleeperId: "ir", injuryStatus: "IR" };
+  const result = scoreTradeRecommendation({ myPlayers: players.slice(1), theirPlayers: [incoming], receive: [incoming], myRoster: { reserve: [], starters: [] } });
+  assert.equal(result.rosterConsequences.mine.cutsNeeded, 1);
+  assert.equal(result.rosterConsequences.mine.capacityBasis, "DECLARED_SLEEPER_RESERVE");
+});
