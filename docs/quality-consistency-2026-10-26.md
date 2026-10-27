@@ -474,3 +474,35 @@ certifiés vides. Aucune donnée Sleeper ou Supabase modifiée.
 départ de réserve, identifiant contradictoire, exclusion d’un titulaire déclaré et
 régressions de sélection. Contrôles statiques valides. Restent : verrous de coupe
 sourcés et fraîcheur d’exécution, sans assimilation à une acquisition déjà réalisable.
+
+## QC-02 — Quatrième incrément : contrôle prudent des coupes
+
+27/10/2026. Sources officielles Sleeper relues :
+[capacité après trade](https://support.sleeper.com/en/articles/3956140-can-a-team-go-over-the-roster-limit),
+[AutoSubs](https://support.sleeper.com/en/articles/9731991-how-does-player-autosubs-work),
+[verrouillage global](https://support.sleeper.com/en/articles/4037431-why-can-t-i-drop-players),
+[exception de waiver préalablement soumis](https://support.sleeper.com/en/articles/3473234-why-was-someone-able-to-drop-their-starter-after-they-have-played).
+
+Correction de portée : un dépassement de capacité seul n’empêche pas le trade ; il
+faut réduire le roster avant de modifier la lineup. Les conséquences distinguent
+`REDUCE_BEFORE_LINEUP_EDITS` et `tradeBlockedByCapacity=false`, sans autoriser le trade
+sur les autres critères. Les notes du Finder, des contre-offres et exports l’expliquent.
+
+Les candidats sont désormais évalués sur le contexte public daté déjà partagé
+(règles Sleeper + calendrier nflverse). Match commencé : candidat écarté par prudence
+et conservé dans `excludedCutCandidates`, pas déclaré universellement interdit à drop.
+Mouvements désactivés dans les réglages : candidat exclu. Avant kickoff : PREGAME_REVIEW,
+jamais permission d’exécution. `canDropNow` reste null dans tous les états : affectations
+AutoSubs, contrainte de compte et instant réel de coupe ne sont pas prouvés.
+Source absente, ambiguë ou datée de plus de cinq minutes : UNVERIFIED.
+Les jeux de règles d’un autre sport ne sont pas transposés au football.
+
+Lecture publique : disable_adds=0, bench_lock=1, max_subs=3. Le sens exact du champ
+bench_lock n’est pas assimilé à une règle de drop démontrée ; aucune action n’est
+certifiée à partir de lui. L’activation des AutoSubs rend nécessaire une vérification
+des affectations dans Sleeper avant coupe. Pas de récupération de session privée.
+
+635 tests réussis : frontière exacte du kickoff, contexte périmé/ambigu, mouvements
+verrouillés, AutoSubs non observés et absence de permission inventée. Contrôles statiques
+valides. Les filtres de sélection conservent les préférences et relèguent les offres
+sans assez de candidats en exploration. Aucune coupe ni notification exécutée.

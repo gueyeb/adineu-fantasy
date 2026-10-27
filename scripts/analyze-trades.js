@@ -66,6 +66,7 @@ export async function loadPlayerValues({ leagueId = DEFAULT_SLEEPER_LEAGUE_ID, f
     if (String(league.season) !== String(season)) throw new Error("Trade timing season mismatch");
     return { asOf: new Date().toISOString(), season: Number(season),
     reviewDays: league.settings?.trade_review_days, deadlineWeek: league.settings?.trade_deadline,
+    movesDisabled: [0, 1].includes(league.settings?.disable_adds) ? league.settings.disable_adds === 1 : null, maxSubs: league.settings?.max_subs ?? null,
     disabled: [0, 1].includes(league.settings?.disable_trades) ? league.settings.disable_trades === 1 : null, ruleSource: `https://api.sleeper.app/v1/league/${leagueId}`,
     games: games.map(({ season, week, home_team, away_team, kickoffAt, source, sourceFetchedAt }) => ({ season, week, home_team, away_team, kickoffAt, source, sourceFetchedAt }))
   }; }).catch(() => null);
@@ -257,7 +258,7 @@ export async function analyzeTrades({
         rosters: formattedRosters,
         playerCatalog: playerMap,
         playerPreferences,
-        currentWeek, limit: null
+        currentWeek, limit: null, cutContext: playerValues.timingContext
       }).filter(proposal => !intent.preferredPosition || proposal.receive.some(player => player.position === intent.preferredPosition)).map(proposal => ({ ...proposal,
         targetWeekImpact: targetWeekTradeImpact({ myPlayers: target.players, theirPlayers: formattedRosters.find(roster => String(roster.roster_id) === String(proposal.partnerRosterId)).players,
           give: proposal.give, receive: proposal.receive, currentWeek, targetWeek: intent.targetWeek, projectionsByWeek: playerValues.projectionsByWeek, timingContext: playerValues.timingContext }) }))
@@ -286,7 +287,7 @@ export async function evaluateTradeOffer({ give = [], receive = [], leagueId = D
   const mine = ownerOf(giveIds), theirs = ownerOf(receiveIds);
   if (mine.roster_id === theirs.roster_id) throw new Error("Offre invalide : les deux côtés viennent du même roster");
   const pick = (roster, ids) => roster.players.filter(player => ids.includes(String(player.sleeperId)));
-  const args = { myPlayers: mine.players, theirPlayers: theirs.players, give: pick(mine, giveIds), receive: pick(theirs, receiveIds), week: currentWeek, myRoster: mine, theirRoster: theirs };
+  const args = { myPlayers: mine.players, theirPlayers: theirs.players, give: pick(mine, giveIds), receive: pick(theirs, receiveIds), week: currentWeek, myRoster: mine, theirRoster: theirs, cutContext: playerValues.timingContext };
   const season = scoreTradeRecommendation(args);
   const brief = player => ({ id: String(player.sleeperId), name: player.name, position: player.position, injuryStatus: player.injuryStatus || null, rosPpg: player.rosPpg ?? null, marketValue: player.marketValue ?? null });
   return {

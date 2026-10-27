@@ -1,3 +1,4 @@
+import { assessTradeCut } from "./trade-cut-readiness.js?v=3a8f3ea6db";
 import { calculatePlayerTradeProfile, evaluateTrade } from "./trade-value.js?v=2c9caa87cf";
 import { BYE_WEEKS_2026, GENERAL_SETTINGS_2026, ROSTER_SETTINGS_2026 } from "./league-settings.js?v=886f353394";
 
@@ -209,7 +210,7 @@ function exchange(players, give, receive) {
  * confidence. Roster overflow is resolved by cutting the lowest bench value. Tradeability is a
  * heuristic, not odds.
  */
-export function scoreTradeRecommendation({ myPlayers = [], theirPlayers = [], give = [], receive = [], week = null, myRoster = null, theirRoster = null }) {
+export function scoreTradeRecommendation({ myPlayers = [], theirPlayers = [], give = [], receive = [], week = null, myRoster = null, theirRoster = null, cutContext = null, now = Date.now() }) {
   const estimate = restOfSeasonEstimate(week);
   const lineup = players => buildProjectedLineup(players, { estimate });
   const myAfterPlayers = exchange(myPlayers, give, receive);
@@ -251,14 +252,18 @@ export function scoreTradeRecommendation({ myPlayers = [], theirPlayers = [], gi
     const cutsNeeded = Math.max(0, players.length - inReserve - ROSTER_SETTINGS_2026.totalRosterSize);
     const starterIds = new Set(after.slots.map(slot => slot.sleeperId));
     const incomingIds = new Set(incoming.map(identity));
-    const candidates = players.filter(player => !starterIds.has(identity(player)) && !incomingIds.has(identity(player)) && !retainedReserve.includes(identity(player)) && !declaredStarters.has(identity(player)) && !isOutThisWeek(player))
-      .sort((a, b) => estimate(a) - estimate(b)).slice(0, cutsNeeded);
+    const candidatePool = players.filter(player => !starterIds.has(identity(player)) && !incomingIds.has(identity(player)) && !retainedReserve.includes(identity(player)) && !declaredStarters.has(identity(player)) && !isOutThisWeek(player))
+      .sort((a, b) => estimate(a) - estimate(b));
+    const assessed = candidatePool.map(player => ({ player, readiness: assessTradeCut(player, { week, context: cutContext, now }) }));
+    const candidates = assessed.filter(row => !row.readiness.excludedByPolicy).slice(0, cutsNeeded);
     const beforeStarterIds = new Set(before.slots.map(slot => slot.sleeperId));
     const brief = player => ({ sleeperId: identity(player), name: player.name, position: player.position });
-    rosterConsequences[side] = { cutsNeeded, cutCandidates: candidates.map(brief),
+    rosterConsequences[side] = { cutsNeeded, cutCandidates: candidates.map(row => ({ ...brief(row.player), readiness: row.readiness })),
+      excludedCutCandidates: cutsNeeded ? assessed.filter(row => row.readiness.excludedByPolicy).map(row => ({ ...brief(row.player), readiness: row.readiness })) : [],
+      capacityEffect: cutsNeeded ? "REDUCE_BEFORE_LINEUP_EDITS" : "NO_REDUCTION_DEMONSTRATED", tradeBlockedByCapacity: false,
       outgoingBench: outgoing.filter(player => !beforeStarterIds.has(identity(player))).map(brief),
       capacityBasis: reserveVerified ? "DECLARED_SLEEPER_RESERVE" : "STATUS_BASED_RESERVE_ASSUMPTION", retainedReserveIds: retainedReserve, incomingReservePlacement: "NOT_ASSUMED", cutAvailability: "UNVERIFIED", execution: "UNVERIFIED" };
-    if (cutsNeeded) notes.push(`${who === "Tu" ? "Tu devras" : "Il devra"} libérer ${cutsNeeded} place(s) (${reserveVerified ? "réserve Sleeper déclarée conservée" : "hypothèse IR, réserve non vérifiée"}) : ${candidates.length ? `coupe(s) candidate(s) ${candidates.map(player => player.name).join(", ")}` : "aucune coupe hors titulaires identifiée"}. Profondeur perdue, places réelles et locks à vérifier.`);
+    if (cutsNeeded) notes.push(`${who === "Tu" ? "Tu devras" : "Il devra"} libérer ${cutsNeeded} place(s) pour modifier la lineup après le trade (${reserveVerified ? "réserve Sleeper déclarée conservée" : "hypothèse IR, réserve non vérifiée"}) : ${candidates.length ? `coupe(s) candidate(s) ${candidates.map(row => row.player.name).join(", ")}` : "aucune coupe hors titulaires identifiée"}. Le dépassement de capacité ne bloque pas le trade à lui seul. Profondeur perdue, places réelles, AutoSubs et locks à vérifier.`);
   }
   const myDelta = round(myAfter.total - myBefore.total);
   const theirDelta = round(theirAfter.total - theirBefore.total);

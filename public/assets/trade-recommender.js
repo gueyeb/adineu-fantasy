@@ -8,7 +8,7 @@
  */
 
 import { calculatePlayerTradeValue, evaluateTrade } from "./trade-value.js?v=2c9caa87cf";
-import { buildProjectedLineup, restOfSeasonEstimate, scoreTradeRecommendation } from "./trade-score.js?v=81e00d1e43";
+import { buildProjectedLineup, restOfSeasonEstimate, scoreTradeRecommendation } from "./trade-score.js?v=cfb91c6523";
 import { playerKey, playerStatus, preferenceAdjustment } from "./trade-preferences.js?v=c5fec5ce56";
 
 export const KNOWN_HANDCUFFS = [
@@ -32,8 +32,8 @@ export function usageTradeAdjustment({ give = [], receive = [] }) {
     - give.filter(player => player.signal === "BUY_LOW").length * 2;
 }
 
-function decorateProposal(proposal, myPlayers, theirPlayers, week = null, myRoster = null, theirRoster = null) {
-  const recommendationScore = scoreTradeRecommendation({ myPlayers, theirPlayers, give: proposal.give, receive: proposal.receive, week, myRoster, theirRoster });
+function decorateProposal(proposal, myPlayers, theirPlayers, week = null, myRoster = null, theirRoster = null, cutContext = null) {
+  const recommendationScore = scoreTradeRecommendation({ myPlayers, theirPlayers, give: proposal.give, receive: proposal.receive, week, myRoster, theirRoster, cutContext });
   const usageAdjustment = usageTradeAdjustment(proposal);
   return {
     ...proposal,
@@ -225,7 +225,7 @@ export function diagnoseRoster(players = []) {
  * @param {Map<string, Object>|Object} options.playerCatalog Map ou dict des joueurs par ID ou nom
  * @returns {Array<Object>} Propositions de trades triées par pertinence
  */
-export function findTradeProposals({ targetRosterId, rosters = [], playerCatalog = {}, playerPreferences = {}, currentWeek = null, view = "RECOMMENDED", selection = {}, limit = 15 }) {
+export function findTradeProposals({ targetRosterId, rosters = [], playerCatalog = {}, playerPreferences = {}, currentWeek = null, view = "RECOMMENDED", selection = {}, limit = 15, cutContext = null }) {
   if (!["RECOMMENDED", "NEGOTIATE", "EXPLORATION", "ALL"].includes(view)) throw new Error("Invalid trade view");
   if (limit !== null && (!Number.isInteger(limit) || limit < 0)) throw new Error("Invalid trade limit");
   const getPlayerInfo = (idOrName) => {
@@ -405,7 +405,7 @@ export function findTradeProposals({ targetRosterId, rosters = [], playerCatalog
       seen.add(key);
       const partner = rosters.find(roster => String(roster.roster_id) === String(p.partnerRosterId));
       const partnerPlayers = (partner?.players || []).map(player => typeof player === "string" ? { ...getPlayerInfo(player), sleeperId: player } : player);
-      const decorated = decorateProposal(p, targetPlayers, partnerPlayers, currentWeek, targetRosterRaw, partner);
+      const decorated = decorateProposal(p, targetPlayers, partnerPlayers, currentWeek, targetRosterRaw, partner, cutContext);
       const { my_lineup_delta: mine, their_lineup_delta: theirs } = decorated.recommendationScore;
       // Un trade qui n'améliore pas ta lineup, ou qui fait perdre le partenaire, n'est pas une opportunité.
       if (p.category !== "HANDCUFF_INSURANCE" && (mine <= 0 || theirs < 0)) continue;
@@ -431,7 +431,7 @@ export function findTradeProposals({ targetRosterId, rosters = [], playerCatalog
 }
 
 /** Bounded neighboring offers for the same target; never fabricate a beneficial deal. */
-export function findCounterOffers({ proposal, myPlayers = [], theirPlayers = [], playerPreferences = {}, currentWeek = null, myRoster = null, theirRoster = null }) {
+export function findCounterOffers({ proposal, myPlayers = [], theirPlayers = [], playerPreferences = {}, currentWeek = null, myRoster = null, theirRoster = null, cutContext = null }) {
   const own = new Set(myPlayers.map(playerKey));
   const theirs = new Set(theirPlayers.map(playerKey));
   if (!proposal?.receive?.length || !proposal.give?.length ||
@@ -445,7 +445,7 @@ export function findCounterOffers({ proposal, myPlayers = [], theirPlayers = [],
   const original = proposal.give.map(playerKey).sort().join("|");
   const offers = packages.filter(give => give.map(playerKey).sort().join("|") !== original).map(give => {
     const evaluation = evaluateTrade({ sideA: give, sideB: proposal.receive });
-    const decorated = decorateProposal({ ...proposal, give, evaluation }, myPlayers, theirPlayers, currentWeek, myRoster, theirRoster);
+    const decorated = decorateProposal({ ...proposal, give, evaluation }, myPlayers, theirPlayers, currentWeek, myRoster, theirRoster, cutContext);
     return { ...decorated, score: decorated.score + preferenceAdjustment(give, playerPreferences) };
   }).filter(offer => ["FAIR", "SLIGHT_ADVANTAGE_A", "SLIGHT_ADVANTAGE_B"].includes(offer.evaluation.verdict) &&
     offer.recommendationScore.my_lineup_delta > 0 && offer.recommendationScore.their_lineup_delta >= 0 &&
@@ -453,7 +453,7 @@ export function findCounterOffers({ proposal, myPlayers = [], theirPlayers = [],
     .map(offer => ({ ...offer, selection: classifyTradeProposal(offer, { playerPreferences }) }))
     .filter(offer => offer.selection.group !== "EXPLORATION");
   // Include the original so a strictly worse counter-offer cannot survive its exclusion.
-  const originalOffer = decorateProposal(proposal, myPlayers, theirPlayers, currentWeek, myRoster, theirRoster);
+  const originalOffer = decorateProposal(proposal, myPlayers, theirPlayers, currentWeek, myRoster, theirRoster, cutContext);
   return removeDominatedProposals([...offers, originalOffer]).filter(offer => offer !== originalOffer)
     .sort((a, b) => b.score - a.score).slice(0, 3);
 }

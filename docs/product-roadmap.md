@@ -290,3 +290,10 @@ réserves conservées valides, sans placement IR automatique d’un joueur reçu
 déclarés exclus des candidats à la coupe. Source absente ou contradictoire explicitement
 non vérifiée. 631 tests réussis ; locks de coupe et exécution restent ouverts.
 [Preuves et limites](quality-consistency-2026-10-26.md).
+
+### 27/10 — QC-02 : coupes et limites opérationnelles
+
+Filtre prudent sur kickoff et mouvements désactivés ; candidats exclus traçables.
+Avant-match ne vaut jamais autorisation de drop, AutoSubs et exécution restent à
+vérifier. Capacité dépassée distinguée du blocage de trade : réduction nécessaire
+pour modifier la lineup. 635 tests réussis. [Sources et limites](quality-consistency-2026-10-26.md).

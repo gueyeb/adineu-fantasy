@@ -1,7 +1,7 @@
 import { formatTradeTiming } from "./trade-timing.js?v=cdcd6605a3";
 import { formatWaiverSchedule } from "./waiver-schedule.js?v=967a249e30";
-import { normalizeTradeIntent, tradeIntentStorageKey, targetWeekTradeImpact, compareTargetWeekImpacts, LAST_TRADE_TARGET_WEEK } from "./trade-target.js?v=8bb88a51d9";
-import { buildLeagueRosterSnapshot, buildLeagueTradeIntelligence } from "./league-trade-intelligence.js?v=875bcf1d73";
+import { normalizeTradeIntent, tradeIntentStorageKey, targetWeekTradeImpact, compareTargetWeekImpacts, LAST_TRADE_TARGET_WEEK } from "./trade-target.js?v=4feccd46df";
+import { buildLeagueRosterSnapshot, buildLeagueTradeIntelligence } from "./league-trade-intelligence.js?v=eec05f8f8d";
 import { tierChip, tierSeparator } from "./tier-view.js?v=d3a45b4046";
 /**
  * Adineu Fantasy — Interface Utilisateur Trade Hub
@@ -13,7 +13,7 @@ import { buildTiers } from "./value-tiers.js?v=32f5359873";
 import { buildWaiverDisplayTiers } from "./waiver-board.js?v=8889a568a8";
 
 import { calculatePlayerTradeValue, calculatePlayerTradeProfile, evaluateTrade } from "./trade-value.js?v=2c9caa87cf";
-import { diagnoseRoster, findTradeProposals, findCounterOffers, MAX_PRIMARY_TRADE_OFFERS } from "./trade-recommender.js?v=fb61bf0211";
+import { diagnoseRoster, findTradeProposals, findCounterOffers, MAX_PRIMARY_TRADE_OFFERS } from "./trade-recommender.js?v=adf630d580";
 import { addToWatchlist, removeFromWatchlist, REASON_MAX } from "./war-room.js?v=e9eae48675";
 import { loadWatchlist, saveWatchlist } from "./war-room-store.js?v=679685c790";
 import { PLAYER_STATUSES, playerKey, playerStatus } from "./trade-preferences.js?v=c5fec5ce56";
@@ -26,7 +26,7 @@ import { resolveOperationalWeek } from "./nfl-week.js?v=8f9fa3f5b2";
 import { listRosterIdentities } from "./roster-view.js?v=120de9d74d";
 import { calculateFaabRemaining } from "./team-metrics.js?v=e47db97055";
 import { compactAuction, formatAuction } from "./faab-auction.js?v=1eea51c520";
-import { buildProjectedLineup, restOfSeasonEstimate } from "./trade-score.js?v=81e00d1e43";
+import { buildProjectedLineup, restOfSeasonEstimate } from "./trade-score.js?v=cfb91c6523";
 
 import { SLEEPER_API, SLEEPER_LEAGUE_ID, sleeperGet } from "./sleeper-client.js?v=3f75d48ec5";
 const SUPABASE_URL = "https://juosrzsffvjprqhdyado.supabase.co";
@@ -240,7 +240,7 @@ export async function renderTradesPage(container) {
       playerCatalog: playerMap,
       playerPreferences: preferences,
       view: tradeView,
-      currentWeek, limit: null
+      currentWeek, limit: null, cutContext: timingContext
     }).filter(proposal => !intent.preferredPosition || proposal.receive.some(player => player.position === intent.preferredPosition))
       .map(proposal => ({ ...proposal, targetWeekImpact: targetWeekTradeImpact({ myPlayers: currentRoster.players,
         theirPlayers: formattedRosters.find(roster => String(roster.roster_id) === String(proposal.partnerRosterId))?.players || [],
@@ -342,6 +342,7 @@ export async function renderTradesPage(container) {
                   <p class="tf-status">Structure estimée <strong>${escapeHtml(score.tradeability)}</strong> · Fiabilité du calcul <strong>${{ HIGH: "bonne", MEDIUM: "moyenne", LOW: "faible" }[score.calculationReliability || score.confidence]}</strong>${score.usageAdjustment ? ` · Usage ${score.usageAdjustment > 0 ? "+" : ""}${score.usageAdjustment}` : ""}</p>
                   <p class="note">Couverture des données et hypothèses du calcul ; aucune probabilité d’acceptation.</p>
                   ${score.lineupChanges?.theirs?.length ? `<p class="note">Changements simulés chez le partenaire : ${score.lineupChanges.theirs.map(change => `${escapeHtml(change.slot)} : ${escapeHtml(change.before)} → ${escapeHtml(change.after)}`).join(" · ")}. Les coupes et blessures restent à examiner.</p>` : ""}
+                  ${score.rosterConsequences && Object.values(score.rosterConsequences).some(side => side.cutsNeeded) ? `<p class="note">Les coupes candidates servent à remettre la lineup sous la limite ; le dépassement ne bloque pas le trade à lui seul. Match commencé : candidat écarté par prudence. AutoSubs et disponibilité réelle restent à confirmer dans Sleeper.</p>` : ""}
                   ${score.rosterConsequences ? `<p class="note">Profondeur cédée depuis le banc : toi ${score.rosterConsequences.mine.outgoingBench.map(player => escapeHtml(player.name)).join(", ") || "aucun joueur"} ; partenaire ${score.rosterConsequences.theirs.outgoingBench.map(player => escapeHtml(player.name)).join(", ") || "aucun joueur"}. Les points de lineup ne valorisent pas cette couverture perdue.</p>` : ""}
                   ${score.warnings.length ? `<p class="note">⚠ ${score.warnings.map(escapeHtml).join(" · ")}</p>` : ""}
                   ${score.notes?.length ? `<p class="note">ℹ ${score.notes.map(escapeHtml).join(" · ")}</p>` : ""}
@@ -398,9 +399,9 @@ export async function renderTradesPage(container) {
       button.addEventListener("click", () => {
         const proposal = proposals[Number(button.dataset.index)];
         const partner = formattedRosters.find(roster => String(roster.roster_id) === String(proposal.partnerRosterId));
-        const offers = findCounterOffers({ proposal, myPlayers: currentRoster.players, theirPlayers: partner?.players, playerPreferences: preferences, currentWeek, myRoster: currentRoster, theirRoster: partner });
+        const offers = findCounterOffers({ proposal, myPlayers: currentRoster.players, theirPlayers: partner?.players, playerPreferences: preferences, currentWeek, myRoster: currentRoster, theirRoster: partner, cutContext: timingContext });
         const container = document.getElementById(`counter-offers-${button.dataset.index}`);
-        container.innerHTML = offers.length ? offers.map(offer => `<p class="note"><strong>${offer.give.map(player => escapeHtml(player.name)).join(" + ")} → ${offer.receive.map(player => escapeHtml(player.name)).join(" + ")}</strong><br>Ta lineup : +${offer.recommendationScore.my_lineup_delta} · Sa lineup : +${offer.recommendationScore.their_lineup_delta} pts/sem<br>Marché : ${offer.evaluation.sideA.netTotal} ↔ ${offer.evaluation.sideB.netTotal} · Structure : ${escapeHtml(offer.recommendationScore.tradeability)}. Aucune probabilité d’acceptation.</p>`).join("") : '<p class="note">Aucune alternative fiable avec gain pour toi et sans perte adverse. Les joueurs Untouchable restent exclus.</p>';
+        container.innerHTML = offers.length ? offers.map(offer => `<p class="note"><strong>${offer.give.map(player => escapeHtml(player.name)).join(" + ")} → ${offer.receive.map(player => escapeHtml(player.name)).join(" + ")}</strong><br>Ta lineup : +${offer.recommendationScore.my_lineup_delta} · Sa lineup : +${offer.recommendationScore.their_lineup_delta} pts/sem<br>Marché : ${offer.evaluation.sideA.netTotal} ↔ ${offer.evaluation.sideB.netTotal} · Structure : ${escapeHtml(offer.recommendationScore.tradeability)}. Aucune probabilité d’acceptation.${offer.recommendationScore.notes?.length ? `<br>${offer.recommendationScore.notes.map(escapeHtml).join(" · ")}` : ""}</p>`).join("") : '<p class="note">Aucune alternative fiable avec gain pour toi et sans perte adverse. Les joueurs Untouchable restent exclus.</p>';
       });
     });
     document.querySelectorAll(".copy-pitch-btn").forEach(btn => {
