@@ -305,3 +305,10 @@ du moteur existant. Rapport périmé/absent jamais promu en action maintenant ; 
 bid ou gain recalculé. Tableau détaillé conservé, codes de disponibilité traduits.
 Boukki S8 vérifié localement ; aucune acquisition exécutée.
 [Contrat et limites](quality-consistency-2026-10-26.md).
+
+### 28/10 — QC-03 : transactions nominatives du Waiver Wire
+
+Joueurs et équipes lisibles, statuts demandé/terminé distincts, identifiants en détail.
+Propriété actuelle séparée de l’événement historique ; aucune disponibilité libre
+déduite d’une coupe. 642 tests réussis, aucune requête supplémentaire ni mouvement
+exécuté. [Preuves et limites](quality-consistency-2026-10-26.md).

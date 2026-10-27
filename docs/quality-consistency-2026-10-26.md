@@ -543,3 +543,29 @@ couverture manquante, rapport périmé/absent, indisponibilité versus zéro opp
 Coach/Start-Sit/IA, transactions nominatives, ergonomie mobile et fraîcheur mesurée.
 
 Vérification du lot : 639 tests réussis, syntaxe et contrôles statiques valides.
+
+## QC-03 — Deuxième incrément : transactions nominatives
+
+28/10/2026. Le panneau 72 h du Waiver Wire utilise les `movements` nominatifs déjà
+résolus par le moteur. Joueurs, équipes, type, statut et date Paris sont lisibles ;
+les identifiants de transaction/joueur/roster restent dans un détail, sans exposer
+les identifiants privés de créateur ou de compte. Les noms absents restent inconnus,
+sans rapprochement inventé. Compatibilité des rapports sans `movements` : résolution
+par le catalogue et les rosters publics déjà chargés, sans requête additionnelle.
+
+Un mouvement complete est distingué d’une demande pending/failed/canceled ; une demande
+échouée ne devient jamais un ajout réel. Bid zéro conservé ; FAAB dépensé seulement
+pour un waiver terminé avec bid numérique connu. Statut inconnu et date manquante
+restent explicites. Les mouvements de picks/FAAB sans joueur ne sont pas reconstitués.
+
+Une propriété actuelle connue est affichée séparément à partir du roster relu. Une
+coupe ne prouve ni disponibilité immédiate ni clearance des waivers ; l’absence
+d’owner courant dans le résumé n’est pas traduite en « libre ». Les sources restent
+non atomiques et les noms d’équipes reflètent les métadonnées disponibles, sans
+prétendre reconstruire tous leurs noms historiques.
+
+642 tests réussis, dont transactions nommées, statut échoué, enchère nulle, propriété
+actuelle distincte, dates et noms absents, échappement HTML, conservation des inputs
+et absence d’ID de créateur dans le rendu. Contrôles statiques valides. Aucun mouvement,
+message ou changement de workflow exécuté. Les exports texte existants ne sont pas
+modifiés dans ce lot ; harmonisation Coach/IA et contrôle mobile restent ouverts.
