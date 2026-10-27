@@ -289,3 +289,37 @@ Pas de preuve de déploiement. Aucun nouveau coefficient de valeur marché.
 Reste ouvert : observation d’un trade réellement accepté, instant de traitement
 publié, cas des points figés et limite de deadline en cours. La première semaine
 alignable confirmée ne doit pas être cochée sur ce seul contrôle conditionnel.
+
+## QC-01 — Quatrième incrément : profondeur catalogue et identités
+
+27/10/2026. La page Équipe nomme désormais l’indicateur « Profondeur par poste ·
+base catalogue ». Il additionne les valeurs estimées sur rang expert/ADP pour tous
+les joueurs du roster, puis compare leur percentile aux autres rosters. Titulaires,
+banc et IR sont inclus. La note distingue cette base des valeurs ROS live du Trade
+Hub et des projections de semaine ; aucun nouvel appel réseau ou coefficient.
+
+Les anciens badges Surplus/Besoin sont remplacés par profondeur relative haute/basse.
+Les extrema à égalité sont tous conservés ; si tous les postes sont à égalité, aucun
+badge n’est attribué. Les champs singuliers de compatibilité sont nuls lorsqu’aucun
+poste unique ne se distingue. Une profondeur basse n’est pas un besoin de recrutement
+prouvé, ni une profondeur haute un actif échangeable sans impact.
+
+Le calendrier du Game Center étiquette séparément manager confirmé, compte Sleeper et
+équipe actuelle. Il réutilise exclusivement les alias déjà confirmés, sans nouvelle
+réconciliation ; un compte inconnu n’est pas promu en identité canonique. L’historique
+des duels conserve sa clé et son orientation. L’harmonisation de toutes les autres
+surfaces reste ouverte.
+
+Vérification : 623 tests réussis, dont extrema à égalité, roster uniforme et séparation
+équipe/compte/identité confirmée ou inconnue. Syntaxe et contrôles routes/archives valides.
+Aucune donnée Supabase modifiée. La case d’alignement de tous les indicateurs et celle
+d’identité globale restent ouvertes ; ce lot ne certifie pas toute l’application.
+
+**Nouvelle anomalie relevée au contrôle navigateur du 27/10.** La page Boukki affiche
+un record 2–4 mais un all-play « 19–47–11 sur 77 confrontations, sept semaines » après
+passage de l’état NFL en S8. Le total correspond à l’ajout de onze égalités à la
+vérification précédente 19–47 sur six semaines. Hypothèse à reproduire sur les lignes
+source : scores S7 non synchronisés ou nuls traités comme une semaine terminée.
+Ne pas considérer ce résultat comme validé ; prochain correctif QC-01 prioritaire :
+fraîcheur/couverture par semaine et cohérence all-play/Power/classement. Ne pas masquer
+un vrai score nul ni lancer de synchronisation en production sans validation.

@@ -124,11 +124,13 @@ export function buildSeasonMatchups({
       const teams = sides.map(row => {
         const roster = rosterById.get(Number(row.roster_id));
         const user = userById.get(roster?.owner_id);
-        const manager = sleeperManager(user) || user?.display_name || `Roster ${row.roster_id}`;
+        const canonicalManager = sleeperManager(user);
+        const manager = canonicalManager || user?.display_name || `Roster ${row.roster_id}`;
         const teamName = user?.metadata?.team_name || user?.display_name || manager;
         return {
           rosterId: Number(row.roster_id),
           manager,
+          canonicalManager,
           teamName,
           sleeperName: user?.display_name || manager,
           points: Number(row.points) || 0,
@@ -168,7 +170,8 @@ function renderTeam(team, chance, side) {
     ? `<small>Projection en attente</small>`
     : `<small>Avant-match : ${team.projection.total.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} pts${Number.isFinite(chance) ? ` · ${chance}%` : ""}</small>`;
   return `<div class="matchup-team matchup-team-${side}">
-    <span class="matchup-manager">${escapeHtml(team.manager)}</span>
+    <span class="matchup-manager">${team.canonicalManager ? `Manager · ${escapeHtml(team.canonicalManager)}` : `Compte Sleeper · @${escapeHtml(team.sleeperName)}`}</span>
+    ${team.canonicalManager && team.canonicalManager !== team.sleeperName ? `<small>Compte Sleeper · @${escapeHtml(team.sleeperName)}</small>` : ""}
     <strong>${escapeHtml(team.teamName)}</strong>
     <b>${formatPoints(team.points)}</b>
     ${projection}

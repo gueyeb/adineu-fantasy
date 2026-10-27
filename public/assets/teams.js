@@ -9,7 +9,7 @@ import { buildTeamSeasonContext, teamSeasonKey, allPlayUnavailableMessage, canon
  * on site.js's static Yahoo bundle.
  *
  * Roster strength reuses calculatePlayerTradeProfile's tradeValue (public/assets/trade-value.js) —
- * the same number already shown in the Trade Hub — via public/assets/roster-strength.js. It is a
+ * the same valuation function as the Trade Hub — via public/assets/roster-strength.js. It is a
  * baseline estimate from expert rank/ADP only: unlike the Trade Hub, this page does not fetch
  * weekly projections or per-week actual scores for all 12 rosters (that loop lives in trade-ui.js
  * and would roughly double this page's network cost for a secondary panel). Scoped this way on
@@ -36,7 +36,7 @@ import {
   resolvePlayer
 } from "./roster-view.js?v=120de9d74d";
 import { ROSTER_SETTINGS_2026, GENERAL_SETTINGS_2026 } from "./league-settings.js?v=886f353394";
-import { calculateLeagueRosterStrength } from "./roster-strength.js?v=cb7fcc6e3d";
+import { calculateLeagueRosterStrength } from "./roster-strength.js?v=165aa128b5";
 import { calculateFaabRemaining, formatStreak, streakWinCount } from "./team-metrics.js?v=e47db97055";
 import { buildYahooRecordBook } from "./record-book.js?v=0ebb2a4e56";
 import { highestCompletedScore, buildRecordWatchEntries } from "./record-watch.js?v=280b27d476";
@@ -199,8 +199,8 @@ function strengthBlock(strength) {
   if (!strength) return `<p class="team-roster-empty">Estimation indisponible pour cette équipe.</p>`;
   const rows = Object.entries(STRENGTH_LABELS).map(([pos, label]) => {
     const percentile = strength.strength[pos];
-    const tag = pos === strength.surplus ? `<span class="team-strength-tag team-strength-surplus">Surplus</span>`
-      : pos === strength.need ? `<span class="team-strength-tag team-strength-need">Besoin</span>`
+    const tag = strength.surplusPositions.includes(pos) ? `<span class="team-strength-tag team-strength-surplus">Profondeur relative haute</span>`
+      : strength.needPositions.includes(pos) ? `<span class="team-strength-tag team-strength-need">Profondeur relative basse</span>`
       : "";
     return `<div class="team-strength-row">
       <span class="team-strength-label">${label}</span>
@@ -209,7 +209,7 @@ function strengthBlock(strength) {
     </div>`;
   }).join("");
   return `<div class="team-strength-grid">${rows}</div>
-    <p class="note">Percentile de valeur de trade (0-100) par poste face aux 11 autres rosters — estimation Adineu basée sur le rang expert/ADP, pas une note officielle.</p>`;
+    <p class="note">Percentile (0–100) de la somme des valeurs du catalogue par poste face aux autres rosters : titulaires, banc et IR inclus. Base rang expert/ADP du catalogue, sans projections hebdomadaires ni valeurs ROS live. Les égalités sont conservées ; tous les postes à égalité ne désignent aucun point haut ou bas. Cette profondeur relative ne prouve ni un surplus échangeable ni un besoin de recrutement. Le Trade Hub utilise des données mises à jour en saison pour évaluer les échanges.</p>`;
 }
 
 function allPlayBlock(allPlay, rosterId) {
@@ -340,7 +340,7 @@ export async function renderTeamsHub(container) {
     <section class="hero"><div class="shell">
       <p class="eyebrow">Adineu NFL · Dossier équipe</p>
       <h1>Chaque manager. <em>Une page.</em></h1>
-      <p class="lede">Roster live, record, force par poste et alertes lineup — tout ce qu'il faut savoir avant de trader ou de sortir un joueur.</p>
+      <p class="lede">Roster live, bilan, profondeur par poste sur base catalogue et alertes de lineup — des repères à croiser avec le Coach et le Trade Hub avant de décider.</p>
     </div></section>
     <section class="section"><div class="shell">
       <div class="toolbar">
@@ -423,7 +423,7 @@ export async function renderTeamsHub(container) {
       </div>
 
       <div class="team-strength">
-        <h3>Force du roster par poste</h3>
+        <h3>Profondeur par poste · base catalogue</h3>
         ${strengthBlock(strength)}
       </div>
 

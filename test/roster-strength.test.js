@@ -55,3 +55,23 @@ test("calculateLeagueRosterStrength keeps tied positions at the same percentile"
   const [a, b] = results;
   assert.equal(a.strength.TE, b.strength.TE);
 });
+
+test("equal catalog depth never invents a single surplus or recruitment need", () => {
+  const results = calculateLeagueRosterStrength([{ rosterId: 1, players: [] }, { rosterId: 2, players: [] }]);
+  for (const result of results) {
+    assert.deepEqual(result.surplusPositions, []);
+    assert.deepEqual(result.needPositions, []);
+    assert.equal(result.surplus, null);
+    assert.equal(result.need, null);
+  }
+});
+
+test("tied high and low positions are preserved without arbitrary singular labels", () => {
+  const results = calculateLeagueRosterStrength([
+    { rosterId: 1, players: [{ position: "RB", expertRank: 1 }, { position: "WR", expertRank: 2 }] },
+    { rosterId: 2, players: [{ position: "QB", expertRank: 1 }, { position: "TE", expertRank: 2 }] }
+  ]);
+  assert.deepEqual(results[0].surplusPositions, ["RB", "WR"]);
+  assert.deepEqual(results[0].needPositions, ["QB", "TE"]);
+  assert.equal(results[0].surplus, null);
+});

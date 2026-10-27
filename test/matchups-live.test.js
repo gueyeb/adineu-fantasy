@@ -117,3 +117,14 @@ test("summarizeUnavailableStarters lists Out/IR starters with the healthy points
   assert.ok(result.lostPoints > 10, "an RB ranked 20th is worth well over 10 pts");
   assert.equal(result.players[1].expectedPpg, null, "no invented estimate for a player outside the catalog");
 });
+
+test("current team/account stay separate from a confirmed historical manager", () => {
+  const [matchup] = buildSeasonMatchups({ rows, rosters, users });
+  const birama = matchup.teams.find(team => team.rosterId === 1);
+  assert.equal(birama.canonicalManager, "Birama");
+  assert.equal(birama.sleeperName, "bmb22");
+  assert.equal(birama.teamName, "The Bad Man");
+  const [unknown] = buildSeasonMatchups({ rows, rosters, users: [{ user_id: "u1", display_name: "unconfirmed", metadata: { team_name: "New Team" } }] });
+  assert.equal(unknown.teams[0].canonicalManager, null);
+  assert.equal(unknown.teams[0].sleeperName, "unconfirmed");
+});

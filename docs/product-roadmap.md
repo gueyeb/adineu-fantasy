@@ -242,3 +242,11 @@ suppose de recomposer une lineup dont la fenêtre est déjà dépassée. Prochai
 candidates affichées sous hypothèse d’accord maintenant ; traitement exact et disponibilité
 restent non confirmés. 620 tests réussis, cas Boukki S7 vérifié localement.
 [Contrat et travaux restant ouverts](quality-consistency-2026-10-26.md).
+
+### 27/10 — QC-01 : profondeur catalogue et identités du calendrier
+
+Indicateur Équipe nommé selon sa base rang/ADP ; distinction explicite des valeurs
+ROS live et des projections de semaine. Égalités conservées, plus de surplus/besoin
+unique choisi arbitrairement. Calendrier : manager confirmé et compte Sleeper étiquetés
+séparément, sans nouveaux rapprochements. 623 tests réussis.
+[Détail et limites](quality-consistency-2026-10-26.md).

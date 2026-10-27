@@ -5,9 +5,9 @@
  * callers pass in whatever player lists they already loaded (catalog-resolved,
  * one entry per rostered player, `position` present).
  *
- * Deliberately narrow: this reuses calculatePlayerTradeProfile's tradeValue, the
- * same number already shown in the Trade Hub, so "roster strength" never invents
- * a second, disagreeing scale for the same players.
+ * Uses the same valuation function as the Trade Hub, but the caller supplies
+ * catalog rank/ADP inputs, not live ROS values. This describes catalog depth,
+ * never a weekly lineup gain or an actionable roster need.
  */
 
 import { calculatePlayerTradeProfile } from "./trade-value.js?v=2c9caa87cf";
@@ -61,8 +61,12 @@ export function calculateLeagueRosterStrength(rosters) {
       STRENGTH_POSITIONS.map(pos => [pos, percentilesByPosition.get(pos).get(entry.rosterId)])
     );
     const ranked = STRENGTH_POSITIONS.map(pos => ({ pos, percentile: strength[pos] }));
-    const surplus = ranked.reduce((best, current) => (current.percentile > best.percentile ? current : best));
-    const need = ranked.reduce((worst, current) => (current.percentile < worst.percentile ? current : worst));
-    return { rosterId: entry.rosterId, totals: entry.totals, strength, surplus: surplus.pos, need: need.pos };
+    const high = Math.max(...ranked.map(row => row.percentile));
+    const low = Math.min(...ranked.map(row => row.percentile));
+    const surplusPositions = high === low ? [] : ranked.filter(row => row.percentile === high).map(row => row.pos);
+    const needPositions = high === low ? [] : ranked.filter(row => row.percentile === low).map(row => row.pos);
+    return { rosterId: entry.rosterId, totals: entry.totals, strength, surplusPositions, needPositions,
+      surplus: surplusPositions.length === 1 ? surplusPositions[0] : null,
+      need: needPositions.length === 1 ? needPositions[0] : null };
   });
 }

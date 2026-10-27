@@ -786,7 +786,7 @@ tbody tr:hover td { background: rgba(184, 255, 61, 0.045); }
 .team-strength-label { color: var(--muted); font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; }
 .team-strength-bar { position: relative; height: 8px; background: var(--paper-soft); border: 1px solid var(--line); }
 .team-strength-fill { display: block; height: 100%; background: var(--grass); }
-.team-strength-value { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--muted); font-weight: 700; }
+.team-strength-value { display: flex; flex-wrap: wrap; min-width: 0; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--muted); font-weight: 700; }
 .team-strength-tag { padding: 2px 6px; font-size: 0.6rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
 .team-strength-surplus { color: var(--grass); border: 1px solid var(--grass); }
 .team-strength-need { color: var(--gold); border: 1px solid var(--gold); }
