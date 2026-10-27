@@ -16,7 +16,12 @@ test("bilateral lineup deltas use replacements and FLEX, not package point sums"
   assert.equal(score.my_lineup_delta, 7);
   assert.equal(score.their_lineup_delta, 7);
   assert.equal(score.winWin, true);
-  assert.equal(score.tradeability, "Naturelle");
+  assert.equal(score.structure.id, "BILATERAL_MARKET_CLOSE");
+  assert.equal(score.structure.acceptanceProbability, null);
+  assert.equal(score.calculationReliability, score.confidence);
+  assert.ok(score.lineupChanges.theirs.some(change => change.after === give.name));
+  assert.ok(score.lineupChanges.mine.some(change => change.after === receive.name));
+  assert.equal(score.tradeability, "Gains bilatéraux, marché proche");
   assert.equal(new Set(buildProjectedLineup(mine).slots.map(slot => slot.sleeperId)).size, 9);
   const proposals = findTradeProposals({ targetRosterId: 1, rosters: [{ roster_id: 1, players: mine }, { roster_id: 2, players: theirs }] });
   const swap = proposals.find(proposal => proposal.give[0].name === give.name && proposal.receive[0].name === receive.name);
@@ -33,7 +38,7 @@ test("negative impact and missing projection cannot be advertised as win-win", (
   const score = scoreTradeRecommendation({ myPlayers: mine, theirPlayers: theirs, give: [give], receive: [receive] });
   assert.ok(score.my_lineup_delta < 0);
   assert.equal(score.winWin, false);
-  assert.equal(score.tradeability, "Peu réaliste");
+  assert.equal(score.tradeability, "Perte de lineup estimée");
   delete receive.projectedPpg;
   const missing = scoreTradeRecommendation({ myPlayers: mine, theirPlayers: theirs, give: [give], receive: [receive] });
   assert.ok(Number.isFinite(missing.my_lineup_delta), "falls back to an expert-rank estimate instead of nulling the whole team delta");
@@ -97,7 +102,7 @@ test("losing your only QB is priced as a 0-point slot", () => {
   const score = scoreTradeRecommendation({ myPlayers: mine, theirPlayers: theirs, give: [qb], receive: [wr] });
   assert.equal(score.my_lineup_delta, -8, "QB 20 -> empty 0, WR 12 fills the empty FLEX");
   assert.ok(score.notes.some(n => /Ta lineup perd son QB/.test(n)));
-  assert.equal(score.tradeability, "Peu réaliste");
+  assert.equal(score.tradeability, "Perte de lineup estimée");
 });
 
 test("a 2-for-1 that overflows the partner roster names their likely cut instead of blocking", () => {

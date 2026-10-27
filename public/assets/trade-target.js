@@ -1,6 +1,6 @@
 import { assessTradeTiming } from "./trade-timing.js?v=cdcd6605a3";
 import { BYE_WEEKS_2026, GENERAL_SETTINGS_2026 } from "./league-settings.js?v=886f353394";
-import { buildProjectedLineup, GAMES_MISSED_BY_STATUS, injuryStatus } from "./trade-score.js?v=4f6742e813";
+import { buildProjectedLineup, GAMES_MISSED_BY_STATUS, injuryStatus } from "./trade-score.js?v=716e1880af";
 import { playerKey } from "./trade-preferences.js?v=c5fec5ce56";
 
 export const TRADE_TARGET_POSITIONS = ["QB", "RB", "WR", "TE"];

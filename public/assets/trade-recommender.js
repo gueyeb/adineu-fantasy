@@ -8,7 +8,7 @@
  */
 
 import { calculatePlayerTradeValue, evaluateTrade } from "./trade-value.js?v=2c9caa87cf";
-import { buildProjectedLineup, restOfSeasonEstimate, scoreTradeRecommendation } from "./trade-score.js?v=4f6742e813";
+import { buildProjectedLineup, restOfSeasonEstimate, scoreTradeRecommendation } from "./trade-score.js?v=716e1880af";
 import { playerKey, playerStatus, preferenceAdjustment } from "./trade-preferences.js?v=c5fec5ce56";
 
 export const KNOWN_HANDCUFFS = [
@@ -63,7 +63,7 @@ export function classifyTradeProposal(proposal, { playerPreferences = {}, select
     ((calculatePlayerTradeValue(player) >= policy.premiumValue ||
       (Number.isFinite(player.quality?.expertRank ?? player.expertRank) && (player.quality?.expertRank ?? player.expertRank) <= policy.premiumRank)) && playerStatus(player, playerPreferences) !== "SHOP"));
   if (protectedPlayers.length && score.my_lineup_delta < policy.premiumGain) reasons.push(`Protection premium/Keep : ${protectedPlayers.map(player => player.name).join(", ")}`);
-  const group = reasons.length ? "EXPLORATION" : score.confidence === "HIGH" && score.tradeability === "Naturelle" ? "RECOMMENDED" : "NEGOTIATE";
+  const group = reasons.length ? "EXPLORATION" : score.confidence === "HIGH" && (score.structure?.id === "BILATERAL_MARKET_CLOSE" || (!score.structure && score.tradeability === "Naturelle")) ? "RECOMMENDED" : "NEGOTIATE";
   return { group, reasons };
 }
 

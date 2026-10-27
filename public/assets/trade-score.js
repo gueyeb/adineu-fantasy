@@ -257,12 +257,21 @@ export function scoreTradeRecommendation({ myPlayers = [], theirPlayers = [], gi
   const theirDelta = round(theirAfter.total - theirBefore.total);
   const market = evaluateTrade({ sideA: give, sideB: receive });
   const bilateral = warnings.length === 0 && myDelta > 0 && theirDelta > 0;
-  const tradeability = warnings.length ? "À vérifier" : bilateral && market.pctDiff <= 8 ? "Naturelle" : myDelta < 0 || theirDelta < 0 ? "Peu réaliste" : "Négociable";
+  const structureId = warnings.length ? "DATA_GAPS" : bilateral && market.pctDiff <= 8 ? "BILATERAL_MARKET_CLOSE" : myDelta < 0 || theirDelta < 0 ? "LINEUP_LOSS" : "REVIEW_STRUCTURE";
+  const tradeability = { DATA_GAPS: "Données à vérifier", BILATERAL_MARKET_CLOSE: "Gains bilatéraux, marché proche", LINEUP_LOSS: "Perte de lineup estimée", REVIEW_STRUCTURE: "Structure à examiner" }[structureId];
+  const calculationReliability = warnings.length ? "LOW" : injured.length ? "MEDIUM" : "HIGH";
+  const changes = (before, after) => before.slots.flatMap((slot, index) => {
+    const next = after.slots[index];
+    return slot.sleeperId === next.sleeperId ? [] : [{ slot: slot.slot, before: slot.name, after: next.name, beforePoints: slot.projectedPpg, afterPoints: next.projectedPpg }];
+  });
   return {
     market_value: { give: market.sideA.netTotal, receive: market.sideB.netTotal, gapPct: market.pctDiff },
     my_lineup_delta: myDelta, their_lineup_delta: theirDelta,
     horizon: Number.isFinite(week) ? "ROS" : "WEEK",
-    confidence: warnings.length ? "LOW" : injured.length ? "MEDIUM" : "HIGH", tradeability,
+    confidence: calculationReliability, tradeability,
+    calculationReliability,
+    structure: { id: structureId, label: tradeability, acceptanceProbability: null, note: "Heuristique de structure et couverture du calcul ; intentions adverses non observées." },
+    lineupChanges: { mine: changes(myBefore, myAfter), theirs: changes(theirBefore, theirAfter) },
     winWin: bilateral, warnings, notes,
     lineupAvailability: "UNVERIFIED", transactionTiming: "UNVERIFIED",
     lineups: { mine: { before: myBefore, after: myAfter }, theirs: { before: theirBefore, after: theirAfter } },

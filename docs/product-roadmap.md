@@ -266,3 +266,11 @@ Commande GET uniquement `npm run audit:sleeper-sync`. Capture 06:59 Paris : S1�
 concordent, douze écarts S7, dernière écriture le 20/10. Le créneau mardi 08:00 UTC
 reste à venir lors de cette capture ; aucune panne affirmée ni relance de production.
 [Preuves et limites](quality-consistency-2026-10-26.md).
+
+### 27/10 — Rattrapage S7 vérifié et début QC-02
+
+Audit public 16:40 Paris : S1–S7 concordent avec Sleeper ; aucune relance de ce chat,
+logs n8n toujours non inspectés. Recommandations : structure heuristique et fiabilité
+du calcul distinguées de l’acceptation ; changements de titulaires adverses nommés.
+Valeurs et seuils inchangés, 629 tests réussis. Revue multi-rosters et motifs complets
+restent ouverts. [Preuves et limites](quality-consistency-2026-10-26.md).

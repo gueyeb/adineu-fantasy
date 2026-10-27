@@ -381,3 +381,37 @@ de workflow. Prochaine preuve : nouvel audit après le job et observation des lo
 Vérification de ce lot : 629 tests réussis avec ouverture des serveurs locaux autorisée ;
 contrôles statiques et versions d’assets valides. Le premier lancement restreint était
 bloqué sur les ports des tests, puis la suite complète a réussi.
+
+## QC-01 — Vérification du rattrapage S7
+
+Audit GET du 27/10/2026 à **15:40:44 UTC (16:40:44 Paris)** : S1 à S7 concordent
+sur tous les scores des rosters avec Sleeper (`MATCH`). Le problème des zéros S7
+est donc résorbé à cette lecture. Aucun job n’a été relancé par ce chat. Ce résultat
+ne constitue pas une lecture des logs n8n ni une preuve de fuseau/exécution du workflow.
+Le garde-fou de complétion reste nécessaire pour les prochains rollovers.
+
+## QC-02 — Premier incrément : langage et motifs des recommandations
+
+27/10/2026. L’ancienne affirmation « Naturelle » devient « Gains bilatéraux, marché
+proche ». Les autres états décrivent les données manquantes, la perte de lineup ou
+la structure à examiner. « Faisabilité / Confiance » devient « Structure estimée /
+Fiabilité du calcul », avec absence explicite de probabilité d’acceptation.
+
+Le résultat partagé expose `structure.id`, son libellé, `acceptanceProbability=null`
+et `calculationReliability`. Les champs de compatibilité `tradeability` et `confidence`
+restent présents, mais leur sens est explicité. La sélection s’appuie sur l’état de
+structure, sans changer valeurs, seuils, gains ni ordre de score. Anciennes fixtures
+sans état structuré gardées compatibles ; aucun nouvel appel réseau.
+
+Les changements de slots avant/après sont extraits des lineups déjà calculées, sans
+nouvelle optimisation. Le Finder affiche ceux du partenaire pour appuyer le motif
+sportif sur des joueurs nommés. Coupes, santé et intentions adverses restent à examiner :
+un gain calculé n’est pas une offre validée par les deux managers. Le calculateur et
+les exports texte/JSON partagent la qualification et les limites. Aucun taux
+historique de réussite n’est transformé en taux d’acceptation.
+
+629 tests réussis, dont gains conservés, changements de titulaires et absence de
+probabilité inventée ; sélection historique et contrôles statiques valides. Restent
+la revue manuelle multi-rosters sur snapshots fixes, profondeur perdue/coupes réelles,
+risques de retour et réduction des opportunités principales à 3–5 quand nécessaire.
+QC-02 n’est pas déclaré terminé ; publication en production non confirmée.
