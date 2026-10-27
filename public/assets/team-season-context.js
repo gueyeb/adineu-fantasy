@@ -1,5 +1,5 @@
-import { calculatePowerRankings } from "./power-rankings.js?v=86d062a9e8";
-import { calculateAllPlayRecords } from "./all-play.js?v=99514b7ee6";
+import { calculatePowerRankings } from "./power-rankings.js?v=b3edd84ff5";
+import { calculateAllPlayRecords } from "./all-play.js?v=20f71680f8";
 
 export const teamSeasonKey = rosterId => `roster:${String(rosterId)}`;
 
@@ -21,7 +21,8 @@ export function buildTeamSeasonContext({ rows = [], rosterIds = [], currentWeek 
 
 export function allPlayUnavailableMessage(result) {
   if (!result) return "Données de saison indisponibles pour calculer le record all-play. Réessaie plus tard.";
-  return ({ insufficient_weeks: "Pas encore assez de semaines complètes pour calculer le record all-play.",
+  return ({ score_completion_unverified: "Scores de semaine non confirmés : la source contient une semaine entièrement à zéro. Synchronisation à vérifier ; aucune égalité supposée.",
+    insufficient_weeks: "Pas encore assez de semaines complètes pour calculer le record all-play.",
     incomplete_coverage: "Couverture des équipes incomplète : record all-play indisponible pour le moment.",
     identity_mapping_unavailable: "Rattachement des équipes aux rosters indisponible : record all-play non calculé." })[result.reason]
     || "Données all-play indisponibles pour le moment.";

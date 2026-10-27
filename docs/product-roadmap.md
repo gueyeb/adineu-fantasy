@@ -250,3 +250,11 @@ ROS live et des projections de semaine. Égalités conservées, plus de surplus/
 unique choisi arbitrairement. Calendrier : manager confirmé et compte Sleeper étiquetés
 séparément, sans nouveaux rapprochements. 623 tests réussis.
 [Détail et limites](quality-consistency-2026-10-26.md).
+
+### 27/10 — QC-01 : garde de complétion après rollover
+
+S7 entièrement à zéro reproduite dans la source publique. All-play et Power Rankings
+suspendent la publication au lieu d’inventer des égalités ; semaines incomplètes,
+absentes et dupliquées bloquées avec contrôle partagé. Zéros individuels et vraies
+égalités préservés. 627 tests réussis ; aucune synchronisation de production lancée.
+[Détail et limites de fraîcheur](quality-consistency-2026-10-26.md).

@@ -323,3 +323,35 @@ source : scores S7 non synchronisés ou nuls traités comme une semaine terminé
 Ne pas considérer ce résultat comme validé ; prochain correctif QC-01 prioritaire :
 fraîcheur/couverture par semaine et cohérence all-play/Power/classement. Ne pas masquer
 un vrai score nul ni lancer de synchronisation en production sans validation.
+
+## QC-01 — Cinquième incrément : résultats non confirmés après rollover
+
+27/10/2026. Reproduction en lecture seule sur la requête publique du dossier :
+S1–S6 ont chacune 12 lignes et 12 scores non nuls ; S7 a 12 lignes, zéro score
+non nul, sans valeurs nulles. Après passage NFL en S8, ces zéros étaient comptés
+comme onze égalités all-play par manager. L’hypothèse initiale de conversion de
+`null` n’est donc pas la cause de cette capture, même si ce cas est aussi protégé.
+Aucune écriture ou synchronisation Supabase n’a été effectuée.
+
+All-play et Power Rankings partagent désormais le contrôle de couverture de chaque
+semaine passée : exactement une ligne par manager, valeurs présentes et numériques,
+aucune semaine absente entre S1 et la dernière semaine attendue. Une semaine
+entièrement à zéro sans preuve explicite `completed=true` sur chaque ligne suspend
+la publication avec le motif `score_completion_unverified`. Le connecteur actuel
+n’apporte pas ce champ : il faut attendre des scores publiés ou ajouter une preuve
+de fin sourcée avant de pouvoir accepter un improbable vrai zéro collectif.
+Un zéro individuel et les égalités non nulles sont conservés. Le contrôle ne décide
+pas qu’une semaine collective à zéro est forcément fausse : il exige confirmation.
+
+La page Équipe annonce une synchronisation à vérifier au lieu d’un bilan inventé.
+La page Power distingue résultats à confirmer, couverture incomplète et seuil initial.
+Course aux playoffs et calculs réutilisant ce gate restent suspendus sur cette source.
+Les poids Power, scores réels, classements stockés et identités ne changent pas.
+Le contrôle compte six semaines validées, mais ne publie pas un classement ancien
+comme s’il couvrait S7. Résultats partiels non nuls périmés : toujours une limite
+sans métadonnée fiable de complétion ; ce lot ne certifie pas la fraîcheur globale.
+
+Vérification : 627 tests réussis ; contrôles statiques et syntaxe valides. Evals :
+rollover sur semaine à zéro, preuve explicite de complétion, zéro individuel, égalités,
+valeurs nulles, doublons, semaine/manager manquant, exclusion live/playoffs. La remise
+à jour de la source et l’observation du prochain batch restent à vérifier séparément.

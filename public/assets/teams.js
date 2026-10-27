@@ -1,4 +1,4 @@
-import { buildTeamSeasonContext, teamSeasonKey, allPlayUnavailableMessage, canonicalManagerForRoster } from "./team-season-context.js?v=743d40f6f3";
+import { buildTeamSeasonContext, teamSeasonKey, allPlayUnavailableMessage, canonicalManagerForRoster } from "./team-season-context.js?v=d7ee4f31f4";
 /**
  * Adineu Fantasy — Team Profile (/teams/)
  *

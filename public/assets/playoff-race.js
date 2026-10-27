@@ -7,7 +7,7 @@
  * (victoires puis points marqués), avec l'écart en matchs par rapport à la 8e place.
  */
 
-import { calculatePowerRankings } from "./power-rankings.js?v=86d062a9e8";
+import { calculatePowerRankings } from "./power-rankings.js?v=b3edd84ff5";
 
 export const DEFAULT_PLAYOFF_SPOTS = 8;
 

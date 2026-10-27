@@ -1,3 +1,4 @@
+import { completedWeekCoverage } from "./completed-week-coverage.js?v=ea06326865";
 /**
  * Adineu Fantasy — All-Play Record
  *
@@ -11,7 +12,7 @@
  * from a second data path risks the two disagreeing. All-play here is purely descriptive.
  */
 
-import { MINIMUM_COMPLETED_WEEKS } from "./power-rankings.js?v=86d062a9e8";
+import { MINIMUM_COMPLETED_WEEKS } from "./power-rankings.js?v=b3edd84ff5";
 
 export function calculateAllPlayRecords(rows, options = {}) {
   const {
@@ -38,12 +39,13 @@ export function calculateAllPlayRecords(rows, options = {}) {
 
   const teamsReady = managers.length > 0
     && managers.every(manager => rowsByManager.get(manager).length >= minimumWeeks);
-  const reason = completedWeeks.length < minimumWeeks
+  const coverage = completedWeekCoverage(rows, { currentWeek, expectedManagers: expected, requireOpponent: false });
+  const reason = coverage.reason === "score_completion_unverified" ? coverage.reason : completedWeeks.length < minimumWeeks
     ? "insufficient_weeks"
-    : teamsReady ? "ready" : "incomplete_coverage";
+    : teamsReady && !coverage.reason ? "ready" : "incomplete_coverage";
 
   if (reason !== "ready") {
-    return { ready: false, reason, completedWeekCount: completedWeeks.length, records: [] };
+    return { ready: false, reason, completedWeekCount: coverage.validWeeks.length, records: [] };
   }
 
   const byWeek = new Map();

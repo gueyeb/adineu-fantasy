@@ -1,3 +1,4 @@
+import { completedWeekCoverage } from "./completed-week-coverage.js?v=ea06326865";
 export const MINIMUM_COMPLETED_WEEKS = 2;
 
 export const POWER_WEIGHTS = Object.freeze({
@@ -57,16 +58,17 @@ export function calculatePowerRankings(rows, options = {}) {
 
   const teamsReady = managers.length > 0
     && managers.every(manager => rowsByManager.get(manager).length >= minimumWeeks);
-  const reason = completedWeeks.length < minimumWeeks
+  const coverage = completedWeekCoverage(rows, { currentWeek, expectedManagers: expected, requireOpponent: true });
+  const reason = coverage.reason === "score_completion_unverified" ? coverage.reason : completedWeeks.length < minimumWeeks
     ? "insufficient_weeks"
-    : teamsReady ? "ready" : "incomplete_coverage";
+    : teamsReady && !coverage.reason ? "ready" : "incomplete_coverage";
 
   if (reason !== "ready") {
     return {
       ready: false,
       reason,
       completedWeeks,
-      completedWeekCount: completedWeeks.length,
+      completedWeekCount: coverage.validWeeks.length,
       teamsReady: [...rowsByManager.values()].filter(managerRows => managerRows.length >= minimumWeeks).length,
       teamCount: managers.length,
       rankings: []

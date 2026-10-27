@@ -1,7 +1,7 @@
 import { renderSosExplorer } from "./sos-explorer.js?v=a82891ac6f";
 import { renderPublicWeek } from "./public-week.js?v=f34a2bcbf4";
-import { buildSharedPlayoffContext } from "./playoff-context.js?v=b115eb2a39";
-import { calculatePowerRankings, MINIMUM_COMPLETED_WEEKS, POWER_WEIGHTS } from "./power-rankings.js?v=86d062a9e8";
+import { buildSharedPlayoffContext } from "./playoff-context.js?v=007f82bf8d";
+import { calculatePowerRankings, MINIMUM_COMPLETED_WEEKS, POWER_WEIGHTS } from "./power-rankings.js?v=b3edd84ff5";
 import {
   ACTIVE_MANAGERS_2026,
   RIVALRY_CRITERIA,
@@ -13,10 +13,10 @@ import {
 } from "./rivalry-week.js?v=714a861458";
 import { renderTradesPage } from "./trade-ui.js?v=3ad99c06e3";
 import { renderMatchupsHub } from "./matchups-live.js?v=ebffb553f3";
-import { calculatePlayoffRace } from "./playoff-race.js?v=52283bf11a";
-import { calculateLuck, calculateRankHistory } from "./standings-luck.js?v=7363afbb9e";
+import { calculatePlayoffRace } from "./playoff-race.js?v=4133a5df17";
+import { calculateLuck, calculateRankHistory } from "./standings-luck.js?v=0664490db9";
 import { resolveOperationalWeek } from "./nfl-week.js?v=8f9fa3f5b2";
-import { renderTeamsHub } from "./teams.js?v=0259d4db57";
+import { renderTeamsHub } from "./teams.js?v=3f53053744";
 import { buildYahooRecordBook } from "./record-book.js?v=0ebb2a4e56";
 import { listRosterIdentities } from "./roster-view.js?v=120de9d74d";
 import { GENERAL_SETTINGS_2026 } from "./league-settings.js?v=886f353394";
@@ -27,7 +27,7 @@ import {
   NEAR_WEEKS,
   FAR_WEEK_SHRINK,
   DEFAULT_SIMULATIONS
-} from "./playoff-probabilities.js?v=93b4a27819";
+} from "./playoff-probabilities.js?v=acf14f0fe2";
 
 const SUPABASE_URL = "https://juosrzsffvjprqhdyado.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_7Bu9q2dKz0WEol94OGVhHw_xjSwHeHu";
@@ -1378,17 +1378,17 @@ async function renderPowerRankings() {
     </table></div>
     <p class="note"><strong>Données arrêtées :</strong> semaine ${latestWeek}. La semaine live et les playoffs sont exclus du calcul.</p>` : `
     <div class="power-gate" aria-live="polite">
-      <div class="power-lock" aria-hidden="true"><span></span><strong>${result.completedWeekCount}/${MINIMUM_COMPLETED_WEEKS}</strong></div>
+      <div class="power-lock" aria-hidden="true"><span></span><strong>${result.reason === "insufficient_weeks" ? `${result.completedWeekCount}/${MINIMUM_COMPLETED_WEEKS}` : "!"}</strong></div>
       <div class="power-gate-copy">
         <p class="eyebrow">Classement verrouillé</p>
-        <h2>Le terrain n’a pas encore parlé.</h2>
-        <p>Le premier Power Ranking sera publié automatiquement après deux semaines régulières complètes pour les ${teamCount} équipes. Aucun classement pré-draft ne sera inventé.</p>
+        <h2>${result.reason === "insufficient_weeks" ? "Le terrain n’a pas encore parlé." : "Résultats à confirmer."}</h2>
+        <p>${result.reason === "score_completion_unverified" ? "Une semaine entièrement à zéro est présente dans la source. Synchronisation des scores à vérifier : aucune égalité, aucun classement ne sont déduits de ces valeurs." : result.reason === "incomplete_coverage" ? "La couverture des résultats est incomplète ou contient des doublons. Le classement attend des résultats complets pour chaque équipe et chaque semaine." : `Le premier Power Ranking sera publié automatiquement après deux semaines régulières complètes pour les ${teamCount} équipes. Aucun classement pré-draft ne sera inventé.`}</p>
         <div class="power-progress" aria-label="${result.completedWeekCount} semaine complète sur ${MINIMUM_COMPLETED_WEEKS}"><span style="width:${progress}%"></span></div>
         <small>${result.teamsReady}/${teamCount} équipes ont actuellement le minimum de résultats requis.</small>
       </div>
     </div>`;
 
-  document.getElementById("app").innerHTML = `${pageHero("Power Rankings · 2026", "Mesurer le <em>momentum.</em>", "Un thermomètre transparent de la saison Sleeper — jamais une opinion déguisée en statistique.", { label: "Publication", value: result.ready ? `S${latestWeek}` : `${result.completedWeekCount}/2`, note: result.ready ? "Mise à jour automatique" : "2 semaines complètes requises" })}
+  document.getElementById("app").innerHTML = `${pageHero("Power Rankings · 2026", "Mesurer le <em>momentum.</em>", "Un thermomètre transparent de la saison Sleeper — jamais une opinion déguisée en statistique.", { label: "Publication", value: result.ready ? `S${latestWeek}` : (result.reason === "insufficient_weeks" ? `${result.completedWeekCount}/2` : "En attente"), note: result.ready ? "Mise à jour automatique" : result.reason === "insufficient_weeks" ? "2 semaines complètes requises" : "Couverture des scores à vérifier" })}
     <section class="section power-command"><div class="shell">
       <div class="section-head"><div><p class="eyebrow">Live Sleeper</p><h2>La salle de contrôle.</h2></div><a class="source-link" href="https://sleeper.com/leagues/${SLEEPER_LEAGUE_ID}" target="_blank" rel="noreferrer">Ouvrir la ligue Sleeper ↗</a></div>
       <div class="power-status-grid">
