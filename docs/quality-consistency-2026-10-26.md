@@ -355,3 +355,29 @@ Vérification : 627 tests réussis ; contrôles statiques et syntaxe valides. Ev
 rollover sur semaine à zéro, preuve explicite de complétion, zéro individuel, égalités,
 valeurs nulles, doublons, semaine/manager manquant, exclusion live/playoffs. La remise
 à jour de la source et l’observation du prochain batch restent à vérifier séparément.
+
+
+## QC-01 — Sixième incrément : audit public de synchronisation
+
+27/10/2026. `npm run audit:sleeper-sync` compare chaque semaine régulière passée aux
+scores officiels Sleeper, par roster exact, avec dates des lectures et des lignes stockées.
+GET uniquement, configuration publishable publique partagée avec la page Équipe ; aucun
+secret serveur lu, aucun appel de synchronisation. Codes de sortie : 0 concordance,
+2 vérification requise, 1 source ou contexte invalide. Aucun owner ID exporté.
+
+Capture du 27/10 à 05:59:45 UTC (06:59:45 Paris) : S1–S6 concordent, douze écarts S7
+(stockés à zéro). Dernière écriture S7 : 20/10 à 08:00:20 UTC, soit 10:00 Paris.
+Le créneau mardi 08:00 UTC documenté est encore à venir lors de cette capture
+(09:00 Paris le 27/10) : aucune panne du job affirmée. Les deux synchroniseurs du
+dépôt relisent déjà les semaines passées. Logs et exécution n8n restent à contrôler.
+
+L’audit respecte custom_points, y compris zéro, et détecte valeurs manquantes,
+couverture absente ou dupliquée et source entièrement à zéro. Une concordance ne
+certifie ni fin des matchs ni fraîcheur future ; lectures non atomiques. Tests :
+écarts, correction manuelle, couverture, panne source, GET uniquement, exclusion
+semaine live et absence d’IDs privés. Aucune écriture de production ni changement
+de workflow. Prochaine preuve : nouvel audit après le job et observation des logs.
+
+Vérification de ce lot : 629 tests réussis avec ouverture des serveurs locaux autorisée ;
+contrôles statiques et versions d’assets valides. Le premier lancement restreint était
+bloqué sur les ports des tests, puis la suite complète a réussi.

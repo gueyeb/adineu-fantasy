@@ -1,3 +1,4 @@
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./public-data-source.js?v=05dafa2db3";
 import { buildTeamSeasonContext, teamSeasonKey, allPlayUnavailableMessage, canonicalManagerForRoster } from "./team-season-context.js?v=d7ee4f31f4";
 /**
  * Adineu Fantasy — Team Profile (/teams/)
@@ -43,8 +44,6 @@ import { highestCompletedScore, buildRecordWatchEntries } from "./record-watch.j
 import { filterTeamTransactions, describeTransaction } from "./transactions.js?v=71aef15329";
 
 import { SLEEPER_API, SLEEPER_LEAGUE_ID, sleeperGet } from "./sleeper-client.js?v=3f75d48ec5";
-const SUPABASE_URL = "https://juosrzsffvjprqhdyado.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_7Bu9q2dKz0WEol94OGVhHw_xjSwHeHu";
 const CURRENT_SEASON = 2026;
 const STARTER_SLOT_ORDER = buildStarterSlotOrder(ROSTER_SETTINGS_2026);
 const STRENGTH_LABELS = { QB: "QB", RB: "RB", WR: "WR", TE: "TE", K: "K", DEF: "DEF" };

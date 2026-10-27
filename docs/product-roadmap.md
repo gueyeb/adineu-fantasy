@@ -258,3 +258,11 @@ suspendent la publication au lieu d’inventer des égalités ; semaines incompl
 absentes et dupliquées bloquées avec contrôle partagé. Zéros individuels et vraies
 égalités préservés. 627 tests réussis ; aucune synchronisation de production lancée.
 [Détail et limites de fraîcheur](quality-consistency-2026-10-26.md).
+
+
+### 27/10 — QC-01 : audit public de synchronisation
+
+Commande GET uniquement `npm run audit:sleeper-sync`. Capture 06:59 Paris : S1–S6
+concordent, douze écarts S7, dernière écriture le 20/10. Le créneau mardi 08:00 UTC
+reste à venir lors de cette capture ; aucune panne affirmée ni relance de production.
+[Preuves et limites](quality-consistency-2026-10-26.md).
