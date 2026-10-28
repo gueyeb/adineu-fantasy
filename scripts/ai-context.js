@@ -12,6 +12,13 @@ import { formatPoolCoverage } from "./league-context.js";
 import { formatCoherenceWarnings } from "../public/assets/decision-coherence.js";
 import { classifyWaiverDecision } from "../public/assets/waiver-model.js";
 import { compactAuction } from "../public/assets/faab-auction.js";
+import { canonicalManagerName } from "../public/assets/manager-identity.js";
+
+/** "Babacar, @t0z" for a confirmed manager, else "@account" — the account stays for the model. */
+const ownerTag = owner => {
+  const manager = canonicalManagerName(owner);
+  return manager && manager.toLocaleLowerCase("fr") !== String(owner).toLocaleLowerCase("fr") ? `${manager}, @${owner}` : `@${owner}`;
+};
 
 // Last qualifying spots counted as the bubble for playoff urgency (8th of 8 is not safe).
 export const BUBBLE_SPOTS = 2;
@@ -320,7 +327,7 @@ export function formatDecisionContext(context) {
     `${league.name.toUpperCase()} | ${league.teams} teams | Full PPR | ${startersLabel} | ${league.rosterSettings.benchSlots} bench | ${league.rosterSettings.reserveSlots} IR`,
     `Waivers: ${league.waiverClear} | Trade deadline: Week ${league.tradeDeadlineWeek}`,
     "",
-    `TEAM — ${team.teamName.toUpperCase()} (@${team.owner})`,
+    `TEAM — ${team.teamName.toUpperCase()} (${ownerTag(team.owner)})`,
     `Record: ${recordText} | Rank: ${team.standingsRank ?? "n/d"}/${league.teams} | PF: ${team.pointsFor ?? "n/d"} | PA: ${team.pointsAgainst ?? "n/d"}`,
     `FAAB remaining: $${team.faab?.remaining ?? "n/d"} / $${team.faab?.budget ?? league.faab} | spent: $${team.faab?.used ?? "n/d"} | waiver tiebreaker: ${team.waiverPriority ?? "n/d"}${team.streak ? ` | streak: ${team.streak}` : ""}`,
     "",
@@ -369,7 +376,7 @@ export function formatDecisionContext(context) {
   } else {
     const matchup = context.nextMatchup;
     const opponentRecord = matchup.opponent.record;
-    lines.push(`Opponent: ${matchup.opponent.teamName} (@${matchup.opponent.owner}) | Record: ${opponentRecord.wins}-${opponentRecord.losses}${opponentRecord.ties ? `-${opponentRecord.ties}` : ""}`);
+    lines.push(`Opponent: ${matchup.opponent.teamName} (${ownerTag(matchup.opponent.owner)}) | Record: ${opponentRecord.wins}-${opponentRecord.losses}${opponentRecord.ties ? `-${opponentRecord.ties}` : ""}`);
     lines.push(`${context.myTeam.teamName}: ${metric(matchup.myProjection.total)} [Sleeper pregame projections] (${matchup.myProjection.coverage} required slots)`);
     lines.push(`${matchup.opponent.teamName}: ${metric(matchup.opponentProjection.total)} [Sleeper pregame projections] (${matchup.opponentProjection.coverage} required slots)`);
     lines.push(`Mixed total (actual + not-started projections): ${metric(matchup.myProjection.mixedTotal)} / ${metric(matchup.opponentProjection.mixedTotal)}; live remaining projections are unavailable.`);

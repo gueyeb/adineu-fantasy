@@ -64,6 +64,7 @@ test("decision context combines live balance, player model facts and roster-fit 
   assert.match(text, /Lowest marginal cuts: Bench \(immediate 0\.1, option 0\.3, total 0\.4 pts\/w, usage 78, bye S13, regret LOW\)/);
   assert.match(text, /degraded=false/);
   assert.match(text, /NEXT MATCHUP\nOpponent: Binaries \(@rival\) \| Record: 2-1/);
+  assert.match(text, /TEAM — BOUKKI \(Babacar, @t0z\)/, "confirmed manager named next to the account");
   assert.match(text, /Win estimate: not included/);
 });
 
