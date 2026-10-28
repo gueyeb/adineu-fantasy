@@ -76,3 +76,14 @@ export function rosterOptionLabel({ account = null, teamName = null } = {}) {
   const manager = identity.manager ? `${identity.manager} (@${identity.account})` : identity.account ? `@${identity.account}` : "Manager inconnu";
   return `${teamLabel(identity)} · ${manager}`;
 }
+
+/**
+ * Trade partner label for proposals, bulletins and offers: team · confirmed manager, else @account.
+ * Same identity rules as the roster pickers; display only (roster ids stay the keys).
+ */
+export function partnerLabel({ account = null, teamName = null } = {}) {
+  const identity = describeIdentity({ account, teamName, accountIsCurrent: true });
+  const team = teamLabel(identity);
+  const who = identity.manager ?? (identity.account ? `@${identity.account}` : null);
+  return who && fold(who) !== fold(team) ? `${team} (${who})` : team;
+}

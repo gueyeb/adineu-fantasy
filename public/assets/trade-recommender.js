@@ -10,6 +10,7 @@
 import { calculatePlayerTradeValue, evaluateTrade } from "./trade-value.js?v=2c9caa87cf";
 import { assessScenarioConsistency, describeScenarioConsistency, restOfSeasonLineupTotal, scoreTradeRecommendation, tradeReturnScenarios } from "./trade-score.js?v=1111e88ca0";
 import { tradeWeekFrame } from "./trade-timing.js?v=51b07dc8cf";
+import { partnerLabel } from "./manager-identity.js?v=1b190dd337";
 import { playerKey, playerStatus, preferenceAdjustment } from "./trade-preferences.js?v=c5fec5ce56";
 
 export const KNOWN_HANDCUFFS = [
@@ -284,7 +285,9 @@ export function findTradeProposals({ targetRosterId, rosters = [], playerCatalog
     });
 
     const partnerDiag = diagnoseRoster(partnerPlayers);
-    const partnerName = partnerRosterRaw.name || partnerRosterRaw.ownerName || `Team ${partnerRosterRaw.roster_id}`;
+    const partnerName = partnerRosterRaw.name || partnerRosterRaw.ownerName
+      ? partnerLabel({ account: partnerRosterRaw.ownerName ?? null, teamName: partnerRosterRaw.name ?? null })
+      : `Team ${partnerRosterRaw.roster_id}`;
     const partnerPlayerNames = new Set(partnerPlayers.map(p => p.name));
 
     // A. DÉTECTION DES LEVIERS MENOTTES (Handcuffs)

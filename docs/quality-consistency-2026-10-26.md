@@ -890,3 +890,16 @@ Après écriture : audit Sleeper S1–S7 `MATCH`, classement et probabilités pl
 12 équipes affichés. Régression corrigée : le nom d’équipe égal au compte n’était plus
 reconnu une fois le propriétaire renommé ; il l’est désormais via l’alias confirmé du
 même manager (« Team flemme »), jamais via l’alias d’un autre.
+
+**Partenaires de trade nommés par l’identité partagée (28/10).** Fin de la limite « nom
+d’équipe inchangé » : `partnerLabel` (`manager-identity.js`) donne « équipe (manager
+confirmé) », sinon « équipe (@compte) » — mêmes règles que les sélecteurs de roster, donc
+« Team flemme (Tamsir) » au lieu de « flemme », « Kuro (Mat) ». Utilisé par
+`findTradeProposals` (`partnerName` : cartes et pitch du Finder, bulletin CLI/n8n, option
+trade du Coach et bulletin delta), les partenaires « besoins réciproques » (`label`, page et
+contexte IA) et l’offre précise `/api/trade-offer` (`mine/theirs.team`, avec `teamName`
+brut à côté). Clés inchangées : `partnerRosterId`, `rosterId`, `teamName`, `owner`.
+Evals : `test/trade-partner-identity.test.js` (libellés, compte inconnu jamais promu,
+partenaires, propositions). Limite : la ligne `TEAM … (@compte)` du contexte IA et l’en-tête
+du bulletin (ta propre équipe) gardent nom d’équipe + compte ; aucun test réseau de
+`evaluateTradeOffer`.

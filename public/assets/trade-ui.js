@@ -1,10 +1,10 @@
-import { rosterOptionLabel } from "./manager-identity.js?v=b55ba3110a";
+import { rosterOptionLabel } from "./manager-identity.js?v=1b190dd337";
 import { renderRecentTransactions } from "./transaction-view.js?v=76b996b5b8";
 import { renderWaiverDecisionBoard, waiverAvailabilityLabel } from "./waiver-decision-view.js?v=d71dc49b36";
 import { formatTradeTiming, formatTradeWeekFrame } from "./trade-timing.js?v=51b07dc8cf";
 import { formatWaiverSchedule } from "./waiver-schedule.js?v=967a249e30";
 import { normalizeTradeIntent, tradeIntentStorageKey, targetWeekTradeImpact, compareTargetWeekImpacts, LAST_TRADE_TARGET_WEEK } from "./trade-target.js?v=72455ccbaf";
-import { buildLeagueRosterSnapshot, buildLeagueTradeIntelligence } from "./league-trade-intelligence.js?v=e3b23a4d7c";
+import { buildLeagueRosterSnapshot, buildLeagueTradeIntelligence } from "./league-trade-intelligence.js?v=dd2092a85e";
 import { tierChip, tierSeparator } from "./tier-view.js?v=d3a45b4046";
 /**
  * Adineu Fantasy — Interface Utilisateur Trade Hub
@@ -16,7 +16,7 @@ import { buildTiers } from "./value-tiers.js?v=32f5359873";
 import { buildWaiverDisplayTiers } from "./waiver-board.js?v=8889a568a8";
 
 import { calculatePlayerTradeValue, calculatePlayerTradeProfile, evaluateTrade } from "./trade-value.js?v=2c9caa87cf";
-import { diagnoseRoster, findTradeProposals, findCounterOffers, MAX_PRIMARY_TRADE_OFFERS } from "./trade-recommender.js?v=a863ac5f3f";
+import { diagnoseRoster, findTradeProposals, findCounterOffers, MAX_PRIMARY_TRADE_OFFERS } from "./trade-recommender.js?v=d072b34349";
 import { addToWatchlist, removeFromWatchlist, REASON_MAX } from "./war-room.js?v=e9eae48675";
 import { loadWatchlist, saveWatchlist } from "./war-room-store.js?v=679685c790";
 import { PLAYER_STATUSES, playerKey, playerStatus } from "./trade-preferences.js?v=c5fec5ce56";
@@ -299,7 +299,7 @@ export async function renderTradesPage(container) {
         ${myLineup.emptySlots.length ? `<div class="card" style="padding:14px 18px; margin:16px 0; border-left:4px solid var(--red);">⚠ Aucun joueur éligible pour ${myLineup.emptySlots.map(escapeHtml).join(", ")} : ce slot vaut 0 pt chaque semaine. Priorité au <a href="#waivers" id="empty-slot-waivers">Waiver Wire</a> avant tout trade.</div>` : ""}
         <details class="trade-lineup-detail"><summary>Partenaires selon les besoins réciproques (${leagueFit.topPartners.length})</summary>
           <p class="note">Analyse des ${leagueFit.partners.length} autres équipes : échanges simples et packages du Finder améliorant les deux lineups, avec contrôle du marché et des données. Un classement vide est possible ; ce ne sont pas des probabilités d’acceptation.</p>
-          ${leagueFit.partners.map(partner => `<div class="card" style="padding:12px;margin:8px 0;"><strong>${escapeHtml(partner.teamName)}</strong> · ${escapeHtml({ MUTUAL_FIT: "Intérêt réciproque", INCOMPLETE: "Données à vérifier", NO_QUALIFIED_TRADE: "Aucun échange qualifié" }[partner.status])}
+          ${leagueFit.partners.map(partner => `<div class="card" style="padding:12px;margin:8px 0;"><strong>${escapeHtml(partner.label)}</strong> · ${escapeHtml({ MUTUAL_FIT: "Intérêt réciproque", INCOMPLETE: "Données à vérifier", NO_QUALIFIED_TRADE: "Aucun échange qualifié" }[partner.status])}
             ${partner.examples.map(example => `<p class="note">${example.give.map(player => escapeHtml(player.name)).join(" + ")} → ${example.receive.map(player => escapeHtml(player.name)).join(" + ")} : moyenne ROS toi +${example.myDeltaPerWeek}, partenaire +${example.theirDeltaPerWeek} pts/sem estimés.${intent.targetWeek !== null ? ` S${intent.targetWeek} : ${example.targetWeekImpact.myDelta === null ? "gain non disponible" : `toi ${example.targetWeekImpact.myDelta > 0 ? "+" : ""}${example.targetWeekImpact.myDelta}, partenaire ${example.targetWeekImpact.theirDelta > 0 ? "+" : ""}${example.targetWeekImpact.theirDelta} pts estimés`}. ${escapeHtml(formatTradeTiming(example.targetWeekImpact.lineupTiming?.status === "BLOCKED" ? example.targetWeekImpact.lineupTiming : example.targetWeekImpact.timing))}` : ""}</p>`).join("")}
             ${partner.blockers.length ? `<p class="note">${[...new Set(partner.blockers.map(issue => ({ PLAYER_METADATA_UNAVAILABLE: "Informations de joueur incomplètes", OWNERSHIP_UNAVAILABLE: "Roster indisponible", OWNERSHIP_CONFLICT: "Propriété d’un joueur contradictoire", DECLARED_LINEUP_INCOMPLETE: "Lineup déclarée incomplète", STALE_STARTER: "Titulaire absent du roster actuel", STALE_RESERVE: "Joueur IR absent du roster actuel", DUPLICATE_PLAYER: "Joueur en double dans le roster", DUPLICATE_STARTER: "Titulaire déclaré deux fois", STARTER_ON_RESERVE: "Titulaire également placé en IR" }[issue.split(":")[0]] || "Données de roster à vérifier")))].map(escapeHtml).join(" · ")}</p>` : ""}</div>`).join("")}
         </details>

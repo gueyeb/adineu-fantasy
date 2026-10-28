@@ -2,8 +2,9 @@ import { normalizeTradeIntent, targetWeekTradeImpact, compareTargetWeekImpacts }
 import { listRosterIdentities, buildStarterSlotOrder } from "./roster-view.js?v=120de9d74d";
 import { BYE_WEEKS_2026, ROSTER_SETTINGS_2026 } from "./league-settings.js?v=886f353394";
 import { buildProjectedLineup, restOfSeasonEstimate } from "./trade-score.js?v=1111e88ca0";
-import { diagnoseRoster, findTradeProposals } from "./trade-recommender.js?v=a863ac5f3f";
+import { diagnoseRoster, findTradeProposals } from "./trade-recommender.js?v=d072b34349";
 import { playerKey } from "./trade-preferences.js?v=c5fec5ce56";
+import { partnerLabel } from "./manager-identity.js?v=1b190dd337";
 
 const positions = new Set(["QB", "RB", "WR", "TE", "K", "DEF"]);
 const tradePositions = new Set(["QB", "RB", "WR", "TE"]);
@@ -77,7 +78,7 @@ export function buildLeagueTradeIntelligence({ snapshot, targetRosterId, week = 
   if (!mine) return { status: "TARGET_UNAVAILABLE", source: snapshot.source, asOf: snapshot.asOf, teams, partners: [], topPartners: [] };
   const eligibleTeams = teams.filter(team => !team.coverage.issues.length);
   const proposals = mine.coverage.issues.length ? [] : findTradeProposals({ targetRosterId,
-    rosters: eligibleTeams.map(team => ({ roster_id: team.rosterId, name: team.teamName, players: team.players, reserve: team.reserveVerified ? team.reserveIds : null, starters: team.declaredStarters.map(slot => slot.playerId).filter(Boolean) })),
+    rosters: eligibleTeams.map(team => ({ roster_id: team.rosterId, name: team.teamName, ownerName: team.owner, players: team.players, reserve: team.reserveVerified ? team.reserveIds : null, starters: team.declaredStarters.map(slot => slot.playerId).filter(Boolean) })),
     currentWeek: week, playerPreferences, view: "ALL", limit: null, cutContext: timingContext, projectionsByWeek });
   const brief = player => ({ playerId: playerKey(player), name: player.name, position: player.position });
   const partners = teams.filter(team => team !== mine).map(team => {
@@ -98,7 +99,7 @@ export function buildLeagueTradeIntelligence({ snapshot, targetRosterId, week = 
     examples.sort((a, b) => targetWeek !== null
       ? compareTargetWeekImpacts(a.targetWeekImpact, b.targetWeekImpact) || b.fitScore - a.fitScore || b.myDeltaPerWeek - a.myDeltaPerWeek
       : b.fitScore - a.fitScore || b.myDeltaPerWeek - a.myDeltaPerWeek);
-    return { rosterId: team.rosterId, teamName: team.teamName, status: blockers.length ? "INCOMPLETE" : examples.length ? "MUTUAL_FIT" : "NO_QUALIFIED_TRADE",
+    return { rosterId: team.rosterId, teamName: team.teamName, label: partnerLabel({ account: team.owner, teamName: team.teamName }), status: blockers.length ? "INCOMPLETE" : examples.length ? "MUTUAL_FIT" : "NO_QUALIFIED_TRADE",
       fitScore: examples[0]?.fitScore ?? null, targetWeekDelta: examples[0]?.targetWeekImpact.myDelta ?? null,
       examples: examples.slice(0, 3), blockers,
       reason: examples.length ? "Les deux lineups optimales gagnent des points estimés ; équité marché contrôlée." : "Aucun échange qualifié démontré parmi les propositions du Finder." };
@@ -121,7 +122,7 @@ export function formatLeagueTradeIntelligence(report) {
   lines.push("PARTNERS — mutual lineup fit (shared Finder packages)");
   lines.push(`Trade intent: position=${report.preferredPosition || "ANY"}; targetWeek=${report.targetWeek ?? "none"}; expired=${report.intentExpired}. Target-week gains require published projections; trade processing time unverified.`);
   for (const partner of report.partners) {
-    lines.push(`${partner.teamName}: ${partner.status}${partner.blockers.length ? ` (${partner.blockers.join(",")})` : ""}`);
+    lines.push(`${partner.label}: ${partner.status}${partner.blockers.length ? ` (${partner.blockers.join(",")})` : ""}`);
     for (const example of partner.examples) lines.push(`Give ${example.give.map(player => player.name).join(" + ")} → receive ${example.receive.map(player => player.name).join(" + ")}; ROS average own +${example.myDeltaPerWeek}, partner +${example.theirDeltaPerWeek} pts/week; ${example.group}; confidence=${example.confidence}; target W${report.targetWeek ?? "n/d"}: own ${example.targetWeekImpact.myDelta ?? "n/d"}, partner ${example.targetWeekImpact.theirDelta ?? "n/d"}; ${example.targetWeekImpact.status}`);
   }
   return lines;

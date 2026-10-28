@@ -20,6 +20,7 @@ import { assessScenarioConsistency, describeScenarioConsistency, scoreTradeRecom
 import { resolveLastCompletedWeek, resolveOperationalWeek } from "../public/assets/nfl-week.js";
 import { usageAdjustedRosPpg, projectedRosOnly } from "../public/assets/rest-of-season.js";
 import { BYE_WEEKS_2026, GENERAL_SETTINGS_2026 } from "../public/assets/league-settings.js";
+import { partnerLabel } from "../public/assets/manager-identity.js";
 import { buildLiveMarketValues } from "../public/assets/trade-value.js";
 import { getInjuryStatuses, getPlayersIndex, getUsageReport, getWeeklyProjections, getSchedule } from "./league-context.js";
 
@@ -294,16 +295,17 @@ export async function evaluateTradeOffer({ give = [], receive = [], leagueId = D
   const season = scoreTradeRecommendation(args);
   const brief = player => ({ id: String(player.sleeperId), name: player.name, position: player.position, injuryStatus: player.injuryStatus || null, rosPpg: player.rosPpg ?? null, marketValue: player.marketValue ?? null });
   const scenarios = tradeReturnScenarios({ ...args, projectionsByWeek: playerValues.projectionsByWeek || {}, timingContext: playerValues.timingContext, now });
+  const sideLabel = roster => partnerLabel({ account: roster.ownerName, teamName: roster.name });
   const consistency = assessScenarioConsistency({ myDelta: season.my_lineup_delta, theirDelta: season.their_lineup_delta, scenarios: scenarios.scenarios });
   return {
     week: currentWeek,
     weekFrame: scenarios.weekFrame,
-    mine: { rosterId: mine.roster_id, team: mine.name, gives: args.give.map(brief) },
-    theirs: { rosterId: theirs.roster_id, team: theirs.name, gives: args.receive.map(brief) },
+    mine: { rosterId: mine.roster_id, team: sideLabel(mine), teamName: mine.name, gives: args.give.map(brief) },
+    theirs: { rosterId: theirs.roster_id, team: sideLabel(theirs), teamName: theirs.name, gives: args.receive.map(brief) },
     seasonAverage: { myDeltaPerWeek: season.my_lineup_delta, theirDeltaPerWeek: season.their_lineup_delta, confidence: season.confidence, calculationReliability: season.calculationReliability, structure: season.structure, rosterConsequences: season.rosterConsequences, lineupChanges: season.lineupChanges, notes: season.notes },
     market: season.market_value,
     scenarios,
-    consistency: { ...consistency, messages: describeScenarioConsistency(consistency, { mine: mine.name, theirs: theirs.name }) }
+    consistency: { ...consistency, messages: describeScenarioConsistency(consistency, { mine: sideLabel(mine), theirs: sideLabel(theirs) }) }
   };
 }
 

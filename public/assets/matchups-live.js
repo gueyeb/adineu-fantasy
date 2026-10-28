@@ -1,8 +1,8 @@
-import { renderLiveStandings, renderLiveTrackerCards, renderNflLiveGames } from "./live-tracker-view.js?v=0b97f5649a";
+import { renderLiveStandings, renderLiveTrackerCards, renderNflLiveGames } from "./live-tracker-view.js?v=201eeeea3b";
 import { tierChip, tierSeparator } from "./tier-view.js?v=d3a45b4046";
-import { sleeperManager } from "./rivalry-week.js?v=87e2fb1cd2";
-import { describeIdentity, teamLabel } from "./manager-identity.js?v=b55ba3110a";
-import { buildWeeklyAwards, resolveCompletedAwardsWeek } from "./weekly-awards.js?v=7c37411d36";
+import { sleeperManager } from "./rivalry-week.js?v=e6692db5f4";
+import { describeIdentity, teamLabel } from "./manager-identity.js?v=1b190dd337";
+import { buildWeeklyAwards, resolveCompletedAwardsWeek } from "./weekly-awards.js?v=9f6f2dc8c6";
 import { renderWeeklyAwards } from "./weekly-awards-view.js?v=ead74e2c71";
 import { resolveOperationalWeek } from "./nfl-week.js?v=8f9fa3f5b2";
 import { estimateBaselineProjectedPpg } from "./trade-value.js?v=2c9caa87cf";
