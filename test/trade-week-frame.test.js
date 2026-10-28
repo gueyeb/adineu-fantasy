@@ -141,3 +141,58 @@ test("offer text and JSON carry the four weeks", async () => {
     seasonAverage: { myDeltaPerWeek: 1.6, theirDeltaPerWeek: 1.8, notes: [] }, market: { give: 1, receive: 1 }, scenarios, consistency: { messages: [] } });
   assert.match(text, /^Semaines : Données jusqu’à n\/d · semaine live S8 · cible aucune · première semaine affectable n\/d\. Fenêtre non vérifiée/m);
 });
+
+const weeklyRoster = (prefix, extra) => [p(`${prefix}-qb`, "QB", "KC"), p(`${prefix}-rb1`, "RB", "KC"), p(`${prefix}-rb2`, "RB", "KC"), p(`${prefix}-te`, "TE", "KC"), p(`${prefix}-k`, "K", "KC"), p(`${prefix}-def`, "DEF", "KC"), ...extra]
+  .map(player => ({ projectedPpg: 5, ...player }));
+const flatProjections = (players, weeks = [8, 9, 10, 11, 12, 13, 14]) => Object.fromEntries(weeks.map(w => [w, Object.fromEntries(players.map(player => [player.sleeperId, { pts_ppr: player.projectedPpg }]))]));
+
+test("season average counts each traded player from his own first affectable week, like the simulation", () => {
+  const thursday = p("buf-wr", "WR", "BUF", { projectedPpg: 20 }), sunday = p("kc-wr", "WR", "KC", { projectedPpg: 10 });
+  const mine = weeklyRoster("m", [thursday, p("m-wr2", "WR", "KC")]), theirs = weeklyRoster("t", [sunday, p("t-wr2", "WR", "KC")]);
+  const args = { myPlayers: mine, theirPlayers: theirs, give: [thursday], receive: [sunday], week: 8 };
+  const score = scoreTradeRecommendation({ ...args, cutContext: context(), now: NOW });
+  // S8: the Sunday receiver already joins me while the Thursday player still plays for me; S9–S14 full swap.
+  assert.deepEqual(score.averageWindow.segments, [{ from: 8, to: 8, myDelta: 10, theirDelta: -10 }, { from: 9, to: 14, myDelta: -10, theirDelta: 10 }]);
+  assert.deepEqual([score.averageWindow.from, score.averageWindow.to, score.averageWindow.weeks], [8, 14, 7]);
+  assert.deepEqual([score.my_lineup_delta, score.their_lineup_delta], [-7.1, 7.1]);
+  assert.ok(score.notes.some(note => /chaque joueur compté à sa propre semaine \(S8 \+10, S9–S14 -10\)/.test(note)));
+  const weekly = tradeReturnScenarios({ ...args, projectionsByWeek: flatProjections([...mine, ...theirs]), timingContext: context(), now: NOW });
+  assert.equal(weekly.scenarios[0].myTotal, -50);
+  assert.ok(Math.abs(score.my_lineup_delta * score.averageWindow.weeks - weekly.scenarios[0].myTotal) < 0.5);
+  // Unverified timing: live week for everyone, one segment, same number as before the frame existed.
+  const untimed = scoreTradeRecommendation(args);
+  assert.deepEqual([untimed.my_lineup_delta, untimed.averageWindow.from, untimed.averageWindow.segments.length], [-10, 8, 1]);
+  assert.ok(!untimed.notes.some(note => note.startsWith("Moyenne mesurée")));
+});
+
+test("season average starts at the first affectable week: a bye already behind the window no longer counts", () => {
+  // Both assets move S9: BUF plays Thursday before the review ends, SF is on bye S8.
+  const buf = p("buf-wr", "WR", "BUF", { projectedPpg: 20 }), sf = p("sf-wr", "WR", "SF", { projectedPpg: 30 });
+  const mine = weeklyRoster("m", [buf, p("m-wr2", "WR", "KC")]), theirs = weeklyRoster("t", [sf, p("t-wr2", "WR", "KC")]);
+  const args = { myPlayers: mine, theirPlayers: theirs, give: [buf], receive: [sf], week: 8 };
+  const score = scoreTradeRecommendation({ ...args, cutContext: context(), now: NOW });
+  assert.deepEqual([score.averageWindow.from, score.averageWindow.weeks, score.my_lineup_delta], [9, 6, 10]);
+  assert.ok(score.notes.some(note => note.startsWith("Moyenne mesurée S9–S14, à partir de la première semaine affectable")));
+  // The live-week window still charged SF's S8 bye to a trade that cannot touch S8: (−20 + 6 × 10) / 7.
+  assert.equal(scoreTradeRecommendation(args).my_lineup_delta, 5.7);
+  const weekly = tradeReturnScenarios({ ...args, projectionsByWeek: flatProjections([...mine, ...theirs]), timingContext: context(), now: NOW });
+  assert.deepEqual([weekly.weeks.from, weekly.scenarios[0].myTotal], [9, 60]);
+  assert.equal(score.my_lineup_delta * score.averageWindow.weeks, weekly.scenarios[0].myTotal);
+  // Trades closed: no affectable week, no average gain — the simulation shows none either.
+  const closed = scoreTradeRecommendation({ ...args, cutContext: context({ disabled: true }), now: NOW });
+  assert.deepEqual([closed.my_lineup_delta, closed.their_lineup_delta, closed.averageWindow.weeks], [0, 0, 0]);
+  assert.ok(closed.notes.some(note => /Aucune semaine affectable/.test(note)));
+});
+
+test("a later window keeps the live-week reading: elapsed absences and rosPpg's bye stay on their window", () => {
+  // IR read at S8 (≈3 games): from S9 one game has already been missed.
+  const ir = p("ir-qb", "QB", "KC", { rosPpg: 18, injuryStatus: "IR" });
+  assert.equal(restOfSeasonLineupTotal([ir], 8).total, Number((18 * 4 / 7).toFixed(1)));
+  assert.equal(restOfSeasonLineupTotal([ir], 9, { statusWeek: 8 }).total, 12);
+  // rosPpg read at S8 averages SF's S8 bye as 0 over seven weeks: 14 per game played from S9.
+  const sfQb = p("sf-qb", "QB", "SF", { rosPpg: 12 });
+  assert.equal(restOfSeasonLineupTotal([sfQb], 9, { statusWeek: 8 }).total, 14);
+  assert.equal(restOfSeasonLineupTotal([sfQb], 8).total, 12);
+  // A one-week segment window: three listed games missed, nothing left that week.
+  assert.equal(restOfSeasonLineupTotal([ir], 8, { toWeek: 8 }).total, 0);
+});

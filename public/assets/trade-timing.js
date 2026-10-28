@@ -47,7 +47,7 @@ export const hasNoNflTeam = player => Object.hasOwn(player ?? {}, "nflTeam") && 
  * Never an execution or processing promise; without fresh rules/schedule the simulation keeps the
  * live week and says so.
  */
-export function tradeWeekFrame({ players = [], currentWeek, targetWeek = null, dataThroughWeek = null, context = null, now = Date.now() }) {
+export function tradeWeekFrame({ players = [], currentWeek, targetWeek = null, dataThroughWeek = null, context = null, now = Date.now(), rowCache = null }) {
   const frame = (status, reasons, rows = [], extra = {}) => ({
     dataThroughWeek: Number.isInteger(dataThroughWeek) ? dataThroughWeek : Number.isInteger(context?.dataThroughWeek) ? context.dataThroughWeek : null,
     liveWeek: Number.isInteger(currentWeek) ? currentWeek : null,
@@ -63,8 +63,7 @@ export function tradeWeekFrame({ players = [], currentWeek, targetWeek = null, d
   if (context.disabled === true || (Number.isInteger(context.deadlineWeek) && context.deadlineWeek > 0 && currentWeek > context.deadlineWeek)) return frame("BLOCKED", ["TRADES_CLOSED"], [], { simulationBasis: "NO_AFFECTABLE_WEEK" });
   if (!Number.isInteger(context.reviewDays) || context.reviewDays < 0 || context.reviewDays > 30 || !Array.isArray(context.games)) return frame("UNVERIFIED", ["TIMING_RULES_MISSING"]);
   const earliest = now + context.reviewDays * 86400_000;
-  const rows = players.map(player => {
-    const playerId = String(player.sleeperId ?? player.id ?? player.name ?? "");
+  const playerRow = (player, playerId) => {
     if (hasNoNflTeam(player)) return { playerId, name: player.name, firstAffectableWeek: null, reason: "NO_NFL_TEAM" };
     const games = context.games.filter(game => game.season === context.season && [game.home_team, game.away_team].includes(player.nflTeam) && Number.isFinite(Date.parse(game.kickoffAt)));
     if (!games.length) return { playerId, name: player.name, firstAffectableWeek: null, reason: "SCHEDULE_MISSING" };
@@ -72,6 +71,15 @@ export function tradeWeekFrame({ players = [], currentWeek, targetWeek = null, d
     const thisWeek = games.find(game => game.week === currentWeek);
     return { playerId, name: player.name, firstAffectableWeek: next?.week ?? null, kickoffAt: next?.kickoffAt ?? null,
       reason: !next ? "NO_GAME_AFTER_REVIEW" : thisWeek && Date.parse(thisWeek.kickoffAt) <= earliest ? "LIVE_WEEK_GAME_BEFORE_REVIEW_END" : !thisWeek && next.week > currentWeek ? "BYE_THIS_WEEK" : null };
+  };
+  // A row does not depend on the package: the exhaustive trade search passes one Map per search
+  // (same week, context and now) so each player's schedule is read once.
+  const rows = players.map(player => {
+    const playerId = String(player.sleeperId ?? player.id ?? player.name ?? "");
+    if (rowCache?.has(playerId)) return rowCache.get(playerId);
+    const row = playerRow(player, playerId);
+    rowCache?.set(playerId, row);
+    return row;
   });
   if (rows.some(row => row.reason === "SCHEDULE_MISSING")) return frame("UNVERIFIED", ["TRADE_SCHEDULE_INCOMPLETE"], rows);
   const weeks = rows.map(row => row.firstAffectableWeek).filter(Number.isInteger);

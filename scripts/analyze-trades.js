@@ -291,7 +291,7 @@ export async function evaluateTradeOffer({ give = [], receive = [], leagueId = D
   const mine = ownerOf(giveIds), theirs = ownerOf(receiveIds);
   if (mine.roster_id === theirs.roster_id) throw new Error("Offre invalide : les deux côtés viennent du même roster");
   const pick = (roster, ids) => roster.players.filter(player => ids.includes(String(player.sleeperId)));
-  const args = { myPlayers: mine.players, theirPlayers: theirs.players, give: pick(mine, giveIds), receive: pick(theirs, receiveIds), week: currentWeek, myRoster: mine, theirRoster: theirs, cutContext: playerValues.timingContext };
+  const args = { myPlayers: mine.players, theirPlayers: theirs.players, give: pick(mine, giveIds), receive: pick(theirs, receiveIds), week: currentWeek, myRoster: mine, theirRoster: theirs, cutContext: playerValues.timingContext, now };
   const season = scoreTradeRecommendation(args);
   const brief = player => ({ id: String(player.sleeperId), name: player.name, position: player.position, injuryStatus: player.injuryStatus || null, rosPpg: player.rosPpg ?? null, marketValue: player.marketValue ?? null });
   const scenarios = tradeReturnScenarios({ ...args, projectionsByWeek: playerValues.projectionsByWeek || {}, timingContext: playerValues.timingContext, now });

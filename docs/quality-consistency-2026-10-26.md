@@ -943,3 +943,42 @@ Limites : a posteriori (la lineup optimale connaît les scores ; ce n’est pas 
 aurait prise) ; disponibilité réelle non prouvée (un ajout libre pris par un rival avant nous
 reste une hypothèse) ; coupe absente des plans antérieurs ; fenêtre de 4 semaines sans valeur
 au-delà ; contrefactuel des refus de coupe ou de trade non couvert.
+
+**QC-02 — moyenne de saison sur la fenêtre affectable, 28/10.** Limite levée : la moyenne
+reste de saison partait de la semaine live alors que la simulation semaine par semaine part
+de la première semaine affectable. `tradeMoveSchedule` (`trade-score.js`) donne désormais aux
+deux lectures le même calendrier, tiré du même `tradeWeekFrame` ; `tradeAverageDelta` mesure
+la moyenne de la première semaine affectable à S14, chaque joueur échangé compté à partir de
+sa propre semaine (segments, ex. S8 puis S9–S14 quand un joueur du jeudi reste une semaine de
+plus), pondérée par le nombre de semaines. Les semaines antérieures sont exclues, pas comptées
+à 0 : la simulation additionne exactement ces semaines, donc moyenne × semaines et total simulé
+se comparent sur la même fenêtre, et « pts/sem » reste un gain par semaine que le trade peut
+changer (des zéros dilueraient le chiffre sans changer son signe). Statuts et `rosPpg` gardent
+leur lecture de la semaine live (`statusWeek`) : matchs déjà écoulés retirés de l’absence
+listée, bye de `rosPpg` rattaché à sa fenêtre live. Trades fermés : aucune semaine, gain moyen
+nul comme la simulation. Sans timing frais : semaine live, résultat identique à avant. Même
+fenêtre dans la recherche exhaustive du Finder (`findLineupUpgrades`, cache des lignes de
+calendrier par joueur), dans `scoreTradeRecommendation` (`averageWindow`, note quand la fenêtre
+commence après la semaine live ou se découpe) et dans `/api/trade-offer`.
+
+Mesure (même capture live S8 du 28/10, lecture seule, 12 rosters × 5 meilleures offres, 120
+côtés ; concordance = signe de la moyenne égal à celui du scénario médian) : mercredi 28/10
+13:30 UTC, aucune fenêtre décalée, résultats identiques (100/120, 17 côtés contredits, écart
+moyen |moyenne × semaines − simulation| 7,2 pts). Rejeu vendredi 30/10 12:00 UTC (joueurs du
+jeudi affectables S9, 12 offres à deux segments) : concordance 98→99/120, contredits 19→19,
+écart 7,8→7,1. Rejeu dimanche 01/11 12:00 UTC (57/60 offres à fenêtre S9–S14) : 92→92/120,
+25→25, écart 6,7→6,9. Sélections inchangées (7 puis 6 négociables). L’alignement de fenêtre ne
+réduit donc pas les contradictions restantes : elles viennent du taux moyen face aux projections
+hebdomadaires, pas du point de départ. Coût de recherche des douze rosters 3,9 → 4,7–5,4 s
+(un joueur seulement retardé par son bye en début de fenêtre est déplacé au début, total
+inchangé, pour éviter un second segment).
+
+Evals : segments joueur par joueur égaux à la simulation (S8 +10, S9–S14 −10 : −7,1 pts/sem ×
+7 ≈ −50), fenêtre S9–S14 qui ne compte plus le bye S8 d’un joueur reçu (5,7 → 10, = simulation
+60/6), trades fermés à 0, absence IR déjà écoulée et bye de `rosPpg` hors fenêtre. 696 tests ;
+`npm run check` valide.
+
+Limites : la moyenne utilise toujours le taux reste de saison (projection/usage), pas les
+projections hebdomadaires de la simulation ; les déplacements par segment restent une
+approximation du taux moyen sur chaque sous-fenêtre ; `buildLeagueTradeIntelligence` et la
+semaine cible (`trade-target.js`) ne sont pas concernés. Aucune écriture Supabase/Sleeper.

@@ -1,5 +1,5 @@
 import { assessTradeCut } from "./trade-cut-readiness.js?v=3a8f3ea6db";
-import { hasNoNflTeam, tradeWeekFrame } from "./trade-timing.js?v=51b07dc8cf";
+import { hasNoNflTeam, tradeWeekFrame } from "./trade-timing.js?v=43d83f975d";
 import { calculatePlayerTradeProfile, evaluateTrade } from "./trade-value.js?v=2c9caa87cf";
 import { BYE_WEEKS_2026, GENERAL_SETTINGS_2026, ROSTER_SETTINGS_2026 } from "./league-settings.js?v=886f353394";
 
@@ -50,7 +50,10 @@ export function restOfSeasonEstimate(week) {
   }
 }
 
-function restOfSeasonParts(player, week) {
+/** Window [week, toWeek]; statuses and rosPpg were read at statusWeek (the live week). A window
+ * starting later (first affectable week of a trade) keeps the same reading: games already elapsed
+ * come off the listed absence, and rosPpg's bye-as-0 stays tied to the live window it averages. */
+function restOfSeasonParts(player, week, statusWeek = week, toWeek = LAST_REGULAR_WEEK) {
   // Same assumption as the weekly simulation: no NFL team, no game, 0 (not the catalog rank value).
   if (hasNoNflTeam(player)) return { healthy: 0, statusMissed: 0, byeMissed: 0, byeInWindow: false, rosPpgIncludesBye: false };
   const usageAdjusted = Number.isFinite(player.rosPpg) ? player.rosPpg : null;
@@ -58,31 +61,37 @@ function restOfSeasonParts(player, week) {
     ? calculatePlayerTradeProfile(player).blendedPpg
     : projection(player));
   const bye = BYE_WEEKS_2026[player.nflTeam];
-  const byeInWindow = bye >= week && bye <= LAST_REGULAR_WEEK;
+  const byeInWindow = bye >= week && bye <= toWeek;
   // A Sleeper projection already prices a Questionable/Doubtful tag in; only Out/IR adds misses.
-  const statusMissed = isOutThisWeek(player) ? GAMES_MISSED_BY_STATUS[injuryStatus(player)] : projection(player) === null ? GAMES_MISSED_BY_STATUS[injuryStatus(player)] || 0 : 0;
+  const listedMissed = isOutThisWeek(player) ? GAMES_MISSED_BY_STATUS[injuryStatus(player)] : projection(player) === null ? GAMES_MISSED_BY_STATUS[injuryStatus(player)] || 0 : 0;
+  // A bye between the reading and the window start costs no game.
+  const elapsedGames = Math.max(0, week - statusWeek - (bye >= statusWeek && bye < week ? 1 : 0));
+  const statusMissed = Math.max(0, listedMissed - elapsedGames);
   // rosPpg (rest-of-season.js) already averages the bye in as a 0: never subtract it twice.
   const byeMissed = usageAdjusted === null && byeInWindow ? 1 : 0;
-  return { healthy, statusMissed, byeMissed, byeInWindow, rosPpgIncludesBye: usageAdjusted !== null && byeInWindow };
+  return { healthy, statusMissed, byeMissed, byeInWindow, rosPpgIncludesBye: usageAdjusted !== null && bye >= statusWeek && bye <= LAST_REGULAR_WEEK };
 }
 
 /** Points per game actually played over the window (bye excluded), unrounded: the same average as
  * restOfSeasonEstimate once multiplied by games / remaining weeks. */
 const playedRateEstimators = new Map();
-function perGamePlayedEstimate(week) {
-  if (playedRateEstimators.has(week)) return playedRateEstimators.get(week);
-  const remaining = Math.max(1, LAST_REGULAR_WEEK - week + 1);
+function perGamePlayedEstimate(week, statusWeek = week, toWeek = LAST_REGULAR_WEEK) {
+  const key = `${week}:${statusWeek}:${toWeek}`;
+  if (playedRateEstimators.has(key)) return playedRateEstimators.get(key);
+  const remaining = Math.max(1, toWeek - week + 1);
+  const liveRemaining = Math.max(1, LAST_REGULAR_WEEK - statusWeek + 1);
   const memo = new WeakMap();
   const estimate = player => {
     if (memo.has(player)) return memo.get(player);
-    const { healthy, statusMissed, byeInWindow, rosPpgIncludesBye } = restOfSeasonParts(player, week);
+    const { healthy, statusMissed, byeInWindow, rosPpgIncludesBye } = restOfSeasonParts(player, week, statusWeek, toWeek);
     const games = byeInWindow ? remaining - 1 : remaining;
-    const perGame = rosPpgIncludesBye && games > 0 ? healthy * remaining / games : healthy;
+    // rosPpg spreads its bye over the live window: back to a per-game rate on that same window.
+    const perGame = rosPpgIncludesBye && liveRemaining > 1 ? healthy * liveRemaining / (liveRemaining - 1) : healthy;
     const value = games > 0 ? perGame * Math.max(0, games - statusMissed) / games : 0;
     memo.set(player, value);
     return value;
   };
-  playedRateEstimators.set(week, estimate);
+  playedRateEstimators.set(key, estimate);
   return estimate;
 }
 
@@ -122,15 +131,15 @@ const fitsSlot = (position, player) => position === "FLEX" ? ["RB", "WR", "TE"].
 
 /** Totals only, same greedy order and tie-break as buildProjectedLineup without its per-slot sort:
  * the exhaustive trade search evaluates this hundreds of thousands of times. */
-export function restOfSeasonLineupTotal(players = [], week) {
+export function restOfSeasonLineupTotal(players = [], week, { statusWeek = week, toWeek = LAST_REGULAR_WEEK } = {}) {
   const estimate = restOfSeasonEstimate(week);
   if (!Number.isFinite(week)) return { total: buildProjectedLineup(players, { estimate }).total, baseTotal: null, starterIds: null, byeWeeks: [], rate: estimate };
-  const remaining = Math.max(1, LAST_REGULAR_WEEK - week + 1);
+  const remaining = Math.max(1, toWeek - week + 1);
   const byeOf = player => {
     const bye = BYE_WEEKS_2026[player.nflTeam];
-    return bye >= week && bye <= LAST_REGULAR_WEEK ? bye : null;
+    return bye >= week && bye <= toWeek ? bye : null;
   };
-  const rate = perGamePlayedEstimate(week);
+  const rate = perGamePlayedEstimate(week, statusWeek, toWeek);
   const unique = new Map();
   for (const player of players) unique.set(identity(player), player);
   const entries = [];
@@ -170,10 +179,54 @@ export function restOfSeasonLineupTotal(players = [], week) {
 
 /** Slots at the rate per game played (what a starter brings when he plays), total = weekly average
  * with each starter's bye covered by the bench. */
-export function restOfSeasonLineup(players = [], week) {
-  const summary = restOfSeasonLineupTotal(players, week);
+export function restOfSeasonLineup(players = [], week, options = {}) {
+  const summary = restOfSeasonLineupTotal(players, week, options);
   if (!Number.isFinite(week)) return buildProjectedLineup(players, { estimate: restOfSeasonEstimate(week) });
   return { ...buildProjectedLineup(players, { estimate: player => round(summary.rate(player)) }), total: summary.total, basis: "RATE_PER_GAME_BYE_COVERED_BY_BENCH", byeWeeks: summary.byeWeeks };
+}
+
+/**
+ * When each traded player changes team, from the same week frame as the weekly simulation: his
+ * own first affectable week (conditional on an agreement now), the live week when timing is
+ * unverified, never when trades are closed. startWeek null = no week the trade can change.
+ */
+export function tradeMoveSchedule(weekFrame, week) {
+  const conditional = weekFrame?.status === "CONDITIONAL";
+  const blocked = weekFrame?.status === "BLOCKED";
+  const rows = new Map((weekFrame?.players || []).map(row => [row.playerId, row]));
+  const startWeek = conditional ? weekFrame.firstAffectableWeek : blocked ? null : week;
+  const moveWeekOf = player => {
+    if (blocked) return Infinity;
+    if (!conditional) return week;
+    const row = rows.get(identity(player));
+    const move = row?.reason === "NO_NFL_TEAM" ? weekFrame.firstAffectableWeek ?? week : row?.firstAffectableWeek ?? Infinity;
+    // Delayed only by his bye at the window start: he scores 0 that week on either roster, so moving
+    // him at the start changes no total and saves the search a second window.
+    return move === startWeek + 1 && BYE_WEEKS_2026[player.nflTeam] === startWeek ? startWeek : move;
+  };
+  return { startWeek: Number.isInteger(startWeek) && startWeek <= LAST_REGULAR_WEEK ? startWeek : null, moveWeekOf };
+}
+
+/**
+ * Season-average lineup delta of one side over the weeks the trade can change: from the first
+ * affectable week to the last regular week, each traded player counted from his own move week.
+ * Earlier weeks are excluded rather than counted as 0: the weekly simulation sums exactly these
+ * weeks, so average × weeks and its total compare on the same window, and "pts/sem" stays a gain
+ * per week the trade actually changes. Statuses keep their live-week reading (statusWeek).
+ */
+export function tradeAverageDelta({ players = [], outgoing = [], incoming = [], week, schedule, total = null }) {
+  const { startWeek, moveWeekOf } = schedule;
+  if (!Number.isInteger(startWeek)) return { delta: 0, window: null, segments: [] };
+  const sum = total ?? ((roster, from, to) => restOfSeasonLineupTotal(roster, from, { statusWeek: week, toWeek: to }).total);
+  const moves = [...new Set([...outgoing, ...incoming].map(moveWeekOf).filter(w => w > startWeek && w <= LAST_REGULAR_WEEK))].sort((a, b) => a - b);
+  const starts = [startWeek, ...moves];
+  const segments = starts.map((from, index) => {
+    const to = index + 1 < starts.length ? starts[index + 1] - 1 : LAST_REGULAR_WEEK;
+    const moved = player => moveWeekOf(player) <= from;
+    return { from, to, delta: round(sum(exchange(players, outgoing.filter(moved), incoming.filter(moved)), from, to) - sum(players, from, to)) };
+  });
+  const weeks = LAST_REGULAR_WEEK - startWeek + 1;
+  return { delta: round(segments.reduce((acc, row) => acc + row.delta * (row.to - row.from + 1), 0) / weeks), window: { from: startWeek, to: LAST_REGULAR_WEEK, weeks }, segments };
 }
 
 /** Return-week hypotheses for an injured asset of a trade. Ramp factors are uncalibrated. */
@@ -225,14 +278,7 @@ export function tradeReturnScenarios({ myPlayers = [], theirPlayers = [], give =
   // next kickoff); before it he still plays for his old team. Unverified timing keeps the live week.
   const weekFrame = tradeWeekFrame({ players: [...give, ...receive], currentWeek: week, targetWeek, dataThroughWeek, context: timingContext, now });
   const conditional = weekFrame.status === "CONDITIONAL";
-  const frameRows = new Map(weekFrame.players.map(row => [row.playerId, row]));
-  const moveWeek = player => {
-    if (weekFrame.status === "BLOCKED") return Infinity;
-    if (!conditional) return week;
-    const row = frameRows.get(identity(player));
-    return row?.reason === "NO_NFL_TEAM" ? weekFrame.firstAffectableWeek ?? week : row?.firstAffectableWeek ?? Infinity;
-  };
-  const startWeek = conditional ? weekFrame.firstAffectableWeek : weekFrame.status === "BLOCKED" ? null : week;
+  const { startWeek, moveWeekOf: moveWeek } = tradeMoveSchedule(weekFrame, week);
   const weeks = Number.isInteger(startWeek) ? Array.from({ length: Math.max(0, LAST_REGULAR_WEEK - startWeek + 1) }, (_, i) => startWeek + i) : [];
   const assets = new Set([...give, ...receive].map(identity));
   const injuredAssets = [...give, ...receive].filter(player => (GAMES_MISSED_BY_STATUS[injuryStatus(player)] || 0) >= 1);
@@ -352,9 +398,12 @@ function exchange(players, give, receive) {
  * confidence. Roster overflow is resolved by cutting the lowest bench value. Tradeability is a
  * heuristic, not odds.
  */
-export function scoreTradeRecommendation({ myPlayers = [], theirPlayers = [], give = [], receive = [], week = null, myRoster = null, theirRoster = null, cutContext = null, now = Date.now() }) {
+export function scoreTradeRecommendation({ myPlayers = [], theirPlayers = [], give = [], receive = [], week = null, myRoster = null, theirRoster = null, cutContext = null, now = Date.now(), timingRows = null }) {
   const estimate = restOfSeasonEstimate(week);
-  const lineup = players => restOfSeasonLineup(players, week);
+  // Same window as the weekly simulation: cutContext is the trade timing context (rules + schedule).
+  const schedule = Number.isFinite(week) ? tradeMoveSchedule(tradeWeekFrame({ players: [...give, ...receive], currentWeek: week, context: cutContext, now, rowCache: timingRows }), week) : null;
+  const lineupWeek = schedule?.startWeek ?? week;
+  const lineup = players => restOfSeasonLineup(players, lineupWeek, { statusWeek: week });
   const myAfterPlayers = exchange(myPlayers, give, receive);
   const theirAfterPlayers = exchange(theirPlayers, receive, give);
   const myBefore = lineup(myPlayers);
@@ -409,8 +458,21 @@ export function scoreTradeRecommendation({ myPlayers = [], theirPlayers = [], gi
       capacityBasis: reserveVerified ? "DECLARED_SLEEPER_RESERVE" : "STATUS_BASED_RESERVE_ASSUMPTION", retainedReserveIds: retainedReserve, incomingReservePlacement: "NOT_ASSUMED", cutAvailability: "UNVERIFIED", execution: "UNVERIFIED" };
     if (cutsNeeded) notes.push(`${who === "Tu" ? "Tu devras" : "Il devra"} libérer ${cutsNeeded} place(s) pour modifier la lineup après le trade (${reserveVerified ? "réserve Sleeper déclarée conservée" : "hypothèse IR, réserve non vérifiée"}) : ${candidates.length ? `coupe(s) candidate(s) ${candidates.map(row => row.player.name).join(", ")}` : "aucune coupe hors titulaires identifiée"}. Le dépassement de capacité ne bloque pas le trade à lui seul. Profondeur perdue, places réelles, AutoSubs et locks à vérifier.`);
   }
-  const myDelta = round(myAfter.total - myBefore.total);
-  const theirDelta = round(theirAfter.total - theirBefore.total);
+  // Every asset moving at the window start: the lineups above already are that window's average.
+  const oneMove = schedule?.startWeek !== null && schedule?.startWeek !== undefined && assets.every(player => schedule.moveWeekOf(player) === schedule.startWeek);
+  const average = (players, outgoing, incoming, before, after) => oneMove
+    ? { delta: round(after.total - before.total), window: { from: schedule.startWeek, to: LAST_REGULAR_WEEK, weeks: LAST_REGULAR_WEEK - schedule.startWeek + 1 }, segments: [{ from: schedule.startWeek, to: LAST_REGULAR_WEEK, delta: round(after.total - before.total) }] }
+    : tradeAverageDelta({ players, outgoing, incoming, week, schedule });
+  const mineAverage = schedule ? average(myPlayers, give, receive, myBefore, myAfter) : null;
+  const theirsAverage = schedule ? average(theirPlayers, receive, give, theirBefore, theirAfter) : null;
+  const myDelta = mineAverage ? mineAverage.delta : round(myAfter.total - myBefore.total);
+  const theirDelta = theirsAverage ? theirsAverage.delta : round(theirAfter.total - theirBefore.total);
+  const averageWindow = schedule ? { ...(mineAverage.window || { from: null, to: null, weeks: 0 }), liveWeek: week,
+    segments: mineAverage.segments.map((row, index) => ({ from: row.from, to: row.to, myDelta: row.delta, theirDelta: theirsAverage.segments[index].delta })) } : null;
+  if (schedule && !mineAverage.window) notes.push("Aucune semaine affectable (trades fermés ou fin de saison régulière) : gain moyen nul, comme la simulation.");
+  else if (averageWindow && (averageWindow.from > week || averageWindow.segments.length > 1)) {
+    notes.push(`Moyenne mesurée S${averageWindow.from}–S${averageWindow.to}, à partir de la première semaine affectable${averageWindow.segments.length > 1 ? ` ; chaque joueur compté à sa propre semaine (${averageWindow.segments.map(row => `S${row.from}${row.to > row.from ? `–S${row.to}` : ""} ${row.myDelta > 0 ? "+" : ""}${row.myDelta}`).join(", ")})` : ""} (accord supposé maintenant, revue modélisée).`);
+  }
   const market = evaluateTrade({ sideA: give, sideB: receive });
   const bilateral = warnings.length === 0 && myDelta > 0 && theirDelta > 0;
   const structureId = warnings.length ? "DATA_GAPS" : bilateral && market.pctDiff <= 8 ? "BILATERAL_MARKET_CLOSE" : myDelta < 0 || theirDelta < 0 ? "LINEUP_LOSS" : "REVIEW_STRUCTURE";
@@ -423,7 +485,7 @@ export function scoreTradeRecommendation({ myPlayers = [], theirPlayers = [], gi
   return {
     market_value: { give: market.sideA.netTotal, receive: market.sideB.netTotal, gapPct: market.pctDiff },
     my_lineup_delta: myDelta, their_lineup_delta: theirDelta,
-    horizon: Number.isFinite(week) ? "ROS" : "WEEK",
+    horizon: Number.isFinite(week) ? "ROS" : "WEEK", averageWindow,
     confidence: calculationReliability, tradeability,
     calculationReliability,
     structure: { id: structureId, label: tradeability, acceptanceProbability: null, note: "Heuristique de structure et couverture du calcul ; intentions adverses non observées." },

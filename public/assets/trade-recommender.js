@@ -8,8 +8,8 @@
  */
 
 import { calculatePlayerTradeValue, evaluateTrade } from "./trade-value.js?v=2c9caa87cf";
-import { assessScenarioConsistency, describeScenarioConsistency, restOfSeasonLineupTotal, scoreTradeRecommendation, tradeReturnScenarios } from "./trade-score.js?v=1111e88ca0";
-import { tradeWeekFrame } from "./trade-timing.js?v=51b07dc8cf";
+import { assessScenarioConsistency, describeScenarioConsistency, restOfSeasonLineupTotal, scoreTradeRecommendation, tradeAverageDelta, tradeMoveSchedule, tradeReturnScenarios } from "./trade-score.js?v=2e617cecb2";
+import { tradeWeekFrame } from "./trade-timing.js?v=43d83f975d";
 import { partnerLabel } from "./manager-identity.js?v=1b190dd337";
 import { playerKey, playerStatus, preferenceAdjustment } from "./trade-preferences.js?v=c5fec5ce56";
 
@@ -34,8 +34,8 @@ export function usageTradeAdjustment({ give = [], receive = [] }) {
     - give.filter(player => player.signal === "BUY_LOW").length * 2;
 }
 
-function decorateProposal(proposal, myPlayers, theirPlayers, week = null, myRoster = null, theirRoster = null, cutContext = null) {
-  const recommendationScore = scoreTradeRecommendation({ myPlayers, theirPlayers, give: proposal.give, receive: proposal.receive, week, myRoster, theirRoster, cutContext });
+function decorateProposal(proposal, myPlayers, theirPlayers, week = null, myRoster = null, theirRoster = null, cutContext = null, now = Date.now(), timingRows = null) {
+  const recommendationScore = scoreTradeRecommendation({ myPlayers, theirPlayers, give: proposal.give, receive: proposal.receive, week, myRoster, theirRoster, cutContext, now, timingRows });
   const usageAdjustment = usageTradeAdjustment(proposal);
   return {
     ...proposal,
@@ -120,15 +120,28 @@ export const MAX_PROPOSALS_PER_PARTNER = 2;
 /** Exhaustive 1-for-1, 2-for-1 and 1-for-2 search between two rosters, kept only when BOTH optimal
  * lineups improve (rest of season) and the market values are close enough to be accepted. This is
  * what finds trades for balanced rosters the surplus/deficit heuristics never look at. */
-function findLineupUpgrades({ myPlayers, theirPlayers, partnerRosterId, partnerName, week, playerPreferences }) {
+function findLineupUpgrades({ myPlayers, theirPlayers, partnerRosterId, partnerName, week, playerPreferences, timingContext = null, now = Date.now(), rowCache = new Map() }) {
   const key = player => String(player.sleeperId || player.name);
-  const total = players => restOfSeasonLineupTotal(players, week).total;
+  // Same window as the scored offer and the weekly simulation: from the first affectable week, each
+  // traded player at his own move week. Base rosters are summed once per window.
+  const baseTotals = new Map();
+  const total = (players, from, to) => {
+    const base = players === myPlayers ? "mine" : players === theirPlayers ? "theirs" : null;
+    const cacheKey = base && `${base}:${from}:${to}`;
+    if (base && baseTotals.has(cacheKey)) return baseTotals.get(cacheKey);
+    const value = restOfSeasonLineupTotal(players, from, { statusWeek: week, toWeek: to }).total;
+    if (base) baseTotals.set(cacheKey, value);
+    return value;
+  };
+  const gain = (players, outgoing, incoming, schedule) => Number.isFinite(week)
+    ? tradeAverageDelta({ players, outgoing, incoming, week, schedule, total }).delta
+    : restOfSeasonLineupTotal(swap(players, outgoing, incoming), week).total - restOfSeasonLineupTotal(players, week).total;
+  const scheduleOf = (give, receive) => Number.isFinite(week)
+    ? tradeMoveSchedule(tradeWeekFrame({ players: [...give, ...receive], currentWeek: week, context: timingContext, now, rowCache }), week) : null;
   const swap = (players, out, incoming) => {
     const outgoing = new Set(out.map(key));
     return [...players.filter(player => !outgoing.has(key(player))), ...incoming];
   };
-  const myBase = total(myPlayers);
-  const theirBase = total(theirPlayers);
   // Untouchables are excluded before the per-partner cap, or they could crowd out valid offers.
   const mine = myPlayers.filter(player => TRADEABLE.has(player.position) && preferenceAdjustment([player], playerPreferences) !== null);
   const theirs = theirPlayers.filter(player => TRADEABLE.has(player.position));
@@ -140,9 +153,10 @@ function findLineupUpgrades({ myPlayers, theirPlayers, partnerRosterId, partnerN
   ];
   const found = [];
   for (const [give, receive] of packages) {
-    const myGain = total(swap(myPlayers, give, receive)) - myBase;
+    const schedule = scheduleOf(give, receive);
+    const myGain = gain(myPlayers, give, receive, schedule);
     if (myGain <= 0.5) continue;
-    const theirGain = total(swap(theirPlayers, receive, give)) - theirBase;
+    const theirGain = gain(theirPlayers, receive, give, schedule);
     if (theirGain < 0) continue;
     const evaluation = evaluateTrade({ sideA: give, sideB: receive });
     if (!FAIR_VERDICTS.has(evaluation.verdict)) continue;
@@ -270,6 +284,7 @@ export function findTradeProposals({ targetRosterId, rosters = [], playerCatalog
   const targetPlayerNames = new Set(targetPlayers.map(p => p.name));
 
   const proposals = [];
+  const timingRows = new Map();
 
   // Les positions recherchées par target (déficits prioritaires + positions d'impact RB/QB)
   const targetWants = Array.from(new Set([...targetDiag.deficits, "RB", "QB"])).filter(
@@ -351,7 +366,7 @@ export function findTradeProposals({ targetRosterId, rosters = [], playerCatalog
     }
 
     // C. RECHERCHE EXHAUSTIVE : gains de lineup des deux côtés
-    proposals.push(...findLineupUpgrades({ myPlayers: targetPlayers, theirPlayers: partnerPlayers, partnerRosterId: partnerRosterRaw.roster_id, partnerName, week: currentWeek, playerPreferences }));
+    proposals.push(...findLineupUpgrades({ myPlayers: targetPlayers, theirPlayers: partnerPlayers, partnerRosterId: partnerRosterRaw.roster_id, partnerName, week: currentWeek, playerPreferences, timingContext: cutContext, now, rowCache: timingRows }));
 
     // B. COMPLÉMENTARITÉ PURE (WIN-WIN) & CONSOLIDATION
     for (const givePos of targetDiag.surpluses) {
@@ -430,7 +445,7 @@ export function findTradeProposals({ targetRosterId, rosters = [], playerCatalog
       seen.add(key);
       const partner = rosters.find(roster => String(roster.roster_id) === String(p.partnerRosterId));
       const partnerPlayers = (partner?.players || []).map(player => typeof player === "string" ? { ...getPlayerInfo(player), sleeperId: player } : player);
-      const decorated = decorateProposal(p, targetPlayers, partnerPlayers, currentWeek, targetRosterRaw, partner, cutContext);
+      const decorated = decorateProposal(p, targetPlayers, partnerPlayers, currentWeek, targetRosterRaw, partner, cutContext, now, timingRows);
       const { my_lineup_delta: mine, their_lineup_delta: theirs } = decorated.recommendationScore;
       // Un trade qui n'améliore pas ta lineup, ou qui fait perdre le partenaire, n'est pas une opportunité.
       if (p.category !== "HANDCUFF_INSURANCE" && (mine <= 0 || theirs < 0)) continue;
@@ -472,7 +487,7 @@ export function findCounterOffers({ proposal, myPlayers = [], theirPlayers = [],
   const original = proposal.give.map(playerKey).sort().join("|");
   const offers = packages.filter(give => give.map(playerKey).sort().join("|") !== original).map(give => {
     const evaluation = evaluateTrade({ sideA: give, sideB: proposal.receive });
-    const decorated = decorateProposal({ ...proposal, give, evaluation }, myPlayers, theirPlayers, currentWeek, myRoster, theirRoster, cutContext);
+    const decorated = decorateProposal({ ...proposal, give, evaluation }, myPlayers, theirPlayers, currentWeek, myRoster, theirRoster, cutContext, now);
     return { ...decorated, score: decorated.score + preferenceAdjustment(give, playerPreferences) };
   }).filter(offer => ["FAIR", "SLIGHT_ADVANTAGE_A", "SLIGHT_ADVANTAGE_B"].includes(offer.evaluation.verdict) &&
     offer.recommendationScore.my_lineup_delta > 0 && offer.recommendationScore.their_lineup_delta >= 0 &&
@@ -480,7 +495,7 @@ export function findCounterOffers({ proposal, myPlayers = [], theirPlayers = [],
     .map(offer => applyScenarioCheck({ ...offer, selection: classifyTradeProposal(offer, { playerPreferences }) }, { myPlayers, theirPlayers, currentWeek, projectionsByWeek, timingContext: cutContext, now, targetWeek, dataThroughWeek }))
     .filter(offer => offer.selection.group !== "EXPLORATION");
   // Include the original so a strictly worse counter-offer cannot survive its exclusion.
-  const originalOffer = decorateProposal(proposal, myPlayers, theirPlayers, currentWeek, myRoster, theirRoster, cutContext);
+  const originalOffer = decorateProposal(proposal, myPlayers, theirPlayers, currentWeek, myRoster, theirRoster, cutContext, now);
   return removeDominatedProposals([...offers, originalOffer]).filter(offer => offer !== originalOffer)
     .sort((a, b) => b.score - a.score).slice(0, 3);
 }
