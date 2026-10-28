@@ -49,7 +49,9 @@ import { createSupabaseFromEnv, getLatestFeedback, runWeeklyJob } from "./script
 import { timingSafeEqual, createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 
-import { buildCoachSos, formatCoachSos } from "./scripts/sos-coach.js";
+import { buildCoachSos, formatCoachSos, formatCoachSosBrief } from "./scripts/sos-coach.js";
+import { fitTelegramMessage } from "./scripts/telegram-message.js";
+
 import { sosService } from "./scripts/sos-service.js";
 import { sosStore, historicalSos } from "./scripts/sos-store.js";
 import { frozenPastSos } from "./scripts/sos-history.js";
@@ -57,6 +59,8 @@ import { evaluateSos } from "./scripts/sos-feedback.js";
 import { captureExperts } from "./scripts/expert-benchmark.js";
 import { getPrelockCheck } from "./scripts/prelock-check.js";
 import { SOS_HORIZONS, sosMethodology } from "./public/assets/wr-ros-sos.js";
+
+const COACH_PAGE_URL = "https://adineu-fantasy.bakene.tech/coach/";
 
 const DEFAULT_PUBLIC_ROOT = fileURLToPath(new URL("./public", import.meta.url));
 const MIME_TYPES = {
@@ -657,7 +661,13 @@ export function createAppServer({
         plan.sos = buildCoachSos({ context, waivers: freeAgents, bundle: await loadSos().catch(() => null), rbBundle: await loadSos('RB').catch(() => null) });
         // Bearer = automation: refuse. The signed-in page still shows the plan with its warning.
         if (apiAuthorized && refuseUnpublishable(response, plan.coherence)) return;
-        sendJson(response, 200, { ...plan, message: formatCoachPlan(plan) + formatCoachSos(plan.sos) });
+        const detailMessage = formatCoachPlan(plan) + formatCoachSos(plan.sos);
+        // Bearer = n8n → Telegram (4096 max): readable bulletin, full text kept in detailMessage.
+        if (apiAuthorized) {
+          const chat = fitTelegramMessage(formatCoachPlan(plan, { compact: true }) + formatCoachSosBrief(plan.sos), { moreAt: COACH_PAGE_URL });
+          return sendJson(response, 200, { ...plan, message: chat.message, messageTruncated: chat.truncated, detailMessage });
+        }
+        sendJson(response, 200, { ...plan, message: detailMessage });
       } catch (error) {
         const isUnknownTeam = error.message.startsWith("Équipe Sleeper inconnue");
         sendJson(response, isUnknownTeam ? 404 : 502, { error: error.message });

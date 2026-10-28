@@ -24,6 +24,7 @@ export function normalizeCoachPreferences(input = {}) {
 
 function compactWaiver(player) {
   return {
+    qualification: player.qualification ?? null,
     provenance: player.provenance ?? null,
     presentationFacts: { legalTransaction: player.legalTransaction ?? null, horizonCovered: player.horizonCovered ?? null,
       actionBlockers: player.decision?.actionBlockers ?? player.actionBlockers ?? null, confirmation: player.decision?.confirmation ?? null },
@@ -142,7 +143,7 @@ export function buildCoachPlan({ decisionContext, trades, preferences = {} }) {
   };
 }
 
-export function formatCoachPlan(plan, { now = Date.now() } = {}) {
+export function formatCoachPlan(plan, { now = Date.now(), compact = false } = {}) {
   const stateLabel = row => classifyCompactWaiverPresentation(row, { asOf: plan.availabilityAsOf, publishable: plan.publishable, now }).label;
   const record = plan.teamState.record || { wins: 0, losses: 0, ties: 0 };
   const lines = [
@@ -200,6 +201,12 @@ export function formatCoachPlan(plan, { now = Date.now() } = {}) {
     .filter(row => row.dropCostComponents?.unpricedCutPotential || row.modelMetrics?.dropCostComponents?.unpricedCutPotential);
   const cutNames = [...new Set(cutWarnings.map(row => row.dropCandidate?.name || 'coupe proposée'))];
   if (cutNames.length) lines.push('', `⚠ Potentiel de coupe non chiffré : ${cutNames.join(', ')}. Le gain net exclut ce potentiel ; comparer une autre coupe avant décision.`);
-  if (plan.projectionCoverage) lines.push('', ...formatProvenanceSummary(plan.projectionCoverage));
+  if (plan.projectionCoverage) lines.push('', ...(compact ? [formatCoverageLine(plan.projectionCoverage)] : formatProvenanceSummary(plan.projectionCoverage)));
   return lines.join("\n");
+}
+
+/** One readable line for a chat bulletin; the dated per-source provenance stays in the JSON and the page. */
+function formatCoverageLine(summary) {
+  const gaps = ['roster', 'candidates'].reduce((total, scope) => total + (summary[scope]?.gaps?.length ?? 0), 0);
+  return `Couverture : ${summary.roster?.players ?? 'n/d'} joueurs du roster, ${summary.candidates?.players ?? 'n/d'} candidats, ${gaps} trou(s) de projection ; fin des matchs et routes non vérifiées.`;
 }

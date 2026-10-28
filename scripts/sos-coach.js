@@ -36,3 +36,14 @@ export function formatCoachSos(sos) {
     Object.entries(sos.positions ?? {}).map(([position, capture]) => `${position} snapshot ${capture.snapshotId ?? 'indisponible'} · ${capture.asOf ?? capture.reason}\n`).join('') +
     sos.players.map(row => `${row.scope} ${row.name} ${row.position} (${row.nflTeam ?? '?'}) : ${row.sos ? `Fantasy ROS #${row.sos.rank} · ${row.sos.sosScore} ${row.position} PPR concédés/match ajustés · ${row.sos.coveredGames}/${row.sos.gamesInWindow} couverts · prochains ${row.sos.opponents.slice(0, 3).map(g => `S${g.week} ${g.opponent}`).join(', ')} · ${row.signal ?? 'signal indisponible'}` : row.reason}`).join('\n') + '\n' + sos.explanation + [sos.aiContext, sos.rbAiContext].filter(Boolean).map(value => '\n\n' + formatSosHandoff(value)).join('');
 }
+
+/** Chat version: only players whose schedule is not neutral; the full listing stays on the page. */
+export function formatCoachSosBrief(sos) {
+  if (!sos) return '';
+  const notable = sos.players.filter(row => row.scope === 'ROSTER' && row.sos?.difficulty && row.sos.difficulty !== 'NEUTRAL');
+  const unavailable = Object.entries(sos.positions ?? {}).filter(([, capture]) => !capture.snapshotId).map(([position]) => position);
+  return '\n\nSOS WR / RB (explicatif, sans effet sur les décisions)\n' +
+    (notable.length ? notable.map(row => `• ${row.name} ${row.position} (${row.nflTeam ?? '?'}) : ${row.sos.difficulty === 'FAVORABLE' ? 'calendrier favorable' : 'calendrier difficile'} · Fantasy ROS #${row.sos.rank}`).join('\n')
+      : '• Aucun calendrier marqué favorable ou difficile parmi tes WR/RB.') +
+    (unavailable.length ? `\nSOS indisponible : ${unavailable.join(', ')}.` : '');
+}

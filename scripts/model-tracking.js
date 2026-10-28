@@ -28,6 +28,7 @@ import { AUCTION_FEATURES, RIVAL_NEED_POINTS, scoreAuction } from "../public/ass
 import { resolveOperationalWeek } from "../public/assets/nfl-week.js";
 import { GENERAL_SETTINGS_2026 } from "../public/assets/league-settings.js";
 import { PRICE_PER_POINT } from "../public/assets/waiver-model.js";
+import { fitTelegramMessage } from "./telegram-message.js";
 import { DIRECT_PROJECTION_WEEKS, FAR_WEEK_USAGE_WEIGHT, FAR_WEEK_USAGE_WEIGHT_BY_POSITION } from "../public/assets/rest-of-season.js";
 
 export const MODEL_VERSION = "waiver-v2 · usage RB/WR/TE 0.2, QB 0.5 · 2026-10-01";
@@ -470,7 +471,9 @@ export async function runWeeklyJob({ supabase, fetchImpl = fetch, dryRun = false
   const journal = dryRun ? null : await recordDecisionJournal({ supabase, fetchImpl, week }).catch(error => ({ error: error.message }));
   const sosLines = formatSosLines(sos);
   const message = [feedback?.message, auction.line, sosLines.length ? ["Calendrier (SOS, cumul des archives, pts PPR concédés) :", ...sosLines].join("\n") : null].filter(Boolean).join("\n\n");
-  return { season, week, auction, snapshot, journal, sos, feedback: feedback?.report || null, message };
+  // Telegram caps a message at 4096 characters; the full text stays in detailMessage.
+  const chat = fitTelegramMessage(message);
+  return { season, week, auction, snapshot, journal, sos, feedback: feedback?.report || null, message: chat.message, messageTruncated: chat.truncated, detailMessage: message };
 }
 
 async function main() {

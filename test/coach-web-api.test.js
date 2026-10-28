@@ -82,7 +82,12 @@ test("an unpublishable report is refused to bearer automation but still shown to
   current = { ...coherence, publishable: true, warnings: coherence.warnings.slice(1) };
   const sent = await fetch(`${base}/api/coach?team=t0z`, { headers: bearer });
   assert.equal(sent.status, 200);
-  assert.equal(typeof (await sent.json()).message, "string");
+  const automated = await sent.json();
+  assert.equal(typeof automated.message, "string");
+  // n8n forwards `message` to Telegram (4096 max): compact bulletin, full text in detailMessage.
+  assert.ok(automated.message.length <= 4096);
+  assert.equal(typeof automated.detailMessage, "string");
+  assert.doesNotMatch(automated.message, /Source coverage/);
   current = undefined;
   assert.equal((await fetch(`${base}/api/coach?team=t0z`, { headers: bearer })).status, 200);
 });
