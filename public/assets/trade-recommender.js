@@ -8,7 +8,7 @@
  */
 
 import { calculatePlayerTradeValue, evaluateTrade } from "./trade-value.js?v=2c9caa87cf";
-import { assessScenarioConsistency, describeScenarioConsistency, restOfSeasonLineupTotal, scoreTradeRecommendation, tradeAverageDelta, tradeMoveSchedule, tradeReturnScenarios } from "./trade-score.js?v=2e617cecb2";
+import { assessScenarioConsistency, describeScenarioConsistency, restOfSeasonLineupTotal, scoreTradeRecommendation, tradeAverageDelta, tradeMoveSchedule, tradeReturnScenarios } from "./trade-score.js?v=1fdfeb1538";
 import { tradeWeekFrame } from "./trade-timing.js?v=43d83f975d";
 import { partnerLabel } from "./manager-identity.js?v=1b190dd337";
 import { playerKey, playerStatus, preferenceAdjustment } from "./trade-preferences.js?v=c5fec5ce56";

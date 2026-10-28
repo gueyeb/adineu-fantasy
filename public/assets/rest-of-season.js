@@ -18,6 +18,18 @@ const round = value => Number(value.toFixed(1));
  * volume alone is not a projection (callers then use their own fallback, or no value). */
 export const projectedRosOnly = detail => detail && detail.projectedWeeks > 0 ? detail : null;
 
+/**
+ * One week's value as the rest-of-season pace reads it: Sleeper's projection for the next
+ * `directWeeks` after the live week, then blended with usage xFP (missing projection = xFP alone).
+ * Null when nothing applies. The trade simulation uses it week by week, so the season average
+ * (built from the same weeks) and the simulation share one rate model.
+ */
+export function paceWeekValue({ projected, xfp, position, week, liveWeek, directWeeks = DIRECT_PROJECTION_WEEKS, usageWeight = FAR_WEEK_USAGE_WEIGHT_BY_POSITION[position] ?? 0 }) {
+  const canUseUsage = usageWeight > 0 && Number.isFinite(xfp) && xfp >= 0;
+  if (week >= liveWeek + directWeeks && canUseUsage) return (1 - usageWeight) * (Number.isFinite(projected) ? projected : xfp) + usageWeight * xfp;
+  return Number.isFinite(projected) ? projected : null;
+}
+
 export function usageAdjustedRosPpg({
   playerId,
   position,
@@ -46,8 +58,7 @@ export function usageAdjustedRosPpg({
     if (Number.isFinite(projected)) projectedNonBye += 1;
     const isFarWeek = w >= week + directWeeks;
     if (isFarWeek && canUseUsage) {
-      const baseline = Number.isFinite(projected) ? projected : xfp;
-      values.push((1 - usageWeight) * baseline + usageWeight * xfp);
+      values.push(paceWeekValue({ projected, xfp, position, week: w, liveWeek: week, directWeeks, usageWeight }));
       usageWeeks += 1;
     } else if (Number.isFinite(projected)) {
       values.push(projected);

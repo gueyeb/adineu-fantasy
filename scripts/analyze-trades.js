@@ -16,7 +16,7 @@ import { normalizeTradeIntent, targetWeekTradeImpact, compareTargetWeekImpacts }
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { diagnoseRoster, findTradeProposals, MAX_PRIMARY_TRADE_OFFERS } from "../public/assets/trade-recommender.js";
-import { assessScenarioConsistency, describeScenarioConsistency, scoreTradeRecommendation, tradeReturnScenarios } from "../public/assets/trade-score.js";
+import { assessScenarioConsistency, describeScenarioConsistency, firstProjectedWeek, scoreTradeRecommendation, tradeReturnScenarios } from "../public/assets/trade-score.js";
 import { resolveLastCompletedWeek, resolveOperationalWeek } from "../public/assets/nfl-week.js";
 import { usageAdjustedRosPpg, projectedRosOnly } from "../public/assets/rest-of-season.js";
 import { BYE_WEEKS_2026, GENERAL_SETTINGS_2026 } from "../public/assets/league-settings.js";
@@ -102,6 +102,9 @@ export async function loadPlayerValues({ leagueId = DEFAULT_SLEEPER_LEAGUE_ID, f
     // Share live identity/team metadata with browser, CLI and decision context as well as values.
     const values = Object.fromEntries(["name", "position", "nflTeam"].filter(key => Object.hasOwn(info, key)).map(key => [key, info[key]]));
     if (ros) { values.rosPpg = ros.ppg; values.rosSource = ros.source; }
+    // Return week of an Out/IR player in both trade readings (season average and weekly simulation).
+    const nextProjectedWeek = firstProjectedWeek(playerId, info.nflTeam, week, projectionsByWeek);
+    if (nextProjectedWeek !== null) values.nextProjectedWeek = nextProjectedWeek;
     if (usage) {
       values.usageScore = usage.usageScore;
       values.usageTrend = usage.trend;

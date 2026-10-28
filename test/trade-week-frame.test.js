@@ -196,3 +196,40 @@ test("a later window keeps the live-week reading: elapsed absences and rosPpg's 
   // A one-week segment window: three listed games missed, nothing left that week.
   assert.equal(restOfSeasonLineupTotal([ir], 8, { toWeek: 8 }).total, 0);
 });
+
+test("an Out/IR player misses the weeks before his re-projected return in both readings", async () => {
+  const { firstProjectedWeek, returnWeekAssumption } = await import("../public/assets/trade-score.js");
+  // SF is on bye S8 and Sleeper projects him again from S9: no game is lost inside S8–S14.
+  const projectionsByWeek = { 9: { "ir-wr": { pts_ppr: 16 } }, 10: { "ir-wr": { pts_ppr: 16 } } };
+  const nextProjectedWeek = firstProjectedWeek("ir-wr", "SF", 8, projectionsByWeek);
+  const ir = p("ir-wr", "WR", "SF", { rosPpg: 12, injuryStatus: "IR", nextProjectedWeek });
+  assert.equal(nextProjectedWeek, 9);
+  assert.equal(returnWeekAssumption(ir, { week: 8, projectionsByWeek }).week, nextProjectedWeek);
+  const healthy = { ...ir, injuryStatus: null };
+  assert.equal(restOfSeasonLineupTotal([ir], 8).total, restOfSeasonLineupTotal([healthy], 8).total);
+  // Diagnosis 28/10: a flat 3-game IR absence on top of such a return (Travis Etienne Jr., Kuro)
+  // flipped 7 of 17 contradicted trade sides. Without a re-projection the status duration stays,
+  // counted in weeks before the return (S8–S10) minus his bye: 2 games, not 3.
+  const unprojected = { ...ir, nextProjectedWeek: undefined };
+  assert.equal(restOfSeasonLineupTotal([unprojected], 8).total, Number((14 * 4 / 6 * 6 / 7).toFixed(1)));
+  assert.equal(returnWeekAssumption(unprojected, { week: 8 }).week, 11);
+});
+
+test("the weekly simulation reads far weeks with the same usage blend as rosPpg", async () => {
+  const { paceWeekValue, usageAdjustedRosPpg } = await import("../public/assets/rest-of-season.js");
+  assert.equal(paceWeekValue({ projected: 10, xfp: 20, position: "WR", week: 9, liveWeek: 8 }), 10);
+  assert.equal(paceWeekValue({ projected: 10, xfp: 20, position: "WR", week: 10, liveWeek: 8 }), 12);
+  assert.equal(paceWeekValue({ projected: null, xfp: 20, position: "WR", week: 9, liveWeek: 8 }), null);
+  // A riser (xFP 20) projected 10 every week against a flat 10: Sleeper alone sees no gain, the
+  // season average (rosPpg) sees one; the simulation now reads the same +2 from S10.
+  const riser = p("kc-wr", "WR", "KC", { projectedPpg: 10, xfp: 20 }), flat = p("m-wr1", "WR", "KC", { projectedPpg: 10 });
+  const mine = weeklyRoster("m", [flat, p("m-wr2", "WR", "KC")]), theirs = weeklyRoster("t", [riser, p("t-wr2", "WR", "KC")]);
+  const projectionsByWeek = flatProjections([...mine, ...theirs]);
+  for (const player of [riser, flat]) player.rosPpg = usageAdjustedRosPpg({ playerId: player.sleeperId, position: "WR", nflTeam: "KC", projectionsByWeek, week: 8, xfp: player.xfp }).ppg;
+  const args = { myPlayers: mine, theirPlayers: theirs, give: [flat], receive: [riser], week: 8 };
+  const score = scoreTradeRecommendation(args);
+  const weekly = tradeReturnScenarios({ ...args, projectionsByWeek });
+  assert.equal(weekly.scenarios[0].myTotal, 10);
+  assert.equal(weekly.evidence.basis, "SLEEPER_WEEKLY_PROJECTIONS_USAGE_BLEND");
+  assert.ok(Math.abs(score.my_lineup_delta * 7 - weekly.scenarios[0].myTotal) < 0.5);
+});

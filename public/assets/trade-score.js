@@ -2,6 +2,7 @@ import { assessTradeCut } from "./trade-cut-readiness.js?v=3a8f3ea6db";
 import { hasNoNflTeam, tradeWeekFrame } from "./trade-timing.js?v=43d83f975d";
 import { calculatePlayerTradeProfile, evaluateTrade } from "./trade-value.js?v=2c9caa87cf";
 import { BYE_WEEKS_2026, GENERAL_SETTINGS_2026, ROSTER_SETTINGS_2026 } from "./league-settings.js?v=886f353394";
+import { paceWeekValue } from "./rest-of-season.js?v=9b85ae76ed";
 
 const round = value => Number(value.toFixed(1));
 const identity = player => String(player.sleeperId || player.name);
@@ -62,11 +63,21 @@ function restOfSeasonParts(player, week, statusWeek = week, toWeek = LAST_REGULA
     : projection(player));
   const bye = BYE_WEEKS_2026[player.nflTeam];
   const byeInWindow = bye >= week && bye <= toWeek;
-  // A Sleeper projection already prices a Questionable/Doubtful tag in; only Out/IR adds misses.
-  const listedMissed = isOutThisWeek(player) ? GAMES_MISSED_BY_STATUS[injuryStatus(player)] : projection(player) === null ? GAMES_MISSED_BY_STATUS[injuryStatus(player)] || 0 : 0;
-  // A bye between the reading and the window start costs no game.
-  const elapsedGames = Math.max(0, week - statusWeek - (bye >= statusWeek && bye < week ? 1 : 0));
-  const statusMissed = Math.max(0, listedMissed - elapsedGames);
+  // Out/IR: games of the window before the same return week as the weekly simulation (Sleeper's
+  // first re-projected week, else the status duration), bye excluded. Diagnosis 28/10: a flat
+  // 3-game IR absence on top of a return Sleeper already re-projects for next week flipped 7 of 17
+  // contradicted trade sides. A Questionable/Doubtful tag is already priced into a projection.
+  let statusMissed;
+  if (isOutThisWeek(player)) {
+    const returnWeek = statusReturnWeek(player, statusWeek);
+    statusMissed = 0;
+    for (let w = week; w < returnWeek && w <= toWeek; w++) if (w !== bye) statusMissed++;
+  } else {
+    const listedMissed = projection(player) === null ? GAMES_MISSED_BY_STATUS[injuryStatus(player)] || 0 : 0;
+    // A bye between the reading and the window start costs no game.
+    const elapsedGames = Math.max(0, week - statusWeek - (bye >= statusWeek && bye < week ? 1 : 0));
+    statusMissed = Math.max(0, listedMissed - elapsedGames);
+  }
   // rosPpg (rest-of-season.js) already averages the bye in as a 0: never subtract it twice.
   const byeMissed = usageAdjusted === null && byeInWindow ? 1 : 0;
   return { healthy, statusMissed, byeMissed, byeInWindow, rosPpgIncludesBye: usageAdjusted !== null && bye >= statusWeek && bye <= LAST_REGULAR_WEEK };
@@ -236,18 +247,29 @@ export const RETURN_SCENARIOS = [
   { id: "LONG", label: "hypothèse : absence prolongée", shift: weeks => weeks.expected + 3, ramp: [0.75] }
 ];
 
+/** First week after `week` with a positive Sleeper projection, bye skipped; null when none. Stored on
+ * player values (`nextProjectedWeek`) so the season average and the simulation share one return. */
+export function firstProjectedWeek(playerId, nflTeam, week, projectionsByWeek = {}) {
+  const bye = BYE_WEEKS_2026[nflTeam];
+  for (let w = week + 1; w <= LAST_REGULAR_WEEK; w++) {
+    const points = projectionsByWeek[w]?.[String(playerId)]?.pts_ppr;
+    if (w !== bye && Number.isFinite(points) && points > 0) return w;
+  }
+  return null;
+}
+
+/** Return week of an Out/IR player read at statusWeek, from his stored nextProjectedWeek. */
+function statusReturnWeek(player, statusWeek) {
+  const next = player.nextProjectedWeek;
+  return Number.isInteger(next) && next > statusWeek ? next : statusWeek + Math.ceil(GAMES_MISSED_BY_STATUS[injuryStatus(player)] || 0);
+}
+
 /** Modeling assumption only: future projections never establish medical clearance or IR activation. */
 export function returnWeekAssumption(player, { week, projectionsByWeek = {} }) {
   const missed = GAMES_MISSED_BY_STATUS[injuryStatus(player)] || 0;
   if (missed < 1) return { week, basis: "CURRENT_STATUS", availability: "UNVERIFIED" };
-  const id = identity(player);
-  const bye = BYE_WEEKS_2026[player.nflTeam];
-  for (let w = week + 1; w <= LAST_REGULAR_WEEK; w++) {
-    const points = projectionsByWeek[w]?.[id]?.pts_ppr;
-    if (w !== bye && Number.isFinite(points) && points > 0) {
-      return { week: w, basis: "FUTURE_PROJECTION_ASSUMPTION", availability: "UNVERIFIED" };
-    }
-  }
+  const projected = firstProjectedWeek(identity(player), player.nflTeam, week, projectionsByWeek);
+  if (projected !== null) return { week: projected, basis: "FUTURE_PROJECTION_ASSUMPTION", availability: "UNVERIFIED" };
   return { week: week + Math.ceil(missed), basis: "STATUS_DURATION_ASSUMPTION", availability: "UNVERIFIED" };
 }
 
@@ -270,8 +292,9 @@ function healthyRate(player, { week, projectionsByWeek }) {
 /**
  * Week-by-week optimal-lineup impact of one trade for both teams, under each return hypothesis for
  * the injured assets (feedback 14/10: an IR star was valued from one stale number). Every week uses
- * that week's Sleeper projection (bye = 0, unavailable = 0, missing = healthy rate, counted in
- * `evidence`). Non-traded injured players follow their expected return. Returns a range, not a verdict.
+ * that week's Sleeper projection, blended with usage xFP beyond the next two weeks like rosPpg
+ * (bye = 0, unavailable = 0, missing = healthy rate, counted in `evidence`). Non-traded injured
+ * players follow their expected return. Returns a range, not a verdict.
  */
 export function tradeReturnScenarios({ myPlayers = [], theirPlayers = [], give = [], receive = [], week, projectionsByWeek = {}, timingContext = null, now = Date.now(), targetWeek = null, dataThroughWeek = null }) {
   // Each traded player changes lineup only from his first affectable week (agreement now, review,
@@ -299,7 +322,10 @@ export function tradeReturnScenarios({ myPlayers = [], theirPlayers = [], give =
     if (w < returnWeek) return 0;
     const projected = projectionsByWeek[w]?.[identity(player)]?.pts_ppr;
     // An injured player's stale projection before his return is ignored above; after it, use it.
-    let value = Number.isFinite(projected) ? projected : null;
+    // Far weeks use the same Sleeper + usage blend as rosPpg (rest-of-season.js), so the season
+    // average and this simulation share one rate model (diagnosis 28/10: the blend alone flipped 7
+    // of 12 remaining contradicted sides, e.g. Mahomes 16.0 blended vs 19.6 raw Sleeper weeks).
+    let value = Number.isFinite(projected) ? paceWeekValue({ projected, xfp: player.xfp, position: player.position, week: w, liveWeek: week }) : null;
     if (value === null) {
       value = rateOf(player);
       if (assets.has(identity(player))) filled.add(`${player.name} S${w}`);
@@ -340,7 +366,8 @@ export function tradeReturnScenarios({ myPlayers = [], theirPlayers = [], give =
     scenarios,
     range: { mine: [Math.min(...mine), Math.max(...mine)], theirs: [Math.min(...theirs), Math.max(...theirs)] },
     evidence: {
-      basis: "SLEEPER_WEEKLY_PROJECTIONS",
+      // Sleeper for the next two weeks, then the same usage blend as rosPpg (rest-of-season.js).
+      basis: "SLEEPER_WEEKLY_PROJECTIONS_USAGE_BLEND",
       injuredAssets: injuredAssets.map(player => ({ name: player.name, status: injuryStatus(player), expectedReturnWeek: expectedReturnWeek(player, context) })),
       returnAssumptions: [...new Map([...myPlayers, ...theirPlayers].map(player => [identity(player), player])).values()]
         .filter(player => isOutThisWeek(player))

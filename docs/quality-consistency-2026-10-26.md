@@ -1001,3 +1001,52 @@ coupe avant le 28/10). Limites : a posteriori ; acceptation du trade et disponib
 prouvées ; la semaine du plan Coach doit égaler celle du `MODEL_PLAN` (semaine opérationnelle) ;
 coupes du diagnostic Coach (hors plan) non couvertes ; le bulletin hors mardi n’écrit rien si la
 semaine a déjà son option.
+
+**QC-02 — moyenne et simulation sur un même modèle de taux, 28/10.** Suite de la limite
+précédente : sur la capture S8 du 28/10, 17 à 25 côtés de trade sur 120 restaient contredits
+(moyenne positive, simulation ≤ 0, ou l’inverse). Diagnostic côté par côté (mercredi, 17 côtés,
+en remplaçant une à une les briques de la moyenne par celles de la simulation) :
+7 venaient du retour de blessure, 4 du taux (mélange usage), 6 de la dynamique de lineup
+semaine par semaine.
+
+1. **Retour de blessure (7/17).** La moyenne retirait une durée fixe par statut (IR = 3 matchs,
+   Out = 1) alors que la simulation fait revenir le joueur à la première semaine que Sleeper
+   reprojette. Cas type : Travis Etienne Jr. (IR, bye S8, reprojeté dès S9) comptait pour moitié
+   dans chaque offre de Kuro ; Evans, Montgomery, Deebo (Out pendant leur bye S8) perdaient un
+   match de plus. Correctif : la valeur joueur porte `nextProjectedWeek` (`firstProjectedWeek`,
+   même balayage que `returnWeekAssumption`) et la moyenne retire les semaines de la fenêtre avant
+   ce retour, bye exclu ; sans reprojection, la durée du statut reste, comptée en semaines.
+2. **Taux (4/17, puis 7/12 après le point 1).** `rosPpg` mélange les semaines lointaines avec
+   l’xFP d’usage (20 %, 50 % pour les QB, validé par backtest), la simulation lisait les
+   projections Sleeper brutes. Cas type : Malik Willis contre Mahomes + Downs, Mahomes 16,0 en
+   moyenne mais 19,6 de projection brute : +4,2 contre −30,8 pts. Correctif dans la simulation,
+   pas dans la moyenne : le backtest a retenu le mélange, donc ses semaines au-delà des deux
+   prochaines passent par `paceWeekValue` (`rest-of-season.js`), la même formule que `rosPpg`.
+   Base affichée : `SLEEPER_WEEKLY_PROJECTIONS_USAGE_BLEND`.
+3. **Dynamique de lineup (6/17).** Disparue avec le point 2 : les projections brutes variaient
+   d’une semaine à l’autre et changeaient le titulaire, ce que le mélange lisse.
+
+Mesure, même capture et mêmes rejeux que l’incrément précédent (avant → après) :
+
+| Rejeu | Concordance /120 | Côtés contredits | Écart moyen (pts) | Négociables + recommandées | Recherche (s) |
+|---|---|---|---|---|---|
+| mer. 28/10 13:30 UTC | 100 → 118 | 17 → 0 | 7,2 → 1,8 | 7 + 0 → 8 + 2 | 4,7 → 4,7 |
+| ven. 30/10 12:00 UTC | 99 → 117 | 19 → 0 | 7,1 → 1,7 | 7 + 0 → 8 + 2 | 5,2 → 5,2 |
+| dim. 01/11 12:00 UTC | 92 → 116 | 25 → 4 | 6,9 → 1,8 | 6 + 0 → 5 + 2 | 5,2 → 5,3 |
+
+Le point 1 seul donnait 105/104/104 et 12/12/14 contredits. Les 4 côtés restants du dimanche
+sont proches de zéro (moyenne × semaines ≤ 1,8 pt, simulation entre −0,9 et −0,1), tous autour
+de Jameson Williams.
+
+Evals : retour reprojeté identique dans les deux lectures (IR bye S8 reprojeté S9 = joueur
+sain), repli sur la durée du statut sans compter le bye (2 matchs, pas 3), `paceWeekValue`
+(semaines directes brutes, lointaines mélangées), simulation d’un joueur en hausse d’usage
+égale à moyenne × semaines (+10). 708 tests ; `npm run check` valide.
+
+Limites : simulation et moyenne partagent désormais le même taux, donc la simulation n’est plus
+une lecture indépendante des projections Sleeper brutes. Le mélange n’est validé qu’en
+moyenne de saison (backtest), pas semaine par semaine. Une semaine sans projection garde le
+taux sain dans la simulation (listée dans `projectionGaps`) mais l’xFP seul dans `rosPpg`.
+`nextProjectedWeek` n’existe que sur les valeurs servies par `loadPlayerValues` ; ailleurs, la
+durée du statut s’applique. `buildLeagueTradeIntelligence` et `trade-target.js` ne sont pas
+mesurés ici. Aucune écriture Supabase/Sleeper.
