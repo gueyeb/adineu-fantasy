@@ -14,7 +14,7 @@ import { loadBidHistory, loadWatchlist, saveBidHistory, saveWatchlist, syncWarRo
 import { renderWeeklyRoster, renderWeeklyMoves } from "./coach-week-view.js?v=df0cc00998";
 import { LEAGUE_METADATA_2026 } from "./league-settings.js?v=886f353394";
 import { formatAuction } from "./faab-auction.js?v=1eea51c520";
-import { REASON_MAX as JOURNAL_REASON_MAX } from "./decision-log.js?v=aee82836af";
+import { REASON_MAX as JOURNAL_REASON_MAX, describeCounterfactual } from "./decision-log.js?v=86d30f4278";
 import { readSettingsForm, renderCoachSettings, renameMessage } from "./coach-settings-view.js?v=56e93f18f8";
 
 const login = document.getElementById("coach-login");
@@ -197,11 +197,26 @@ function renderPlanChoices(rows = []) {
     <p class="war-note">Un choix n’est pas un mouvement : l’état « exécuté » vient uniquement des transactions Sleeper.</p>
     <ol class="journal-list">${rows.map(row => `<li class="journal-entry">
       <div><b>S${row.week} · ${escapeHtml(row.name || `#${row.playerId}`)}</b> · ${row.action === "ADD_NOW" ? "ajout libre" : "claim"}${Number.isFinite(row.suggestedBid) ? ` ${row.suggestedBid} $` : ""}</div>
-      <small>${PLAN_MOVE_LABEL[row.move] || escapeHtml(row.move)}${row.choice === "ACCEPTED" && !row.executed ? " · accepté mais non exécuté" : ""}</small>
+      <small>${PLAN_MOVE_LABEL[row.move] || escapeHtml(row.move)}${row.choice === "ACCEPTED" && !row.executed ? " · accepté mais non exécuté" : ""}${row.counterfactual ? ` · si suivi (estimation Adineu) : ${escapeHtml(describeCounterfactual(row.counterfactual))}` : ""}</small>
       <form class="journal-reason" data-plan-id="${escapeHtml(row.planId)}" data-player-id="${escapeHtml(row.playerId)}">
         <select aria-label="Choix"><option value="">— choix —</option>${Object.entries(PLAN_CHOICE_LABEL).map(([value, label]) => `<option value="${value}"${row.choice === value ? " selected" : ""}>${label}</option>`).join("")}</select>
         <input type="text" maxlength="${JOURNAL_REASON_MAX}" value="${escapeHtml(row.reason || "")}" placeholder="Motif (optionnel)" aria-label="Motif du choix"><button class="coach-secondary" type="submit">Enregistrer</button></form>
     </li>`).join("")}</ol>`;
+}
+
+/**
+ * Recommendations not placed: their total, then the ones without a plan row above (local snapshots).
+ * Always an Adineu estimate: the team's real roster each week, best lineup in hindsight.
+ */
+function renderCounterfactuals(rows = [], summary = null, planRows = []) {
+  if (!rows.length) return "";
+  const shown = new Set(planRows.filter(row => row.counterfactual).map(row => `${row.week}|${row.playerId}`));
+  const extra = rows.filter(row => !shown.has(`${row.week}|${row.added[0]?.id}`));
+  return `<h4>Recommandations non suivies — et si ?</h4>
+    <p class="war-note">Estimation Adineu, pas un résultat Sleeper : le roster réel de chaque semaine, avec le joueur recommandé (et sa coupe quand le plan l’a enregistrée), comparé en lineup optimale a posteriori sur 4 semaines. Un joueur resté au banc compte 0.${summary?.evaluated ? ` Total : ${signed(summary.lineupGain)} pts sur ${summary.evaluated} recommandation(s) évaluée(s)` : ""}${summary?.notScorable ? ` · ${summary.notScorable} non évaluable(s)` : ""}${summary?.pending ? ` · ${summary.pending} en attente` : ""}.</p>
+    ${extra.length ? `<ol class="journal-list">${extra.map(row => `<li class="journal-entry">
+      <div><b>S${row.week} · ${names(row.added)}</b> · ${row.note === "ADD_NOW" ? "ajout libre" : "claim"}${Number.isFinite(row.bid) ? ` ${row.bid} $` : ""}${row.dropped.length ? ` <i>coupe</i> ${names(row.dropped)}` : ""}</div>
+      <small>${escapeHtml(describeCounterfactual(row.outcome))}</small></li>`).join("")}</ol>` : ""}`;
 }
 
 function renderJournal(data) {
@@ -214,6 +229,7 @@ function renderJournal(data) {
   return `<p>${summary.moves ?? 0} mouvements · ${summary.claimsWon ?? 0} claims gagnés / ${summary.claimsLost ?? 0} perdus · ${summary.faabSpent ?? 0} $ dépensés · net des mouvements évalués ${signed(summary.netPointsFromMoves ?? 0)} pts (${summary.evaluatedMoves ?? 0}) · ${summary.lineupPointsLeft ?? "—"} pts laissés au banc sur ${summary.lineupWeeks ?? 0} semaines.</p>
     <p class="war-note">Net = points des joueurs ajoutés moins ceux des joueurs coupés, au barème de la ligue, sur 4 semaines à partir de la semaine du mouvement. Bilans à 2 et 4 semaines affichés seulement une fois la fenêtre terminée. Mis à jour chaque mardi.</p>
     ${renderPlanChoices(data.planChoices)}
+    ${renderCounterfactuals(data.counterfactuals, data.counterfactualSummary, data.planChoices)}
     <ol class="journal-list">${rows || `<p class="coach-empty">Journal vide : la synchronisation du mardi le remplit.</p>`}</ol>`;
 }
 

@@ -903,3 +903,43 @@ Evals : `test/trade-partner-identity.test.js` (libellés, compte inconnu jamais 
 partenaires, propositions). Limite : la ligne `TEAM … (@compte)` du contexte IA et l’en-tête
 du bulletin (ta propre équipe) gardent nom d’équipe + compte ; aucun test réseau de
 `evaluateTradeOffer`.
+
+## QC-03 — Sixième incrément : recommandations non suivies (et si ?)
+
+Le journal mesurait seulement les mouvements exécutés. Chaque recommandation du mardi
+(ADD_NOW / CLAIM_IF_CHEAP) restée sans mouvement Sleeper cette semaine-là (ni ajout, ni claim
+tenté) reçoit désormais un contrefactuel, toujours étiqueté **estimation Adineu** :
+`evaluateSkippedRecommendation` (`public/assets/decision-log.js`) reprend, pour chaque semaine
+terminée de la fenêtre de 4 semaines, le roster réel de l’équipe (ligne matchup Sleeper),
+ajoute le joueur à ses points au barème de la ligue, retire la coupe du plan si elle est
+enregistrée et encore présente, et compare la lineup optimale a posteriori avec et sans lui.
+Gain de lineup, pas points bruts : une semaine au banc vaut 0, une coupe titulaire peut rendre
+le gain négatif ; un joueur ajouté plus tard compte 0 à partir de son arrivée. Jamais deviné :
+`PENDING` avant le match, `NOT_SCORABLE` avec raison (`POSITION_UNKNOWN`, `ROSTER_WEEK_MISSING`,
+`STATS_UNAVAILABLE` — une semaine dont les stats n’ont pas chargé n’est pas un zéro —,
+`LINEUP_UNAVAILABLE`). Hypothèses déclarées : `CUT_NOT_RECORDED` (plans enregistrés avant ce
+changement : gain = borne haute) et `TAKEN_BY_RIVAL` ; `likelyOutbid` quand un rival a gagné le
+claim au-dessus de l’enchère suggérée.
+
+Stockage sans migration : lignes `decision_log` de kind `SKIPPED_RECOMMENDATION`
+(`<saison>:<roster>:skipped:<semaine>:<joueur>`), écrites par la synchro avec les mouvements ;
+la lecture les sépare des mouvements (résumé inchangé) et ignore celles dont le joueur a été
+ajouté depuis. Les recommandations enregistrées portent maintenant `position`, `cutPlayerId` et
+`cutName` (coupe de l’étape du plan, sinon du fit). Coach « Journal des décisions » : « si suivi
+(estimation Adineu) » sur chaque recommandation sans mouvement, total et section « et si ? »
+pour celles sans plan ; message du mardi : une ligne compacte (3 premières, total), sous le
+garde-fou Telegram existant.
+
+Données réelles (lecture seule du plan Supabase, aucune écriture), Boukki au 28/10 :
+S7 Bo Nix (claim 7 $) +20,18 pts (Mahomes 6 pts titulaire, Nix 26,18), Browns et Jets 0 pt et
+surenchéris (38 $ et 22 $), Hockenson et Bengals S8 en attente.
+
+Evals : 6 nouveaux tests (gain en lineup, semaines au banc, ajout ultérieur, coupe retirée
+et gain négatif, attente/poste/roster/stats manquants, rival surenchéri, lignes stockées, filtre
+après ajout, claim perdu = tentative réelle, ligne du mardi, assemblage sur ligne matchup réelle
+et stats non chargées). 699 tests réussis ; `npm run check` valide.
+
+Limites : a posteriori (la lineup optimale connaît les scores ; ce n’est pas la décision qu’on
+aurait prise) ; disponibilité réelle non prouvée (un ajout libre pris par un rival avant nous
+reste une hypothèse) ; coupe absente des plans antérieurs ; fenêtre de 4 semaines sans valeur
+au-delà ; contrefactuel des refus de coupe ou de trade non couvert.

@@ -147,7 +147,98 @@ export function skippedRecommendations(entries, recommendationsByWeek = {}) {
   const acted = new Set(entries.flatMap(entry => entry.added.map(player => `${entry.week}|${player.id}`)));
   return Object.entries(recommendationsByWeek).flatMap(([week, rows]) => rows
     .filter(row => ["ADD_NOW", "CLAIM_IF_CHEAP"].includes(row.action) && !acted.has(`${week}|${row.playerId}`))
-    .map(row => ({ week: Number(week), playerId: String(row.playerId), name: row.name ?? null, action: row.action, suggestedBid: row.suggestedBid ?? null, source: row.source })));
+    .map(row => ({ week: Number(week), playerId: String(row.playerId), name: row.name ?? null, action: row.action, suggestedBid: row.suggestedBid ?? null, source: row.source,
+      position: row.position ?? null, cutPlayerId: row.cutPlayerId ?? null, cutName: row.cutName ?? null })));
+}
+
+/** Kind of the stored counterfactual rows: one per recommendation the team did not place. */
+export const SKIPPED_KIND = "SKIPPED_RECOMMENDATION";
+/** The counterfactual is an Adineu estimate: the team's real weekly roster, best lineup in hindsight. */
+export const COUNTERFACTUAL_BASIS = "ADINEU_ESTIMATE_HINDSIGHT_OPTIMAL_LINEUP";
+
+/**
+ * "What if I had followed it" for one recommendation not placed (a `skippedRecommendations` row).
+ * Each completed week of the window compares the hindsight optimal lineup of the roster the team
+ * really had, with the player added (and the plan's cut removed while still on the roster), against
+ * the same lineup without him: a player who would have sat on the bench adds 0, a cut starter can
+ * make it negative. Never guessed: a week without the team's roster or stats, or a player without
+ * position, is NOT_SCORABLE.
+ * `rosterOf(week)` -> { playerIds, playersPoints } | null; `pointsOf(id, week)` -> number, or null
+ * when that week's stats are unavailable; `optimalOf(playerIds, playersPoints)` -> number.
+ * `takenBy` = another roster's completed add of the player that same week (claim bid included).
+ */
+export function evaluateSkippedRecommendation(row, { rosterOf, pointsOf, optimalOf, lastCompletedWeek, takenBy = null, window = OUTCOME_WINDOW_WEEKS }) {
+  const basis = COUNTERFACTUAL_BASIS;
+  if (!Number.isInteger(row.week) || row.week > lastCompletedWeek) return { status: "PENDING", basis };
+  const notScorable = (reason, week = null) => ({ status: "NOT_SCORABLE", basis, reason, week });
+  if (!row.position) return notScorable("POSITION_UNKNOWN");
+  const id = String(row.playerId);
+  const cutId = row.cutPlayerId ? String(row.cutPlayerId) : null;
+  const weekly = [];
+  for (let week = row.week; week <= Math.min(lastCompletedWeek, row.week + window - 1); week++) {
+    const roster = rosterOf(week);
+    if (!roster) return notScorable("ROSTER_WEEK_MISSING", week);
+    const points = pointsOf(id, week);
+    if (points === null || points === undefined) return notScorable("STATS_UNAVAILABLE", week);
+    // Added later anyway: from then on the real roster already has him.
+    if (roster.playerIds.includes(id)) { weekly.push({ week, points: round(points), gain: 0, onRoster: true }); continue; }
+    const cutHere = cutId !== null && roster.playerIds.includes(cutId);
+    const without = optimalOf(roster.playerIds, roster.playersPoints);
+    const withPlayer = optimalOf([...roster.playerIds.filter(other => !cutHere || other !== cutId), id], { ...roster.playersPoints, [id]: points });
+    if (!Number.isFinite(without) || !Number.isFinite(withPlayer)) return notScorable("LINEUP_UNAVAILABLE", week);
+    weekly.push({ week, points: round(points), gain: round(withPlayer - without), onRoster: false, cutRemoved: cutHere });
+  }
+  const assumptions = [];
+  if (!cutId) assumptions.push("CUT_NOT_RECORDED");
+  if (takenBy) assumptions.push("TAKEN_BY_RIVAL");
+  const likelyOutbid = Boolean(takenBy?.type === "waiver" && Number.isFinite(row.suggestedBid) && takenBy.bid > row.suggestedBid);
+  return { status: weekly.length >= window ? "COMPLETE" : "PARTIAL", basis, fromWeek: row.week, throughWeek: weekly.at(-1).week, weeks: weekly.length,
+    playerPoints: round(weekly.reduce((sum, item) => sum + item.points, 0)), lineupGain: round(weekly.reduce((sum, item) => sum + item.gain, 0)),
+    weeksInLineup: weekly.filter(item => item.gain > 0).length, weekly, cutPlayerId: cutId, cutModeled: cutId !== null, takenBy, likelyOutbid, assumptions };
+}
+
+/** Stored shape of a counterfactual (decision_log row of kind SKIPPED_KIND). */
+export function skippedEntry(row, outcome, { season, rosterId }) {
+  return { id: `${season}:${rosterId}:skipped:${row.week}:${row.playerId}`, season, rosterId, kind: SKIPPED_KIND, week: row.week, occurredAt: null,
+    added: [{ id: String(row.playerId), name: row.name ?? `Player #${row.playerId}`, position: row.position ?? null }],
+    dropped: row.cutPlayerId ? [{ id: String(row.cutPlayerId), name: row.cutName ?? `Player #${row.cutPlayerId}`, position: null }] : [],
+    bid: row.suggestedBid ?? null, note: row.action, outcome,
+    model: { verdict: "RECOMMENDED", action: row.action, suggestedBid: row.suggestedBid ?? null, source: row.source ?? null } };
+}
+
+/** Counterfactuals still valid: a player added (or claimed) that week since the last sync is no longer skipped. */
+export function currentCounterfactuals(rows = [], entries = []) {
+  const acted = new Set(entries.flatMap(entry => (entry.added || []).map(player => `${entry.week}|${player.id}`)));
+  return rows.filter(row => !acted.has(`${row.week}|${row.added[0]?.id}`));
+}
+
+export function summarizeCounterfactuals(rows = []) {
+  const scored = rows.filter(row => ["COMPLETE", "PARTIAL"].includes(row.outcome?.status));
+  return { skipped: rows.length, evaluated: scored.length, lineupGain: scored.length ? round(scored.reduce((sum, row) => sum + row.outcome.lineupGain, 0)) : null,
+    notScorable: rows.filter(row => row.outcome?.status === "NOT_SCORABLE").length, pending: rows.filter(row => row.outcome?.status === "PENDING").length };
+}
+
+const COUNTERFACTUAL_REASON = { POSITION_UNKNOWN: "poste inconnu", ROSTER_WEEK_MISSING: "roster de la semaine absent", STATS_UNAVAILABLE: "stats indisponibles", LINEUP_UNAVAILABLE: "lineup non calculable" };
+const frNumber = value => String(value).replace(".", ",");
+const signedPoints = value => `${value > 0 ? "+" : value < 0 ? "−" : ""}${frNumber(Math.abs(value))} pts`;
+
+/** One short French phrase for an outcome, shared by the Coach page and the Tuesday message. */
+export function describeCounterfactual(outcome) {
+  if (!outcome || outcome.status === "PENDING") return "en attente du match";
+  if (outcome.status === "NOT_SCORABLE") return `non évaluable (${COUNTERFACTUAL_REASON[outcome.reason] || outcome.reason}${outcome.week ? `, S${outcome.week}` : ""})`;
+  const notes = [outcome.status === "PARTIAL" ? "partiel" : null, outcome.cutModeled ? null : "coupe non enregistrée",
+    outcome.likelyOutbid ? `pris par un rival à ${outcome.takenBy.bid} $` : outcome.takenBy ? "pris par un rival" : null].filter(Boolean);
+  return `S${outcome.fromWeek}–S${outcome.throughWeek} : ${signedPoints(outcome.lineupGain)} en lineup optimale (${outcome.weeksInLineup} sem. titulaire, ${frNumber(outcome.playerPoints)} pts marqués)${notes.length ? ` · ${notes.join(", ")}` : ""}`;
+}
+
+/** Compact Telegram line: evaluated counterfactuals, largest gain first, or null when none. */
+export function formatCounterfactualLine(rows = [], { limit = 3 } = {}) {
+  const scored = rows.filter(row => ["COMPLETE", "PARTIAL"].includes(row.outcome?.status))
+    .sort((a, b) => b.outcome.lineupGain - a.outcome.lineupGain || b.week - a.week);
+  if (!scored.length) return null;
+  const total = summarizeCounterfactuals(scored).lineupGain;
+  const items = scored.slice(0, limit).map(row => `${row.added[0]?.name ?? `#${row.added[0]?.id}`} S${row.week} ${signedPoints(row.outcome.lineupGain)}${row.outcome.likelyOutbid ? " (surenchéri)" : ""}`);
+  return `Recos non suivies (estimation Adineu, lineup optimale a posteriori) : ${items.join(" · ")}${scored.length > limit ? ` · ${scored.length - limit} autre(s)` : ""} — total ${signedPoints(total)} sur ${scored.length}.`;
 }
 
 /** Season totals: FAAB spent, net points of completed moves, lineup points left, model agreement. */
@@ -222,8 +313,10 @@ export function applyPlanChoice(details = {}, playerId, { choice, reason }, at =
  * One line per Tuesday recommendation (ADD_NOW / CLAIM_IF_CHEAP): the operator's choice next to
  * what Sleeper shows was done that week. `move` is EXECUTED (completed add of that player that
  * week), ATTEMPTED (claim lost) or NONE. An ACCEPTED choice without a move stays not executed.
+ * A recommendation with no move carries its stored counterfactual outcome, if any.
  */
-export function planChoiceRows(plans = [], entries = []) {
+export function planChoiceRows(plans = [], entries = [], counterfactuals = []) {
+  const whatIf = new Map(counterfactuals.map(row => [`${row.week}|${row.added[0]?.id}`, row.outcome]));
   const moves = new Map();
   for (const entry of entries) {
     if (!["CLAIM_WON", "FREE_ADD", "CLAIM_LOST", "TRADE"].includes(entry.kind)) continue;
@@ -240,7 +333,7 @@ export function planChoiceRows(plans = [], entries = []) {
       const move = moves.get(`${plan.week}|${row.playerId}`) ?? "NONE";
       return { planId: plan.id, week: plan.week, playerId: String(row.playerId), name: row.name ?? null, action: row.action,
         suggestedBid: row.suggestedBid ?? null, choice: choice?.choice ?? null, reason: choice?.reason ?? null, choiceAt: choice?.at ?? null,
-        move, executed: move === "EXECUTED" };
+        move, executed: move === "EXECUTED", counterfactual: move === "NONE" ? whatIf.get(`${plan.week}|${row.playerId}`) ?? null : null };
     }))
     .sort((a, b) => b.week - a.week || a.playerId.localeCompare(b.playerId));
 }

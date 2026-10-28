@@ -440,7 +440,7 @@ export async function getLatestFeedback(env = process.env) {
 /** Decision journal of the operator's team (COACH_TEAM, default t0z): the Tuesday plan is
  * recorded before the waivers (first write wins), then the season's moves are re-synced. */
 export async function recordDecisionJournal({ supabase, fetchImpl = fetch, week, team = process.env.COACH_TEAM || "t0z" }) {
-  const { createDecisionLogStore, recommendationsFromReport, syncDecisionLog } = await import("./decision-log.js");
+  const { createDecisionLogStore, formatCounterfactualLine, recommendationsFromReport, syncDecisionLog } = await import("./decision-log.js");
   const store = createDecisionLogStore({ getSupabase: async () => supabase });
   const report = await getFreeAgents({ team, limitPerPosition: 15, fetchImpl });
   const rosterId = report.rosterId ?? (await getJson(`/league/${LEAGUE_ID}/rosters`, fetchImpl).then(async rosters => {
@@ -449,7 +449,8 @@ export async function recordDecisionJournal({ supabase, fetchImpl = fetch, week,
   }));
   const plan = await store.recordPlan(rosterId, week, recommendationsFromReport(report, "WEEKLY_JOB"));
   const sync = await syncDecisionLog({ team, fetchImpl, store });
-  return { plan, written: sync.written, summary: sync.summary };
+  // Recommendations not placed, scored over their window (Adineu estimate), for the Tuesday message.
+  return { plan, written: sync.written, summary: sync.summary, counterfactualLine: formatCounterfactualLine(sync.counterfactuals) };
 }
 
 /** Tuesday job: feedback on the completed week, then snapshot of the current week. */
@@ -470,7 +471,7 @@ export async function runWeeklyJob({ supabase, fetchImpl = fetch, dryRun = false
   const snapshot = await takeSnapshot({ supabase, fetchImpl, season, week, dryRun, force });
   const journal = dryRun ? null : await recordDecisionJournal({ supabase, fetchImpl, week, team }).catch(error => ({ error: error.message }));
   const sosLines = formatSosLines(sos);
-  const message = [feedback?.message, auction.line, sosLines.length ? ["Calendrier (SOS, cumul des archives, pts PPR concédés) :", ...sosLines].join("\n") : null].filter(Boolean).join("\n\n");
+  const message = [feedback?.message, auction.line, journal?.counterfactualLine, sosLines.length ? ["Calendrier (SOS, cumul des archives, pts PPR concédés) :", ...sosLines].join("\n") : null].filter(Boolean).join("\n\n");
   // Telegram caps a message at 4096 characters; the full text stays in detailMessage.
   const chat = fitTelegramMessage(message);
   return { season, week, auction, snapshot, journal, sos, feedback: feedback?.report || null, message: chat.message, messageTruncated: chat.truncated, detailMessage: message };

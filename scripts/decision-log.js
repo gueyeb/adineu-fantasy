@@ -18,7 +18,7 @@ import { findRosterByTeam } from "../public/assets/roster-view.js";
 import { resolveLastCompletedWeek, resolveOperationalWeek } from "../public/assets/nfl-week.js";
 import { leaguePoints } from "../public/assets/weekly-leaders.js";
 import { computeOptimalLineupPoints } from "../public/assets/weekly-recap.js";
-import { applyPlanChoice, attachModelView, buildLineupEntries, buildMoveEntries, decisionWeekOf, evaluateMove, lastKickoffByWeek, normalizePlanChoice, normalizeReason, planChoiceRows, postWaiverReview, skippedRecommendations, summarizeDecisionLog, winningClaims } from "../public/assets/decision-log.js";
+import { applyPlanChoice, attachModelView, buildLineupEntries, buildMoveEntries, currentCounterfactuals, decisionWeekOf, evaluateMove, evaluateSkippedRecommendation, formatCounterfactualLine, lastKickoffByWeek, normalizePlanChoice, normalizeReason, planChoiceRows, postWaiverReview, skippedEntry, skippedRecommendations, SKIPPED_KIND, summarizeCounterfactuals, summarizeDecisionLog, winningClaims } from "../public/assets/decision-log.js";
 import { createSupabaseFromEnv } from "./model-tracking.js";
 import { getPlayersIndex, getSchedule } from "./league-context.js";
 
@@ -36,9 +36,13 @@ async function getJson(path, fetchImpl) {
 export function recommendationsFromReport(report, source) {
   const rows = Object.values(report?.byPosition || {}).flat();
   const planned = new Map((report?.acquisitionPlan?.steps || []).map(step => [String(step.playerId), step]));
-  return rows.filter(row => row.waiver?.decision?.recommendedAction).map(row => ({
-    playerId: String(row.sleeperId), name: row.name, action: row.waiver.decision.recommendedAction,
-    suggestedBid: planned.get(String(row.sleeperId))?.suggestedBid ?? row.waiver.suggestedBid ?? null, inPlan: planned.has(String(row.sleeperId)), source }));
+  return rows.filter(row => row.waiver?.decision?.recommendedAction).map(row => {
+    // The cut is the plan step's when planned, else the row's own fit; it lets the counterfactual remove him.
+    const cut = planned.get(String(row.sleeperId))?.dropCandidate ?? row.waiver.fit?.dropCandidate ?? null;
+    return { playerId: String(row.sleeperId), name: row.name, position: row.position ?? null, action: row.waiver.decision.recommendedAction,
+      suggestedBid: planned.get(String(row.sleeperId))?.suggestedBid ?? row.waiver.suggestedBid ?? null, inPlan: planned.has(String(row.sleeperId)),
+      cutPlayerId: cut?.sleeperId ? String(cut.sleeperId) : null, cutName: cut?.name ?? null, source };
+  });
 }
 
 /** Local decision snapshots of this team, by target week (the first one of a week wins). */
@@ -81,10 +85,35 @@ export function assembleDecisionLog({ transactions, matchupsByWeek, statsByWeek,
     const winner = entry.added[0] ? winners.get(`${leg}|${entry.added[0].id}`) : null;
     return { ...evaluated, lostTo: winner ? { rosterId: winner.rosterId, bid: winner.bid } : null };
   });
-  const lineups = buildLineupEntries({ matchupsByWeek, rosterId, season, lastCompletedWeek,
-    optimalOf: row => computeOptimalLineupPoints({ playerIds: row.players || [], playersPoints: row.players_points || {}, playerCatalog: new Map((row.players || []).map(id => [id, playerOf(id)])), rosterSettings: ROSTER_SETTINGS_2026 }) });
+  const optimalOf = (playerIds, playersPoints) => computeOptimalLineupPoints({ playerIds, playersPoints, playerCatalog: new Map(playerIds.map(id => [id, playerOf(id)])), rosterSettings: ROSTER_SETTINGS_2026 });
+  const lineups = buildLineupEntries({ matchupsByWeek, rosterId, season, lastCompletedWeek, optimalOf: row => optimalOf(row.players || [], row.players_points || {}) });
   const entries = [...moves, ...lineups].map(entry => attachModelView(entry, recommendationsByWeek));
-  return { entries, skipped: skippedRecommendations(moves, recommendationsByWeek), summary: summarizeDecisionLog(entries) };
+  const skipped = skippedRecommendations(moves, recommendationsByWeek);
+  return { entries, skipped, counterfactuals: evaluateSkipped(skipped, { transactions, matchupsByWeek, statsByWeek, rosterId, season, lastCompletedWeek, playerOf, weekOf, pointsOf, optimalOf }),
+    summary: summarizeDecisionLog(entries) };
+}
+
+/**
+ * Counterfactual of each recommendation not placed (Adineu estimate). The roster is the team's own
+ * Sleeper matchup row of each week; a week whose stats did not load is unavailable, not zero.
+ */
+function evaluateSkipped(skipped, { transactions, matchupsByWeek, statsByWeek, rosterId, season, lastCompletedWeek, playerOf, weekOf, pointsOf, optimalOf }) {
+  const rosterOf = week => {
+    const mine = (matchupsByWeek[week] || []).find(row => row.roster_id === rosterId);
+    return mine ? { playerIds: (mine.players || []).map(String), playersPoints: mine.players_points || {} } : null;
+  };
+  const statsLoaded = week => Object.keys(statsByWeek[week] || {}).length > 0;
+  const takenByOf = (week, playerId) => {
+    const row = transactions.find(item => item.status === "complete" && ["waiver", "free_agent"].includes(item.type)
+      && Object.entries(item.adds || {}).some(([id, owner]) => id === playerId && owner !== rosterId) && weekOf(Number(item.status_updated ?? item.created)) === week);
+    return row ? { rosterId: row.adds[playerId], type: row.type, bid: row.type === "waiver" ? Number(row.settings?.waiver_bid ?? 0) : null } : null;
+  };
+  return skipped.map(row => {
+    const filled = { ...row, position: row.position ?? playerOf(row.playerId)?.position ?? null, cutName: row.cutName ?? (row.cutPlayerId ? playerOf(row.cutPlayerId)?.name ?? null : null) };
+    const outcome = evaluateSkippedRecommendation(filled, { rosterOf, optimalOf, lastCompletedWeek, takenBy: takenByOf(row.week, row.playerId),
+      pointsOf: (id, week) => statsLoaded(week) ? pointsOf(id, week) ?? 0 : null });
+    return skippedEntry(filled, outcome, { season, rosterId });
+  });
 }
 
 const toRow = entry => ({ id: entry.id, season: Number(entry.season), roster_id: entry.rosterId, week: entry.week, kind: entry.kind, occurred_at: entry.occurredAt,
@@ -93,8 +122,8 @@ const toRow = entry => ({ id: entry.id, season: Number(entry.season), roster_id:
 const fromRow = row => ({ id: row.id, season: row.season, rosterId: row.roster_id, week: row.week, kind: row.kind, occurredAt: row.occurred_at,
   added: row.details?.added ?? [], dropped: row.details?.dropped ?? [], bid: row.details?.bid ?? null, note: row.details?.note ?? null, lostTo: row.details?.lostTo ?? null,
   recommendations: row.details?.recommendations ?? null, choices: row.details?.choices ?? null, outcome: row.outcome, model: row.model, reason: row.reason ?? null, reasonAt: row.reason_at ?? null });
-/** Not journal entries: the Tuesday plan and the last Coach state used for change-only bulletins. */
-const NON_ENTRY_KINDS = ["MODEL_PLAN", "COACH_STATE"];
+/** Not journal entries: the Tuesday plan, the last Coach state used for change-only bulletins and the counterfactuals. */
+const NON_ENTRY_KINDS = ["MODEL_PLAN", "COACH_STATE", SKIPPED_KIND];
 
 export function createDecisionLogStore({ getSupabase = createSupabaseFromEnv, season = LEAGUE_METADATA_2026.season } = {}) {
   let client = null;
@@ -106,7 +135,9 @@ export function createDecisionLogStore({ getSupabase = createSupabaseFromEnv, se
       const rows = (data || []).map(fromRow);
       const entries = rows.filter(row => !NON_ENTRY_KINDS.includes(row.kind));
       const plans = rows.filter(row => row.kind === "MODEL_PLAN");
-      return { entries, plans, planChoices: planChoiceRows(plans, entries), summary: summarizeDecisionLog(entries) };
+      const counterfactuals = currentCounterfactuals(rows.filter(row => row.kind === SKIPPED_KIND), entries);
+      return { entries, plans, planChoices: planChoiceRows(plans, entries, counterfactuals), counterfactuals,
+        counterfactualSummary: summarizeCounterfactuals(counterfactuals), summary: summarizeDecisionLog(entries) };
     },
     /** Choice on one recommendation of a stored Tuesday plan; the plan itself is never rewritten. */
     async setChoice(rosterId, planId, playerId, input) {
@@ -185,7 +216,7 @@ export async function syncDecisionLog({ team = "t0z", fetchImpl = fetch, store =
   const recommendationsByWeek = { ...(await loadSnapshotRecommendations(team)), ...recorded };
   const result = assembleDecisionLog({ transactions, matchupsByWeek, statsByWeek, scoring: league.scoring_settings, schedule, rosterId: roster.roster_id, season,
     lastCompletedWeek, playerOf: id => index.get(String(id)) ?? null, recommendationsByWeek });
-  const written = !dryRun && store ? await store.upsert(result.entries) : 0;
+  const written = !dryRun && store ? await store.upsert([...result.entries, ...result.counterfactuals]) : 0;
   const teamNames = new Map(rosters.map(row => {
     const owner = users.find(user => user.user_id === row.owner_id);
     return [row.roster_id, owner?.metadata?.team_name || owner?.display_name || null];
