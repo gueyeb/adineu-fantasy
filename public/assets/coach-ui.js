@@ -15,6 +15,7 @@ import { renderWeeklyRoster, renderWeeklyMoves } from "./coach-week-view.js?v=df
 import { LEAGUE_METADATA_2026 } from "./league-settings.js?v=886f353394";
 import { formatAuction } from "./faab-auction.js?v=1eea51c520";
 import { REASON_MAX as JOURNAL_REASON_MAX } from "./decision-log.js?v=aee82836af";
+import { readSettingsForm, renderCoachSettings, renameMessage } from "./coach-settings-view.js?v=56e93f18f8";
 
 const login = document.getElementById("coach-login");
 const gate = document.getElementById("coach-gate");
@@ -349,6 +350,45 @@ document.getElementById("coach-journal")?.addEventListener("submit", async event
     button.textContent = response.ok ? "Enregistré" : "Échec";
   } catch { button.textContent = "Échec"; }
   setTimeout(() => { button.textContent = "Enregistrer"; button.disabled = false; }, 1500);
+});
+async function loadSettings() {
+  const target = document.getElementById("coach-settings");
+  if (!target) return;
+  target.innerHTML = `<p class="coach-empty">Chargement…</p>`;
+  try {
+    const response = await fetch("/api/coach/settings", { cache: "no-store", credentials: "same-origin" });
+    if (!response.ok) throw new Error();
+    target.innerHTML = renderCoachSettings(await response.json());
+  } catch { target.innerHTML = `<p class="coach-empty">Réglages indisponibles pour le moment.</p>`; }
+}
+const flash = (button, text, reset) => { button.textContent = text; setTimeout(() => { button.textContent = reset; button.disabled = false; }, 2000); };
+document.getElementById("coach-settings-details")?.addEventListener("toggle", event => { if (event.currentTarget.open) loadSettings(); });
+document.getElementById("coach-settings")?.addEventListener("submit", async event => {
+  const form = event.target;
+  event.preventDefault();
+  const button = form.querySelector("button[type=submit]");
+  button.disabled = true;
+  if (form.id === "coach-settings-form") {
+    const { payload, error } = readSettingsForm({ teamRosterId: form.elements.teamRosterId?.value ?? null, deltaByDefault: form.elements.deltaByDefault.checked, nearKickoffHours: form.elements.nearKickoffHours.value });
+    if (error) { setStatus(error, "error"); button.disabled = false; return; }
+    try {
+      const response = await fetch("/api/coach/settings", { method: "PUT", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      if (!response.ok) throw new Error();
+      setStatus("Réglages enregistrés. Actualise le plan pour suivre la nouvelle équipe.", "ok");
+      await loadSettings();
+    } catch { flash(button, "Échec", "Enregistrer les réglages"); }
+    return;
+  }
+  if (form.dataset.ownerId) {
+    try {
+      const response = await fetch(`/api/coach/settings/owners/${encodeURIComponent(form.dataset.ownerId)}`, { method: "PUT", credentials: "same-origin", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ expected: form.dataset.ownerName, displayName: form.querySelector("input").value }) });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) { setStatus(renameMessage(body.error), "error"); flash(button, "Échec", "Renommer"); return; }
+      setStatus(`${body.change.previousName} → ${body.change.newName} : renommé.`, "ok");
+      await loadSettings();
+    } catch { flash(button, "Échec", "Renommer"); }
+  }
 });
 loadCoach();
 

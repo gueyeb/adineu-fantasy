@@ -1178,3 +1178,9 @@ span.war-followed { cursor: default; }
 .live-lineup-grid > section { min-width: 0; }
 .live-matchup-card:has(.live-lineup-detail[open]) { grid-column: 1 / -1; }
 @media (max-width: 760px) { .live-lineup-grid { grid-template-columns: 1fr; } }
+.coach-settings h3 { margin: 18px 0 8px; color: var(--ink); font-size: .9rem; letter-spacing: .06em; text-transform: uppercase; }
+.coach-settings-form { display: grid; gap: 10px; max-width: 640px; }
+.coach-settings-form label { display: grid; gap: 4px; color: var(--ink); }
+.coach-settings-form label:has(input[type=checkbox]) { display: flex; align-items: center; gap: 8px; }
+.coach-settings-form select, .coach-settings-form input[type=number] { padding: 6px 8px; border: 1px solid var(--line); background: transparent; color: var(--ink); font: inherit; }
+.coach-settings-form button { justify-self: start; }

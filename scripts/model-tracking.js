@@ -453,7 +453,7 @@ export async function recordDecisionJournal({ supabase, fetchImpl = fetch, week,
 }
 
 /** Tuesday job: feedback on the completed week, then snapshot of the current week. */
-export async function runWeeklyJob({ supabase, fetchImpl = fetch, dryRun = false, force = false } = {}) {
+export async function runWeeklyJob({ supabase, fetchImpl = fetch, dryRun = false, force = false, team } = {}) {
   const state = await getJson("/state/nfl", fetchImpl);
   const season = Number(state.season);
   const week = resolveOperationalWeek(state);
@@ -468,7 +468,7 @@ export async function runWeeklyJob({ supabase, fetchImpl = fetch, dryRun = false
   }).catch(error => ({ error: error.message, line: `Enchères FAAB : recalibration échouée (${error.message}), calibration précédente conservée.` }));
   const feedback = week > 1 ? await buildWeeklyFeedback({ supabase, fetchImpl, season, week: week - 1, dryRun }) : null;
   const snapshot = await takeSnapshot({ supabase, fetchImpl, season, week, dryRun, force });
-  const journal = dryRun ? null : await recordDecisionJournal({ supabase, fetchImpl, week }).catch(error => ({ error: error.message }));
+  const journal = dryRun ? null : await recordDecisionJournal({ supabase, fetchImpl, week, team }).catch(error => ({ error: error.message }));
   const sosLines = formatSosLines(sos);
   const message = [feedback?.message, auction.line, sosLines.length ? ["Calendrier (SOS, cumul des archives, pts PPR concédés) :", ...sosLines].join("\n") : null].filter(Boolean).join("\n\n");
   // Telegram caps a message at 4096 characters; the full text stays in detailMessage.

@@ -9,6 +9,7 @@ import { extname, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { analyzeTrades, evaluateTradeOffer, formatTradeBulletin, formatTradeOffer, loadPlayerValues } from "./scripts/analyze-trades.js";
 import { createWarRoomStore } from "./scripts/war-room-sync.js";
+import { createCoachSettingsStore, listLeagueTeams, resolveCoachTeam, resolveDeltaMode, validateCoachSettingsPatch } from "./scripts/coach-settings.js";
 import { createDecisionLogStore, refreshDecisionJournal } from "./scripts/decision-log.js";
 import {
   getLeagueContext,
@@ -143,12 +144,14 @@ export function createAppServer({
   getStartSit = getStartSitDefault,
   getMatchupContext = getMatchupContextDefault,
   modelJobToken = process.env.MODEL_JOB_TOKEN || "",
-  runModelJob = async () => runWeeklyJob({ supabase: await createSupabaseFromEnv() }),
+  runModelJob = async ({ team } = {}) => runWeeklyJob({ supabase: await createSupabaseFromEnv(), team }),
   runPrelockJob = getPrelockCheck,
   runExpertsJob = async () => captureExperts({ supabase: await createSupabaseFromEnv() }),
-  runJournalJob = async () => refreshDecisionJournal(),
+  runJournalJob = async ({ team } = {}) => refreshDecisionJournal({ team }),
   getModelFeedback = () => getLatestFeedback(),
   warRoomStore = createWarRoomStore(),
+  coachSettingsStore = createCoachSettingsStore(),
+  listCoachTeams = listLeagueTeams,
   decisionLogStore = createDecisionLogStore(),
   coachToken = process.env.COACH_API_TOKEN || "",
   coachPassword = process.env.COACH_WEB_PASSWORD || "",
@@ -207,7 +210,9 @@ export function createAppServer({
     }
     // Weekly model tracking job (n8n, Tuesday): feedback on the completed week + snapshot.
     // Journal refresh (n8n, Thursday): re-sync after Wednesday's waivers + post-waiver review.
-    const jobRoutes = { "/api/model/experts/capture": () => runExpertsJob(), "/api/coach/prelock": () => runPrelockJob({ team: url.searchParams.get("team") || process.env.COACH_TEAM || "t0z" }), "/api/model/weekly": () => runModelJob(), "/api/coach/decisions/sync": () => runJournalJob() };
+    // Followed team: explicit ?team= > Coach settings > COACH_TEAM > t0z (docs/prd-coach-settings.md).
+    const followedTeam = async () => resolveCoachTeam({ param: url.searchParams.get("team"), settings: (await coachSettingsStore.load()).settings }).team;
+    const jobRoutes = { "/api/model/experts/capture": () => runExpertsJob(), "/api/coach/prelock": async () => runPrelockJob({ team: await followedTeam() }), "/api/model/weekly": async () => runModelJob({ team: await followedTeam() }), "/api/coach/decisions/sync": async () => runJournalJob({ team: await followedTeam() }) };
     if (jobRoutes[url.pathname] && request.method === "POST") {
       if (!modelJobToken) return sendJson(response, 503, { error: "MODEL_JOB_TOKEN non configuré." });
       const expected = Buffer.from(`Bearer ${modelJobToken}`);
@@ -247,6 +252,43 @@ export function createAppServer({
         return sendJson(response, 200, { state: await warRoomStore.save(payload.rosterId, { watchlist: payload.watchlist, bidHistory: payload.bidHistory }) });
       } catch (error) {
         return sendJson(response, 503, { error: "SYNC_UNAVAILABLE" });
+      }
+    }
+
+    // Coach settings: followed team, bulletin mode, manager display names (docs/prd-coach-settings.md).
+    if (url.pathname === "/api/coach/settings" || url.pathname.startsWith("/api/coach/settings/owners/")) {
+      const apiAuthorized = coachToken && request.headers.authorization === `Bearer ${coachToken}`;
+      if (!apiAuthorized && !coachAuth.authenticated(request.headers.cookie)) return sendJson(response, 404, { error: "Not found" });
+      const ownerMatch = url.pathname.match(/^\/api\/coach\/settings\/owners\/([0-9a-f-]{36})$/i);
+      if (url.pathname !== "/api/coach/settings" && !ownerMatch) return sendJson(response, 404, { error: "Not found" });
+      if (request.method === "GET" && !ownerMatch) {
+        const current = await coachSettingsStore.load({ fresh: true });
+        const [teams, owners] = await Promise.all([
+          listCoachTeams().catch(() => null),
+          coachSettingsStore.listOwners().catch(() => null)
+        ]);
+        return sendJson(response, 200, { ...current, resolvedTeam: resolveCoachTeam({ settings: current.settings }), teams, owners });
+      }
+      if (request.method !== "PUT") return sendJson(response, 405, { error: "Method not allowed" });
+      const origin = request.headers.origin;
+      if (!apiAuthorized && (!origin || !URL.canParse(origin) || new URL(origin).host !== request.headers.host)) return sendJson(response, 403, { error: "Forbidden" });
+      let body = "";
+      for await (const chunk of request) {
+        body += chunk;
+        if (Buffer.byteLength(body) > 2 * 1024) return sendJson(response, 413, { error: "Payload too large" });
+      }
+      let payload;
+      try { payload = JSON.parse(body); } catch { return sendJson(response, 400, { error: "Invalid request" }); }
+      try {
+        if (ownerMatch) {
+          if (!payload || typeof payload.displayName !== "string" || typeof payload.expected !== "string") return sendJson(response, 400, { error: "Requête invalide" });
+          return sendJson(response, 200, { change: await coachSettingsStore.renameOwner(ownerMatch[1].toLowerCase(), { expected: payload.expected, next: payload.displayName }) });
+        }
+        const { patch, error } = validateCoachSettingsPatch(payload);
+        if (error) return sendJson(response, 400, { error });
+        return sendJson(response, 200, await coachSettingsStore.save(patch));
+      } catch (error) {
+        return sendJson(response, error.status || 503, { error: error.code || "SETTINGS_UNAVAILABLE" });
       }
     }
 
@@ -663,7 +705,9 @@ export function createAppServer({
         return;
       }
       try {
-        const team = apiAuthorized ? url.searchParams.get("team") || "t0z" : "t0z";
+        const coachSettings = (await coachSettingsStore.load()).settings;
+        // The signed-in page follows the saved team; only automation may name another one.
+        const { team } = resolveCoachTeam({ param: apiAuthorized ? url.searchParams.get("team") : null, settings: coachSettings });
         let preferences = {};
         try {
           preferences = normalizeCoachPreferences(JSON.parse(request.headers["x-coach-preferences"] || "{}"));
@@ -702,11 +746,11 @@ export function createAppServer({
         // Bearer = n8n → Telegram (4096 max): readable bulletin, full text kept in detailMessage.
         if (apiAuthorized) {
           const fullBulletin = formatCoachPlan(plan, { compact: true }) + formatCoachSosBrief(plan.sos);
-          // Opt-in ?delta=1: only what changed since the last bulletin; `notify` false = nothing to send.
-          if (url.searchParams.get("delta") === "1") {
+          // ?delta=1 (or the saved default): only what changed since the last bulletin; `notify` false = nothing to send.
+          if (resolveDeltaMode(url.searchParams.get("delta"), coachSettings)) {
             const state = coachDecisionState(plan);
             const previous = await decisionLogStore.coachState(plan.rosterId).then(value => ({ value }), () => null);
-            const delta = previous ? diffCoachStates(previous.value, state, { kickoffOf: kickoffLookup(playerValues.timingContext, plan.week) })
+            const delta = previous ? diffCoachStates(previous.value, state, { kickoffOf: kickoffLookup(playerValues.timingContext, plan.week), nearKickoffMs: coachSettings.nearKickoffHours * 3_600_000 })
               : { reset: "STATE_UNAVAILABLE", events: [], notify: true, since: null };
             const stored = await decisionLogStore.saveCoachState(plan.rosterId, state).then(() => true, () => false);
             const chat = fitTelegramMessage(formatCoachDelta(delta, { team: plan.team, week: plan.week, fullBulletin, pageUrl: COACH_PAGE_URL }), { moreAt: COACH_PAGE_URL });
