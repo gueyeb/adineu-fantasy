@@ -1048,5 +1048,29 @@ une lecture indépendante des projections Sleeper brutes. Le mélange n’est va
 moyenne de saison (backtest), pas semaine par semaine. Une semaine sans projection garde le
 taux sain dans la simulation (listée dans `projectionGaps`) mais l’xFP seul dans `rosPpg`.
 `nextProjectedWeek` n’existe que sur les valeurs servies par `loadPlayerValues` ; ailleurs, la
-durée du statut s’applique. `buildLeagueTradeIntelligence` et `trade-target.js` ne sont pas
-mesurés ici. Aucune écriture Supabase/Sleeper.
+durée du statut s’applique. `buildLeagueTradeIntelligence` et `trade-target.js` : voir l’incrément
+suivant. Aucune écriture Supabase/Sleeper.
+
+## QC-01/QC-02 — Alignement intelligence de ligue et impact semaine cible
+
+29/10/2026, `2b6d84d`. Le contexte de décision (Coach, contexte IA) appelait
+`buildLeagueTradeIntelligence` sans timing : lecture toujours à la semaine live. Il passe
+désormais `timingContext`, `dataThroughWeek` et `now` ; chaque exemple porte `averageWindow` et
+`scenarioStatus`, lineups via `restOfSeasonLineup`. `targetWeekTradeImpact` (`trade-target.js`)
+compte un Out/IR à 0 avant la semaine de retour de `returnWeekAssumption`
+(`RETURN_WEEK_ASSUMED_S{n}:{base}`) et passe une semaine cible au-delà des deux prochaines par
+`paceWeekValue`. Bug d’horloge : `evaluateTradeOffer` lisait `now` avant le chargement, donc
+avant `asOf` du timing ; le timing était toujours jugé périmé et chaque offre retombait sur la
+semaine live. `now` est lu après le chargement.
+
+Mesure (capture live S8, cible S9, 8 exemples) : impact semaine cible chiffré 3/8 → 8/8, chacun
+égal à la ligne S9 de la simulation. Rejeu samedi 31/10 18:00 UTC : ancien chemin 0/8 identiques
+à `/api/trade-offer` (0,1–0,2 pt/sem d’écart, 4 exemples remplacés), nouveau 8/8. 717 tests.
+
+En-têtes : bulletin Coach (normal et changements), contrôle avant verrouillage, bulletin trades et
+contexte IA compact nomment « Boukki (Babacar, @t0z) » (`2980571`). Limite : le bilan du jeudi
+n’a pas le compte sous la main et garde le nom d’équipe seul.
+
+Clé benchmark experts posée dans Coolify le 29/10 (valeur = ancien repli `MODEL_JOB_TOKEN`).
+Reste à observer : bulletin du mardi 03/11, premières lignes « si suivi », traitement des
+waivers mercredi 04/11.
