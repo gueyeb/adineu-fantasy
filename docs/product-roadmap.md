@@ -312,3 +312,10 @@ Joueurs et équipes lisibles, statuts demandé/terminé distincts, identifiants 
 Propriété actuelle séparée de l’événement historique ; aucune disponibilité libre
 déduite d’une coupe. 642 tests réussis, aucune requête supplémentaire ni mouvement
 exécuté. [Preuves et limites](quality-consistency-2026-10-26.md).
+
+### 28/10 — QC-03 : Coach et Waiver Wire, même qualification
+
+Date source et faits du moteur conservés jusque dans les étapes du plan. Coach visuel
+et texte : disponibilité vérifiée, préparation conditionnelle et rapport à rafraîchir
+partagent le classificateur Waiver Wire. Plan non publiable jamais promu en action,
+valeurs inchangées. [Contrat et limites](quality-consistency-2026-10-26.md).

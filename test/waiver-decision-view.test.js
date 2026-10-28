@@ -36,3 +36,15 @@ test("catalog availability uses readable labels and preserves inferred status", 
   assert.match(waiverAvailabilityLabel(player), /claim à préparer/);
   assert.ok(!waiverAvailabilityLabel(player).includes("WAIVER_LOCKED"));
 });
+
+test("compact Coach rows share the exact raw decision classification, including stale and dependent steps", async () => {
+  const { classifyCompactWaiverPresentation } = await import('../public/assets/waiver-decision-view.js');
+  const raw = candidate();
+  const compact = { recommendedAction: raw.waiver.decision.recommendedAction, availability: raw.availability, suggestedBid: raw.waiver.suggestedBid,
+    presentationFacts: { legalTransaction: true, horizonCovered: true, actionBlockers: [] } };
+  assert.deepEqual(classifyCompactWaiverPresentation(compact, { asOf, now }), classify(raw));
+  assert.equal(classifyCompactWaiverPresentation({ ...compact, dependsOnPlayerIds: ['prior'] }, { asOf, now }).bucket, 'prepare');
+  assert.equal(classifyCompactWaiverPresentation(compact, { asOf, now, publishable: false }).bucket, 'watch');
+  assert.equal(classifyCompactWaiverPresentation(compact, { asOf, now: now + 300001 }).bucket, 'watch');
+  assert.equal(classifyCompactWaiverPresentation({ ...compact, presentationFacts: {} }, { asOf, now }).bucket, 'watch');
+});

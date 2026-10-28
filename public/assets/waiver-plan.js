@@ -54,6 +54,7 @@ function runGreedyPlan({ candidates, myPlayers, faabRemaining, evaluateCandidate
       dropCostComponents: fit.dropCostComponents ?? null,
       teRosterUtility: chosen.teRosterUtility ?? null,
       roleConfirmation: chosen.waiver.roleConfirmation ?? "NOT_APPLICABLE",
+      presentationFacts: { legalTransaction: fit.legalTransaction, horizonCovered: fit.horizonCovered, actionBlockers: chosen.waiver.decision.actionBlockers ?? null, confirmation: chosen.waiver.decision.confirmation ?? null },
       recommendedAction: chosen.waiver.decision.recommendedAction, dropCandidate: fit.dropCandidate,
       suggestedBid: bid, personalMaxBid: chosen.waiver.personalMaxBid, auction: compactAuction(chosen.waiver.auction), budgetBefore: remainingBudget, budgetAfter: budgetKnown ? remainingBudget - bid : null,
       targetWeekDelta: fit.targetWeekDelta, netGainTotal: fit.netGainTotal, horizonWeeks: fit.horizonWeeks,
@@ -79,6 +80,7 @@ const resourceOf = row => String(row.waiver.fit.dropCandidate?.sleeperId ?? 'OPE
 const processTime = row => Date.parse(row.availability.waiverProcessesAt);
 const groupKey = row => JSON.stringify([resourceOf(row), processTime(row)]);
 const claimView = row => ({ dropCostComponents: row.waiver.fit.dropCostComponents ?? null, teRosterUtility: row.teRosterUtility ?? null, playerId: String(row.sleeperId), name: row.name, position: row.position,
+  presentationFacts: { legalTransaction: row.waiver.fit.legalTransaction, horizonCovered: row.waiver.fit.horizonCovered, actionBlockers: row.waiver.decision.actionBlockers ?? null, confirmation: row.waiver.decision.confirmation ?? null },
   recommendedAction: row.waiver.decision.recommendedAction, decisionClass: row.waiver.decision.decisionClass ?? null,
   suggestedBid: row.waiver.suggestedBid, personalMaxBid: row.waiver.personalMaxBid, auction: compactAuction(row.waiver.auction),
   targetWeekDelta: row.waiver.fit.targetWeekDelta, netGainTotal: row.waiver.fit.netGainTotal,

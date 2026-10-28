@@ -10,6 +10,7 @@ const blockerLabels = {
   GAME_LOCKED: "Match commencé : scénario actuel verrouillé",
   RECENT_DROP_CLEARANCE_UNVERIFIED: "Déblocage après coupe non confirmé",
   NO_PROJECTION: "Projection absente",
+  PLAN_NOT_PUBLISHABLE: "Contradiction du plan à résoudre avant action",
   REPORT_STALE: "Date du rapport absente ou périmée : recharger avant de décider"
 };
 export function waiverBlockerLabel(code) {
@@ -65,4 +66,17 @@ export function waiverAvailabilityLabel(player) {
   const availability = { FREE_AGENT: "Ajout libre", WAIVER_LOCKED: "En waivers", GAME_LOCKED: "Match commencé", ROSTERED: "Déjà dans un roster", UNKNOWN: "Disponibilité non confirmée" }[player.availability?.availability] || "Disponibilité non confirmée";
   const action = { ADD_NOW: "ajout proposé", CLAIM_IF_CHEAP: "claim à préparer", WATCH: "à surveiller", IGNORE: "aucun mouvement conseillé", UNDETERMINED: "décision non déterminée" }[player.waiver?.decision?.recommendedAction] || "décision non déterminée";
   return `${availability}${player.availability?.availabilitySource === "LEAGUE_RULES_INFERRED" ? " (déduit, à confirmer dans Sleeper)" : ""} · ${action}`;
+}
+
+/** Adapter for compact Coach/plan rows; missing facts never become positive evidence. */
+export function compactWaiverCandidate(row) {
+  const facts = row.presentationFacts || {};
+  return { ...row, waiver: { decision: { recommendedAction: row.recommendedAction, actionBlockers: facts.actionBlockers, confirmation: facts.confirmation },
+    fit: { legalTransaction: facts.legalTransaction, horizonCovered: facts.horizonCovered }, suggestedBid: row.suggestedBid } };
+}
+export function classifyCompactWaiverPresentation(row, { asOf = null, now = Date.now(), publishable = null } = {}) {
+  const result = classifyWaiverPresentation(compactWaiverCandidate(row), { asOf, now });
+  if (publishable === false) return { bucket: "watch", label: "Plan non publiable : contrôles à corriger avant action", blockers: [...result.blockers, "PLAN_NOT_PUBLISHABLE"] };
+  if (row.dependsOnPlayerIds?.length && result.bucket !== "watch") return { ...result, bucket: "prepare", label: "Plan conditionnel : résultats des ajouts précédents à confirmer" };
+  return result;
 }

@@ -1,5 +1,5 @@
 import { renderRecentTransactions } from "./transaction-view.js?v=76b996b5b8";
-import { renderWaiverDecisionBoard, waiverAvailabilityLabel } from "./waiver-decision-view.js?v=1bd7bc1775";
+import { renderWaiverDecisionBoard, waiverAvailabilityLabel } from "./waiver-decision-view.js?v=8749baa6d5";
 import { formatTradeTiming } from "./trade-timing.js?v=cdcd6605a3";
 import { formatWaiverSchedule } from "./waiver-schedule.js?v=967a249e30";
 import { normalizeTradeIntent, tradeIntentStorageKey, targetWeekTradeImpact, compareTargetWeekImpacts, LAST_TRADE_TARGET_WEEK } from "./trade-target.js?v=4feccd46df";

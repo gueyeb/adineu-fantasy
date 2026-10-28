@@ -88,3 +88,16 @@ test('coach separates an empty slot from a small projected lineup edge', () => {
   assert.match(text, /Choix proche — FLEX/);
   assert.match(text, /santé\/rôle à confirmer/);
 });
+
+test("Coach preserves original availability timestamp and decision facts without using generation time as evidence", () => {
+  const availabilityAsOf = '2026-10-28T07:00:00Z';
+  const plan = buildCoachPlan({ trades: { results: [] }, decisionContext: { availabilityAsOf, week: 8, league: { teams: 12 }, myTeam: { teamName: 'Boukki', record: {} },
+    waiverActions: { ADD_NOW: [{ name: 'A', position: 'WR', recommendedAction: 'ADD_NOW', legalTransaction: true, horizonCovered: true,
+      decision: { actionBlockers: [], confirmation: 'CONFIRM_IN_SLEEPER' }, availability: { availability: 'FREE_AGENT', canAddNow: true, verified: false, availabilitySource: 'LEAGUE_RULES_INFERRED' } }] } } });
+  assert.equal(plan.availabilityAsOf, availabilityAsOf);
+  assert.equal(plan.waiverActions.ADD_NOW[0].presentationFacts.confirmation, 'CONFIRM_IN_SLEEPER');
+  const fresh = formatCoachPlan(plan, { now: Date.parse(availabilityAsOf) });
+  assert.match(fresh, /Confirmer la disponibilité avant ajout/);
+  assert.ok(!fresh.includes('AJOUTER MAINTENANT'));
+  assert.match(formatCoachPlan(plan, { now: Date.parse(availabilityAsOf) + 300001 }), /Rapport à rafraîchir/);
+});

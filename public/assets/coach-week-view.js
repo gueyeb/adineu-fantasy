@@ -1,3 +1,4 @@
+import { classifyCompactWaiverPresentation, compactWaiverCandidate, waiverAvailabilityLabel, waiverBlockerLabel } from "./waiver-decision-view.js?v=8749baa6d5";
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
 const number = value => Number.isFinite(value) ? value.toFixed(1) : 'n/d';
 const money = value => Number.isFinite(value) ? `${value} $` : 'non déterminé';
@@ -50,7 +51,7 @@ const weekRanges = weeks => {
   return ranges.map(([from, to]) => from === to ? `S${from}` : `S${from}–S${to}`).join(', ');
 };
 
-export function renderWeeklyMoves(plan) {
+export function renderWeeklyMoves(plan, { now = Date.now() } = {}) {
   const steps = plan.acquisitionPlan?.steps || [];
   const alternatives = (plan.acquisitionPlan?.alternativeClaimGroups || plan.acquisitionPlan?.claimPortfolio?.alternativeClaimGroups || []).flatMap(group => group.claims || []);
   const seen = new Set();
@@ -66,8 +67,9 @@ export function renderWeeklyMoves(plan) {
     groups.get(key).push(row);
   }
   const cards = [...groups.values()].map(rows => `<article class="coach-move-group"><h3>${rows[0].dropCandidate ? `Coupe envisagée : ${escapeHtml(rows[0].dropCandidate.name)}` : 'Utiliser une place libre'}</h3>${rows.length > 1 ? '<p>Alternatives sur la même coupe : choisir un seul ajout.</p>' : ''}${rows.map(row => {
+    const presentation = classifyCompactWaiverPresentation(row, { asOf: plan.availabilityAsOf, now, publishable: plan.publishable });
     const unpriced = row.dropCostComponents?.unpricedCutPotential || row.modelMetrics?.dropCostComponents?.unpricedCutPotential;
-    return `<details class="coach-move"><summary><strong>${escapeHtml(row.name)}</strong><span>${row.recommendedAction === 'ADD_NOW' ? 'Ajout libre · 0 $' : `Claim · ${money(row.suggestedBid)}`}</span></summary><dl><div><dt>Gain net</dt><dd>${number(row.netGainTotal)} pts / ${escapeHtml(row.horizonWeeks ?? 'n/d')} sem</dd></div><div><dt>Plafond personnel</dt><dd>${money(row.personalMaxBid ?? row.maxForTeam)}</dd></div><div><dt>Disponibilité</dt><dd>${escapeHtml(row.availability?.availability || 'UNKNOWN')}${row.availability?.verified !== true ? ' · à confirmer dans Sleeper' : ''}</dd></div></dl><p>${escapeHtml(row.interpretation || 'Scénario conditionnel, roster et budget recalculés après chaque résultat.')}</p><p>Réévaluer après le résultat de l’ajout ou une nouvelle information de santé/rôle.${unpriced ? ' Potentiel de la coupe non chiffré : coût estimé incomplet.' : ''}</p></details>`;
+    return `<details class="coach-move" data-decision-bucket="${presentation.bucket}"><summary><strong>${escapeHtml(row.name)}</strong><span>${row.recommendedAction === 'ADD_NOW' ? 'Ajout libre · 0 $' : `Claim · ${money(row.suggestedBid)}`}</span></summary><p><strong data-coach-decision-status>${escapeHtml(presentation.label)}</strong></p>${presentation.blockers.length ? `<ul>${[...new Set(presentation.blockers.map(waiverBlockerLabel))].map(label => `<li>${escapeHtml(label)}</li>`).join("")}</ul>` : ""}<dl><div><dt>Gain net</dt><dd>${number(row.netGainTotal)} pts / ${escapeHtml(row.horizonWeeks ?? 'n/d')} sem</dd></div><div><dt>Plafond personnel</dt><dd>${money(row.personalMaxBid ?? row.maxForTeam)}</dd></div><div><dt>Disponibilité</dt><dd>${escapeHtml(waiverAvailabilityLabel(compactWaiverCandidate(row)))}</dd></div></dl><p>${escapeHtml(row.interpretation || 'Scénario conditionnel, roster et budget recalculés après chaque résultat.')}</p><p>Réévaluer après le résultat de l’ajout ou une nouvelle information de santé/rôle.${unpriced ? ' Potentiel de la coupe non chiffré : coût estimé incomplet.' : ''}</p></details>`;
   }).join('')}</article>`).join('');
   const warnings = plan.coherence?.warnings || [];
   const gaps = groupProjectionGaps(plan.projectionDiagnostics);

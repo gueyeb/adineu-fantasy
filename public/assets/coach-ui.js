@@ -1,3 +1,4 @@
+import { classifyCompactWaiverPresentation, compactWaiverCandidate, waiverAvailabilityLabel } from "./waiver-decision-view.js?v=8749baa6d5";
 import { formatWaiverSchedule } from "./waiver-schedule.js?v=967a249e30";
 import { readSosHandoff, formatSosHandoff, SOS_HANDOFF_KEY } from './sos-ai-context.js?v=4f44f5a9de';
 import { copyTextFrom, registerPageAiContext } from './ai-context-client.js?v=d42756c77d';
@@ -10,7 +11,7 @@ ${formatSosHandoff(explorerContext)}` : text;
 import { renderCoachSos } from "./coach-sos-view.js?v=9ffe9f3221";
 import { addToWatchlist, buildWarRoom, formatClaimOrder, recordBids, removeFromWatchlist, watchIdsHeader, REASON_MAX } from "./war-room.js?v=e9eae48675";
 import { loadBidHistory, loadWatchlist, saveBidHistory, saveWatchlist, syncWarRoom } from "./war-room-store.js?v=679685c790";
-import { renderWeeklyRoster, renderWeeklyMoves } from "./coach-week-view.js?v=cc2b0d0bd8";
+import { renderWeeklyRoster, renderWeeklyMoves } from "./coach-week-view.js?v=8fd5c9e905";
 import { LEAGUE_METADATA_2026 } from "./league-settings.js?v=886f353394";
 import { formatAuction } from "./faab-auction.js?v=1eea51c520";
 import { REASON_MAX as JOURNAL_REASON_MAX } from "./decision-log.js?v=a0e3f31155";
@@ -77,19 +78,34 @@ function warRoomPanel(warRoom, followedIds) {
     </div></section>`;
 }
 
-function waiverCard(player, followedIds = new Set()) {
+function waiverCard(player, followedIds = new Set(), plan = {}) {
+  const presentation = classifyCompactWaiverPresentation(player, { asOf: plan.availabilityAsOf, publishable: plan.publishable });
   return `<article class="coach-waiver">
     <div class="coach-waiver-head"><span>${escapeHtml(player.decisionClass?.replaceAll("_", " "))}</span><strong>${escapeHtml(player.position)}</strong></div>
-    <h3>${escapeHtml(player.name)}</h3>
+    <h3>${escapeHtml(player.name)}</h3><p><strong data-coach-decision-status>${escapeHtml(presentation.label)}</strong></p>
     <p>${escapeHtml(player.nflTeam || "FA")} · delta semaine <b>${signed(player.targetWeekDelta)} pts</b><br>Gain net total ${signed(player.netGainTotal)} pts sur ${player.horizonWeeks ?? "n/d"} sem</p>
-    <dl><div><dt>Coupe</dt><dd>${escapeHtml(player.dropCandidate?.name || "Aucune")}</dd></div><div><dt>Enchère proposée</dt><dd>${Number.isFinite(player.suggestedBid) ? `${player.suggestedBid} $` : "non déterminée"}</dd></div><div><dt>Plafond Boukki</dt><dd>${Number.isFinite(player.maxForTeam) ? `${player.maxForTeam} $` : "non déterminé"}</dd></div></dl>
+    <dl><div><dt>Coupe</dt><dd>${escapeHtml(player.dropCandidate?.name || "Aucune")}</dd></div><div><dt>Enchère proposée</dt><dd>${Number.isFinite(player.suggestedBid) ? `${player.suggestedBid} $` : "non déterminée"}</dd></div><div><dt>Plafond personnel estimé</dt><dd>${Number.isFinite(player.maxForTeam) ? `${player.maxForTeam} $` : "non déterminé"}</dd></div></dl>
     ${player.auction ? `<small>Rivaux : ${escapeHtml(formatAuction(player.auction))} (estimation non calibrée).</small><br>` : ""}
     ${player.preferenceOverridden ? `<small>Préférence temporaire dépassée : ${escapeHtml(player.appliedPreference?.reason)} (${player.preferencePenaltyTotal} points d’utilité).</small><br>` : ""}
-    <small>${escapeHtml(player.availability?.availability || "UNKNOWN")}${player.availability?.availabilitySource === "LEAGUE_RULES_INFERRED" ? " (déduite — à confirmer dans Sleeper)" : ""} · ${escapeHtml(player.roleConfirmation || "UNCONFIRMED")}</small><br><small>${escapeHtml(player.interpretation)}</small><br>${followButton(player, followedIds)}
+    <small>${escapeHtml(waiverAvailabilityLabel(compactWaiverCandidate(player)))} · ${escapeHtml(player.roleConfirmation || "UNCONFIRMED")}</small><br><small>${escapeHtml(player.interpretation)}</small><br>${followButton(player, followedIds)}
   </article>`;
 }
 
+let decisionExpiryTimer = null;
 function renderPlan(plan) {
+  clearTimeout(decisionExpiryTimer);
+  const captured = Date.parse(plan.availabilityAsOf);
+  const remaining = captured + 300000 - Date.now();
+  if (plan.publishable !== false && Number.isFinite(captured) && remaining >= 0 && remaining <= 300000) {
+    decisionExpiryTimer = setTimeout(() => {
+      if (currentPlan !== plan) return;
+      const state = classifyCompactWaiverPresentation({}, { asOf: plan.availabilityAsOf });
+      report.querySelectorAll("[data-coach-decision-status]").forEach(label => {
+        label.textContent = state.label;
+        label.closest("[data-decision-bucket]")?.setAttribute("data-decision-bucket", state.bucket);
+      });
+    }, remaining + 10);
+  }
   currentPlan = plan;
   document.getElementById("coach-week-roster").innerHTML = renderWeeklyRoster(plan);
   document.getElementById("coach-week-moves").innerHTML = renderWeeklyMoves(plan);
@@ -125,7 +141,7 @@ function renderPlan(plan) {
 
   document.getElementById("coach-grid").innerHTML = `
     <section class="coach-panel coach-lineup"><header><span>01</span><div><p>Décision immédiate</p><h2>LINEUP</h2></div><strong>${optimal?.gain ? `+${optimal.gain} pts` : "OK"}</strong></header><ul>${lineupBody}</ul></section>
-    <section class="coach-panel coach-waivers"><header><span>02</span><div><p>Coût de coupe inclus</p><h2>WAIVERS</h2></div><strong>${actionable.length} action${actionable.length > 1 ? "s" : ""}</strong></header><p>${escapeHtml(formatWaiverSchedule(plan.waiverSchedule))}</p><p>Plan conditionnel : suppose les ajouts précédents, avec roster et budget recalculés. Vérifier après chaque résultat.</p><div class="coach-waiver-grid">${actionable.length ? actionable.map(player => waiverCard(player, followedIds)).join("") : `<p class="coach-empty">Aucune acquisition exécutable confirmée aujourd’hui. Consulte les scénarios conditionnels.</p>`}</div></section>
+    <section class="coach-panel coach-waivers"><header><span>02</span><div><p>Coût de coupe inclus</p><h2>WAIVERS</h2></div><strong>${actionable.length} scénario${actionable.length > 1 ? "s" : ""}</strong></header><p>${escapeHtml(formatWaiverSchedule(plan.waiverSchedule))}</p><p>Plan conditionnel : suppose les ajouts précédents, avec roster et budget recalculés. Vérifier après chaque résultat.</p><div class="coach-waiver-grid">${actionable.length ? actionable.map(player => waiverCard(player, followedIds, plan)).join("") : `<p class="coach-empty">Aucune acquisition exécutable confirmée aujourd’hui. Consulte les scénarios conditionnels.</p>`}</div></section>
     <section class="coach-panel"><header><span>03</span><div><p>Potentiel sans urgence</p><h2>WATCHLIST</h2></div><strong>${watchlist.length}</strong></header><div class="coach-watch">${watchlist.length ? watchlist.map(player => `<div><b>${escapeHtml(player.name)}</b><span>${escapeHtml(player.decisionClass?.replaceAll("_", " "))}</span><p>${escapeHtml(player.interpretation)}</p>${followButton(player, followedIds)}</div>`).join("") : `<p class="coach-empty">Aucun profil asymétrique détecté.</p>`}</div></section>
     <section class="coach-panel"><header><span>04</span><div><p>Valeur du banc protégée</p><h2>COUPES</h2></div><strong>${plan.cutCandidates.length}</strong></header><ol class="coach-cuts">${cuts || `<p class="coach-empty">Aucune coupe calculable.</p>`}</ol></section>
     <section class="coach-panel coach-trade"><header><span>05</span><div><p>Négociation optionnelle</p><h2>TRADE</h2></div><strong>${trade ? "À explorer" : "HOLD"}</strong></header>${trade ? `<div class="coach-trade-body"><p>Partenaire</p><h3>${escapeHtml(trade.partnerName)}</h3><strong>${escapeHtml(trade.title)}</strong><a href="/trades/">Ouvrir dans le Trade Finder →</a></div>` : `<p class="coach-empty">Aucun échange prioritaire ne surpasse les options internes.</p>`}</section>

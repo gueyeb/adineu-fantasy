@@ -569,3 +569,33 @@ actuelle distincte, dates et noms absents, échappement HTML, conservation des i
 et absence d’ID de créateur dans le rendu. Contrôles statiques valides. Aucun mouvement,
 message ou changement de workflow exécuté. Les exports texte existants ne sont pas
 modifiés dans ce lot ; harmonisation Coach/IA et contrôle mobile restent ouverts.
+
+## QC-03 — Troisième incrément : qualification commune Coach/Waiver Wire
+
+28/10/2026. Le Coach conserve maintenant la date `availabilityAsOf` du contexte
+source et les faits de présentation du moteur (legalTransaction, horizonCovered,
+blockers, confirmation), y compris dans les étapes et replis du plan conditionnel.
+`generatedAt` ne remplace jamais une date de disponibilité absente. Aucun gain, bid,
+ordre de plan ou verdict moteur recalculé par l’interface.
+
+Les deux panneaux acquisitions du Coach et son texte exporté utilisent le même
+classificateur que le Waiver Wire via un adaptateur des lignes compactes. Champs
+manquants, rapport périmé ou plan non publiable : aucune promotion en action vérifiée.
+Étape dépendant d’ajouts précédents : préparation conditionnelle, même si son action
+moteur est ADD_NOW. Les montants restent inchangés et visibles comme scénarios.
+
+Le texte n’annonce plus « Ajouter maintenant » sans qualification. Disponibilité
+traduite, blockers lisibles et plafond personnel nommé sans hardcode Boukki. Dans
+l’UI, les libellés passent à « rapport à rafraîchir » après cinq minutes sans reconstruire
+les formulaires ni relancer le calcul ; le contrôle repose sur la date source du plan.
+Les exports déjà copiés/envoyés ne sont pas modifiables : leur état vaut à leur date.
+Aucun envoi de notification effectué. API privée et authentification inchangées.
+
+Evals : classement identique raw/compact, disponibilité inférée, date source conservée,
+rapport périmé, faits absents, plan non publiable et dépendance d’étape. Comparaison
+sur mêmes objets synthétiques, pas une certification de tous les plans réels. Le
+Coach authentifié et le parcours mobile restent non vérifiés dans un navigateur ;
+aucun secret ou accès privé récupéré pour contourner cette limite.
+
+Vérification du lot : 644 tests réussis, syntaxe, versions d’assets et contrôles
+statiques valides. Une fixture de contrat a été complétée avant la validation finale.

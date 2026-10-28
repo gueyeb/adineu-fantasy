@@ -1,3 +1,4 @@
+import { classifyCompactWaiverPresentation } from "../public/assets/waiver-decision-view.js";
 import { formatWaiverSchedule } from "../public/assets/waiver-schedule.js";
 import { formatLineupMovements } from "./lineup-movements.js";
 import { summarizeDecisionProvenance, formatProvenanceSummary } from './decision-provenance.js';
@@ -24,6 +25,8 @@ export function normalizeCoachPreferences(input = {}) {
 function compactWaiver(player) {
   return {
     provenance: player.provenance ?? null,
+    presentationFacts: { legalTransaction: player.legalTransaction ?? null, horizonCovered: player.horizonCovered ?? null,
+      actionBlockers: player.decision?.actionBlockers ?? player.actionBlockers ?? null, confirmation: player.decision?.confirmation ?? null },
     weekProjection: player.weekProjection ?? null, rosPpg: player.rosPpg ?? null,
     usageScore: player.usageScore ?? null,
     dropCostComponents: player.dropCostComponents ?? player.modelMetrics?.dropCostComponents ?? null,
@@ -101,6 +104,7 @@ export function buildCoachPlan({ decisionContext, trades, preferences = {} }) {
   });
 
   return {
+    availabilityAsOf: context.availabilityAsOf ?? null,
     decisionScope: context.decisionScope ?? null,
     coherence: context.coherence ?? null,
     publishable: context.coherence?.publishable ?? null,
@@ -138,7 +142,8 @@ export function buildCoachPlan({ decisionContext, trades, preferences = {} }) {
   };
 }
 
-export function formatCoachPlan(plan) {
+export function formatCoachPlan(plan, { now = Date.now() } = {}) {
+  const stateLabel = row => classifyCompactWaiverPresentation(row, { asOf: plan.availabilityAsOf, publishable: plan.publishable, now }).label;
   const record = plan.teamState.record || { wins: 0, losses: 0, ties: 0 };
   const lines = [
     `🧠 COACH ${plan.team.toUpperCase()} — SEMAINE ${plan.week}`,
@@ -162,12 +167,12 @@ export function formatCoachPlan(plan) {
   for (const action of ["ADD_NOW", "CLAIM_IF_CHEAP"]) {
     const targets = plan.acquisitionPlan ? [] : plan.waiverActions[action];
     if (!targets.length) continue;
-    lines.push("", action === "ADD_NOW" ? "🎯 WAIVERS — AJOUTER MAINTENANT" : "💸 WAIVERS — SEULEMENT AU BON PRIX");
-    targets.forEach(player => lines.push(`• ${player.name} (${player.position})${player.starterVacancyScenario ? ` · compléter ${player.starterVacancyScenario.slot} en S${plan.week}` : ""} · gain net ${player.netGain} pt/sem ${player.starterVacancyScenario ? `sur S${plan.week}` : "sur le rôle"} · coupe ${player.dropCandidate?.name || "n/d"} · max ${player.maxForTeam ?? "n/d"} $ · S${plan.week}: ${player.targetWeekDelta ?? "n/d"} pt · total net ${player.netGainTotal ?? "n/d"} pt / ${player.horizonWeeks ?? "n/d"} sem`));
+    lines.push("", action === "ADD_NOW" ? "🎯 WAIVERS — AJOUTS LIBRES À VÉRIFIER" : "💸 WAIVERS — SEULEMENT AU BON PRIX");
+    targets.forEach(player => lines.push(`• ${player.name} (${player.position}) · ${stateLabel(player)}${player.starterVacancyScenario ? ` · compléter ${player.starterVacancyScenario.slot} en S${plan.week}` : ""} · gain net ${player.netGain} pt/sem ${player.starterVacancyScenario ? `sur S${plan.week}` : "sur le rôle"} · coupe ${player.dropCandidate?.name || "n/d"} · max ${player.maxForTeam ?? "n/d"} $ · S${plan.week}: ${player.targetWeekDelta ?? "n/d"} pt · total net ${player.netGainTotal ?? "n/d"} pt / ${player.horizonWeeks ?? "n/d"} sem`));
   }
   if (plan.acquisitionPlan?.steps.length) {
     lines.push("", "PLAN CONDITIONNEL — VÉRIFIER APRÈS CHAQUE RÉSULTAT");
-    for (const step of plan.acquisitionPlan.steps) lines.push(`• ${step.name} · ${step.recommendedAction === "ADD_NOW" ? "ajout libre" : `claim, réserver ${step.suggestedBid} $`} · coupe ${step.dropCandidate?.name || "place libre"} · budget après ${step.budgetAfter} $ · gain marginal ${step.netGainTotal} pts${Number.isFinite(step.horizonWeeks) ? ` sur ${step.horizonWeeks} sem. (S${plan.week} : ${step.targetWeekDelta ?? "n/d"} pts ; projections Sleeper + usage)` : ""}${step.preferenceOverridden ? ` · préférence temporaire dépassée (${step.preferencePenaltyTotal} points d’utilité)` : ""}${step.dependsOnPlayerIds.length ? ` · suppose les ajouts précédents (${step.dependsOnPlayerIds.join(", ")})` : ""}`);
+    for (const step of plan.acquisitionPlan.steps) lines.push(`• ${step.name} · ${stateLabel(step)} · ${step.recommendedAction === "ADD_NOW" ? "ajout libre" : `claim, réserver ${step.suggestedBid} $`} · coupe ${step.dropCandidate?.name || "place libre"} · budget après ${step.budgetAfter} $ · gain marginal ${step.netGainTotal} pts${Number.isFinite(step.horizonWeeks) ? ` sur ${step.horizonWeeks} sem. (S${plan.week} : ${step.targetWeekDelta ?? "n/d"} pts ; projections Sleeper + usage)` : ""}${step.preferenceOverridden ? ` · préférence temporaire dépassée (${step.preferencePenaltyTotal} points d’utilité)` : ""}${step.dependsOnPlayerIds.length ? ` · suppose les ajouts précédents (${step.dependsOnPlayerIds.join(", ")})` : ""}`);
     lines.push(`Total réservé ${plan.acquisitionPlan.reservedFaab} $ ; aucune probabilité de gagner ni soumission automatique.`);
   }
   const claimLines = formatClaimPortfolio(plan.acquisitionPlan);
