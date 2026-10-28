@@ -18,7 +18,7 @@ import { findRosterByTeam } from "../public/assets/roster-view.js";
 import { resolveLastCompletedWeek, resolveOperationalWeek } from "../public/assets/nfl-week.js";
 import { leaguePoints } from "../public/assets/weekly-leaders.js";
 import { computeOptimalLineupPoints } from "../public/assets/weekly-recap.js";
-import { applyPlanChoice, attachModelView, buildLineupEntries, buildMoveEntries, currentCounterfactuals, decisionWeekOf, evaluateMove, evaluateSkippedRecommendation, formatCounterfactualLine, lastKickoffByWeek, normalizePlanChoice, normalizeReason, planChoiceRows, postWaiverReview, skippedEntry, skippedRecommendations, SKIPPED_KIND, summarizeCounterfactuals, summarizeDecisionLog, winningClaims } from "../public/assets/decision-log.js";
+import { applyPlanChoice, attachModelView, buildLineupEntries, buildMoveEntries, currentCounterfactuals, cutEntry, decisionWeekOf, declinedCuts, evaluateDeclinedCut, evaluateMove, evaluateSkippedRecommendation, evaluateTradeOption, formatCounterfactualLine, lastKickoffByWeek, normalizePlanChoice, normalizeReason, planChoiceRows, postWaiverReview, skippedEntry, skippedRecommendations, skippedTradeOptions, SKIPPED_KIND, summarizeCounterfactuals, summarizeDecisionLog, tradeEntry, winningClaims } from "../public/assets/decision-log.js";
 import { createSupabaseFromEnv } from "./model-tracking.js";
 import { getPlayersIndex, getSchedule } from "./league-context.js";
 
@@ -66,7 +66,7 @@ export async function loadSnapshotRecommendations(team, { directory = SNAPSHOT_D
  * Pure assembly, testable without network: every move and lineup of the roster, evaluated and
  * compared with the recorded recommendations.
  */
-export function assembleDecisionLog({ transactions, matchupsByWeek, statsByWeek, scoring, schedule, rosterId, season, lastCompletedWeek, playerOf, recommendationsByWeek = {} }) {
+export function assembleDecisionLog({ transactions, matchupsByWeek, statsByWeek, scoring, schedule, rosterId, season, lastCompletedWeek, playerOf, recommendationsByWeek = {}, tradeOptionsByWeek = {} }) {
   const kickoffs = lastKickoffByWeek(schedule);
   const weekOf = timestamp => decisionWeekOf(timestamp, kickoffs);
   const pointsOf = (id, week) => {
@@ -89,20 +89,40 @@ export function assembleDecisionLog({ transactions, matchupsByWeek, statsByWeek,
   const lineups = buildLineupEntries({ matchupsByWeek, rosterId, season, lastCompletedWeek, optimalOf: row => optimalOf(row.players || [], row.players_points || {}) });
   const entries = [...moves, ...lineups].map(entry => attachModelView(entry, recommendationsByWeek));
   const skipped = skippedRecommendations(moves, recommendationsByWeek);
-  return { entries, skipped, counterfactuals: evaluateSkipped(skipped, { transactions, matchupsByWeek, statsByWeek, rosterId, season, lastCompletedWeek, playerOf, weekOf, pointsOf, optimalOf }),
+  const context = { transactions, matchupsByWeek, statsByWeek, rosterId, season, lastCompletedWeek, playerOf, weekOf, pointsOf, optimalOf };
+  return { entries, skipped, counterfactuals: [...evaluateSkipped(skipped, context), ...evaluateDeclined(moves, recommendationsByWeek, tradeOptionsByWeek, context)],
     summary: summarizeDecisionLog(entries) };
+}
+
+/** The team's own Sleeper matchup roster of a week, and stats that did not load as unavailable (null), never zero. */
+const counterfactualSources = ({ matchupsByWeek, statsByWeek, rosterId, pointsOf }) => ({
+  rosterOf: week => {
+    const mine = (matchupsByWeek[week] || []).find(row => row.roster_id === rosterId);
+    return mine ? { playerIds: (mine.players || []).map(String), playersPoints: mine.players_points || {} } : null;
+  },
+  loadedPointsOf: (id, week) => Object.keys(statsByWeek[week] || {}).length > 0 ? pointsOf(id, week) ?? 0 : null
+});
+
+/** Plan cuts the team kept and Coach trade options not executed (Adineu estimates). */
+function evaluateDeclined(moves, recommendationsByWeek, tradeOptionsByWeek, context) {
+  const { season, rosterId, lastCompletedWeek, playerOf, optimalOf } = context;
+  const { rosterOf, loadedPointsOf } = counterfactualSources(context);
+  const options = { rosterOf, pointsOf: loadedPointsOf, optimalOf, lastCompletedWeek };
+  const cuts = declinedCuts(moves, recommendationsByWeek).map(row => {
+    const filled = { ...row, name: row.name ?? playerOf(row.playerId)?.name ?? null };
+    return cutEntry(filled, evaluateDeclinedCut(filled, options), { season, rosterId });
+  });
+  const trades = skippedTradeOptions(moves, tradeOptionsByWeek).map(row => tradeEntry(row, evaluateTradeOption(row, options), { season, rosterId }));
+  return [...cuts, ...trades];
 }
 
 /**
  * Counterfactual of each recommendation not placed (Adineu estimate). The roster is the team's own
  * Sleeper matchup row of each week; a week whose stats did not load is unavailable, not zero.
  */
-function evaluateSkipped(skipped, { transactions, matchupsByWeek, statsByWeek, rosterId, season, lastCompletedWeek, playerOf, weekOf, pointsOf, optimalOf }) {
-  const rosterOf = week => {
-    const mine = (matchupsByWeek[week] || []).find(row => row.roster_id === rosterId);
-    return mine ? { playerIds: (mine.players || []).map(String), playersPoints: mine.players_points || {} } : null;
-  };
-  const statsLoaded = week => Object.keys(statsByWeek[week] || {}).length > 0;
+function evaluateSkipped(skipped, context) {
+  const { transactions, rosterId, season, lastCompletedWeek, playerOf, weekOf, optimalOf } = context;
+  const { rosterOf, loadedPointsOf } = counterfactualSources(context);
   const takenByOf = (week, playerId) => {
     const row = transactions.find(item => item.status === "complete" && ["waiver", "free_agent"].includes(item.type)
       && Object.entries(item.adds || {}).some(([id, owner]) => id === playerId && owner !== rosterId) && weekOf(Number(item.status_updated ?? item.created)) === week);
@@ -110,8 +130,7 @@ function evaluateSkipped(skipped, { transactions, matchupsByWeek, statsByWeek, r
   };
   return skipped.map(row => {
     const filled = { ...row, position: row.position ?? playerOf(row.playerId)?.position ?? null, cutName: row.cutName ?? (row.cutPlayerId ? playerOf(row.cutPlayerId)?.name ?? null : null) };
-    const outcome = evaluateSkippedRecommendation(filled, { rosterOf, optimalOf, lastCompletedWeek, takenBy: takenByOf(row.week, row.playerId),
-      pointsOf: (id, week) => statsLoaded(week) ? pointsOf(id, week) ?? 0 : null });
+    const outcome = evaluateSkippedRecommendation(filled, { rosterOf, optimalOf, lastCompletedWeek, takenBy: takenByOf(row.week, row.playerId), pointsOf: loadedPointsOf });
     return skippedEntry(filled, outcome, { season, rosterId });
   });
 }
@@ -185,6 +204,24 @@ export function createDecisionLogStore({ getSupabase = createSupabaseFromEnv, se
       if (error) throw new Error(error.message);
       return Object.fromEntries((data || []).map(row => [row.week, row.details?.recommendations ?? []]));
     },
+    /** Coach trade option of each Tuesday plan: null when the plan predates the recording (not guessed). */
+    async tradeOptions(rosterId) {
+      const { data, error } = await (await supabase()).from(TABLE).select("week, details").eq("season", Number(season)).eq("roster_id", rosterId).eq("kind", "MODEL_PLAN");
+      if (error) throw new Error(error.message);
+      return Object.fromEntries((data || []).map(row => [row.week, row.details?.tradeOption ?? null]));
+    },
+    /** Adds the Coach trade option to that week's Tuesday plan; the first write wins, no plan = nothing written. */
+    async recordTradeOption(rosterId, week, option) {
+      const id = `${season}:${rosterId}:plan:${week}`;
+      const client = await supabase();
+      const { data: row, error: readError } = await client.from(TABLE).select("id, details").eq("id", id).eq("kind", "MODEL_PLAN").maybeSingle();
+      if (readError) throw new Error(readError.message);
+      if (!row) return { id, skipped: "NO_PLAN" };
+      if (row.details?.tradeOption) return { id, skipped: "exists" };
+      const { error } = await client.from(TABLE).update({ details: { ...(row.details ?? {}), tradeOption: option }, updated_at: new Date().toISOString() }).eq("id", id).eq("roster_id", rosterId);
+      if (error) throw new Error(error.message);
+      return { id, recorded: option.status };
+    },
     /** The Tuesday plan, before the waivers: the first write of a week wins. */
     async recordPlan(rosterId, week, recommendations) {
       const id = `${season}:${rosterId}:plan:${week}`;
@@ -214,8 +251,9 @@ export async function syncDecisionLog({ team = "t0z", fetchImpl = fetch, store =
   const schedule = await getSchedule({ season, fetchImpl });
   const recorded = store && !dryRun ? await store.plans(roster.roster_id).catch(() => ({})) : {};
   const recommendationsByWeek = { ...(await loadSnapshotRecommendations(team)), ...recorded };
+  const tradeOptionsByWeek = store && !dryRun && typeof store.tradeOptions === "function" ? await store.tradeOptions(roster.roster_id).catch(() => ({})) : {};
   const result = assembleDecisionLog({ transactions, matchupsByWeek, statsByWeek, scoring: league.scoring_settings, schedule, rosterId: roster.roster_id, season,
-    lastCompletedWeek, playerOf: id => index.get(String(id)) ?? null, recommendationsByWeek });
+    lastCompletedWeek, playerOf: id => index.get(String(id)) ?? null, recommendationsByWeek, tradeOptionsByWeek });
   const written = !dryRun && store ? await store.upsert([...result.entries, ...result.counterfactuals]) : 0;
   const teamNames = new Map(rosters.map(row => {
     const owner = users.find(user => user.user_id === row.owner_id);

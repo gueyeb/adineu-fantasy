@@ -100,3 +100,30 @@ test("?delta=1 on the bearer Coach call sends only changes, stores the state and
   const unavailable = await call("?delta=1");
   assert.deepEqual([unavailable.notify, unavailable.delta.reset], [true, "STATE_UNAVAILABLE"]);
 });
+
+test("bearer Coach calls add the trade option to the week's plan, and a store failure never blocks the bulletin", async t => {
+  const recorded = [];
+  let fail = false;
+  const server = createAppServer({
+    coachPassword: "test-only", coachToken: "test-api", secureCookies: false,
+    getContext: async () => ({ week: 2, league: { teams: 12, playoffTeams: 8, rosterSettings: { starters: {}, benchSlots: 6, reserveSlots: 1 } },
+      myTeam: { rosterId: 1, teamName: "Boukki", owner: "t0z", starters: [], bench: [], ir: [], record: { wins: 1, losses: 0 }, standingsRank: 3, faab: { remaining: 497, budget: 1000 } } }),
+    getInjuryStatuses: async () => new Map(),
+    getPlayerValues: async () => ({ byId: new Map(), weeklyProjections: {} }),
+    getFreeAgents: async () => ({ lastCompletedWeek: 1, byPosition: {} }),
+    getMatchupContext: async () => null,
+    analyze: async () => ({ results: [{ proposals: [] }] }),
+    decisionLogStore: {
+      coachState: async () => null, saveCoachState: async () => true,
+      recordTradeOption: async (rosterId, week, option) => { if (fail) throw new Error("down"); recorded.push({ rosterId, week, status: option.status }); return { recorded: option.status }; }
+    }
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(() => server.close());
+  const call = () => fetch(`http://127.0.0.1:${server.address().port}/api/coach`, { headers: { authorization: "Bearer test-api" } });
+  assert.equal((await call()).status, 200);
+  assert.deepEqual(recorded, [{ rosterId: 1, week: 2, status: "NONE" }], "no Coach trade that week is recorded as NONE");
+  fail = true;
+  assert.equal((await call()).status, 200);
+});

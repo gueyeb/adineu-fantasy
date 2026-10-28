@@ -982,3 +982,22 @@ Limites : la moyenne utilise toujours le taux reste de saison (projection/usage)
 projections hebdomadaires de la simulation ; les déplacements par segment restent une
 approximation du taux moyen sur chaque sous-fenêtre ; `buildLeagueTradeIntelligence` et la
 semaine cible (`trade-target.js`) ne sont pas concernés. Aucune écriture Supabase/Sleeper.
+
+**QC-03 — coupes refusées et trade du Coach dans « et si ? », 28/10.** Suite du contrefactuel des
+recos non suivies. (1) Coupe du plan gardée (`CUT_KEPT`) : seulement quand l’ajout du plan a été
+fait avec une autre coupe, ou aucune — un ajout non fait retire déjà sa coupe, jamais compté deux
+fois. Roster suivi = roster réel sans le joueur gardé, avec les joueurs coupés à sa place ; une
+semaine où il est déjà parti vaut 0 ; sans coupe de remplacement, la place libérée n’est jamais
+valorisée (`FREED_SPOT_UNVALUED`). (2) Trade du Coach non fait (`TRADE_OPTION`) : l’appel bearer de
+`/api/coach` (bulletin du mardi) ajoute `details.tradeOption` au `MODEL_PLAN` de la semaine
+(première écriture gagnante, PROPOSED avec ids / NONE / UNIDENTIFIED, aucun plan = rien) ; gain
+de lineup optimale a posteriori de l’équipe suivie seule, acceptation du partenaire supposée,
+1-contre-2 sans coupe modélisée. Plans antérieurs : `TRADE_OPTION_NOT_RECORDED`, jamais deviné.
+(3) Accord « pt » sous 2 (`formatPoints`) dans le contrefactuel, la ligne du mardi et le journal.
+
+Réel (lecture seule, rien écrit) : Bo Nix S7 +20,18 pts, Browns/Jets S7 0 pt (surenchéris), S8 en
+attente ; trades S7/S8 non évaluables (option non enregistrée) ; aucune coupe refusée (plans sans
+coupe avant le 28/10). Limites : a posteriori ; acceptation du trade et disponibilité non
+prouvées ; la semaine du plan Coach doit égaler celle du `MODEL_PLAN` (semaine opérationnelle) ;
+coupes du diagnostic Coach (hors plan) non couvertes ; le bulletin hors mardi n’écrit rien si la
+semaine a déjà son option.

@@ -11,6 +11,7 @@ import { analyzeTrades, evaluateTradeOffer, formatTradeBulletin, formatTradeOffe
 import { createWarRoomStore } from "./scripts/war-room-sync.js";
 import { createCoachSettingsStore, listLeagueTeams, resolveCoachTeam, resolveDeltaMode, validateCoachSettingsPatch } from "./scripts/coach-settings.js";
 import { createDecisionLogStore, refreshDecisionJournal } from "./scripts/decision-log.js";
+import { tradeOptionRecord } from "./public/assets/decision-log.js";
 import {
   getLeagueContext,
   getMatchupContext as getMatchupContextDefault,
@@ -745,6 +746,10 @@ export function createAppServer({
         const detailMessage = formatCoachPlan(plan) + formatCoachSos(plan.sos);
         // Bearer = n8n → Telegram (4096 max): readable bulletin, full text kept in detailMessage.
         if (apiAuthorized) {
+          // The Tuesday bulletin's trade option joins that week's plan (first write wins) for the "et si ?" journal.
+          if (typeof decisionLogStore?.recordTradeOption === "function" && Number.isInteger(plan.week)) {
+            await decisionLogStore.recordTradeOption(plan.rosterId, plan.week, tradeOptionRecord(plan.tradeTarget)).catch(() => null);
+          }
           const fullBulletin = formatCoachPlan(plan, { compact: true }) + formatCoachSosBrief(plan.sos);
           // ?delta=1 (or the saved default): only what changed since the last bulletin; `notify` false = nothing to send.
           if (resolveDeltaMode(url.searchParams.get("delta"), coachSettings)) {

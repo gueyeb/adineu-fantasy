@@ -14,7 +14,7 @@ import { loadBidHistory, loadWatchlist, saveBidHistory, saveWatchlist, syncWarRo
 import { renderWeeklyRoster, renderWeeklyMoves } from "./coach-week-view.js?v=df0cc00998";
 import { LEAGUE_METADATA_2026 } from "./league-settings.js?v=886f353394";
 import { formatAuction } from "./faab-auction.js?v=1eea51c520";
-import { REASON_MAX as JOURNAL_REASON_MAX, describeCounterfactual } from "./decision-log.js?v=86d30f4278";
+import { REASON_MAX as JOURNAL_REASON_MAX, counterfactualType, describeCounterfactual, pointsUnit } from "./decision-log.js?v=aaee31cbab";
 import { readSettingsForm, renderCoachSettings, renameMessage } from "./coach-settings-view.js?v=56e93f18f8";
 
 const login = document.getElementById("coach-login");
@@ -174,10 +174,11 @@ const names = players => players.map(player => escapeHtml(player.name)).join(" +
 function journalOutcome(entry) {
   const outcome = entry.outcome;
   if (!outcome || outcome.status === "PENDING") return "en attente du match";
-  if (entry.kind === "LINEUP") return `${outcome.actualPoints} pts sur ${outcome.optimalPoints} possibles · <b>${outcome.pointsLeft} laissés au banc</b>`;
+  const pts = value => `${value} ${pointsUnit(value)}`;
+  if (entry.kind === "LINEUP") return `${pts(outcome.actualPoints)} sur ${outcome.optimalPoints} possibles · <b>${outcome.pointsLeft} laissé${pointsUnit(outcome.pointsLeft) === "pts" ? "s" : ""} au banc</b>`;
   const window = `S${outcome.fromWeek}–S${outcome.throughWeek}${outcome.status === "PARTIAL" ? " (partiel)" : ""}`;
-  if (entry.kind === "CLAIM_LOST") return `${window} : il a marqué ${outcome.addedPoints} pts${entry.lostTo ? ` · parti à ${entry.lostTo.bid} $` : ""}${entry.note === "INVALID_CLAIM" ? " · claim invalide (roster plein)" : ""}`;
-  return `${window} : ajouté ${outcome.addedPoints} pts (${outcome.startedPoints ?? 0} titularisés) contre coupé ${outcome.droppedPoints} pts · <b>net ${signed(outcome.net)}</b>${journalReviews(entry)}`;
+  if (entry.kind === "CLAIM_LOST") return `${window} : il a marqué ${pts(outcome.addedPoints)}${entry.lostTo ? ` · parti à ${entry.lostTo.bid} $` : ""}${entry.note === "INVALID_CLAIM" ? " · claim invalide (roster plein)" : ""}`;
+  return `${window} : ajouté ${pts(outcome.addedPoints)} (${outcome.startedPoints ?? 0} titularisé${pointsUnit(outcome.startedPoints ?? 0) === "pts" ? "s" : ""}) contre coupé ${pts(outcome.droppedPoints)} · <b>net ${signed(outcome.net)}</b>${journalReviews(entry)}`;
 }
 
 /** Fixed 2- and 4-week reviews; a window not yet finished says so instead of showing a partial number. */
@@ -211,12 +212,22 @@ function renderPlanChoices(rows = []) {
 function renderCounterfactuals(rows = [], summary = null, planRows = []) {
   if (!rows.length) return "";
   const shown = new Set(planRows.filter(row => row.counterfactual).map(row => `${row.week}|${row.playerId}`));
-  const extra = rows.filter(row => !shown.has(`${row.week}|${row.added[0]?.id}`));
+  const extra = rows.filter(row => counterfactualType(row) !== "ADD" || !shown.has(`${row.week}|${row.added[0]?.id}`));
   return `<h4>Recommandations non suivies — et si ?</h4>
-    <p class="war-note">Estimation Adineu, pas un résultat Sleeper : le roster réel de chaque semaine, avec le joueur recommandé (et sa coupe quand le plan l’a enregistrée), comparé en lineup optimale a posteriori sur 4 semaines. Un joueur resté au banc compte 0.${summary?.evaluated ? ` Total : ${signed(summary.lineupGain)} pts sur ${summary.evaluated} recommandation(s) évaluée(s)` : ""}${summary?.notScorable ? ` · ${summary.notScorable} non évaluable(s)` : ""}${summary?.pending ? ` · ${summary.pending} en attente` : ""}.</p>
+    <p class="war-note">Estimation Adineu, pas un résultat Sleeper : le roster réel de chaque semaine, avec le joueur recommandé (et sa coupe quand le plan l’a enregistrée), la coupe refusée ou le trade proposé par le Coach (acceptation supposée), comparé en lineup optimale a posteriori sur 4 semaines. Un joueur resté au banc compte 0.${summary?.evaluated ? ` Total : ${signed(summary.lineupGain)} ${pointsUnit(summary.lineupGain)} sur ${summary.evaluated} recommandation(s) évaluée(s)` : ""}${summary?.notScorable ? ` · ${summary.notScorable} non évaluable(s)` : ""}${summary?.pending ? ` · ${summary.pending} en attente` : ""}.</p>
     ${extra.length ? `<ol class="journal-list">${extra.map(row => `<li class="journal-entry">
-      <div><b>S${row.week} · ${names(row.added)}</b> · ${row.note === "ADD_NOW" ? "ajout libre" : "claim"}${Number.isFinite(row.bid) ? ` ${row.bid} $` : ""}${row.dropped.length ? ` <i>coupe</i> ${names(row.dropped)}` : ""}</div>
-      <small>${escapeHtml(describeCounterfactual(row.outcome))}</small></li>`).join("")}</ol>` : ""}`;
+      <div>${counterfactualTitle(row)}</div>
+      <small>${escapeHtml(describeCounterfactual(row.outcome, counterfactualType(row)))}</small></li>`).join("")}</ol>` : ""}`;
+}
+
+/** Heading of a counterfactual row: a skipped add, a planned cut kept, or the Coach trade not made. */
+function counterfactualTitle(row) {
+  const type = counterfactualType(row);
+  if (type === "CUT") return `<b>S${row.week} · coupe refusée : ${names(row.dropped)}</b>${row.added.length ? ` <i>coupé à sa place</i> ${names(row.added)}` : ""}${row.model?.withAdd?.name ? ` · avec l’ajout de ${escapeHtml(row.model.withAdd.name)}` : ""}`;
+  if (type === "TRADE") return row.dropped.length
+    ? `<b>S${row.week} · trade non fait : ${names(row.dropped)} contre ${names(row.added)}</b>${row.model?.partner?.name ? ` · ${escapeHtml(row.model.partner.name)}` : ""}`
+    : `<b>S${row.week} · trade du Coach</b>`;
+  return `<b>S${row.week} · ${names(row.added)}</b> · ${row.note === "ADD_NOW" ? "ajout libre" : "claim"}${Number.isFinite(row.bid) ? ` ${row.bid} $` : ""}${row.dropped.length ? ` <i>coupe</i> ${names(row.dropped)}` : ""}`;
 }
 
 function renderJournal(data) {
@@ -226,7 +237,7 @@ function renderJournal(data) {
     <small>${journalOutcome(entry)}${entry.model ? ` · ${JOURNAL_MODEL[entry.model.verdict] || escapeHtml(entry.model.verdict)}${Number.isFinite(entry.model.suggestedBid) ? ` (${entry.model.suggestedBid} $)` : ""}` : ""}</small>
     <form class="journal-reason" data-journal-id="${escapeHtml(entry.id)}"><input type="text" maxlength="${JOURNAL_REASON_MAX}" value="${escapeHtml(entry.reason || "")}" placeholder="Pourquoi ? (motif libre)" aria-label="Motif"><button class="coach-secondary" type="submit">Enregistrer</button></form>
   </li>`).join("");
-  return `<p>${summary.moves ?? 0} mouvements · ${summary.claimsWon ?? 0} claims gagnés / ${summary.claimsLost ?? 0} perdus · ${summary.faabSpent ?? 0} $ dépensés · net des mouvements évalués ${signed(summary.netPointsFromMoves ?? 0)} pts (${summary.evaluatedMoves ?? 0}) · ${summary.lineupPointsLeft ?? "—"} pts laissés au banc sur ${summary.lineupWeeks ?? 0} semaines.</p>
+  return `<p>${summary.moves ?? 0} mouvements · ${summary.claimsWon ?? 0} claims gagnés / ${summary.claimsLost ?? 0} perdus · ${summary.faabSpent ?? 0} $ dépensés · net des mouvements évalués ${signed(summary.netPointsFromMoves ?? 0)} ${pointsUnit(summary.netPointsFromMoves ?? 0)} (${summary.evaluatedMoves ?? 0}) · ${summary.lineupPointsLeft ?? "—"} ${Number.isFinite(summary.lineupPointsLeft) && pointsUnit(summary.lineupPointsLeft) === "pt" ? "pt laissé" : "pts laissés"} au banc sur ${summary.lineupWeeks ?? 0} semaines.</p>
     <p class="war-note">Net = points des joueurs ajoutés moins ceux des joueurs coupés, au barème de la ligue, sur 4 semaines à partir de la semaine du mouvement. Bilans à 2 et 4 semaines affichés seulement une fois la fenêtre terminée. Mis à jour chaque mardi.</p>
     ${renderPlanChoices(data.planChoices)}
     ${renderCounterfactuals(data.counterfactuals, data.counterfactualSummary, data.planChoices)}
