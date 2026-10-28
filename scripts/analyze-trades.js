@@ -10,14 +10,14 @@
  *   node scripts/analyze-trades.js --give=5859 --receive=4046,12519   (une offre précise)
  */
 
-import { formatTradeTiming } from "../public/assets/trade-timing.js";
+import { formatTradeTiming, formatTradeWeekFrame } from "../public/assets/trade-timing.js";
 import { buildLeagueRosterSnapshot, buildLeagueTradeIntelligence } from "../public/assets/league-trade-intelligence.js";
 import { normalizeTradeIntent, targetWeekTradeImpact, compareTargetWeekImpacts } from "../public/assets/trade-target.js";
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { diagnoseRoster, findTradeProposals, MAX_PRIMARY_TRADE_OFFERS } from "../public/assets/trade-recommender.js";
 import { assessScenarioConsistency, describeScenarioConsistency, scoreTradeRecommendation, tradeReturnScenarios } from "../public/assets/trade-score.js";
-import { resolveOperationalWeek } from "../public/assets/nfl-week.js";
+import { resolveLastCompletedWeek, resolveOperationalWeek } from "../public/assets/nfl-week.js";
 import { usageAdjustedRosPpg, projectedRosOnly } from "../public/assets/rest-of-season.js";
 import { BYE_WEEKS_2026, GENERAL_SETTINGS_2026 } from "../public/assets/league-settings.js";
 import { buildLiveMarketValues } from "../public/assets/trade-value.js";
@@ -53,9 +53,10 @@ async function loadPlayerCatalog(catalogUrl = DEFAULT_CATALOG_URL) {
  * signaux d'usage. Une seule source pour que la page et le bulletin calculent la même chose.
  */
 export async function loadPlayerValues({ leagueId = DEFAULT_SLEEPER_LEAGUE_ID, fetchImpl = fetch, week = null, season = "2026", playerMap = null, playerIds = null } = {}) {
+  let nflState = null;
   if (!Number.isFinite(week)) {
     try {
-      const nflState = await sleeperGet("/state/nfl", { fetchImpl });
+      nflState = await sleeperGet("/state/nfl", { fetchImpl });
       week = resolveOperationalWeek(nflState);
       season = nflState?.season || season;
     } catch { week = 1; }
@@ -64,7 +65,9 @@ export async function loadPlayerValues({ leagueId = DEFAULT_SLEEPER_LEAGUE_ID, f
     sleeperGet(`/league/${leagueId}`, { fetchImpl }), getSchedule({ season, fetchImpl })
   ]).then(([league, games]) => {
     if (String(league.season) !== String(season)) throw new Error("Trade timing season mismatch");
+    // Last completed week per Sleeper's NFL state; unknown (null) when the week was passed in.
     return { asOf: new Date().toISOString(), season: Number(season),
+    dataThroughWeek: nflState && Number(nflState.week) === week ? resolveLastCompletedWeek(nflState) : null, dataThroughWeekSource: nflState ? "SLEEPER_NFL_STATE" : null,
     reviewDays: league.settings?.trade_review_days, deadlineWeek: league.settings?.trade_deadline,
     movesDisabled: [0, 1].includes(league.settings?.disable_adds) ? league.settings.disable_adds === 1 : null, maxSubs: league.settings?.max_subs ?? null,
     disabled: [0, 1].includes(league.settings?.disable_trades) ? league.settings.disable_trades === 1 : null, ruleSource: `https://api.sleeper.app/v1/league/${leagueId}`,
@@ -258,7 +261,7 @@ export async function analyzeTrades({
         rosters: formattedRosters,
         playerCatalog: playerMap,
         playerPreferences,
-        currentWeek, limit: null, cutContext: playerValues.timingContext, projectionsByWeek: playerValues.projectionsByWeek
+        currentWeek, limit: null, cutContext: playerValues.timingContext, projectionsByWeek: playerValues.projectionsByWeek, targetWeek: intent.targetWeek
       }).filter(proposal => !intent.preferredPosition || proposal.receive.some(player => player.position === intent.preferredPosition)).map(proposal => ({ ...proposal,
         targetWeekImpact: targetWeekTradeImpact({ myPlayers: target.players, theirPlayers: formattedRosters.find(roster => String(roster.roster_id) === String(proposal.partnerRosterId)).players,
           give: proposal.give, receive: proposal.receive, currentWeek, targetWeek: intent.targetWeek, projectionsByWeek: playerValues.projectionsByWeek, timingContext: playerValues.timingContext }) }))
@@ -275,7 +278,7 @@ export async function analyzeTrades({
  * average deltas of the Trade Finder plus the week-by-week return scenarios, so a pending Sleeper
  * offer (not exposed by the public API) can be checked in one call.
  */
-export async function evaluateTradeOffer({ give = [], receive = [], leagueId = DEFAULT_SLEEPER_LEAGUE_ID, fetchImpl = fetch, catalogUrl = DEFAULT_CATALOG_URL, getStatuses = getInjuryStatuses } = {}) {
+export async function evaluateTradeOffer({ give = [], receive = [], leagueId = DEFAULT_SLEEPER_LEAGUE_ID, fetchImpl = fetch, catalogUrl = DEFAULT_CATALOG_URL, getStatuses = getInjuryStatuses, now = Date.now() } = {}) {
   const giveIds = give.map(String), receiveIds = receive.map(String);
   if (!giveIds.length || !receiveIds.length) throw new Error("Offre incomplète : give et receive requis");
   const { formattedRosters, currentWeek, playerValues } = await loadLeagueRosters({ leagueId, fetchImpl, catalogUrl, getStatuses });
@@ -290,10 +293,11 @@ export async function evaluateTradeOffer({ give = [], receive = [], leagueId = D
   const args = { myPlayers: mine.players, theirPlayers: theirs.players, give: pick(mine, giveIds), receive: pick(theirs, receiveIds), week: currentWeek, myRoster: mine, theirRoster: theirs, cutContext: playerValues.timingContext };
   const season = scoreTradeRecommendation(args);
   const brief = player => ({ id: String(player.sleeperId), name: player.name, position: player.position, injuryStatus: player.injuryStatus || null, rosPpg: player.rosPpg ?? null, marketValue: player.marketValue ?? null });
-  const scenarios = tradeReturnScenarios({ ...args, projectionsByWeek: playerValues.projectionsByWeek || {} });
+  const scenarios = tradeReturnScenarios({ ...args, projectionsByWeek: playerValues.projectionsByWeek || {}, timingContext: playerValues.timingContext, now });
   const consistency = assessScenarioConsistency({ myDelta: season.my_lineup_delta, theirDelta: season.their_lineup_delta, scenarios: scenarios.scenarios });
   return {
     week: currentWeek,
+    weekFrame: scenarios.weekFrame,
     mine: { rosterId: mine.roster_id, team: mine.name, gives: args.give.map(brief) },
     theirs: { rosterId: theirs.roster_id, team: theirs.name, gives: args.receive.map(brief) },
     seasonAverage: { myDeltaPerWeek: season.my_lineup_delta, theirDeltaPerWeek: season.their_lineup_delta, confidence: season.confidence, calculationReliability: season.calculationReliability, structure: season.structure, rosterConsequences: season.rosterConsequences, lineupChanges: season.lineupChanges, notes: season.notes },
@@ -313,7 +317,8 @@ export function formatTradeOffer(result) {
     ...(result.seasonAverage.structure ? [`Structure estimée : ${result.seasonAverage.structure.label} · fiabilité du calcul ${result.seasonAverage.calculationReliability}. Aucune probabilité d’acceptation.`] : []),
     ...(result.seasonAverage.notes || []).map(note => `À examiner : ${note}`),
     ...(result.consistency?.messages || []).map(message => `⚠ ${message}`),
-    `Simulation future, disponibilité et délai de trade non confirmés. Semaine par semaine S${scenarios.weeks?.from}–S${scenarios.weeks?.to} :`,
+    `Semaines : ${formatTradeWeekFrame(scenarios.weekFrame)}`,
+    scenarios.weeks ? `Simulation future, disponibilité non confirmée. Semaine par semaine S${scenarios.weeks.from}–S${scenarios.weeks.to} :` : "Aucune semaine affectable à simuler.",
     ...scenarios.scenarios.map(row => `• ${row.label}${Object.keys(row.returnWeeks).length ? ` (${Object.entries(row.returnWeeks).map(([name, week]) => `${name} S${week}`).join(", ")})` : ""} : ${result.mine.team} ${signed(row.myTotal)} pts · ${result.theirs.team} ${signed(row.theirTotal)} pts`),
     ...(scenarios.evidence.returnAssumptions || []).map(row => `⚠ ${row.name} (${row.status}) : hypothèse S${row.week}, ${row.basis === "FUTURE_PROJECTION_ASSUMPTION" ? "projection future" : "durée forfaitaire"} ; retour et activation IR non confirmés${row.traded ? "" : " (joueur conservé)"}.`),
     `Marché (valeur au-dessus du remplacement, pas ta lineup) : ${result.market.give} ↔ ${result.market.receive}`,
@@ -370,6 +375,7 @@ export function formatTradeBulletin(analysis, { proposalLimit = 5 } = {}) {
         ...(proposal.recommendationScore?.structure ? [`Structure estimée : ${proposal.recommendationScore.structure.label} · fiabilité du calcul ${proposal.recommendationScore.calculationReliability}. Aucune probabilité d’acceptation.`] : []),
         ...(proposal.recommendationScore?.notes || []).map(note => `À examiner : ${note}`),
         ...(proposal.scenarioCheck?.messages || []).map(message => `⚠ ${message}`),
+        ...(proposal.weekFrame ? [`Semaines : ${formatTradeWeekFrame(proposal.weekFrame)}`] : []),
         `Pourquoi : ${proposal.pitchTarget}`,
         ...(analysis.tradeIntent?.targetWeek ? [`S${analysis.tradeIntent.targetWeek} : ${proposal.targetWeekImpact?.status === "PROJECTED"
           ? `toi ${proposal.targetWeekImpact.myDelta > 0 ? "+" : ""}${proposal.targetWeekImpact.myDelta}, partenaire ${proposal.targetWeekImpact.theirDelta > 0 ? "+" : ""}${proposal.targetWeekImpact.theirDelta} pts estimés`

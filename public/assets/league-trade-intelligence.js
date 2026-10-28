@@ -1,8 +1,8 @@
-import { normalizeTradeIntent, targetWeekTradeImpact, compareTargetWeekImpacts } from "./trade-target.js?v=a655a5818d";
+import { normalizeTradeIntent, targetWeekTradeImpact, compareTargetWeekImpacts } from "./trade-target.js?v=72455ccbaf";
 import { listRosterIdentities, buildStarterSlotOrder } from "./roster-view.js?v=120de9d74d";
 import { BYE_WEEKS_2026, ROSTER_SETTINGS_2026 } from "./league-settings.js?v=886f353394";
-import { buildProjectedLineup, restOfSeasonEstimate } from "./trade-score.js?v=ff737d10b8";
-import { diagnoseRoster, findTradeProposals } from "./trade-recommender.js?v=9477b01091";
+import { buildProjectedLineup, restOfSeasonEstimate } from "./trade-score.js?v=1111e88ca0";
+import { diagnoseRoster, findTradeProposals } from "./trade-recommender.js?v=a863ac5f3f";
 import { playerKey } from "./trade-preferences.js?v=c5fec5ce56";
 
 const positions = new Set(["QB", "RB", "WR", "TE", "K", "DEF"]);

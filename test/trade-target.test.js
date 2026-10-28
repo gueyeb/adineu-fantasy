@@ -42,7 +42,7 @@ test("target ranking keeps missing impact distinct from zero and negative estima
 
 
 test("target estimates reject missing ownership and unknown NFL teams", () => {
-  const unknown = p("unknown", "RB", null);
+  const unknown = p("unknown", "RB", "ZZZ");
   const base = { targetWeek: 8, currentWeek: 7, projectionsByWeek: { 8: { unknown: { pts_ppr: 12 } } } };
   assert.equal(targetWeekTradeImpact({ ...base, myPlayers: [unknown] }).status, "UNAVAILABLE");
   assert.deepEqual(targetWeekTradeImpact({ ...base, give: [unknown] }).reasons, ["TRADE_OWNERSHIP_CONFLICT"]);

@@ -29,21 +29,26 @@ test("consistency: agreeing readings, contradicted average gain, flipping return
   assert.deepEqual(describeScenarioConsistency(none), []);
 });
 
-test("real case 28/10: Puka Nacua for Tuten + McMillan gains on average but loses week by week (bye covered by the bench)", () => {
+test("real case 28/10: Puka Nacua for Tuten + McMillan — the bench-covered bye removes the contradiction; the check still catches one", () => {
   const args = { myPlayers: boukki.players, theirPlayers: sayan.players, give: named("Boukki", "Puka Nacua"), receive: named("Super Sayan warriors", "Bhayshul Tuten", "Tetairoa McMillan"), week: fixture.week };
   const average = scoreTradeRecommendation({ ...args, myRoster: boukki, theirRoster: sayan });
-  assert.ok(average.my_lineup_delta > 0 && average.their_lineup_delta > 0);
   const weekly = tradeReturnScenarios({ ...args, projectionsByWeek: fixture.projectionsByWeek });
   assert.ok(weekly.scenarios[0].myTotal < 0);
-  const proposal = { partnerName: sayan.name, give: args.give, receive: args.receive, recommendationScore: average, selection: { group: "NEGOTIATE", reasons: [] } };
+  // Puka's S11 bye used to sit as 0 in his starting slot (+2.0 pts/sem); the bench now covers it and
+  // the average gain all but disappears. What is left (ROS rates vs weekly projections) stays checked.
+  assert.ok(average.my_lineup_delta < 0.5, `average ${average.my_lineup_delta}`);
+  // The 28/10 reading before alignment (+2.0) is still caught by the week-by-week check.
+  const proposal = { partnerName: sayan.name, give: args.give, receive: args.receive, recommendationScore: { ...average, my_lineup_delta: 2 }, selection: { group: "NEGOTIATE", reasons: [] } };
   const checked = applyScenarioCheck(proposal, { myPlayers: boukki.players, theirPlayers: sayan.players, currentWeek: fixture.week, projectionsByWeek: fixture.projectionsByWeek });
   assert.equal(checked.selection.group, "EXPLORATION");
   assert.equal(checked.scenarioCheck.status, "WEEKLY_CONTRADICTS_AVERAGE");
   assert.match(checked.selection.reasons.at(-1), /simulation semaine par semaine -\d+(\.\d)? pts : gain non confirmé/);
   // Values and scores are never rewritten by the check.
-  assert.equal(checked.recommendationScore, average);
-  // Without weekly projections nothing changes.
-  assert.equal(applyScenarioCheck(proposal, { myPlayers: boukki.players, theirPlayers: sayan.players, currentWeek: fixture.week, projectionsByWeek: {} }), proposal);
+  assert.equal(checked.recommendationScore, proposal.recommendationScore);
+  // Without weekly projections only the week frame is added.
+  const { weekFrame, ...unchanged } = applyScenarioCheck(proposal, { myPlayers: boukki.players, theirPlayers: sayan.players, currentWeek: fixture.week, projectionsByWeek: {} });
+  assert.deepEqual(unchanged, proposal);
+  assert.equal(weekFrame.status, "UNVERIFIED");
   assert.equal(applyScenarioCheck({ ...proposal, selection: { group: "EXPLORATION", reasons: ["x"] } }, { currentWeek: fixture.week, projectionsByWeek: fixture.projectionsByWeek }).scenarioCheck, undefined);
 });
 
@@ -58,13 +63,8 @@ test("real case 28/10: Pitts + Stevenson for Luther Burden stays negotiable when
   for (const proposal of all.filter(row => row.selection.group !== "EXPLORATION")) assert.ok(["CONSISTENT", "INJURY_SENSITIVE"].includes(proposal.scenarioCheck?.status));
   const puka = findTradeProposals({ targetRosterId: boukki.roster_id, rosters, currentWeek: fixture.week, view: "ALL", limit: null, projectionsByWeek: fixture.projectionsByWeek })
     .find(proposal => proposal.give.map(player => player.name).join() === "Puka Nacua" && proposal.receive.map(player => player.name).sort().join("+") === "Bhayshul Tuten+Tetairoa McMillan");
-  assert.ok(puka);
-  assert.equal(puka.selection.group, "EXPLORATION");
-  // The legacy call without projections keeps its previous classification.
-  const legacy = findTradeProposals({ targetRosterId: boukki.roster_id, rosters, currentWeek: fixture.week, view: "ALL", limit: null })
-    .find(proposal => proposal.id === puka.id);
-  assert.equal(legacy.scenarioCheck, undefined);
-  assert.equal(legacy.selection.group, "NEGOTIATE");
+  // Once the bye is covered the residual average gain no longer survives selection.
+  assert.ok(puka === undefined || puka.selection.group === "EXPLORATION");
 });
 
 test("counter-offers apply the same week-by-week check", () => {
@@ -80,10 +80,11 @@ test("offer text prints the contradiction next to the season average", async () 
   const args = { myPlayers: boukki.players, theirPlayers: sayan.players, give, receive, week: fixture.week };
   const average = scoreTradeRecommendation(args);
   const scenarios = tradeReturnScenarios({ ...args, projectionsByWeek: fixture.projectionsByWeek });
-  const consistency = assessScenarioConsistency({ myDelta: average.my_lineup_delta, theirDelta: average.their_lineup_delta, scenarios: scenarios.scenarios });
+  // The 28/10 reading before the bench covered byes (+2.0): the text must still flag it.
+  const consistency = assessScenarioConsistency({ myDelta: 2, theirDelta: average.their_lineup_delta, scenarios: scenarios.scenarios });
   const brief = player => ({ name: player.name, injuryStatus: player.injuryStatus || null });
   const text = formatTradeOffer({ week: fixture.week, mine: { team: boukki.name, gives: give.map(brief) }, theirs: { team: sayan.name, gives: receive.map(brief) },
-    seasonAverage: { myDeltaPerWeek: average.my_lineup_delta, theirDeltaPerWeek: average.their_lineup_delta, notes: [] }, market: { give: 1, receive: 1 }, scenarios,
+    seasonAverage: { myDeltaPerWeek: 2, theirDeltaPerWeek: average.their_lineup_delta, notes: [] }, market: { give: 1, receive: 1 }, scenarios,
     consistency: { ...consistency, messages: describeScenarioConsistency(consistency, { mine: boukki.name, theirs: sayan.name }) } });
   assert.match(text, /⚠ Moyenne \+\d+(\.\d)? pts\/sem pour Boukki, mais simulation semaine par semaine -\d+(\.\d)? pts : gain non confirmé\./);
 });

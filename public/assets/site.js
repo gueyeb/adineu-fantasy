@@ -12,7 +12,7 @@ import {
   sleeperManager
 } from "./rivalry-week.js?v=e3cae76c3a";
 import { accountNote, describeIdentity, managerLabel, teamLabel } from "./manager-identity.js?v=890d8bebe7";
-import { renderTradesPage } from "./trade-ui.js?v=1963c8e3c0";
+import { renderTradesPage } from "./trade-ui.js?v=fbe399f1f9";
 import { renderMatchupsHub } from "./matchups-live.js?v=a5b373110d";
 import { calculatePlayoffRace } from "./playoff-race.js?v=4133a5df17";
 import { calculateLuck, calculateRankHistory } from "./standings-luck.js?v=0664490db9";

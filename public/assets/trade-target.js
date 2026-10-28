@@ -1,6 +1,6 @@
-import { assessTradeTiming } from "./trade-timing.js?v=cdcd6605a3";
+import { assessTradeTiming, hasNoNflTeam } from "./trade-timing.js?v=51b07dc8cf";
 import { BYE_WEEKS_2026, GENERAL_SETTINGS_2026 } from "./league-settings.js?v=886f353394";
-import { buildProjectedLineup, GAMES_MISSED_BY_STATUS, injuryStatus } from "./trade-score.js?v=ff737d10b8";
+import { buildProjectedLineup, GAMES_MISSED_BY_STATUS, injuryStatus } from "./trade-score.js?v=1111e88ca0";
 import { playerKey } from "./trade-preferences.js?v=c5fec5ce56";
 
 export const TRADE_TARGET_POSITIONS = ["QB", "RB", "WR", "TE"];
@@ -25,7 +25,7 @@ export function targetWeekTradeImpact({ myPlayers = [], theirPlayers = [], give 
   if (!Number.isInteger(targetWeek) || targetWeek < 1 || targetWeek > LAST_TRADE_TARGET_WEEK || (Number.isFinite(currentWeek) && targetWeek < currentWeek)) return unavailable(["TARGET_WEEK_INVALID"]);
   timing = assessTradeTiming({ players: [...give, ...receive], targetWeek, currentWeek, context: timingContext, now });
   // A fresh pregame optimum is not an executable comparison after any roster game locks.
-  lineupTiming = assessTradeTiming({ players: [...myPlayers, ...theirPlayers].filter(player => BYE_WEEKS_2026[player.nflTeam] !== targetWeek), targetWeek, currentWeek, context: timingContext, now });
+  lineupTiming = assessTradeTiming({ players: [...myPlayers, ...theirPlayers].filter(player => !hasNoNflTeam(player) && BYE_WEEKS_2026[player.nflTeam] !== targetWeek), targetWeek, currentWeek, context: timingContext, now });
   if (timing.status === "BLOCKED" || lineupTiming.status === "BLOCKED") return { ...unavailable(["TARGET_LINEUP_WINDOW_PASSED"]), timing, lineupTiming };
   const projections = projectionsByWeek[targetWeek];
   if (!projections) return unavailable(["TARGET_PROJECTIONS_UNAVAILABLE"]);
@@ -35,7 +35,10 @@ export function targetWeekTradeImpact({ myPlayers = [], theirPlayers = [], give 
       myPlayers.some(player => theirs.has(playerKey(player)))) return unavailable(["TRADE_OWNERSHIP_CONFLICT"]);
   const allPlayers = [...new Map([...myPlayers, ...theirPlayers].map(player => [playerKey(player), player])).values()];
   const reasons = [];
+  const assumptions = [];
   const valueOf = player => {
+    // Sleeper lists no NFL team: no game this week, 0 with a stated assumption (unknown team still blocks).
+    if (hasNoNflTeam(player)) { assumptions.push(`NO_NFL_TEAM_COUNTED_AS_ZERO:${playerKey(player)}`); return 0; }
     if (!Object.hasOwn(BYE_WEEKS_2026, player.nflTeam)) reasons.push(`TARGET_TEAM_UNVERIFIED:${playerKey(player)}`);
     if (BYE_WEEKS_2026[player.nflTeam] === targetWeek) return 0;
     const missed = GAMES_MISSED_BY_STATUS[injuryStatus(player)] || 0;
@@ -51,7 +54,7 @@ export function targetWeekTradeImpact({ myPlayers = [], theirPlayers = [], give 
   const exchange = (players, out, incoming) => players.filter(player => !out.some(asset => playerKey(asset) === playerKey(player))).concat(incoming);
   const total = players => buildProjectedLineup(players, { estimate: player => values.get(playerKey(player)) }).total;
   return { status: "PROJECTED", week: targetWeek, myDelta: Number((total(exchange(myPlayers, give, receive)) - total(myPlayers)).toFixed(1)),
-    theirDelta: Number((total(exchange(theirPlayers, receive, give)) - total(theirPlayers)).toFixed(1)), reasons: [], source: "Sleeper target-week projections", transactionTiming: timing.status, timing, lineupTiming };
+    theirDelta: Number((total(exchange(theirPlayers, receive, give)) - total(theirPlayers)).toFixed(1)), reasons: [], assumptions: [...new Set(assumptions)], source: "Sleeper target-week projections", transactionTiming: timing.status, timing, lineupTiming };
 }
 
 /** Prefer a demonstrated positive target gain, then covered estimates; unknown is never zero. */

@@ -819,3 +819,62 @@ le passage avant/pendant match n’a été observé que sur fixtures, la S8 n’
 **Ajustement du 28/10.** Sans nom d’équipe public, le libellé reprend le défaut de Sleeper,
 « Team <compte> » (ex. « Team flemme », « Team SneakySlayerMG ») au lieu de « Équipe sans
 nom public », réservé au cas sans compte connu. Récap hebdo : « Team flemme (Tamsir) ».
+
+## QC-01/QC-02 — Incrément semaine affectable
+
+28/10/2026. Quatre captures relues sans écriture : snapshots Supabase S6 (13/10), S7 (20/10),
+S8 (27/10), rosters de la semaine précédente, statuts déduits des projections ; capture live
+S8 du 28/10 à 00:24 UTC (statuts réels, réserves). Code avant = `c1039a3`, mêmes captures.
+
+**A. Quatre semaines distinctes.** `tradeWeekFrame` (`trade-timing.js`) sépare données jusqu’à
+(dernière semaine terminée selon l’état NFL Sleeper, ajoutée au contexte de timing ; `n/d` si
+la semaine a été fournie), semaine live, semaine cible (choix du manager) et première semaine
+affectable. Sous hypothèse d’accord maintenant, revue `trade_review_days` en tranches de 24 h,
+chaque joueur échangé change d’équipe au premier kickoff strictement après la fin de revue :
+un joueur dont le match de la semaine live commence avant reste à l’ancienne équipe cette
+semaine (`LIVE_WEEK_GAME_BEFORE_REVIEW_END`), un bye décale à son prochain match. La simulation
+semaine par semaine applique ce mouvement joueur par joueur et commence à la première semaine
+affectable ; trades fermés : aucune semaine simulée, aucun gain. Contexte absent, périmé
+(> 5 min) ou calendrier incomplet : `UNVERIFIED`, départ à la semaine live par hypothèse
+déclarée. Le cadre est exposé sur chaque offre du Finder (exploration comprise), dans les
+contre-offres, `/api/trade-offer` (`weekFrame`), le calculateur et les exports texte/n8n.
+Jamais une exécution : traitement exact, veto, locks et AutoSubs restent non vérifiés.
+Capture live : 60/60 cadres `CONDITIONAL`, première semaine S8 partout (aucun match S8 commencé
+le mardi). Rejeu contrefactuel de la même capture lu vendredi 30/10 12:00 UTC : 17/60 offres
+contiennent un joueur CAR/GB (match du jeudi) qui reste à l’ancienne équipe en S8, ex.
+Boukki : Puka Nacua ↔ Jalen Coker + Bhayshul Tuten, Coker affectable S9.
+
+**B. Bye dans la moyenne : aligné, avec preuve.** L’ancienne moyenne comptait le bye d’un
+titulaire comme 0 dans son propre slot, alors que la simulation le fait couvrir par le banc.
+Prototype mesuré sur les mêmes offres avant adoption : concordance de signe avec la simulation
+62→86/110 (S6), 73→85/110 (S7), 77→88/110 (S8), 72→90/120 (live) ; côtés contredits 35→22,
+32→22, 29→22, 37→24 ; écart moyen |moyenne × semaines − simulation| 11,6→8,8, 12,2→8,8,
+8,6→5,7, 11,6→8,1 pts. Sur les offres retenues par le modèle adopté : concordance 86/110,
+96/120, 107/120, 94/120 et côtés contredits 22, 19, 12, 22. Adopté (`restOfSeasonLineup`/`restOfSeasonLineupTotal`) : valeur par
+match joué, lineup ré-optimisée pour chaque semaine où un titulaire est en bye, moyenne sur la
+fenêtre. Aucun coefficient modifié ; `restOfSeasonEstimate` par joueur inchangé. Effet sur les
+offres (après, recherche complète) : S6 55 offres toutes en exploration ; S7 55→60 ; S8 55→60,
+négociables 0→1 ; live 60, négociables 1→2. La seule offre négociable reste Estocade donne Kyle
+Pitts + Rhamondre Stevenson pour Luther Burden III (vue des deux côtés), lectures cohérentes.
+Puka Nacua contre Tuten + McMillan : moyenne Boukki +2,0 → +0,1 pt/sem, la simulation restant
+−15,9 ; l’offre ne survit plus à la sélection. Coût de recherche : 2,6 s → 3,3 s pour les
+douze rosters (calcul des totaux sans tri par slot, résultat identique à la référence).
+
+**C. Joueur sans équipe NFL.** Sleeper renvoie `team: null` pour Tyreek Hill (non signé) ; la
+semaine cible bloquait toute offre touchant son roster (`TARGET_TEAM_UNVERIFIED`). Même logique
+que `absentAssumedOut` : un joueur qui ne peut pas jouer compte 0, avec hypothèse déclarée
+`NO_NFL_TEAM_COUNTED_AS_ZERO` (semaine cible, moyenne, simulation, cadre, notes de l’offre),
+au lieu de la valeur catalogue par rang. Seul `nflTeam: null` explicite est concerné ; une
+équipe absente ou inconnue bloque toujours. Une signature changerait la valeur. Live : gains de
+semaine cible calculables 49/60 → 60/60, dont 15 avec l’hypothèse.
+
+Evals : quatre semaines séparées, revue franchissant un kickoff, frontière exacte du kickoff,
+bye, contexte périmé/absent, trades fermés, calendrier incomplet, mouvement joueur par joueur
+(S8 partiel puis échange complet), bye couvert par le banc et égalité du total rapide avec la
+référence sur trois rosters réels, joueur non signé versus équipe inconnue, exports texte.
+675 tests réussis ; `npm run check` et versions d’assets valides.
+
+Limites : moyenne ROS toujours mesurée depuis la semaine live (seule la simulation part de la
+première semaine affectable) ; points figés d’un joueur déjà passé non reconstruits ; statuts des
+captures historiques déduits ; heure réelle de traitement Sleeper et frontière de la deadline
+non observées ; aucune validation humaine des offres. Aucune écriture Supabase/Sleeper.

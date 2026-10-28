@@ -8,7 +8,8 @@
  */
 
 import { calculatePlayerTradeValue, evaluateTrade } from "./trade-value.js?v=2c9caa87cf";
-import { assessScenarioConsistency, buildProjectedLineup, describeScenarioConsistency, restOfSeasonEstimate, scoreTradeRecommendation, tradeReturnScenarios } from "./trade-score.js?v=ff737d10b8";
+import { assessScenarioConsistency, describeScenarioConsistency, restOfSeasonLineupTotal, scoreTradeRecommendation, tradeReturnScenarios } from "./trade-score.js?v=1111e88ca0";
+import { tradeWeekFrame } from "./trade-timing.js?v=51b07dc8cf";
 import { playerKey, playerStatus, preferenceAdjustment } from "./trade-preferences.js?v=c5fec5ce56";
 
 export const KNOWN_HANDCUFFS = [
@@ -81,18 +82,20 @@ export function classifyTradeProposal(proposal, { playerPreferences = {}, select
  * average gain goes to exploration; a verdict depending on the return hypothesis is never RECOMMENDED.
  * Gains and scores are unchanged.
  */
-export function applyScenarioCheck(proposal, { myPlayers = [], theirPlayers = [], currentWeek = null, projectionsByWeek = null } = {}) {
-  if (proposal.selection?.group === "EXPLORATION" || !Number.isInteger(currentWeek) || !projectionsByWeek || !Object.keys(projectionsByWeek).length) return proposal;
-  const scenarios = tradeReturnScenarios({ myPlayers, theirPlayers, give: proposal.give, receive: proposal.receive, week: currentWeek, projectionsByWeek });
+export function applyScenarioCheck(proposal, { myPlayers = [], theirPlayers = [], currentWeek = null, projectionsByWeek = null, timingContext = null, now = Date.now(), targetWeek = null, dataThroughWeek = null } = {}) {
+  // The four weeks are shown on every offer, exploration included; they cost no lineup.
+  const weekFrame = tradeWeekFrame({ players: [...proposal.give, ...proposal.receive], currentWeek, targetWeek, dataThroughWeek, context: timingContext, now });
+  if (proposal.selection?.group === "EXPLORATION" || !Number.isInteger(currentWeek) || !projectionsByWeek || !Object.keys(projectionsByWeek).length) return { ...proposal, weekFrame };
+  const scenarios = tradeReturnScenarios({ myPlayers, theirPlayers, give: proposal.give, receive: proposal.receive, week: currentWeek, projectionsByWeek, timingContext, now, targetWeek, dataThroughWeek });
   const score = proposal.recommendationScore;
   const check = assessScenarioConsistency({ myDelta: score.my_lineup_delta, theirDelta: score.their_lineup_delta, scenarios: scenarios.scenarios });
-  const scenarioCheck = { ...check, weeks: scenarios.weeks, range: scenarios.range, messages: describeScenarioConsistency(check, { theirs: proposal.partnerName || "le partenaire" }) };
+  const scenarioCheck = { ...check, weeks: scenarios.weeks, weekFrame: scenarios.weekFrame, range: scenarios.range, messages: describeScenarioConsistency(check, { theirs: proposal.partnerName || "le partenaire" }) };
   const selection = check.status === "WEEKLY_CONTRADICTS_AVERAGE"
     ? { group: "EXPLORATION", reasons: [...proposal.selection.reasons, ...scenarioCheck.messages] }
     : check.status === "INJURY_SENSITIVE"
       ? { group: proposal.selection.group === "RECOMMENDED" ? "NEGOTIATE" : proposal.selection.group, reasons: [...proposal.selection.reasons, ...scenarioCheck.messages] }
       : proposal.selection;
-  return { ...proposal, selection, scenarioCheck };
+  return { ...proposal, selection, scenarioCheck, weekFrame };
 }
 
 /** Same partner and receipt, strictly fewer assets surrendered, no smaller own lineup gain.
@@ -117,9 +120,8 @@ export const MAX_PROPOSALS_PER_PARTNER = 2;
  * lineups improve (rest of season) and the market values are close enough to be accepted. This is
  * what finds trades for balanced rosters the surplus/deficit heuristics never look at. */
 function findLineupUpgrades({ myPlayers, theirPlayers, partnerRosterId, partnerName, week, playerPreferences }) {
-  const estimate = restOfSeasonEstimate(week);
   const key = player => String(player.sleeperId || player.name);
-  const total = players => buildProjectedLineup(players, { estimate }).total;
+  const total = players => restOfSeasonLineupTotal(players, week).total;
   const swap = (players, out, incoming) => {
     const outgoing = new Set(out.map(key));
     return [...players.filter(player => !outgoing.has(key(player))), ...incoming];
@@ -245,7 +247,7 @@ export function diagnoseRoster(players = []) {
  * @param {Map<string, Object>|Object} options.playerCatalog Map ou dict des joueurs par ID ou nom
  * @returns {Array<Object>} Propositions de trades triées par pertinence
  */
-export function findTradeProposals({ targetRosterId, rosters = [], playerCatalog = {}, playerPreferences = {}, currentWeek = null, view = "RECOMMENDED", selection = {}, limit = 15, cutContext = null, projectionsByWeek = null }) {
+export function findTradeProposals({ targetRosterId, rosters = [], playerCatalog = {}, playerPreferences = {}, currentWeek = null, view = "RECOMMENDED", selection = {}, limit = 15, cutContext = null, projectionsByWeek = null, now = Date.now(), targetWeek = null, dataThroughWeek = null }) {
   if (!["RECOMMENDED", "NEGOTIATE", "EXPLORATION", "ALL"].includes(view)) throw new Error("Invalid trade view");
   if (limit !== null && (!Number.isInteger(limit) || limit < 0)) throw new Error("Invalid trade limit");
   const getPlayerInfo = (idOrName) => {
@@ -437,7 +439,7 @@ export function findTradeProposals({ targetRosterId, rosters = [], playerCatalog
   // Une liste variée vaut mieux que 4 variantes du même deal ; rien n'est supprimé s'il y a de la place.
   const sorted = removeDominatedProposals(uniqueProposals)
     .map(proposal => ({ ...proposal, selection: classifyTradeProposal(proposal, { playerPreferences, selection }) }))
-    .map(proposal => applyScenarioCheck(proposal, { myPlayers: targetPlayers, currentWeek, projectionsByWeek,
+    .map(proposal => applyScenarioCheck(proposal, { myPlayers: targetPlayers, currentWeek, projectionsByWeek, timingContext: cutContext, now, targetWeek, dataThroughWeek,
       theirPlayers: (rosters.find(roster => String(roster.roster_id) === String(proposal.partnerRosterId))?.players || []).map(player => typeof player === "string" ? { ...getPlayerInfo(player), sleeperId: player } : player) }))
     .filter(proposal => view === "ALL" || proposal.selection.group === view)
     .sort((a, b) => b.score - a.score);
@@ -453,7 +455,7 @@ export function findTradeProposals({ targetRosterId, rosters = [], playerCatalog
 }
 
 /** Bounded neighboring offers for the same target; never fabricate a beneficial deal. */
-export function findCounterOffers({ proposal, myPlayers = [], theirPlayers = [], playerPreferences = {}, currentWeek = null, myRoster = null, theirRoster = null, cutContext = null, projectionsByWeek = null }) {
+export function findCounterOffers({ proposal, myPlayers = [], theirPlayers = [], playerPreferences = {}, currentWeek = null, myRoster = null, theirRoster = null, cutContext = null, projectionsByWeek = null, now = Date.now(), targetWeek = null, dataThroughWeek = null }) {
   const own = new Set(myPlayers.map(playerKey));
   const theirs = new Set(theirPlayers.map(playerKey));
   if (!proposal?.receive?.length || !proposal.give?.length ||
@@ -472,7 +474,7 @@ export function findCounterOffers({ proposal, myPlayers = [], theirPlayers = [],
   }).filter(offer => ["FAIR", "SLIGHT_ADVANTAGE_A", "SLIGHT_ADVANTAGE_B"].includes(offer.evaluation.verdict) &&
     offer.recommendationScore.my_lineup_delta > 0 && offer.recommendationScore.their_lineup_delta >= 0 &&
     offer.recommendationScore.confidence !== "LOW")
-    .map(offer => applyScenarioCheck({ ...offer, selection: classifyTradeProposal(offer, { playerPreferences }) }, { myPlayers, theirPlayers, currentWeek, projectionsByWeek }))
+    .map(offer => applyScenarioCheck({ ...offer, selection: classifyTradeProposal(offer, { playerPreferences }) }, { myPlayers, theirPlayers, currentWeek, projectionsByWeek, timingContext: cutContext, now, targetWeek, dataThroughWeek }))
     .filter(offer => offer.selection.group !== "EXPLORATION");
   // Include the original so a strictly worse counter-offer cannot survive its exclusion.
   const originalOffer = decorateProposal(proposal, myPlayers, theirPlayers, currentWeek, myRoster, theirRoster, cutContext);
