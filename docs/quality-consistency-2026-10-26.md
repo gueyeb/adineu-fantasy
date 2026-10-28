@@ -631,3 +631,71 @@ live. Titulaires déjà verrouillés conservés dans Sleeper ; AutoSubs et locks
 restent à vérifier. Les lectures ne sont pas atomiques, les exports valent à leur
 date ; revue navigateur/mobile et suite HTTP avec ports autorisés restent ouvertes.
 Aucune écriture Sleeper, notification ou publication effectuée.
+
+## QC-02 — Cinquième incrément : validation multi-captures et contrôle semaine par semaine
+
+28/10/2026. Revue des offres sur quatre lectures datées, hors réseau après capture :
+snapshots hebdomadaires Supabase S6 (13/10 08:55 UTC), S7 (20/10 08:00 UTC), S8
+(27/10 09:00 UTC), lus en GET uniquement (projections futures et usage archivés),
+avec les rosters publics des matchups Sleeper de la semaine précédente ; puis capture
+live S8 du 28/10 à 00:24 UTC (statuts Sleeper, réserves et titulaires déclarés,
+calendrier nflverse). Les cinq meilleures offres par roster, toutes vues confondues :
+55, 55, 55 et 60 offres. Aucune écriture Supabase, Sleeper ou n8n.
+
+**Défaut trouvé : deux lectures contradictoires d’une même offre.** La moyenne de
+saison (lineup optimale sur `rosPpg`) et la simulation semaine par semaine
+(`tradeReturnScenarios`) étaient affichées côte à côte sans contrôle. Cas réel live :
+Boukki cède Puka Nacua contre Bhayshul Tuten + Tetairoa McMillan, **+2,0 pts/sem**
+en moyenne pour Boukki, mais **−15,9 pts sur S8–S14** semaine par semaine (perte
+5 semaines sur 7). Cause identifiée : `rosPpg` compte le bye S11 de Puka comme un 0
+dans un slot titulaire (18,1 contre 19,9–23,9 projetés chaque semaine joué), alors
+que la simulation laisse le banc couvrir le bye. Biais systématique contre les joueurs
+ayant encore un bye ; non corrigé ici (changement de modèle), seulement signalé.
+Autres cas : S8 Chase Your Allen, Kyren Williams contre Tuten + McMillan, +1,5/sem
+contre −16,2 ; Super Sayan warriors, Coker + Tuten puis Barkley + Higgins contre Puka,
+gain moyen de Boukki +1,6 et +1,0 contre −3,5 et −5,8 ; live, variante Rodgers
+d’Estocade, Boukki +0,9 contre −3,0.
+
+`assessScenarioConsistency` compare les deux lectures par côté : gain moyen jamais
+confirmé (toutes les simulations ≤ 0, ou perte moyenne jamais observée) →
+`WEEKLY_CONTRADICTS_AVERAGE` ; verdict dont le signe change selon l’hypothèse de retour
+→ `INJURY_SENSITIVE`. Le Finder (page, partenaires, contre-offres) et l’analyse CLI/n8n
+appliquent ce contrôle aux seules offres non exploratoires, quand les projections
+hebdomadaires sont disponibles : contradiction → Exploration avec motif nommé ;
+sensibilité aux blessures → jamais Recommandée. Gains, scores, valeurs et ordre ne sont
+pas modifiés ; sans projections, comportement antérieur. `evaluateTradeOffer` expose
+`consistency` et le texte l’affiche à côté de la moyenne.
+
+Effet sur les mêmes captures : offres négociables S8 snapshot 3 → 0 ; live 5 → 1.
+Reste Estocade, Kyle Pitts + Rhamondre Stevenson contre Luther Burden III : +1,8/+0,9
+en moyenne, +8,4/+4,5 semaine par semaine ; motif adverse nommé (Boukki RB2 Jeremiyah
+Love → Stevenson, 7,0 → 9,3), coupe candidate Kamara côté Boukki, non vérifiée.
+
+**Blessures.** Live : 7 offres avec un actif blessé ; le verdict change de signe pour
+3 côtés cédants et 4 côtés receveurs. Exemples : Saitaamaa cède Lamar Jackson (Out) +
+Blake Corum contre Drake Maye, −21,2 / −11,0 / +19,3 selon retour immédiat, progressif
+ou prolongé ; Kuro cède Travis Etienne Jr. (IR) : −11,5 / −6,4 / +1,9 pour Kuro ; S6,
+Zach Charbonnet : +9,0 / +4,3 / −4,3 pour le receveur. Toutes étaient déjà en
+exploration ; le motif rend la dépendance explicite. Rampes et durées restent non calibrées.
+
+**Fenêtre et coupes.** Live, semaine cible S8 : 43/60 impacts projetés sous condition ;
+6 non vérifiés parce qu’un actif est en bye en S8 (première candidate S9) ; 11
+indisponibles car Tyreek Hill est rosté sans équipe NFL (`TARGET_TEAM_UNVERIFIED`), ce
+qui bloque toute offre impliquant son roster — non modifié, décision produit ouverte.
+La simulation commence toujours à la semaine opérationnelle ; la première semaine
+réellement affectable n’en est pas déduite. Coupes : 35/60 offres live en exigent ;
+Kamara revient comme candidate côté Boukki (réserve déclarée), Dameon Pierce en
+PREGAME_REVIEW ; disponibilité de coupe toujours UNVERIFIED.
+
+**Limites.** Les snapshots historiques n’archivent ni statuts de blessure, ni réserves,
+ni titulaires : statuts déduits des projections (absence cette semaine, retour projeté
+plus tard) uniquement pour cette revue, capacité par hypothèse de statut — d’où 43 à
+48 offres avec coupe sur 55. Projections < 1 pt non archivées. Équipes NFL lues à la
+date du 28/10. Revue humaine des deux managers non faite ; aucune offre n’est validée.
+
+Evals (`test/trade-scenario-check.test.js`, extrait public de trois rosters du 28/10 dans
+`test/fixtures/trade-validation-2026-10-28.json`, sans identifiant de compte) : lectures
+concordantes, gain contredit (dont total nul), perte contredite, signe dépendant du
+retour, absence de scénarios, cas Puka réel, cas Pitts conservé, appel historique sans
+projections inchangé, contre-offres et texte CLI. 649 tests réussis ; versions d’assets
+et contrôles statiques valides. Aucune publication en production.

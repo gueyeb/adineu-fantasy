@@ -1,8 +1,8 @@
-import { normalizeTradeIntent, targetWeekTradeImpact, compareTargetWeekImpacts } from "./trade-target.js?v=4feccd46df";
+import { normalizeTradeIntent, targetWeekTradeImpact, compareTargetWeekImpacts } from "./trade-target.js?v=a655a5818d";
 import { listRosterIdentities, buildStarterSlotOrder } from "./roster-view.js?v=120de9d74d";
 import { BYE_WEEKS_2026, ROSTER_SETTINGS_2026 } from "./league-settings.js?v=886f353394";
-import { buildProjectedLineup, restOfSeasonEstimate } from "./trade-score.js?v=cfb91c6523";
-import { diagnoseRoster, findTradeProposals } from "./trade-recommender.js?v=adf630d580";
+import { buildProjectedLineup, restOfSeasonEstimate } from "./trade-score.js?v=ff737d10b8";
+import { diagnoseRoster, findTradeProposals } from "./trade-recommender.js?v=9477b01091";
 import { playerKey } from "./trade-preferences.js?v=c5fec5ce56";
 
 const positions = new Set(["QB", "RB", "WR", "TE", "K", "DEF"]);
@@ -78,7 +78,7 @@ export function buildLeagueTradeIntelligence({ snapshot, targetRosterId, week = 
   const eligibleTeams = teams.filter(team => !team.coverage.issues.length);
   const proposals = mine.coverage.issues.length ? [] : findTradeProposals({ targetRosterId,
     rosters: eligibleTeams.map(team => ({ roster_id: team.rosterId, name: team.teamName, players: team.players, reserve: team.reserveVerified ? team.reserveIds : null, starters: team.declaredStarters.map(slot => slot.playerId).filter(Boolean) })),
-    currentWeek: week, playerPreferences, view: "ALL", limit: null, cutContext: timingContext });
+    currentWeek: week, playerPreferences, view: "ALL", limit: null, cutContext: timingContext, projectionsByWeek });
   const brief = player => ({ playerId: playerKey(player), name: player.name, position: player.position });
   const partners = teams.filter(team => team !== mine).map(team => {
     const blockers = [...mine.coverage.issues, ...team.coverage.issues];

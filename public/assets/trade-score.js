@@ -199,6 +199,37 @@ export function tradeReturnScenarios({ myPlayers = [], theirPlayers = [], give =
   };
 }
 
+/**
+ * Same offer, two readings: the season-average lineup delta and the week-by-week simulation
+ * (byes, published weekly projections, return hypotheses). Validation 28/10: Puka Nacua for
+ * Tuten + McMillan read +2.0 pts/sem on average but -15.9 pts over S8–S14 week by week. A gain the
+ * weekly simulation never shows, or a verdict that flips with the return hypothesis, is reported —
+ * neither reading is chosen as the truth.
+ */
+export function assessScenarioConsistency({ myDelta, theirDelta, scenarios = [] }) {
+  if (!scenarios.length) return { status: "UNAVAILABLE", sides: {}, reasons: ["WEEKLY_SCENARIOS_UNAVAILABLE"] };
+  const side = (average, totals) => ({ average, totals,
+    contradicts: Number.isFinite(average) && ((average > 0 && Math.max(...totals) <= 0) || (average < 0 && Math.min(...totals) > 0)),
+    flips: totals.length > 1 && totals.some(total => total > 0) && totals.some(total => total < 0) });
+  const sides = { mine: side(myDelta, scenarios.map(row => row.myTotal)), theirs: side(theirDelta, scenarios.map(row => row.theirTotal)) };
+  const reasons = Object.entries(sides).flatMap(([name, row]) => [
+    ...(row.contradicts ? [`${name === "mine" ? "MY" : "THEIR"}_AVERAGE_CONTRADICTED_BY_WEEKLY`] : []),
+    ...(row.flips ? [`${name === "mine" ? "MY" : "THEIR"}_VERDICT_DEPENDS_ON_RETURN`] : [])]);
+  const status = reasons.some(reason => reason.endsWith("CONTRADICTED_BY_WEEKLY")) ? "WEEKLY_CONTRADICTS_AVERAGE" : reasons.length ? "INJURY_SENSITIVE" : "CONSISTENT";
+  return { status, sides, reasons };
+}
+
+export function describeScenarioConsistency(check, { mine = "ton équipe", theirs = "le partenaire" } = {}) {
+  if (!check || check.status === "CONSISTENT" || check.status === "UNAVAILABLE") return [];
+  const range = totals => totals.length > 1 ? `${Math.min(...totals)} à ${Math.max(...totals)}` : `${totals[0]}`;
+  return Object.entries(check.sides).flatMap(([name, row]) => {
+    const who = name === "mine" ? mine : theirs;
+    if (row.contradicts) return [`Moyenne ${row.average > 0 ? "+" : ""}${row.average} pts/sem pour ${who}, mais simulation semaine par semaine ${range(row.totals)} pts : gain non confirmé.`];
+    if (row.flips) return [`Verdict de ${who} dépendant de l’hypothèse de retour (${range(row.totals)} pts) : sensibilité non calibrée.`];
+    return [];
+  });
+}
+
 function exchange(players, give, receive) {
   const outgoing = new Set(give.map(identity));
   return [...players.filter(player => !outgoing.has(identity(player))), ...receive];
