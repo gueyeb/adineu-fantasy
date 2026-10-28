@@ -774,3 +774,44 @@ Limites : pour utiliser le delta, n8n doit appeler `/api/coach?team=t0z&delta=1`
 n’envoyer Telegram que si `notify` est vrai (nœud IF) — workflow non modifié ici.
 Le premier appel après déploiement renvoie le bulletin complet. Pas de bilan contrefactuel
 des recommandations refusées ; Coach authentifié et mobile non vérifiés au navigateur.
+
+## QC-01 — Septième incrément : estimations avant match figées et identités
+
+28/10/2026. **Game Center.** Une seule règle partagée (`pregameEstimatePresentation`,
+`win-probability.js`) pour le Calendrier et l’onglet Live : un pourcentage n’apparaît
+que si aucun titulaire n’a vérifiablement commencé, libellé « Estimation avant match
+(figée) », avec l’heure de lecture des projections (Paris), la base (écart projeté,
+borné 5–95 %) et la mention qu’il ne s’agit pas d’une probabilité live. Match commencé :
+retirée, aucun pourcentage live calculé. Début non vérifié : masquée. Pour la semaine
+en cours, le Calendrier lit l’état `started` par roster du rapport Live déjà chargé :
+un score 0–0 ne prouve plus qu’un match est à venir. Semaine future : figée affichée ;
+en cours/terminée : retirée. Le Récap Hebdo n’affiche aucune probabilité (vérifié).
+Aucun nouveau modèle in-play ni coefficient.
+
+**Identités.** Cause des mélanges rapportés : `owners.display_name` conserve le compte
+Sleeper de création (`SneakySlayerMG`, `flemme`, `MouhammadAT`…) et, sans nom d’équipe
+Sleeper, la synchronisation a stocké ce compte comme `team_name`. Lecture publique du
+28/10 : 12 rosters, 12 comptes couverts par les alias confirmés ; `flemme` et
+`SneakySlayerMG` sans nom d’équipe public. Nouveau module pur `manager-identity.js`
+(table d’alias confirmés déplacée sans changement depuis `rivalry-week.js`) : manager
+canonique seulement par alias confirmé ou nom déjà canonique, compte inconnu affiché
+`@compte`, nom d’équipe égal au compte traité comme absent (« Équipe sans nom public »).
+Un nom stocké est étiqueté « Compte enregistré », jamais « compte actuel » ; seul un
+compte lu en direct sur Sleeper est « Compte Sleeper ». Appliqué à : classement 2026
+et courbe de rang, Power Rankings (podium, tableau), Course aux playoffs, probabilités
+playoffs, cartes Live et classement live, calendrier Game Center, sélecteurs Trade Hub
+et page Équipe, récap hebdo (« Tamsir (équipe sans nom public) »). Affichage uniquement :
+clés Supabase, noms d’équipe utilisés pour rattacher les probabilités playoffs et
+paramètres d’API inchangés ; aucune donnée Supabase ou Sleeper modifiée. Rivalités,
+franchises, Hall of Fame et historique des trades utilisaient déjà l’identité canonique
+d’archive ou `sleeperManager` : rien à corriger. Partenaires des offres Trade Finder :
+nom d’équipe inchangé (sert aux exports/n8n), limite restante.
+
+Evals : 9 nouveaux tests (états avant match vérifié/non vérifié/commencé/terminé/semaine
+future, projections incomplètes, 0–0 commencé, roster manquant ; alias confirmés, compte
+inconnu, nom stocké vs compte actuel, équipe sans nom, récap, cartes Live). Navigateur
+local sur données réelles S8 : classement (Magatte et Tamsir « Équipe sans nom public »,
+probabilités playoffs toujours rattachées pour les 12), Power/Course, Calendrier et Live
+avec estimation figée datée. Limites : `MouhammadAT` reste le compte enregistré de Mat
+(actuel `Shiro00`) tant que la source n’est pas renommée ; aucun contrôle mobile ;
+le passage avant/pendant match n’a été observé que sur fixtures, la S8 n’ayant pas commencé.

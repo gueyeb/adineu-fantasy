@@ -1,11 +1,12 @@
-import { renderLiveStandings, renderLiveTrackerCards, renderNflLiveGames } from "./live-tracker-view.js?v=356c5aef87";
+import { renderLiveStandings, renderLiveTrackerCards, renderNflLiveGames } from "./live-tracker-view.js?v=d120a8b161";
 import { tierChip, tierSeparator } from "./tier-view.js?v=d3a45b4046";
-import { sleeperManager } from "./rivalry-week.js?v=714a861458";
-import { buildWeeklyAwards, resolveCompletedAwardsWeek } from "./weekly-awards.js?v=b8a7dc8708";
+import { sleeperManager } from "./rivalry-week.js?v=259261ffdf";
+import { describeIdentity, teamLabel } from "./manager-identity.js?v=cf74623f30";
+import { buildWeeklyAwards, resolveCompletedAwardsWeek } from "./weekly-awards.js?v=b573eeaca9";
 import { renderWeeklyAwards } from "./weekly-awards-view.js?v=ead74e2c71";
 import { resolveOperationalWeek } from "./nfl-week.js?v=8f9fa3f5b2";
 import { estimateBaselineProjectedPpg } from "./trade-value.js?v=2c9caa87cf";
-import { estimatePregameWinProbability } from "./win-probability.js?v=78dcaa4abd";
+import { estimatePregameWinProbability, pregameEstimatePresentation } from "./win-probability.js?v=71b4f153fa";
 
 import { SLEEPER_API, SLEEPER_LEAGUE_ID as DEFAULT_LEAGUE_ID, sleeperGet } from "./sleeper-client.js?v=3f75d48ec5";
 import { addToWatchlist, removeFromWatchlist, REASON_MAX } from "./war-room.js?v=e9eae48675";
@@ -126,7 +127,8 @@ export function buildSeasonMatchups({
         const user = userById.get(roster?.owner_id);
         const canonicalManager = sleeperManager(user);
         const manager = canonicalManager || user?.display_name || `Roster ${row.roster_id}`;
-        const teamName = user?.metadata?.team_name || user?.display_name || manager;
+        // No public Sleeper team name: say so instead of repeating the account as a team.
+        const teamName = user ? teamLabel(describeIdentity({ account: user.display_name, teamName: user.metadata?.team_name })) : manager;
         return {
           rosterId: Number(row.roster_id),
           manager,
@@ -179,17 +181,30 @@ function renderTeam(team, chance, side) {
   </div>`;
 }
 
-function renderMatchupCards(matchups, status) {
+/**
+ * Whether a calendar matchup has begun: week status first, then the Live report's per-roster
+ * `started` for the current week. Unknown stays null — a zero score does not prove a game is ahead.
+ */
+export function calendarMatchupStarted(matchup, status, startedByRoster = null) {
+  if (["Terminé", "En cours"].includes(status)) return true;
+  if (status === "Programmé") return false;
+  const flags = startedByRoster ? matchup.teams.map(team => startedByRoster.get(team.rosterId)) : [];
+  if (flags.some(flag => flag === true)) return true;
+  return flags.length === 2 && flags.every(flag => flag === false) ? false : null;
+}
+
+export function renderMatchupCards(matchups, status, { readAt = null, startedByRoster = null } = {}) {
   if (!matchups.length) return `<div class="matchup-empty"><strong>Calendrier incomplet</strong><p>Sleeper n’a pas encore publié les six affiches de cette semaine.</p></div>`;
   return matchups.map((matchup, index) => {
     const [teamA, teamB] = matchup.teams;
-    const showPregame = ["À venir", "Programmé"].includes(status);
-    const chanceA = showPregame ? matchup.chances?.teamA ?? null : null;
-    const chanceB = showPregame ? matchup.chances?.teamB ?? null : null;
+    const estimate = pregameEstimatePresentation({ chances: matchup.chances, started: calendarMatchupStarted(matchup, status, startedByRoster), readAt });
+    const showPregame = estimate.show;
+    const chanceA = showPregame ? estimate.teamA : null;
+    const chanceB = showPregame ? estimate.teamB : null;
     const lineupIncomplete = teamA.starters < 9 || teamB.starters < 9;
-    const pendingCopy = !showPregame ? "Probabilités d’avant-match masquées : aucun pourcentage live calculé." : lineupIncomplete
+    const pendingCopy = estimate.note ?? (lineupIncomplete
       ? "Probabilité suspendue : au moins une lineup est incomplète."
-      : "Probabilité publiée dès que les projections Sleeper couvrent les deux lineups.";
+      : "Probabilité publiée dès que les projections Sleeper couvrent les deux lineups.");
     return `<article class="live-matchup-card">
       <header><span>Match ${String(index + 1).padStart(2, "0")}</span><strong>${escapeHtml(status)}</strong></header>
       <div class="live-matchup-score">
@@ -197,7 +212,7 @@ function renderMatchupCards(matchups, status) {
         <i>VS</i>
         ${renderTeam(teamB, chanceB, "b")}
       </div>
-      ${showPregame && matchup.chances ? `<div class="win-meter" aria-label="Estimation pré-match : ${chanceA}% pour ${escapeHtml(teamA.manager)}, ${chanceB}% pour ${escapeHtml(teamB.manager)}"><span style="width:${chanceA}%"></span></div>` : `<div class="projection-pending${lineupIncomplete ? " lineup-alert" : ""}">${pendingCopy}</div>`}
+      ${showPregame ? `<div class="win-meter" aria-label="Estimation avant match figée : ${chanceA} % pour ${escapeHtml(teamA.manager)}, ${chanceB} % pour ${escapeHtml(teamB.manager)}"><span style="width:${chanceA}%"></span></div><p class="note win-meter-basis"><strong>${escapeHtml(estimate.label)}</strong> · ${escapeHtml(estimate.basis)}</p>` : `<div class="projection-pending${lineupIncomplete ? " lineup-alert" : ""}">${pendingCopy}</div>`}
       <footer><span>${escapeHtml(historyLabel(matchup))}</span><small class="${lineupIncomplete ? "lineup-alert" : ""}">${teamA.starters}/9 · ${teamB.starters}/9 titulaires</small></footer>
     </article>`;
   }).join("");
@@ -489,7 +504,11 @@ export async function renderMatchupsHub(container, {
       const matchups = buildSeasonMatchups({ rows, rosters, users, projections: projections || {}, historicalRecords, playerStatuses: statusBody?.statuses || null, playerCatalog });
       const hasScores = matchups.some(matchup => matchup.teams.some(team => team.points > 0));
       const status = weekStatus(week, currentWeek, hasScores);
-      target.innerHTML = renderMatchupCards(matchups, status);
+      // Current week: the Live report knows which starters' games began; a zero score proves nothing.
+      const startedByRoster = week === currentWeek && liveReport?.week === week
+        ? new Map((liveReport.matchups || []).flatMap(pair => pair.teams).map(team => [Number(team.rosterId), Boolean(team.started)]))
+        : null;
+      target.innerHTML = renderMatchupCards(matchups, status, { readAt: new Date().toISOString(), startedByRoster });
       document.getElementById("schedule-status").textContent = `${status} · ${matchups.length} affiches`;
     } catch (error) {
       target.innerHTML = `<div class="matchup-empty"><strong>Impossible de joindre Sleeper</strong><p>${escapeHtml(error.message)}. Réessayez dans quelques instants.</p></div>`;

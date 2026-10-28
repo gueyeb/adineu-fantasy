@@ -101,7 +101,8 @@ export function buildLiveStandings({ league, state, rosters = [], users = [], hi
   const userById = new Map(users.map(user => [user.user_id, user]));
   const identities = rosters.map(roster => {
     const user = userById.get(roster.owner_id);
-    return { rosterId: Number(roster.roster_id), teamName: user?.metadata?.team_name || user?.display_name || `Roster ${roster.roster_id}`, manager: user?.display_name || null };
+    return { rosterId: Number(roster.roster_id), teamName: user?.metadata?.team_name || user?.display_name || `Roster ${roster.roster_id}`, manager: user?.display_name || null,
+      account: user?.display_name || null, publicTeamName: user?.metadata?.team_name || null };
   });
   const ids = new Set(identities.map(team => String(team.rosterId)));
   const pairs = pairRows(currentRows, ids);

@@ -1,3 +1,4 @@
+import { rosterOptionLabel } from "./manager-identity.js?v=cf74623f30";
 import { renderRecentTransactions } from "./transaction-view.js?v=76b996b5b8";
 import { renderWaiverDecisionBoard, waiverAvailabilityLabel } from "./waiver-decision-view.js?v=d71dc49b36";
 import { formatTradeTiming } from "./trade-timing.js?v=cdcd6605a3";
@@ -162,6 +163,7 @@ export async function renderTradesPage(container) {
     }
   }
 
+  const sleeperIdentity = (list, ownerId) => { const user = list.find(entry => entry.user_id === ownerId); return { account: user?.display_name ?? null, teamName: user?.metadata?.team_name ?? null }; };
   const formattedRosters = listRosterIdentities(rosters, users).map(({ roster: r, ownerName, teamName }) => {
     return {
       roster_id: r.roster_id,
@@ -170,6 +172,7 @@ export async function renderTradesPage(container) {
       starters: r.starters || [],
       ownerName,
       name: teamName,
+      label: rosterOptionLabel(sleeperIdentity(users, r.owner_id)),
       players: (r.players || []).map(pid => {
         const found = playerMap.get(pid);
         const player = found ? { ...found } : { sleeperId: pid, name: `Player #${pid}`, position: "FLEX" };
@@ -259,7 +262,7 @@ export async function renderTradesPage(container) {
             <select id="roster-select" style="padding:10px 14px; background:var(--panel); border:1px solid var(--line); color:var(--ink); font-weight:600; border-radius:4px;">
               ${formattedRosters.map(r => `
                 <option value="${r.roster_id}" ${String(r.roster_id) === String(selectedRosterId) ? "selected" : ""}>
-                  ${escapeHtml(r.name)} (@${escapeHtml(r.ownerName)})
+                  ${escapeHtml(r.label)}
                 </option>
               `).join("")}
             </select>
@@ -689,7 +692,7 @@ export async function renderTradesPage(container) {
             <select id="waiver-roster-select" style="padding:10px 14px; background:var(--panel); border:1px solid var(--line); color:var(--ink); font-weight:600; border-radius:4px;">
               ${formattedRosters.map(r => `
                 <option value="${r.roster_id}" ${String(r.roster_id) === String(selectedRosterId) ? "selected" : ""}>
-                  ${escapeHtml(r.name)} (@${escapeHtml(r.ownerName)})
+                  ${escapeHtml(r.label)}
                 </option>
               `).join("")}
             </select>
@@ -883,7 +886,7 @@ export async function renderTradesPage(container) {
           <div>
             <label for="advisor-roster-select" style="font-size:0.78rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--muted); font-weight:700; display:block; margin-bottom:6px;">Équipe analysée :</label>
             <select id="advisor-roster-select" style="padding:10px 14px; background:var(--panel); border:1px solid var(--line); color:var(--ink); font-weight:600; border-radius:4px;">
-              ${formattedRosters.map(r => `<option value="${r.roster_id}" ${String(r.roster_id) === String(selectedRosterId) ? "selected" : ""}>${escapeHtml(r.name)} (@${escapeHtml(r.ownerName)})</option>`).join("")}
+              ${formattedRosters.map(r => `<option value="${r.roster_id}" ${String(r.roster_id) === String(selectedRosterId) ? "selected" : ""}>${escapeHtml(r.label)}</option>`).join("")}
             </select>
           </div>
           <div>
@@ -1106,7 +1109,7 @@ export async function renderTradesPage(container) {
           <div>
             <label for="usage-roster-select" style="font-size:0.78rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--muted); font-weight:700; display:block; margin-bottom:6px;">Équipe analysée :</label>
             <select id="usage-roster-select" style="padding:10px 14px; background:var(--panel); border:1px solid var(--line); color:var(--ink); font-weight:600; border-radius:4px;">
-              ${formattedRosters.map(r => `<option value="${r.roster_id}" ${String(r.roster_id) === String(selectedRosterId) ? "selected" : ""}>${escapeHtml(r.name)} (@${escapeHtml(r.ownerName)})</option>`).join("")}
+              ${formattedRosters.map(r => `<option value="${r.roster_id}" ${String(r.roster_id) === String(selectedRosterId) ? "selected" : ""}>${escapeHtml(r.label)}</option>`).join("")}
             </select>
           </div>
           <p class="note" style="margin:0; max-width:640px;"><strong>Usage Score (0–100)</strong> = rang, parmi les joueurs du même poste, de la part de l'attaque de son équipe qu'il reçoit (targets, air yards, snaps, courses, red zone ; semaines ${report.weeks.join(", ")}, les plus récentes comptent plus). <strong>xFP</strong> = points attendus pour ce volume. <strong>Buy-low</strong> : il produit ≥ 3 pts/match sous son volume. <strong>Sell-high</strong> : ≥ 4 pts au-dessus (TD, big plays), hors usage élite. QB : dropbacks, courses, red zone et profondeur des passes (seuils ± 5 pts) ; l'usage QB sert aux signaux, pas aux projections (backtest : il ne les améliore pas). Routes : non disponibles gratuitement.</p>

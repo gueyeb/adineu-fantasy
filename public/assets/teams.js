@@ -1,3 +1,4 @@
+import { describeIdentity, rosterOptionLabel, teamLabel } from "./manager-identity.js?v=cf74623f30";
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./public-data-source.js?v=05dafa2db3";
 import { buildTeamSeasonContext, teamSeasonKey, allPlayUnavailableMessage, canonicalManagerForRoster } from "./team-season-context.js?v=d7ee4f31f4";
 /**
@@ -344,7 +345,7 @@ export async function renderTeamsHub(container) {
     <section class="section"><div class="shell">
       <div class="toolbar">
         <label for="team-select">Équipe
-          <select id="team-select">${identities.map(entry => `<option value="${escapeHtml(entry.ownerName)}"${entry.ownerName === defaultOwnerName ? " selected" : ""}>${escapeHtml(entry.teamName)} (@${escapeHtml(entry.ownerName)})</option>`).join("")}</select>
+          <select id="team-select">${identities.map(entry => `<option value="${escapeHtml(entry.ownerName)}"${entry.ownerName === defaultOwnerName ? " selected" : ""}>${escapeHtml(rosterOptionLabel({ account: entry.ownerName, teamName: entry.teamName }))}</option>`).join("")}</select>
         </label>
       </div>
       <div id="team-profile" aria-live="polite"><div class="state">Chargement…</div></div>
@@ -403,7 +404,7 @@ export async function renderTeamsHub(container) {
       <div class="team-profile-head">
         <div>
           <span class="franchise-kicker">${standingsRow ? `#${standingsRow.live_rank} · ` : ""}Saison 2026</span>
-          <h2>${escapeHtml(entry.teamName)}</h2>
+          <h2>${escapeHtml(teamLabel(describeIdentity({ account: entry.ownerName, teamName: entry.teamName })))}</h2>
           <p>${canonicalManager ? `Manager · ${escapeHtml(canonicalManager)}` : `Compte Sleeper · @${escapeHtml(entry.ownerName)}`}${canonicalManager && canonicalManager !== entry.ownerName ? `<br><small>Compte Sleeper · @${escapeHtml(entry.ownerName)}</small>` : ""}</p>
         </div>
         ${standingsRow ? `<div class="team-record">

@@ -6,7 +6,7 @@
  * (écart entre le lineup optimal réel et le lineup réellement titularisé).
  */
 
-import { estimatePregameWinProbability } from "./win-probability.js?v=78dcaa4abd";
+import { estimatePregameWinProbability } from "./win-probability.js?v=71b4f153fa";
 import { ROSTER_SETTINGS_2026 } from "./league-settings.js?v=886f353394";
 
 function resolvePosition(playerCatalog, playerId) {

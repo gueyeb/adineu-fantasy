@@ -1,5 +1,5 @@
 import { renderSosExplorer } from "./sos-explorer.js?v=a82891ac6f";
-import { renderPublicWeek } from "./public-week.js?v=f34a2bcbf4";
+import { renderPublicWeek } from "./public-week.js?v=6a68cc6992";
 import { buildSharedPlayoffContext } from "./playoff-context.js?v=007f82bf8d";
 import { calculatePowerRankings, MINIMUM_COMPLETED_WEEKS, POWER_WEIGHTS } from "./power-rankings.js?v=b3edd84ff5";
 import {
@@ -10,13 +10,14 @@ import {
   buildSleeperWeek,
   buildSleeperSeasonMeetings,
   sleeperManager
-} from "./rivalry-week.js?v=714a861458";
-import { renderTradesPage } from "./trade-ui.js?v=6a9bdf2d49";
-import { renderMatchupsHub } from "./matchups-live.js?v=ebffb553f3";
+} from "./rivalry-week.js?v=259261ffdf";
+import { accountNote, describeIdentity, managerLabel, teamLabel } from "./manager-identity.js?v=cf74623f30";
+import { renderTradesPage } from "./trade-ui.js?v=55a00aaf89";
+import { renderMatchupsHub } from "./matchups-live.js?v=bff7f1347a";
 import { calculatePlayoffRace } from "./playoff-race.js?v=4133a5df17";
 import { calculateLuck, calculateRankHistory } from "./standings-luck.js?v=0664490db9";
 import { resolveOperationalWeek } from "./nfl-week.js?v=8f9fa3f5b2";
-import { renderTeamsHub } from "./teams.js?v=25fd35a560";
+import { renderTeamsHub } from "./teams.js?v=4b28097611";
 import { buildYahooRecordBook } from "./record-book.js?v=0ebb2a4e56";
 import { listRosterIdentities } from "./roster-view.js?v=120de9d74d";
 import { GENERAL_SETTINGS_2026 } from "./league-settings.js?v=886f353394";
@@ -296,6 +297,17 @@ async function loadSleeperMatchups() {
   }));
 }
 
+/** Stored 2026 identity → canonical manager (+ recorded account) and public team name, display only. */
+function storedManagerCell(account, team) {
+  const identity = describeIdentity({ account, teamName: team });
+  const note = accountNote(identity);
+  return `${escapeHtml(managerLabel(identity))}${note ? `<small class="identity-account">${escapeHtml(note)}</small>` : ""}`;
+}
+
+function storedTeamCell(account, team) {
+  return escapeHtml(teamLabel(describeIdentity({ account, teamName: team })));
+}
+
 function standingsTable(rows, isLive = false, extras = null) {
   if (!rows.length) {
     return `<div class="state"><strong>Pas encore de classement</strong>Les données apparaîtront dès le début de la saison.</div>`;
@@ -313,8 +325,8 @@ function standingsTable(rows, isLive = false, extras = null) {
       <tbody>${rows.map((row, index) => `
         <tr class="${index === 0 && !isLive ? "champion-row" : ""}">
           <td class="rank">${escapeHtml(row.live_rank ?? row.rank)}</td>
-          <td class="team-name">${escapeHtml(row.team_name ?? row.team)}</td>
-          ${showManagers ? `<td>${escapeHtml(isLive ? row.owner_name || "—" : row.manager || "À confirmer")}</td>` : ""}
+          <td class="team-name">${isLive ? storedTeamCell(row.owner_name, row.team_name) : escapeHtml(row.team_name ?? row.team)}</td>
+          ${showManagers ? `<td>${isLive ? (row.owner_name ? storedManagerCell(row.owner_name, row.team_name) : "—") : escapeHtml(row.manager || "À confirmer")}</td>` : ""}
           <td class="num">${escapeHtml(row.wins)}</td>
           <td class="num">${escapeHtml(row.losses)}</td>
           <td class="num">${escapeHtml(row.ties)}</td>
@@ -349,10 +361,11 @@ function rankHistoryChart(history) {
     const color = RANK_CHART_COLORS[index % RANK_CHART_COLORS.length];
     const points = entry.ranks.map((rank, i) => `${x(i).toFixed(1)},${y(rank).toFixed(1)}`).join(" ");
     const last = entry.ranks.at(-1);
-    return `<g class="rank-line" data-manager="${escapeHtml(entry.manager)}" tabindex="0" aria-label="${escapeHtml(entry.manager)} : rang ${entry.ranks.join(" → ")}">
+    const label = managerLabel(describeIdentity({ account: entry.manager }));
+    return `<g class="rank-line" data-manager="${escapeHtml(entry.manager)}" tabindex="0" aria-label="${escapeHtml(label)} : rang ${entry.ranks.join(" → ")}">
       <polyline points="${points}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round" />
-      ${entry.ranks.map((rank, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(rank).toFixed(1)}" r="3.5" fill="${color}"><title>${escapeHtml(entry.manager)} · S${history.weeks[i]} : ${rank}e</title></circle>`).join("")}
-      <text x="${(x(history.weeks.length - 1) + 8).toFixed(1)}" y="${(y(last) + 4).toFixed(1)}" fill="${color}" font-size="11">${escapeHtml(entry.manager)}</text>
+      ${entry.ranks.map((rank, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(rank).toFixed(1)}" r="3.5" fill="${color}"><title>${escapeHtml(label)} · S${history.weeks[i]} : ${rank}e</title></circle>`).join("")}
+      <text x="${(x(history.weeks.length - 1) + 8).toFixed(1)}" y="${(y(last) + 4).toFixed(1)}" fill="${color}" font-size="11">${escapeHtml(label)}</text>
     </g>`;
   }).join("");
   const axis = history.weeks.map((week, i) => `<text x="${x(i).toFixed(1)}" y="${height - 2}" text-anchor="middle" fill="var(--muted)" font-size="11">S${week}</text>`).join("")
@@ -1363,13 +1376,13 @@ async function renderPowerRankings() {
   const rankingContent = result.ready ? `
     <div class="power-podium">${result.rankings.slice(0, 3).map((row, index) => `<article>
       <span>#${row.rank} · ${index === 0 ? "Leader" : "Challenger"}</span>
-      <strong>${escapeHtml(row.manager)}</strong>
-      <small>${escapeHtml(row.team)} · ${formatPoints(row.powerScore, 1)}</small>
+      <strong>${escapeHtml(managerLabel(describeIdentity({ account: row.manager })))}</strong>
+      <small>${storedTeamCell(row.manager, row.team)} · ${formatPoints(row.powerScore, 1)}</small>
     </article>`).join("")}</div>
     <div class="table-wrap power-table"><table>
       <thead><tr><th>Rang</th><th>Manager</th><th>Équipe</th><th class="num">Power</th><th class="num">Bilan</th><th class="num">PPG</th><th class="num">Marge 3 sem.</th></tr></thead>
       <tbody>${result.rankings.map(row => `<tr>
-        <td class="rank">#${row.rank}</td><td class="team-name">${escapeHtml(row.manager)}</td><td>${escapeHtml(row.team)}</td>
+        <td class="rank">#${row.rank}</td><td class="team-name">${storedManagerCell(row.manager, row.team)}</td><td>${storedTeamCell(row.manager, row.team)}</td>
         <td class="num power-score">${formatPoints(row.powerScore, 1)}</td>
         <td class="num">${row.wins}—${row.losses}${row.ties ? `—${row.ties}` : ""}</td>
         <td class="num">${formatPoints(row.pointsPerGame, 1)}</td>
@@ -1409,7 +1422,7 @@ async function renderPowerRankings() {
         <div class="table-wrap power-table"><table>
           <thead><tr><th>Seed</th><th>Manager</th><th>Équipe</th><th class="num">Bilan</th><th class="num">PF</th><th class="num">Écart</th><th>Statut</th></tr></thead>
           <tbody>${playoffRace.standings.map(row => `<tr>
-            <td class="rank">#${row.seed}</td><td class="team-name">${escapeHtml(row.manager)}</td><td>${escapeHtml(row.team)}</td>
+            <td class="rank">#${row.seed}</td><td class="team-name">${storedManagerCell(row.manager, row.team)}</td><td>${storedTeamCell(row.manager, row.team)}</td>
             <td class="num">${row.wins}—${row.losses}${row.ties ? `—${row.ties}` : ""}</td>
             <td class="num">${formatPoints(row.pointsFor, 1)}</td>
             <td class="num ${row.gamesBack <= 0 ? "positive" : "negative"}">${row.gamesBack <= 0 ? "—" : row.gamesBack}</td>
@@ -1426,9 +1439,9 @@ async function renderPowerRankings() {
         <div class="table-wrap power-table"><table>
           <thead><tr><th>Manager</th><th>Équipe</th><th class="num">Bilan actuel</th><th class="num">Probabilité</th><th class="num">Bilan projeté · S14</th><th class="num">Couverture directe</th></tr></thead>
           <tbody>${playoffProbabilities.probabilities.map(row => {
-            const teamName = result.rankings.find(rank => rank.manager === row.manager)?.team || row.manager;
+            const teamName = result.rankings.find(rank => rank.manager === row.manager)?.team ?? null;
             return `<tr>
-              <td class="team-name">${escapeHtml(row.manager)}</td><td>${escapeHtml(teamName)}</td>
+              <td class="team-name">${storedManagerCell(row.manager, teamName)}</td><td>${storedTeamCell(row.manager, teamName)}</td>
               <td class="num">${row.currentRecord.wins}–${row.currentRecord.losses}${row.currentRecord.ties ? `–${row.currentRecord.ties}` : ""}</td>
               <td class="num ${row.probability >= 0.5 ? "positive" : "negative"}">${Math.round(row.probability * 100)}%</td>
               <td class="num">${formatProjectedRecord(row.projectedRecord)}</td>

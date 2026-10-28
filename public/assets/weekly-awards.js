@@ -1,5 +1,5 @@
-import { computeOptimalLineupPoints } from './weekly-recap.js?v=9bbd9594d2';
-import { sleeperManager } from './rivalry-week.js?v=714a861458';
+import { computeOptimalLineupPoints } from './weekly-recap.js?v=3a177dca14';
+import { sleeperManager } from './rivalry-week.js?v=259261ffdf';
 
 const cents = value => Math.round(value * 100);
 const points = value => value / 100;
@@ -15,7 +15,9 @@ export function resolveCompletedAwardsWeek({ league, state }) {
 export function publicTeamIdentity(roster, users) {
   const user = users.find(entry => entry.user_id === roster?.owner_id);
   const manager = sleeperManager(user);
-  return { teamName: user?.metadata?.team_name || manager || 'Équipe sans nom public', manager };
+  // Only one label slot in the recap: an unnamed team is identified by its manager, explicitly marked.
+  const fallback = manager ? `${manager} (équipe sans nom public)` : 'Équipe sans nom public';
+  return { teamName: user?.metadata?.team_name || fallback, manager };
 }
 
 /** Completed regular-season scores only. No projections, private claims or current player rosters. */

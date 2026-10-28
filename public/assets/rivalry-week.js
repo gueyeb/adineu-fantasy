@@ -1,3 +1,4 @@
+import { SLEEPER_MANAGER_ALIASES } from "./manager-identity.js?v=cf74623f30";
 export const RIVALRY_WEEK = 8;
 
 export const RIVALRY_CRITERIA = Object.freeze([
@@ -20,22 +21,6 @@ export const ACTIVE_MANAGERS_2026 = Object.freeze(
   RIVALRY_PAIRS.flatMap(pair => [pair.managerA, pair.managerB])
 );
 
-const SLEEPER_MANAGER_ALIASES = Object.freeze({
-  t0z: "babttz",
-  flemme: "Tamsir",
-  dioguito17: "Olivier",
-  bm2222: "Birama",
-  bmb22: "Birama",
-  bigruisma: "Marius",
-  mouzay: "YeezyJr",
-  layemasterz: "Abdoulaye",
-  sneakyslayermg: "Magatte",
-  lfmendes: "Louis François",
-  estocade: "Ado",
-  saitaamaa22: "Toughness",
-  mouhammadat: "Mat",
-  shiro00: "Mat"
-});
 
 function regularGames(matchupArchive) {
   return matchupArchive.seasons.flatMap(season => season.weeks.flatMap(week =>
