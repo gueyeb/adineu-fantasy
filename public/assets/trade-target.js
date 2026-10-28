@@ -1,6 +1,7 @@
 import { assessTradeTiming, hasNoNflTeam } from "./trade-timing.js?v=43d83f975d";
 import { BYE_WEEKS_2026, GENERAL_SETTINGS_2026 } from "./league-settings.js?v=886f353394";
-import { buildProjectedLineup, GAMES_MISSED_BY_STATUS, injuryStatus } from "./trade-score.js?v=1fdfeb1538";
+import { buildProjectedLineup, GAMES_MISSED_BY_STATUS, injuryStatus, returnWeekAssumption } from "./trade-score.js?v=1fdfeb1538";
+import { paceWeekValue } from "./rest-of-season.js?v=9b85ae76ed";
 import { playerKey } from "./trade-preferences.js?v=c5fec5ce56";
 
 export const TRADE_TARGET_POSITIONS = ["QB", "RB", "WR", "TE"];
@@ -17,7 +18,10 @@ export function normalizeTradeIntent(value = {}, currentWeek = null) {
 export const tradeIntentStorageKey = ({ season, leagueId, rosterId }) => `adineu:trade-intent:${season}:${leagueId}:${rosterId}`;
 
 /** Published target-week projections only. No reuse of ROS averages as future-week forecasts.
- * This is a hypothetical pregame lineup impact, not confirmation that a trade can execute in time. */
+ * This is a hypothetical pregame lineup impact, not confirmation that a trade can execute in time.
+ * Same week value as the weekly simulation (tradeReturnScenarios): an Out/IR player counts 0 before
+ * the same return week (Sleeper's first re-projected week, else the status duration), and a target
+ * week beyond the next two blends the projection with usage xFP like rosPpg (paceWeekValue). */
 export function targetWeekTradeImpact({ myPlayers = [], theirPlayers = [], give = [], receive = [], targetWeek, currentWeek, projectionsByWeek = {}, timingContext = null, now = Date.now() }) {
   let timing = null;
   let lineupTiming = null;
@@ -41,12 +45,17 @@ export function targetWeekTradeImpact({ myPlayers = [], theirPlayers = [], give 
     if (hasNoNflTeam(player)) { assumptions.push(`NO_NFL_TEAM_COUNTED_AS_ZERO:${playerKey(player)}`); return 0; }
     if (!Object.hasOwn(BYE_WEEKS_2026, player.nflTeam)) reasons.push(`TARGET_TEAM_UNVERIFIED:${playerKey(player)}`);
     if (BYE_WEEKS_2026[player.nflTeam] === targetWeek) return 0;
-    const missed = GAMES_MISSED_BY_STATUS[injuryStatus(player)] || 0;
-    if (missed >= 1 && targetWeek === currentWeek) return 0;
-    if (injuryStatus(player) && (!Object.hasOwn(GAMES_MISSED_BY_STATUS, injuryStatus(player)) || (missed >= 1 && targetWeek !== currentWeek))) reasons.push(`RETURN_OR_STATUS_UNVERIFIED:${playerKey(player)}`);
-    const value = projections[playerKey(player)]?.pts_ppr;
-    if (!Number.isFinite(value) || value < 0) { reasons.push(`TARGET_PROJECTION_MISSING:${playerKey(player)}`); return 0; }
-    return value;
+    const status = injuryStatus(player);
+    if (status && !Object.hasOwn(GAMES_MISSED_BY_STATUS, status)) { reasons.push(`RETURN_OR_STATUS_UNVERIFIED:${playerKey(player)}`); return 0; }
+    if ((GAMES_MISSED_BY_STATUS[status] || 0) >= 1) {
+      if (targetWeek === currentWeek) return 0;
+      const assumed = returnWeekAssumption(player, { week: currentWeek, projectionsByWeek });
+      assumptions.push(`RETURN_WEEK_ASSUMED_S${assumed.week}:${assumed.basis}:${playerKey(player)}`);
+      if (targetWeek < assumed.week) return 0;
+    }
+    const projected = projections[playerKey(player)]?.pts_ppr;
+    if (!Number.isFinite(projected) || projected < 0) { reasons.push(`TARGET_PROJECTION_MISSING:${playerKey(player)}`); return 0; }
+    return Number.isInteger(currentWeek) ? paceWeekValue({ projected, xfp: player.xfp, position: player.position, week: targetWeek, liveWeek: currentWeek }) : projected;
   };
   // Bench coverage is required too: an unprojected bench player could change the optimum.
   const values = new Map(allPlayers.map(player => [playerKey(player), valueOf(player)]));

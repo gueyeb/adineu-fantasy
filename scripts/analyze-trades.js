@@ -282,7 +282,7 @@ export async function analyzeTrades({
  * average deltas of the Trade Finder plus the week-by-week return scenarios, so a pending Sleeper
  * offer (not exposed by the public API) can be checked in one call.
  */
-export async function evaluateTradeOffer({ give = [], receive = [], leagueId = DEFAULT_SLEEPER_LEAGUE_ID, fetchImpl = fetch, catalogUrl = DEFAULT_CATALOG_URL, getStatuses = getInjuryStatuses, now = Date.now() } = {}) {
+export async function evaluateTradeOffer({ give = [], receive = [], leagueId = DEFAULT_SLEEPER_LEAGUE_ID, fetchImpl = fetch, catalogUrl = DEFAULT_CATALOG_URL, getStatuses = getInjuryStatuses, now = null } = {}) {
   const giveIds = give.map(String), receiveIds = receive.map(String);
   if (!giveIds.length || !receiveIds.length) throw new Error("Offre incomplète : give et receive requis");
   const { formattedRosters, currentWeek, playerValues } = await loadLeagueRosters({ leagueId, fetchImpl, catalogUrl, getStatuses });
@@ -294,6 +294,9 @@ export async function evaluateTradeOffer({ give = [], receive = [], leagueId = D
   const mine = ownerOf(giveIds), theirs = ownerOf(receiveIds);
   if (mine.roster_id === theirs.roster_id) throw new Error("Offre invalide : les deux côtés viennent du même roster");
   const pick = (roster, ids) => roster.players.filter(player => ids.includes(String(player.sleeperId)));
+  // Clock read after loading: a default taken before the fetch predates timingContext.asOf, which
+  // read the trade window as stale and fell back to the live week (unlike the Finder and Coach).
+  now ??= Date.now();
   const args = { myPlayers: mine.players, theirPlayers: theirs.players, give: pick(mine, giveIds), receive: pick(theirs, receiveIds), week: currentWeek, myRoster: mine, theirRoster: theirs, cutContext: playerValues.timingContext, now };
   const season = scoreTradeRecommendation(args);
   const brief = player => ({ id: String(player.sleeperId), name: player.name, position: player.position, injuryStatus: player.injuryStatus || null, rosPpg: player.rosPpg ?? null, marketValue: player.marketValue ?? null });

@@ -1,7 +1,7 @@
-import { normalizeTradeIntent, targetWeekTradeImpact, compareTargetWeekImpacts } from "./trade-target.js?v=bedc8629d9";
+import { normalizeTradeIntent, targetWeekTradeImpact, compareTargetWeekImpacts } from "./trade-target.js?v=1f0606b5c5";
 import { listRosterIdentities, buildStarterSlotOrder } from "./roster-view.js?v=120de9d74d";
 import { BYE_WEEKS_2026, ROSTER_SETTINGS_2026 } from "./league-settings.js?v=886f353394";
-import { buildProjectedLineup, restOfSeasonEstimate } from "./trade-score.js?v=1fdfeb1538";
+import { restOfSeasonEstimate, restOfSeasonLineup } from "./trade-score.js?v=1fdfeb1538";
 import { diagnoseRoster, findTradeProposals } from "./trade-recommender.js?v=7aaf9cf138";
 import { playerKey } from "./trade-preferences.js?v=c5fec5ce56";
 import { partnerLabel } from "./manager-identity.js?v=7f451cdf4d";
@@ -41,8 +41,10 @@ export function buildLeagueRosterSnapshot({ rosters = [], users = [], playerFor,
 }
 
 /** Pure mutual-fit screen, using the same lineup, confidence and selection rules as the Finder.
- * Finder packages are evaluated before any output cap; fit is never acceptance odds. */
-export function buildLeagueTradeIntelligence({ snapshot, targetRosterId, week = null, playerPreferences = {}, preferredPosition = null, targetWeek = null, projectionsByWeek = {}, timingContext = null } = {}) {
+ * Finder packages are evaluated before any output cap; fit is never acceptance odds. Same trade
+ * model as the Finder and /api/trade-offer: averages over the first affectable week window (needs
+ * `timingContext`, else the live week), rate-per-game lineups, shared return week and far-week blend. */
+export function buildLeagueTradeIntelligence({ snapshot, targetRosterId, week = null, playerPreferences = {}, preferredPosition = null, targetWeek = null, projectionsByWeek = {}, timingContext = null, dataThroughWeek = null, now = Date.now() } = {}) {
   if (!snapshot) return { status: "UNAVAILABLE", teams: [], partners: [], topPartners: [] };
   const intent = normalizeTradeIntent({ preferredPosition, targetWeek }, week);
   preferredPosition = intent.preferredPosition;
@@ -59,7 +61,7 @@ export function buildLeagueTradeIntelligence({ snapshot, targetRosterId, week = 
     const byId = new Map(players.map(player => [playerKey(player), player]));
     const declared = new Set(team.declaredStarters.map(slot => slot.playerId).filter(Boolean));
     const reserve = new Set(team.reserveIds);
-    const optimalLineup = buildProjectedLineup(players, { estimate });
+    const optimalLineup = restOfSeasonLineup(players, week);
     const starters = new Set(optimalLineup.slots.map(slot => slot.sleeperId).filter(Boolean));
     const diagnosis = diagnoseRoster(players);
     const issues = [...team.issues];
@@ -79,7 +81,7 @@ export function buildLeagueTradeIntelligence({ snapshot, targetRosterId, week = 
   const eligibleTeams = teams.filter(team => !team.coverage.issues.length);
   const proposals = mine.coverage.issues.length ? [] : findTradeProposals({ targetRosterId,
     rosters: eligibleTeams.map(team => ({ roster_id: team.rosterId, name: team.teamName, ownerName: team.owner, players: team.players, reserve: team.reserveVerified ? team.reserveIds : null, starters: team.declaredStarters.map(slot => slot.playerId).filter(Boolean) })),
-    currentWeek: week, playerPreferences, view: "ALL", limit: null, cutContext: timingContext, projectionsByWeek });
+    currentWeek: week, playerPreferences, view: "ALL", limit: null, cutContext: timingContext, projectionsByWeek, now, targetWeek, dataThroughWeek });
   const brief = player => ({ playerId: playerKey(player), name: player.name, position: player.position });
   const partners = teams.filter(team => team !== mine).map(team => {
     const blockers = [...mine.coverage.issues, ...team.coverage.issues];
@@ -89,10 +91,11 @@ export function buildLeagueTradeIntelligence({ snapshot, targetRosterId, week = 
       const score = proposal.recommendationScore;
       return { proposalId: proposal.id, give: proposal.give.map(brief), receive: proposal.receive.map(brief),
         myDeltaPerWeek: score.my_lineup_delta, theirDeltaPerWeek: score.their_lineup_delta,
-        confidence: score.confidence, group: proposal.selection.group,
+        confidence: score.confidence, group: proposal.selection.group, averageWindow: score.averageWindow ?? null,
+        scenarioStatus: proposal.scenarioCheck?.status ?? null,
         fitScore: Math.min(score.my_lineup_delta, score.their_lineup_delta),
         targetWeekImpact: targetWeekTradeImpact({ myPlayers: mine.players, theirPlayers: team.players,
-          give: proposal.give, receive: proposal.receive, currentWeek: week, targetWeek, projectionsByWeek, timingContext }) };
+          give: proposal.give, receive: proposal.receive, currentWeek: week, targetWeek, projectionsByWeek, timingContext, now }) };
     });
     // A configured target prioritizes demonstrable immediate gains, then mutual ROS fit.
     // Unknown target-week gains are kept distinct and never treated as a numerical zero.
@@ -123,7 +126,7 @@ export function formatLeagueTradeIntelligence(report) {
   lines.push(`Trade intent: position=${report.preferredPosition || "ANY"}; targetWeek=${report.targetWeek ?? "none"}; expired=${report.intentExpired}. Target-week gains require published projections; trade processing time unverified.`);
   for (const partner of report.partners) {
     lines.push(`${partner.label}: ${partner.status}${partner.blockers.length ? ` (${partner.blockers.join(",")})` : ""}`);
-    for (const example of partner.examples) lines.push(`Give ${example.give.map(player => player.name).join(" + ")} → receive ${example.receive.map(player => player.name).join(" + ")}; ROS average own +${example.myDeltaPerWeek}, partner +${example.theirDeltaPerWeek} pts/week; ${example.group}; confidence=${example.confidence}; target W${report.targetWeek ?? "n/d"}: own ${example.targetWeekImpact.myDelta ?? "n/d"}, partner ${example.targetWeekImpact.theirDelta ?? "n/d"}; ${example.targetWeekImpact.status}`);
+    for (const example of partner.examples) lines.push(`Give ${example.give.map(player => player.name).join(" + ")} → receive ${example.receive.map(player => player.name).join(" + ")}; ROS average own +${example.myDeltaPerWeek}, partner +${example.theirDeltaPerWeek} pts/week${example.averageWindow?.from ? ` over W${example.averageWindow.from}-W${example.averageWindow.to}` : ""}; ${example.group}; confidence=${example.confidence}; target W${report.targetWeek ?? "n/d"}: own ${example.targetWeekImpact.myDelta ?? "n/d"}, partner ${example.targetWeekImpact.theirDelta ?? "n/d"}; ${example.targetWeekImpact.status}`);
   }
   return lines;
 }

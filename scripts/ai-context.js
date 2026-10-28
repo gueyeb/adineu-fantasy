@@ -202,7 +202,7 @@ function qualifyPlan(plan, options) {
       scenarios: (plan.claimPortfolio.scenarios || []).map(row => ({ ...row, steps: row.steps.map(step) })) } } : {}) };
 }
 
-export function buildDecisionContext({ context, playerValues = {}, statuses = new Map(), waivers = null, lineup = null, matchup = null, playoffContext = null, tradeIntent = {} }) {
+export function buildDecisionContext({ context, playerValues = {}, statuses = new Map(), waivers = null, lineup = null, matchup = null, playoffContext = null, tradeIntent = {}, now = Date.now() }) {
   const valuesById = playerValues.byId || new Map();
   const projections = playerValues.weeklyProjections || {};
   const enrich = player => playerDecisionView(player, valuesById, projections, statuses);
@@ -260,7 +260,9 @@ export function buildDecisionContext({ context, playerValues = {}, statuses = ne
     myTeam: enrichedTeam,
     leagueTradeIntelligence: buildLeagueTradeIntelligence({
       snapshot: context.leagueRosters ? { ...context.leagueRosters, teams: context.leagueRosters.teams.map(team => ({ ...team, players: team.players.map(enrich) })) } : null,
-      targetRosterId: context.myTeam.rosterId, week: context.week, preferredPosition: tradeIntent.preferredPosition, targetWeek: tradeIntent.targetWeek, projectionsByWeek: playerValues.projectionsByWeek || {}
+      targetRosterId: context.myTeam.rosterId, week: context.week, preferredPosition: tradeIntent.preferredPosition, targetWeek: tradeIntent.targetWeek, projectionsByWeek: playerValues.projectionsByWeek || {},
+      // Same window as the Coach trade option and the Trade Finder (first affectable week, live week without timing).
+      timingContext: playerValues.timingContext ?? null, dataThroughWeek: waivers?.lastCompletedWeek ?? null, now
     }),
     lineup: lineup || { alerts: [], optimal: null },
     nextMatchup: matchup,

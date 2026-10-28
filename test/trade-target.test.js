@@ -26,11 +26,20 @@ test("target-week impact uses published projections, FLEX and bye zero, never RO
   assert.equal(targetWeekTradeImpact({ myPlayers: [bye], theirPlayers: [], give: [], receive: [], targetWeek: 8, currentWeek: 7, projectionsByWeek: { 8: {} } }).myDelta, 0);
 });
 
-test("current Out is zero; future return uncertainty and past target suppress estimates", () => {
+test("current Out is zero; a future week follows the simulation's return week; past target is unavailable", () => {
   const out = p("out", "RB", "NYJ", { injuryStatus: "Out" });
   const args = { myPlayers: [out], theirPlayers: [], give: [], receive: [], currentWeek: 7, projectionsByWeek: { 7: {}, 8: { out: { pts_ppr: 15 } } } };
   assert.equal(targetWeekTradeImpact({ ...args, targetWeek: 7 }).status, "PROJECTED");
-  assert.equal(targetWeekTradeImpact({ ...args, targetWeek: 8 }).myDelta, null);
+  // Sleeper re-projects him from S8: same return week as the season average and the simulation, stated.
+  const back = targetWeekTradeImpact({ ...args, targetWeek: 8 });
+  assert.equal(back.status, "PROJECTED");
+  assert.ok(back.assumptions.includes("RETURN_WEEK_ASSUMED_S8:FUTURE_PROJECTION_ASSUMPTION:out"));
+  // IR without a future projection: 3-game status duration (S7–S9), so S9 counts 0 without needing a projection.
+  const ir = p("ir", "RB", "NYJ", { injuryStatus: "IR" });
+  const before = targetWeekTradeImpact({ myPlayers: [ir], theirPlayers: [], give: [], receive: [], currentWeek: 7, projectionsByWeek: { 9: {} }, targetWeek: 9 });
+  assert.deepEqual([before.status, before.myDelta], ["PROJECTED", 0]);
+  assert.ok(before.assumptions.includes("RETURN_WEEK_ASSUMED_S10:STATUS_DURATION_ASSUMPTION:ir"));
+  assert.equal(targetWeekTradeImpact({ ...args, myPlayers: [p("odd", "RB", "NYJ", { injuryStatus: "Weird" })], projectionsByWeek: { 8: { odd: { pts_ppr: 9 } } }, targetWeek: 8 }).reasons[0], "RETURN_OR_STATUS_UNVERIFIED:odd");
   assert.equal(targetWeekTradeImpact({ ...args, targetWeek: 6 }).status, "UNAVAILABLE");
 });
 
