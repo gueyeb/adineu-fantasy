@@ -599,3 +599,35 @@ aucun secret ou accès privé récupéré pour contourner cette limite.
 
 Vérification du lot : 644 tests réussis, syntaxe, versions d’assets et contrôles
 statiques valides. Une fixture de contrat a été complétée avant la validation finale.
+
+## QC-03 — Quatrième incrément : Start/Sit et contexte IA
+
+28/10/2026. Start/Sit et le contexte IA décision réutilisent le classificateur commun
+Coach/Waiver Wire, avec son adaptateur des étapes compactes. La qualification expose
+le même bucket, les blockers, la semaine des données, la semaine effective et le gain
+net nullable ; `availabilityAsOf` reste la date source, jamais `generatedAt`.
+Les acquisitions proposées par le diagnostic et les exports texte portent cette
+qualification. Les qualifications des branches sont jointes séparément au contexte IA :
+le plan moteur et ses gains, enchères, coefficients et ordre restent inchangés.
+
+Les modes distinguent l’optimum projeté théorique du pool encore sélectionnable avant
+kickoff. Le second réutilise le contexte daté des fenêtres de trade et le calendrier
+nflverse : matchs commencés, Out/IR et autres absences, byes et projections absentes
+sont écartés ; contexte de lock inconnu également. Aucune permission Sleeper déduite.
+Un titulaire verrouillé n’a pas de substitution proposée. Boom/Safe identiques à
+l’optimale ne sont plus affichés comme variantes : une phrase explique les mêmes choix.
+Les slots restés vides ne deviennent pas des joueurs disponibles.
+
+Evals : cinq nouveaux tests couvrent variantes identiques, frontière du kickoff,
+Out/IR/bye/contexte absent, titulaire verrouillé et parité Coach/Start-Sit/IA sur les
+mêmes fixtures (disponibilité observée ou inférée, blockers, date absente, gain nul ou
+chiffré). Suite complète relancée hors sandbox, ports locaux autorisés : 653/653 réussis
+(dont les tests HTTP). Aucun contrôle navigateur revendiqué. Coût : `/api/start-sit`
+appelle désormais `getFreeAgents` (3–8 s mesurés en production le 28/10) ; à surveiller. Syntaxe, versions d’assets et `npm run check` valides.
+Pas de build, typage ou linter configuré dans ce dépôt.
+
+Limites : pool avant kickoff, pas autorisation d’édition ni reconstruction du score
+live. Titulaires déjà verrouillés conservés dans Sleeper ; AutoSubs et locks privés
+restent à vérifier. Les lectures ne sont pas atomiques, les exports valent à leur
+date ; revue navigateur/mobile et suite HTTP avec ports autorisés restent ouvertes.
+Aucune écriture Sleeper, notification ou publication effectuée.

@@ -371,6 +371,7 @@ export function createAppServer({
               freeAgentsByPosition: waivers?.byPosition || {},
               byeWeeks: BYE_WEEKS_2026,
               currentWeek: compactContext.week,
+              availabilityAsOf: waivers?.availabilityAsOf, dataThroughWeek: waivers?.lastCompletedWeek, publishable: waivers?.coherence?.publishable, timingContext: playerValues.timingContext,
               acquisitionPlan: waivers?.acquisitionPlan ?? null
             });
             try {
@@ -590,14 +591,16 @@ export function createAppServer({
         const [context, playerStatuses, freeAgents] = await Promise.all([
           getContext({ team }),
           getInjuryStatuses(),
-          getFreeAgents({ limitPerPosition: 5 })
+          getFreeAgents({ team, limitPerPosition: 5 })
         ]);
         const diagnosis = diagnoseLineup({
           myTeam: context.myTeam,
           playerStatuses,
           freeAgentsByPosition: freeAgents.byPosition,
           byeWeeks: BYE_WEEKS_2026,
-          currentWeek: context.week
+          currentWeek: context.week,
+          availabilityAsOf: freeAgents.availabilityAsOf, dataThroughWeek: freeAgents.lastCompletedWeek, publishable: freeAgents.coherence?.publishable, acquisitionPlan: freeAgents.acquisitionPlan,
+          timingContext: (await getPlayerValues({ week: context.week }).catch(() => ({}))).timingContext
         });
         let optimal = null;
         try {
@@ -647,6 +650,7 @@ export function createAppServer({
           freeAgentsByPosition: freeAgents.byPosition,
           byeWeeks: BYE_WEEKS_2026,
           currentWeek: context.week,
+          availabilityAsOf: freeAgents.availabilityAsOf, dataThroughWeek: freeAgents.lastCompletedWeek, publishable: freeAgents.coherence?.publishable, timingContext: playerValues.timingContext,
           acquisitionPlan: freeAgents.acquisitionPlan ?? null
         });
         try {

@@ -1,4 +1,4 @@
-import { classifyCompactWaiverPresentation, compactWaiverCandidate, waiverAvailabilityLabel } from "./waiver-decision-view.js?v=8749baa6d5";
+import { classifyCompactWaiverPresentation, compactWaiverCandidate, waiverAvailabilityLabel } from "./waiver-decision-view.js?v=d71dc49b36";
 import { formatWaiverSchedule } from "./waiver-schedule.js?v=967a249e30";
 import { readSosHandoff, formatSosHandoff, SOS_HANDOFF_KEY } from './sos-ai-context.js?v=4f44f5a9de';
 import { copyTextFrom, registerPageAiContext } from './ai-context-client.js?v=d42756c77d';
@@ -11,7 +11,7 @@ ${formatSosHandoff(explorerContext)}` : text;
 import { renderCoachSos } from "./coach-sos-view.js?v=9ffe9f3221";
 import { addToWatchlist, buildWarRoom, formatClaimOrder, recordBids, removeFromWatchlist, watchIdsHeader, REASON_MAX } from "./war-room.js?v=e9eae48675";
 import { loadBidHistory, loadWatchlist, saveBidHistory, saveWatchlist, syncWarRoom } from "./war-room-store.js?v=679685c790";
-import { renderWeeklyRoster, renderWeeklyMoves } from "./coach-week-view.js?v=8fd5c9e905";
+import { renderWeeklyRoster, renderWeeklyMoves } from "./coach-week-view.js?v=df0cc00998";
 import { LEAGUE_METADATA_2026 } from "./league-settings.js?v=886f353394";
 import { formatAuction } from "./faab-auction.js?v=1eea51c520";
 import { REASON_MAX as JOURNAL_REASON_MAX } from "./decision-log.js?v=a0e3f31155";

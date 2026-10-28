@@ -1,4 +1,4 @@
-import { classifyCompactWaiverPresentation, compactWaiverCandidate, waiverAvailabilityLabel, waiverBlockerLabel } from "./waiver-decision-view.js?v=8749baa6d5";
+import { classifyCompactWaiverPresentation, compactWaiverCandidate, waiverAvailabilityLabel, waiverBlockerLabel } from "./waiver-decision-view.js?v=d71dc49b36";
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
 const number = value => Number.isFinite(value) ? value.toFixed(1) : 'n/d';
 const money = value => Number.isFinite(value) ? `${value} $` : 'non déterminé';

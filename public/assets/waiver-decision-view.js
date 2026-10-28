@@ -80,3 +80,14 @@ export function classifyCompactWaiverPresentation(row, { asOf = null, now = Date
   if (row.dependsOnPlayerIds?.length && result.bucket !== "watch") return { ...result, bucket: "prepare", label: "Plan conditionnel : résultats des ajouts précédents à confirmer" };
   return result;
 }
+
+/** Shared envelope: source dates, gains and blockers survive every output adapter. */
+export function qualifyDecision(row, { compact = false, asOf = null, now = Date.now(), publishable = null, week = null, dataThroughWeek = null } = {}) {
+  const presentation = compact ? classifyCompactWaiverPresentation(row, { asOf, now, publishable })
+    : classifyCompactWaiverPresentation({ ...row, recommendedAction: row.waiver?.decision?.recommendedAction,
+      suggestedBid: row.waiver?.suggestedBid, presentationFacts: { legalTransaction: row.waiver?.fit?.legalTransaction,
+        horizonCovered: row.waiver?.fit?.horizonCovered, actionBlockers: row.waiver?.decision?.actionBlockers,
+        confirmation: row.waiver?.decision?.confirmation } }, { asOf, now, publishable });
+  return { ...presentation, availabilityAsOf: asOf, dataThroughWeek, effectiveWeek: week,
+    netGainTotal: compact ? row.netGainTotal ?? null : row.waiver?.fit?.netGainTotal ?? null };
+}

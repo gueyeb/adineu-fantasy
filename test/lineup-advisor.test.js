@@ -142,11 +142,11 @@ test("Start/Sit and the acquisition plan name the same target; a Questionable st
   assert.equal(rb.advice, "surveiller Starter ; Backup en secours s'il est indisponible");
   // Le slot vide reprend l'étape du plan, pas le meilleur score de marché.
   assert.deepEqual([def.replacement.source, def.replacement.player.name], ["acquisition_plan", "Cowboys"]);
-  assert.equal(def.advice, "cible à acquérir : Cowboys — disponibilité WAIVER_LOCKED déduite — à confirmer dans Sleeper ; claim 0 $ (plafond 25 $) (étape du plan)");
+  assert.equal(def.advice, "cible à acquérir : Cowboys — Rapport à rafraîchir avant toute action ; disponibilité WAIVER_LOCKED déduite — à confirmer dans Sleeper ; claim 0 $ (plafond 25 $) ; lecture inconnue, S?, gain n/d, contrôles REPORT_STALE (étape du plan)");
   // Sans plan : la cible reste une acquisition à faire, jamais un « free agent » par défaut.
   const noPlan = diagnoseLineup({ myTeam, playerStatuses: new Map(), freeAgentsByPosition }).alerts[0];
   assert.equal(noPlan.replacement.source, "acquisition_target");
-  assert.match(noPlan.advice, /^cible à acquérir : Rams — disponibilité WAIVER_LOCKED déduite/);
+  assert.match(noPlan.advice, /^cible à acquérir : Rams — Rapport à rafraîchir avant toute action ; disponibilité WAIVER_LOCKED déduite/);
   assert.doesNotMatch(noPlan.advice, /free agent/i);
   // Une absence réelle reste un remplacement.
   const out = diagnoseLineup({ myTeam, playerStatuses: new Map([["rb1", "Out"]]), freeAgentsByPosition }).alerts[0];

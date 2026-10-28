@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { qualifyDecision } from "../public/assets/waiver-decision-view.js";
+import { assessTradeCut } from "../public/assets/trade-cut-readiness.js";
 /**
  * Adineu Fantasy — Start/Sit Advisor
  *
@@ -47,7 +49,29 @@ export function buildBoomSafeLineups(players, starterIds) {
     return { slots: built.slots.map(slot => ({ slot: slot.slot, sleeperId: slot.sleeperId, name: slot.name })), ...totals(built.slots) };
   };
   const currentSlots = pool.filter(player => starterIds.has(String(player.sleeperId))).map(player => ({ sleeperId: String(player.sleeperId) }));
-  return { current: totals(currentSlots), optimal: pick("projection"), boom: pick("ceiling"), safe: pick("floor") };
+  const result = { current: totals(currentSlots), optimal: pick("projection"), boom: pick("ceiling"), safe: pick("floor") };
+  const signature = lineup => lineup.slots.map(slot => slot.sleeperId).filter(Boolean).sort().join();
+  result.boomDiffers = signature(result.boom) !== signature(result.optimal);
+  result.safeDiffers = signature(result.safe) !== signature(result.optimal);
+  result.identicalReason = !result.boomDiffers && !result.safeDiffers ? "Boom, Safe et optimale identiques : les trois objectifs retiennent les mêmes joueurs dans ce pool éligible." : null;
+  return result;
+}
+/** Conservative selectable pool, never permission to edit a locked platform lineup. */
+export function buildPlayableLineups(players, starterIds, { week, timingContext = null, now = Date.now(), byeWeeks = BYE_WEEKS_2026 } = {}) {
+  const excluded = [];
+  const pool = players.filter(player => {
+    const timing = assessTradeCut(player, { week, context: timingContext, now });
+    const reason = ["Out", "IR", "PUP", "Sus", "NA", "Doubtful"].includes(player.injuryStatus) ? "ABSENT"
+      : byeWeeks[player.nflTeam] === week ? "BYE"
+      : timing.status === "GAME_STARTED_REVIEW" ? "GAME_LOCKED"
+      : timing.status !== "PREGAME_REVIEW" ? "LOCK_CONTEXT_UNKNOWN"
+      : !Number.isFinite(player.projection) ? "NO_PROJECTION" : null;
+    if (reason) excluded.push({ sleeperId: player.sleeperId, reason });
+    return !reason;
+  });
+  return { ...buildBoomSafeLineups(pool, starterIds), excluded, effectiveWeek: week,
+    asOf: timingContext?.asOf ?? null, permission: null,
+    note: "Pool encore sélectionnable avant kickoff ; slots vides exclus des joueurs. Titulaires verrouillés conservés dans Sleeper, édition et AutoSubs à vérifier." };
 }
 import { calculatePlayerTradeProfile } from "../public/assets/trade-value.js";
 import { buildProjectedLineup, weeklyEstimate } from "../public/assets/trade-score.js";
@@ -95,21 +119,21 @@ function bestFreeAgentReplacement(slot, freeAgentsByPosition, preferProjection =
 
 // A player outside the roster is a target to acquire, never a "free agent" by default: his
 // availability, the action and the bid come from the same evaluation as the waiver report.
-const acquisitionView = row => ({ availability: row.availability?.availability ?? "UNKNOWN", availabilitySource: row.availability?.availabilitySource ?? "NONE",
+const acquisitionView = (row, qualificationContext) => ({ qualification: qualifyDecision(row, { ...qualificationContext, compact: !row.waiver }), availability: row.availability?.availability ?? "UNKNOWN", availabilitySource: row.availability?.availabilitySource ?? "NONE",
   waiverProcessesAt: row.availability?.waiverProcessesAt ?? null, recommendedAction: row.waiver?.decision?.recommendedAction ?? row.recommendedAction ?? null,
   confirmation: row.waiver?.decision?.confirmation ?? null, suggestedBid: row.waiver?.suggestedBid ?? row.suggestedBid ?? null,
   personalMaxBid: row.waiver?.personalMaxBid ?? row.personalMaxBid ?? null });
 
-function findReplacement(slot, bench, playerStatuses, freeAgentsByPosition, acquisitionPlan = null, preferProjection = false) {
+function findReplacement(slot, bench, playerStatuses, freeAgentsByPosition, acquisitionPlan = null, preferProjection = false, qualificationContext = {}) {
   const fromBench = bestBenchReplacement(slot, bench, playerStatuses, preferProjection);
-  if (fromBench) return { source: "bench", player: fromBench };
+  if (fromBench) return { source: "bench", player: fromBench, lockPermission: null };
   // The plan's own step for that slot first: Start/Sit and the waiver plan name the same player.
   const positions = slot === "FLEX" ? FLEX_ELIGIBLE : [slot];
   const step = (acquisitionPlan?.steps || []).find(row => positions.includes(row.position));
   if (step) return { source: "acquisition_plan", player: { sleeperId: step.playerId, name: step.name, position: step.position, nflTeam: step.availability?.nflTeam ?? null },
-    acquisition: acquisitionView(step) };
+    acquisition: acquisitionView(step, qualificationContext) };
   const fromMarket = bestFreeAgentReplacement(slot, freeAgentsByPosition, preferProjection);
-  if (fromMarket) return { source: "acquisition_target", player: fromMarket, acquisition: acquisitionView(fromMarket) };
+  if (fromMarket) return { source: "acquisition_target", player: fromMarket, acquisition: acquisitionView(fromMarket, qualificationContext) };
   return null;
 }
 
@@ -126,7 +150,7 @@ export function formatReplacement(alert) {
   const a = replacement.acquisition || {};
   const state = a.availabilitySource === "LEAGUE_RULES_INFERRED" ? `${a.availability} déduite — à confirmer dans Sleeper` : a.availability || "UNKNOWN";
   const action = ({ ADD_NOW: "ajout libre", CLAIM_IF_CHEAP: `claim${Number.isFinite(a.suggestedBid) ? ` ${a.suggestedBid} $` : ""}${Number.isFinite(a.personalMaxBid) ? ` (plafond ${a.personalMaxBid} $)` : ""}` })[a.recommendedAction] || "aucune action exécutable";
-  return `cible à acquérir : ${name} — disponibilité ${state} ; ${action}${replacement.source === "acquisition_plan" ? " (étape du plan)" : ""}`;
+  return `cible à acquérir : ${name} — ${a.qualification?.label || "Surveiller ou compléter les données"} ; disponibilité ${state} ; ${action}${a.qualification ? ` ; lecture ${a.qualification.availabilityAsOf || "inconnue"}, S${a.qualification.effectiveWeek ?? "?"}, gain ${a.qualification.netGainTotal ?? "n/d"}, contrôles ${a.qualification.blockers.join(", ") || "aucun"}` : ""}${replacement.source === "acquisition_plan" ? " (étape du plan)" : ""}`;
 }
 
 /**
@@ -145,9 +169,12 @@ export function diagnoseLineup({
   byeWeeks = {},
   currentWeek = null,
   acquisitionPlan = null,
-  preferProjection = false
+  preferProjection = false,
+  availabilityAsOf = null, dataThroughWeek = null, now = Date.now(), timingContext = null, publishable = null
 }) {
-  const bench = myTeam.bench || [];
+  const qualificationContext = { asOf: availabilityAsOf, dataThroughWeek, week: currentWeek, now, publishable };
+  const bench = (myTeam.bench || []).filter(player => byeWeeks[player.nflTeam] !== currentWeek &&
+    !assessTradeCut(player, { week: currentWeek, context: timingContext, now }).excludedByPolicy);
   const alerts = [];
 
   for (const starter of myTeam.starters) {
@@ -160,7 +187,7 @@ export function diagnoseLineup({
         severity: "ALERT",
         reason: "Slot vide",
         replacementRole: "REPLACE",
-        replacement: findReplacement(starter.slot, bench, playerStatuses, freeAgentsByPosition, acquisitionPlan, preferProjection)
+        replacement: findReplacement(starter.slot, bench, playerStatuses, freeAgentsByPosition, acquisitionPlan, preferProjection, qualificationContext)
       });
       continue;
     }
@@ -177,12 +204,16 @@ export function diagnoseLineup({
       reason: onBye ? `Bye Week (semaine ${currentWeek})` : status,
       // Questionable alone justifies no swap: the bench player is a fallback, not a replacement.
       replacementRole: !onBye && statusSeverity === "WATCH" ? "FALLBACK_IF_INACTIVE" : "REPLACE",
-      replacement: findReplacement(starter.slot, bench, playerStatuses, freeAgentsByPosition, acquisitionPlan, preferProjection)
+      replacement: findReplacement(starter.slot, bench, playerStatuses, freeAgentsByPosition, acquisitionPlan, preferProjection, qualificationContext)
     });
   }
 
-  for (const alert of alerts) alert.advice = formatReplacement(alert);
-  return { alerts };
+  for (const alert of alerts) {
+    const locked = alert.player && assessTradeCut(alert.player, { week: currentWeek, context: timingContext, now }).excludedByPolicy;
+    if (locked) { alert.replacement = null; alert.replacementRole = "LOCKED"; alert.advice = "Titulaire verrouillé : aucune substitution proposée pour cette semaine."; }
+    else alert.advice = formatReplacement(alert);
+  }
+  return { alerts, availabilityAsOf, dataThroughWeek, effectiveWeek: currentWeek };
 }
 
 /**
@@ -293,9 +324,7 @@ export async function getStartSit({ team = null, ids = [], fetchImpl = fetch } =
   let lineups = null;
   if (context && calibration) {
     lineups = buildBoomSafeLineups(players, starterIds);
-    const sameAs = (a, b) => a.slots.map(slot => slot.sleeperId).sort().join() === b.slots.map(slot => slot.sleeperId).sort().join();
-    lineups.boomDiffers = !sameAs(lineups.boom, lineups.optimal);
-    lineups.safeDiffers = !sameAs(lineups.safe, lineups.optimal);
+    lineups.playable = buildPlayableLineups(players, starterIds, { week: currentWeek, timingContext: values.timingContext });
     try {
       const response = await fetchImpl(`https://api.sleeper.app/v1/league/${process.env.SLEEPER_LEAGUE_ID || "1392715510830878721"}/matchups/${currentWeek}`, { signal: AbortSignal.timeout(10_000) });
       const rows = response.ok ? await response.json() : [];
@@ -315,7 +344,9 @@ export async function getStartSit({ team = null, ids = [], fetchImpl = fetch } =
       }
     } catch { /* no matchup published yet: recommendation simply absent */ }
   }
-  return { week: currentWeek, team, wrDvpSnapshotId: wrBundle?.snapshotId ?? null, completedWeeks: statsByWeek.map(entry => entry.week), players, lineups };
+  const waivers = context ? await getFreeAgents({ team, fetchImpl, limitPerPosition: 5 }).catch(() => null) : null;
+  const diagnosis = context ? diagnoseLineup({ myTeam: context.myTeam, playerStatuses: new Map(players.map(p => [p.sleeperId, p.injuryStatus])), freeAgentsByPosition: waivers?.byPosition, acquisitionPlan: waivers?.acquisitionPlan, availabilityAsOf: waivers?.availabilityAsOf, dataThroughWeek: waivers?.lastCompletedWeek, publishable: waivers?.coherence?.publishable, currentWeek, byeWeeks: BYE_WEEKS_2026, timingContext: values.timingContext }) : null;
+  return { diagnosis, availabilityAsOf: waivers?.availabilityAsOf ?? null, dataThroughWeek: waivers?.lastCompletedWeek ?? null, effectiveWeek: currentWeek, week: currentWeek, team, wrDvpSnapshotId: wrBundle?.snapshotId ?? null, completedWeeks: statsByWeek.map(entry => entry.week), players, lineups };
 }
 
 function describePlayer(player) {

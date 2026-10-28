@@ -1,5 +1,5 @@
 import { renderRecentTransactions } from "./transaction-view.js?v=76b996b5b8";
-import { renderWaiverDecisionBoard, waiverAvailabilityLabel } from "./waiver-decision-view.js?v=8749baa6d5";
+import { renderWaiverDecisionBoard, waiverAvailabilityLabel } from "./waiver-decision-view.js?v=d71dc49b36";
 import { formatTradeTiming } from "./trade-timing.js?v=cdcd6605a3";
 import { formatWaiverSchedule } from "./waiver-schedule.js?v=967a249e30";
 import { normalizeTradeIntent, tradeIntentStorageKey, targetWeekTradeImpact, compareTargetWeekImpacts, LAST_TRADE_TARGET_WEEK } from "./trade-target.js?v=4feccd46df";
@@ -842,6 +842,7 @@ export async function renderTradesPage(container) {
       ]);
       if (res.ok) advisory = await res.json();
       if (sitRes?.ok) startSit = await sitRes.json();
+      if (startSit?.diagnosis) advisory.alerts = startSit.diagnosis.alerts;
     } catch (e) {
       console.warn("Impossible de charger le Start/Sit Advisor", e);
     }
@@ -1013,8 +1014,10 @@ export async function renderTradesPage(container) {
       <strong>Lineup selon ton match :</strong> ${Number.isFinite(lineups.winPct) ? `${lineups.winPct} % de chances estimées (${lineups.optimal.projection} pts projetés contre ${lineups.opponent.projection}). ` : "adversaire de la semaine pas encore publié. "}Mode conseillé : <strong>${label[mode]}</strong>.
       <div class="table-wrap" style="margin-top:10px;"><table>
         <thead><tr><th>Lineup</th><th class="num">Projection</th><th class="num" title="Somme des planchers individuels (prudent : tous les joueurs ne ratent pas leur semaine en même temps)">Σ planchers</th><th class="num" title="Somme des plafonds individuels">Σ plafonds</th><th>Changements vs optimale</th></tr></thead>
-        <tbody>${row("Actuelle", lineups.current)}${row("Optimale", lineups.optimal, false)}${row("Boom", lineups.boom, lineups.boomDiffers)}${row("Safe", lineups.safe, lineups.safeDiffers)}</tbody>
+        <tbody>${row("Actuelle", lineups.current)}${row("Optimale projetée (théorique)", lineups.optimal, false)}${lineups.boomDiffers ? row("Boom", lineups.boom, true) : ""}${lineups.safeDiffers ? row("Safe", lineups.safe, true) : ""}</tbody>
       </table></div>
+      ${lineups.identicalReason ? `<p>${escapeHtml(lineups.identicalReason)}</p>` : ""}
+      ${lineups.playable ? `<p><strong>Pool encore jouable :</strong> ${lineups.playable.optimal.projection} pts projetés. ${escapeHtml(lineups.playable.note)}</p><p>${escapeHtml(lineups.playable.identicalReason || "Boom/Safe distincts dans le pool encore jouable.")} Exclus : ${lineups.playable.excluded.map(p => `${escapeHtml(p.sleeperId)} (${escapeHtml(p.reason)})`).join(", ") || "aucun"}.</p>${[["Optimale jouable", lineups.playable.optimal], ...(lineups.playable.boomDiffers ? [["Boom jouable", lineups.playable.boom]] : []), ...(lineups.playable.safeDiffers ? [["Safe jouable", lineups.playable.safe]] : [])].map(([title, lineup]) => `<p><strong>${title}</strong> : ${lineup.slots.map(slot => `${escapeHtml(slot.slot)} : ${escapeHtml(slot.name)}`).join(" · ")}</p>`).join("")}` : ""}
       <small style="color:var(--muted);">Plancher / plafond = 20e / 80e percentile, calibrés sur 31 000 matchs réels (2021–2025). Outsider (&lt; 40 %) : vise le plafond ; favori (&gt; 60 %) : sécurise le plancher. Estimation Adineu.</small>
     </div>`;
   }
