@@ -42,8 +42,12 @@ export function canonicalManagerName(name) {
  */
 export function describeIdentity({ account = null, teamName = null, accountIsCurrent = false } = {}) {
   const manager = canonicalManagerName(account);
-  const publicTeam = teamName && fold(teamName) !== fold(account) && fold(teamName) !== fold(manager) ? teamName : null;
-  return { manager, account: account || null, accountIsCurrent, teamName: publicTeam };
+  // The sync stores Sleeper's account as team name when none is set. Once the owner row holds the
+  // canonical name, recognize that fallback through the confirmed alias of this same manager.
+  const isAccountFallback = teamName && (fold(teamName) === fold(account) || fold(teamName) === fold(manager)
+    || (manager !== null && SLEEPER_MANAGER_ALIASES[fold(teamName)] === manager));
+  const defaultAccount = isAccountFallback && fold(teamName) !== fold(manager) ? teamName : account || null;
+  return { manager, account: account || null, accountIsCurrent, teamName: isAccountFallback ? null : teamName || null, defaultAccount };
 }
 
 export function managerLabel(identity) {
@@ -52,7 +56,8 @@ export function managerLabel(identity) {
 
 /** No public team name: Sleeper's own default, "Team <account>", so the label matches the app. */
 export function teamLabel(identity) {
-  return identity.teamName ?? (identity.account ? `Team ${identity.account}` : "Équipe sans nom public");
+  const account = identity.defaultAccount ?? identity.account;
+  return identity.teamName ?? (account ? `Team ${account}` : "Équipe sans nom public");
 }
 
 /** Secondary line: the account behind a canonical manager, labeled current or as recorded. */

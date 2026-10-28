@@ -19,7 +19,7 @@ test("stored 2026 names resolve to confirmed managers only; unknown accounts sta
 
 test("a team name equal to the account is a sync fallback, not a team chosen by the manager", () => {
   const sneaky = describeIdentity({ account: "SneakySlayerMG", teamName: "SneakySlayerMG" });
-  assert.deepEqual(sneaky, { manager: "Magatte", account: "SneakySlayerMG", accountIsCurrent: false, teamName: null });
+  assert.deepEqual(sneaky, { manager: "Magatte", account: "SneakySlayerMG", accountIsCurrent: false, teamName: null, defaultAccount: "SneakySlayerMG" });
   assert.equal(teamLabel(sneaky), "Team SneakySlayerMG");
   assert.equal(teamLabel({ account: null, teamName: null }), "Équipe sans nom public");
   assert.equal(managerLabel(sneaky), "Magatte");
@@ -56,4 +56,13 @@ test("Live cards separate team, confirmed manager and current Sleeper account", 
   assert.match(html, /Mat · Compte Sleeper · @Shiro00<\/span><strong>Kuro<\/strong>/);
   const legacy = renderLiveTrackerCards({ matchups: [{ teams: [{ ...side("x", "T"), account: undefined, manager: "Owner", teamName: "Team" }, side("y", "U")] }] });
   assert.match(legacy, /Owner<\/span><strong>Team<\/strong>/, "rows without identity fields render as before");
+});
+
+test("a stored canonical owner still recognizes its own account used as team name", () => {
+  assert.equal(teamLabel(describeIdentity({ account: "Tamsir", teamName: "flemme" })), "Team flemme");
+  assert.equal(teamLabel(describeIdentity({ account: "Magatte", teamName: "SneakySlayerMG" })), "Team SneakySlayerMG");
+  assert.equal(teamLabel(describeIdentity({ account: "Mat", teamName: "Kuro" })), "Kuro");
+  // Another manager's account is a real team name, never a fallback for this one.
+  assert.equal(teamLabel(describeIdentity({ account: "Mat", teamName: "flemme" })), "flemme");
+  assert.equal(accountNote(describeIdentity({ account: "Tamsir", teamName: "flemme" })), null);
 });

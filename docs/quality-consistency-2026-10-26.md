@@ -878,3 +878,15 @@ Limites : moyenne ROS toujours mesurée depuis la semaine live (seule la simulat
 première semaine affectable) ; points figés d’un joueur déjà passé non reconstruits ; statuts des
 captures historiques déduits ; heure réelle de traitement Sleeper et frontière de la deadline
 non observées ; aucune validation humaine des offres. Aucune écriture Supabase/Sleeper.
+
+**Identités canoniques en base, 28/10.** Avec l’accord de l’utilisateur, `owners.display_name`
+des onze comptes 2026 encore bruts prend le nom canonique déjà lié dans `owner_platform_ids`
+(lien Yahoo) et dans les alias confirmés : MouhammadAT → Mat, flemme → Tamsir,
+SneakySlayerMG → Magatte, t0z → babttz, BigRuisma → Marius, Dioguito17 → Olivier,
+ESTOCADE → Ado, layemasterz → Abdoulaye, LFMendes → Louis François, mouzay → YeezyJr,
+Saitaamaa22 → Toughness. Une transaction, mise à jour conditionnée à l’ancien nom ;
+sauvegarde locale ignorée par git. Liens plateforme, équipes et scores inchangés.
+Après écriture : audit Sleeper S1–S7 `MATCH`, classement et probabilités playoffs des
+12 équipes affichés. Régression corrigée : le nom d’équipe égal au compte n’était plus
+reconnu une fois le propriétaire renommé ; il l’est désormais via l’alias confirmé du
+même manager (« Team flemme »), jamais via l’alias d’un autre.

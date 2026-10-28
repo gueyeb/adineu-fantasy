@@ -37,7 +37,7 @@ export async function buildSharedPlayoffContext(currentWeek, matchupRows = [], e
   // Slot order of Sleeper's starters array (QB,RB,RB,WR,WR,TE,FLEX,K,DEF).
   const slotOrder = Object.entries(ROSTER_SETTINGS_2026.starters).flatMap(([slot, count]) => Array(count).fill(slot));
   if (identities.some(entry => (entry.roster.starters || []).length !== slotOrder.length)) throw new Error("Incomplete playoff lineup coverage");
-  // Standings/matchup rows name managers by their canonical Supabase owner ("tOz", "MouhammadAT",
+  // Standings/matchup rows name managers by their canonical Supabase owner ("babttz", "Mat",
   // "Birama"), not their Sleeper display name ("t0z", "Shiro00", "bmb22"). The public link between
   // both is the team name, synced from Sleeper into Supabase. A mismatch here silently removed
   // those teams from every simulated game (0 % / 100 % odds), so an unmatched team now aborts.
