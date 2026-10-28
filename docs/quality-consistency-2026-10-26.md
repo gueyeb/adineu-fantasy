@@ -699,3 +699,27 @@ concordantes, gain contredit (dont total nul), perte contredite, signe dépendan
 retour, absence de scénarios, cas Puka réel, cas Pitts conservé, appel historique sans
 projections inchangé, contre-offres et texte CLI. 649 tests réussis ; versions d’assets
 et contrôles statiques valides. Aucune publication en production.
+
+## QC-01/QC-03 — Vérification production, n8n et charge `/api/free-agents`
+
+28/10/2026. **Déploiement** : les scripts servis (`?v=` hachés, dépendances incluses) de
+Game Center, Coach, Trade Hub et Équipe étaient identiques à `main` local (`830432e`).
+Coach authentifié et mobile 390 px non contrôlés : accès par mot de passe, non saisi.
+
+**n8n, exécutions 10–28/10** : sync Sleeper OK le 20/10 (08:00 UTC) et le 27/10
+(09:00 UTC), fuseau Europe/Paris donc 10:00 Paris dans les deux cas ; bilan jeudi OK
+(15 et 22/10) ; contrôle avant verrouillage et capture experts OK le dimanche à
+05:00 et 11:45 ET (09:00/15:45 UTC). **Échecs** : bulletin Coach du mardi (20 et 27/10)
+et message du suivi modèle (27/10) refusés par Telegram, « message is too long » :
+26 280 et 4 504 caractères pour une limite de 4 096. Le job modèle (snapshot,
+recalibration) avait réussi ; seul l’envoi échouait. Correctif `f54900b` : les appels
+bearer du Coach reçoivent un bulletin compact (une ligne de couverture, SOS seulement
+favorable/difficile), le texte complet passe dans `detailMessage` ; les deux messages
+sont coupés sur ligne entière sous 4 096 avec lien vers `/coach/`. Page web inchangée.
+Aucun workflow modifié. Preuve attendue : exécution du mardi 03/11 après déploiement.
+
+**`/api/free-agents?team=t0z`** (production, 3 lectures) : 1,88 Mo brut, 113 Ko gzip,
+TTFB 3,0–3,9 s à chaud, 8 s à froid, `no-store`. `byPosition` = 1,62 Mo pour 64 lignes ;
+`waiver.fit.dropCandidates` = 534 Ko (28 %), jamais lu par le navigateur ; `trending`
+105 Ko, `message` 75 Ko. Aucune réduction faite : décision à prendre (omettre
+`dropCandidates` hors `?detail=1`, en gardant n8n/IA qui lisent le JSON complet).
