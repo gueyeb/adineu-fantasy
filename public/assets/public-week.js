@@ -1,5 +1,5 @@
 import { getLeagueCore, sleeperGet, SLEEPER_LEAGUE_ID } from './sleeper-client.js?v=3f75d48ec5';
-import { buildWeeklyAwards, resolveCompletedAwardsWeek, publicTeamIdentity } from './weekly-awards.js?v=9f6f2dc8c6';
+import { buildWeeklyAwards, resolveCompletedAwardsWeek, publicTeamIdentity } from './weekly-awards.js?v=fbe776fba5';
 import { renderWeeklyAwards } from './weekly-awards-view.js?v=ead74e2c71';
 
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);

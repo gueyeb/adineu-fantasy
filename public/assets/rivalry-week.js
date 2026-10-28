@@ -1,4 +1,4 @@
-import { SLEEPER_MANAGER_ALIASES } from "./manager-identity.js?v=1b190dd337";
+import { SLEEPER_MANAGER_ALIASES } from "./manager-identity.js?v=7f451cdf4d";
 export const RIVALRY_WEEK = 8;
 
 export const RIVALRY_CRITERIA = Object.freeze([

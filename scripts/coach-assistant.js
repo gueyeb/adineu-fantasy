@@ -1,3 +1,4 @@
+import { teamOwnerLabel } from "../public/assets/manager-identity.js";
 import { classifyCompactWaiverPresentation } from "../public/assets/waiver-decision-view.js";
 import { formatWaiverSchedule } from "../public/assets/waiver-schedule.js";
 import { formatLineupMovements } from "./lineup-movements.js";
@@ -147,7 +148,7 @@ export function formatCoachPlan(plan, { now = Date.now(), compact = false } = {}
   const stateLabel = row => classifyCompactWaiverPresentation(row, { asOf: plan.availabilityAsOf, publishable: plan.publishable, now }).label;
   const record = plan.teamState.record || { wins: 0, losses: 0, ties: 0 };
   const lines = [
-    `🧠 COACH ${plan.team.toUpperCase()} — SEMAINE ${plan.week}`,
+    `🧠 COACH ${teamOwnerLabel(plan.team.toUpperCase(), plan.owner)} — SEMAINE ${plan.week}`,
     `${record.wins}-${record.losses}${record.ties ? `-${record.ties}` : ""} · #${plan.teamState.rank}/${plan.teamState.leagueTeams} · FAAB ${plan.teamState.faab?.remaining ?? "n/d"} $ · urgence playoffs ${plan.teamState.playoffUrgency}`
   ];
   lines.push(formatWaiverSchedule(plan.waiverSchedule));

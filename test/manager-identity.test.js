@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { accountNote, canonicalManagerName, describeIdentity, managerLabel, rosterOptionLabel, teamLabel } from "../public/assets/manager-identity.js";
+import { accountNote, canonicalManagerName, describeIdentity, managerLabel, ownerTag, rosterOptionLabel, teamLabel, teamOwnerLabel } from "../public/assets/manager-identity.js";
 import { sleeperManager } from "../public/assets/rivalry-week.js";
 import { publicTeamIdentity } from "../public/assets/weekly-awards.js";
 import { renderLiveTrackerCards } from "../public/assets/live-tracker-view.js";
@@ -75,4 +75,13 @@ test("former archive names still resolve after the first-name rename", () => {
   assert.equal(canonicalManagerName("Saitaamaa22"), "Oumar");
   assert.equal(canonicalManagerName("Toughness"), "Oumar");
   assert.equal(canonicalManagerName("moussé"), "Moussé");
+});
+
+test("message headers tag the account with its confirmed manager; unknown accounts stay accounts", () => {
+  assert.equal(ownerTag("t0z"), "Babacar, @t0z");
+  assert.equal(ownerTag("Birama"), "@Birama", "a canonical name is not repeated");
+  assert.equal(ownerTag("NouveauCompte"), "@NouveauCompte");
+  assert.equal(teamOwnerLabel("BOUKKI", "t0z"), "BOUKKI (Babacar, @t0z)");
+  assert.equal(teamOwnerLabel("Kuro", "Shiro00"), "Kuro (Mat, @Shiro00)");
+  assert.equal(teamOwnerLabel("Boukki", null), "Boukki");
 });

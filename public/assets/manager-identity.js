@@ -78,6 +78,22 @@ export function rosterOptionLabel({ account = null, teamName = null } = {}) {
 }
 
 /**
+ * Account tag for message headers: "Babacar, @t0z" for a confirmed manager, else "@account".
+ * The account stays so a reader (or a model) can still match the Sleeper roster.
+ */
+export function ownerTag(account) {
+  const manager = canonicalManagerName(account);
+  if (!account) return manager ?? "";
+  return manager && fold(manager) !== fold(account) ? `${manager}, @${account}` : `@${account}`;
+}
+
+/** Message header label: "Boukki (Babacar, @t0z)"; team alone when the account is unknown. */
+export function teamOwnerLabel(teamName, account) {
+  const tag = ownerTag(account);
+  return tag ? `${teamName} (${tag})` : String(teamName);
+}
+
+/**
  * Trade partner label for proposals, bulletins and offers: team · confirmed manager, else @account.
  * Same identity rules as the roster pickers; display only (roster ids stay the keys).
  */

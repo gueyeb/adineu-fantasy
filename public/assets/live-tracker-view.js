@@ -1,5 +1,5 @@
 import { estimatePregameWinProbability, pregameEstimatePresentation } from "./win-probability.js?v=71b4f153fa";
-import { accountNote, describeIdentity, managerLabel, teamLabel } from "./manager-identity.js?v=1b190dd337";
+import { accountNote, describeIdentity, managerLabel, teamLabel } from "./manager-identity.js?v=7f451cdf4d";
 const escape = value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const points = value => Number.isFinite(value) ? value.toLocaleString("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : "—";
 // Live Sleeper users: canonical manager when confirmed, current account, public team name or none.

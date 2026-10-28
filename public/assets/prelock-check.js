@@ -1,4 +1,6 @@
 /** Pure pre-lock orchestration. Advisor functions are injected to keep Node I/O out of this module. */
+import { teamOwnerLabel } from "./manager-identity.js?v=7f451cdf4d";
+
 export function buildPrelockCheck({ week, myTeam, playerStatuses = new Map(), projections = {}, schedule,
   now, byeWeeks = {}, freeAgentsByPosition = {} }, { diagnoseLineup, compareWithOptimalLineup, formatReplacement }) {
   const checkedAt = new Date(now).toISOString();
@@ -45,7 +47,7 @@ export function buildPrelockCheck({ week, myTeam, playerStatuses = new Map(), pr
     .every(player => Number.isFinite(effectiveProjections[player.sleeperId]?.pts_ppr));
   const optimal = compareWithOptimalLineup({ myTeam: { ...myTeam, bench }, projections: effectiveProjections, playerStatuses, fixedSlots });
   const swaps = alerts.filter(alert => alert.replacement && alert.replacementRole === "REPLACE").map(alert => ({ slot: alert.slot, out: alert.player, in: alert.replacement.player, source: alert.replacement.source, delta: alert.delta }));
-  const lines = [`Contrôle avant verrouillage — S${week}`];
+  const lines = [`Contrôle avant verrouillage — S${week}${myTeam.teamName ? ` — ${teamOwnerLabel(myTeam.teamName, myTeam.owner)}` : ""}`];
   if (!alerts.length) lines.push("✅ Lineup OK");
   for (const alert of alerts) lines.push(`${alert.severity === "WATCH" ? "🟡" : "🔴"} ${alert.slot} ${alert.player?.name || "Slot vide"} (${alert.reason}) → ${alert.advice || "aucun remplaçant disponible"}${alert.delta === null ? "" : ` · Δ proj. Sleeper ${alert.delta >= 0 ? "+" : ""}${alert.delta} pts`}`);
   if (covered && optimal.gain > 0.5) {

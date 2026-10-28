@@ -24,6 +24,7 @@ import { buildAcquisitionPlan, formatClaimPortfolio, selectPlanCandidates, planP
 import { summarizeMatchupCoverage } from "../public/assets/matchup-coverage.js";
 import { loadDecisionEvidence, easternKickoffIso } from "./decision-evidence.js";
 import { BYE_WEEKS_2026 } from "../public/assets/league-settings.js";
+import { teamOwnerLabel } from "../public/assets/manager-identity.js";
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import {
@@ -336,7 +337,7 @@ export function formatContextText(context) {
     `Waivers: ${league.waiverClear}`,
     `Semaine: ${week}`,
     "",
-    `MON ROSTER — ${myTeam.teamName.toUpperCase()} (@${myTeam.owner})`,
+    `MON ROSTER — ${teamOwnerLabel(myTeam.teamName.toUpperCase(), myTeam.owner)}`,
     `Bilan: ${recordText} · Rang: ${myTeam.standingsRank ?? "n/d"}/${league.teams} · PF: ${myTeam.pointsFor ?? "n/d"} · PA: ${myTeam.pointsAgainst ?? "n/d"}`,
     `Priorité waiver (départage): ${myTeam.waiverPriority ?? "n/d"}${myTeam.streak ? ` · Série: ${myTeam.streak}` : ""}`,
     "",

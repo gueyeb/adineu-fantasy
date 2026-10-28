@@ -45,6 +45,8 @@ test("recommendation, blocker, role, lineup and publishability changes are liste
   assert.match(text, /Retiré du plan : Cincinnati/);
   assert.match(text, /Nouveau : Khalil Shakir · claim 4 \$/);
   assert.match(text, /aucune soumission automatique/);
+  assert.match(formatCoachDelta(delta, { team: "Boukki", owner: "t0z", week: 9, fullBulletin: "FULL" }), /^🧠 COACH BOUKKI \(Babacar, @t0z\) — S9 · changements depuis/,
+    "followed team named with its confirmed manager");
 });
 
 test("a decision becoming actionable now and a move close to kickoff are flagged", () => {

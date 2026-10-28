@@ -6,6 +6,7 @@
  * signal changed, a new lineup move appeared, the plan's publishability changed, or a proposed
  * lineup move involves a game kicking off soon. Gains moving by a few tenths are not a change.
  */
+import { teamOwnerLabel } from "../public/assets/manager-identity.js";
 import { classifyCompactWaiverPresentation } from "../public/assets/waiver-decision-view.js";
 
 export const NEAR_KICKOFF_MS = 3 * 60 * 60 * 1000;
@@ -103,11 +104,12 @@ function eventLine(event) {
 }
 
 /** Telegram text for a non-reset delta; `fullBulletin` is used as-is on a reset. */
-export function formatCoachDelta(delta, { team, week, fullBulletin, pageUrl = null }) {
+export function formatCoachDelta(delta, { team, owner = null, week, fullBulletin, pageUrl = null }) {
   if (delta.reset) return fullBulletin;
+  const header = `🧠 COACH ${teamOwnerLabel(String(team).toUpperCase(), owner)}`;
   const since = delta.since ? parisTime(delta.since) : "le dernier bulletin";
-  if (!delta.events.length) return `🧠 COACH ${String(team).toUpperCase()} — S${week} : aucun changement utile depuis ${since}. Plan inchangé${pageUrl ? ` (${pageUrl})` : ""}.`;
-  return [`🧠 COACH ${String(team).toUpperCase()} — S${week} · changements depuis ${since}`, ...delta.events.map(eventLine),
+  if (!delta.events.length) return `${header} — S${week} : aucun changement utile depuis ${since}. Plan inchangé${pageUrl ? ` (${pageUrl})` : ""}.`;
+  return [`${header} — S${week} · changements depuis ${since}`, ...delta.events.map(eventLine),
     "Gains et enchères inchangés par ce résumé ; aucune soumission automatique.", ...(pageUrl ? [`Détail : ${pageUrl}`] : [])].join("\n");
 }
 

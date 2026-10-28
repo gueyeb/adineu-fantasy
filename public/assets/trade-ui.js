@@ -1,10 +1,10 @@
-import { rosterOptionLabel } from "./manager-identity.js?v=1b190dd337";
+import { rosterOptionLabel } from "./manager-identity.js?v=7f451cdf4d";
 import { renderRecentTransactions } from "./transaction-view.js?v=76b996b5b8";
 import { renderWaiverDecisionBoard, waiverAvailabilityLabel } from "./waiver-decision-view.js?v=d71dc49b36";
 import { formatTradeTiming, formatTradeWeekFrame } from "./trade-timing.js?v=43d83f975d";
 import { formatWaiverSchedule } from "./waiver-schedule.js?v=967a249e30";
 import { normalizeTradeIntent, tradeIntentStorageKey, targetWeekTradeImpact, compareTargetWeekImpacts, LAST_TRADE_TARGET_WEEK } from "./trade-target.js?v=bedc8629d9";
-import { buildLeagueRosterSnapshot, buildLeagueTradeIntelligence } from "./league-trade-intelligence.js?v=dc53c23b3a";
+import { buildLeagueRosterSnapshot, buildLeagueTradeIntelligence } from "./league-trade-intelligence.js?v=8a991fc519";
 import { tierChip, tierSeparator } from "./tier-view.js?v=d3a45b4046";
 /**
  * Adineu Fantasy — Interface Utilisateur Trade Hub
@@ -16,7 +16,7 @@ import { buildTiers } from "./value-tiers.js?v=32f5359873";
 import { buildWaiverDisplayTiers } from "./waiver-board.js?v=8889a568a8";
 
 import { calculatePlayerTradeValue, calculatePlayerTradeProfile, evaluateTrade } from "./trade-value.js?v=2c9caa87cf";
-import { diagnoseRoster, findTradeProposals, findCounterOffers, MAX_PRIMARY_TRADE_OFFERS } from "./trade-recommender.js?v=55a6b3f311";
+import { diagnoseRoster, findTradeProposals, findCounterOffers, MAX_PRIMARY_TRADE_OFFERS } from "./trade-recommender.js?v=7aaf9cf138";
 import { addToWatchlist, removeFromWatchlist, REASON_MAX } from "./war-room.js?v=e9eae48675";
 import { loadWatchlist, saveWatchlist } from "./war-room-store.js?v=679685c790";
 import { PLAYER_STATUSES, playerKey, playerStatus } from "./trade-preferences.js?v=c5fec5ce56";

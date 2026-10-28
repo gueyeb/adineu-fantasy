@@ -20,7 +20,7 @@ import { assessScenarioConsistency, describeScenarioConsistency, firstProjectedW
 import { resolveLastCompletedWeek, resolveOperationalWeek } from "../public/assets/nfl-week.js";
 import { usageAdjustedRosPpg, projectedRosOnly } from "../public/assets/rest-of-season.js";
 import { BYE_WEEKS_2026, GENERAL_SETTINGS_2026 } from "../public/assets/league-settings.js";
-import { partnerLabel } from "../public/assets/manager-identity.js";
+import { partnerLabel, teamOwnerLabel } from "../public/assets/manager-identity.js";
 import { buildLiveMarketValues } from "../public/assets/trade-value.js";
 import { getInjuryStatuses, getPlayersIndex, getUsageReport, getWeeklyProjections, getSchedule } from "./league-context.js";
 
@@ -348,7 +348,7 @@ function formatPlayers(players) {
 export function formatTradeBulletin(analysis, { proposalLimit = 5 } = {}) {
   const bulletins = analysis.results.map(result => {
     const lines = [
-      `🏈 BULLETIN TRADES ADINEU — ${result.teamName.toUpperCase()} (@${result.owner})`,
+      `🏈 BULLETIN TRADES ADINEU — ${teamOwnerLabel(result.teamName.toUpperCase(), result.owner)}`,
       "",
       "📊 Diagnostic",
       `• Surplus : ${result.diagnosis.surpluses.join(", ") || "Équilibré"}`,

@@ -12,13 +12,7 @@ import { formatPoolCoverage } from "./league-context.js";
 import { formatCoherenceWarnings } from "../public/assets/decision-coherence.js";
 import { classifyWaiverDecision } from "../public/assets/waiver-model.js";
 import { compactAuction } from "../public/assets/faab-auction.js";
-import { canonicalManagerName } from "../public/assets/manager-identity.js";
-
-/** "Babacar, @t0z" for a confirmed manager, else "@account" — the account stays for the model. */
-const ownerTag = owner => {
-  const manager = canonicalManagerName(owner);
-  return manager && manager.toLocaleLowerCase("fr") !== String(owner).toLocaleLowerCase("fr") ? `${manager}, @${owner}` : `@${owner}`;
-};
+import { ownerTag } from "../public/assets/manager-identity.js";
 
 // Last qualifying spots counted as the bubble for playoff urgency (8th of 8 is not safe).
 export const BUBBLE_SPOTS = 2;

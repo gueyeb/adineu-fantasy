@@ -24,7 +24,7 @@ const sampleAnalysis = {
 
 test("formatTradeBulletin creates a Telegram-ready private alert", () => {
   const message = formatTradeBulletin(sampleAnalysis);
-  assert.match(message, /BOUKKI \(@t0z\)/);
+  assert.match(message, /BOUKKI \(Babacar, @t0z\)/);
   assert.match(message, /Tu donnes : Receveur \(WR\)/);
   assert.match(message, /Tu reçois : Coureur \(RB\)/);
   assert.ok(message.length <= 3900);

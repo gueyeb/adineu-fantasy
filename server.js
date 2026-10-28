@@ -758,7 +758,7 @@ export function createAppServer({
             const delta = previous ? diffCoachStates(previous.value, state, { kickoffOf: kickoffLookup(playerValues.timingContext, plan.week), nearKickoffMs: coachSettings.nearKickoffHours * 3_600_000 })
               : { reset: "STATE_UNAVAILABLE", events: [], notify: true, since: null };
             const stored = await decisionLogStore.saveCoachState(plan.rosterId, state).then(() => true, () => false);
-            const chat = fitTelegramMessage(formatCoachDelta(delta, { team: plan.team, week: plan.week, fullBulletin, pageUrl: COACH_PAGE_URL }), { moreAt: COACH_PAGE_URL });
+            const chat = fitTelegramMessage(formatCoachDelta(delta, { team: plan.team, owner: plan.owner, week: plan.week, fullBulletin, pageUrl: COACH_PAGE_URL }), { moreAt: COACH_PAGE_URL });
             return sendJson(response, 200, { ...plan, notify: delta.notify, delta: { ...delta, stateStored: stored }, message: chat.message, messageTruncated: chat.truncated, detailMessage });
           }
           const chat = fitTelegramMessage(fullBulletin, { moreAt: COACH_PAGE_URL });

@@ -44,7 +44,7 @@ test("formatContextText renders league rules, starters, bench and empty slots", 
   assert.match(text, /12 teams · Full PPR/);
   assert.match(text, /FAAB restant: \$497 \/ \$1000 \(503 \$ dépensés\)/);
   assert.match(text, /Bilan: 1-2 · Rang: 9\/12 · PF: 331\.16 · PA: 396\.7/);
-  assert.match(text, /MON ROSTER — BOUKKI \(@t0z\)/);
+  assert.match(text, /MON ROSTER — BOUKKI \(Babacar, @t0z\)/);
   assert.match(text, /QB Jaxson Dart NYG/);
   assert.match(text, /K EMPTY/);
   assert.match(text, /QB Brock Purdy SF/);
