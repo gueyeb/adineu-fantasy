@@ -9,20 +9,24 @@
 
 /** Confirmed Sleeper accounts (display_name/username, lower-case) → canonical archive manager. */
 export const SLEEPER_MANAGER_ALIASES = Object.freeze({
-  t0z: "babttz",
+  t0z: "Babacar",
   flemme: "Tamsir",
   dioguito17: "Olivier",
   bm2222: "Birama",
   bmb22: "Birama",
   bigruisma: "Marius",
-  mouzay: "YeezyJr",
+  mouzay: "Moussé",
   layemasterz: "Abdoulaye",
   sneakyslayermg: "Magatte",
   lfmendes: "Louis François",
   estocade: "Ado",
-  saitaamaa22: "Toughness",
+  saitaamaa22: "Oumar",
   mouhammadat: "Mat",
-  shiro00: "Mat"
+  shiro00: "Mat",
+  // Archive names before the first-name rename of 28/10/2026, still found in stored rows.
+  babttz: "Babacar",
+  yeezyjr: "Moussé",
+  toughness: "Oumar"
 });
 
 const fold = value => String(value ?? "").trim().toLocaleLowerCase("fr");

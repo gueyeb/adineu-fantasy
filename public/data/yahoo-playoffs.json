@@ -24,7 +24,7 @@
             "result": "loss",
             "team": "Toughness's Team",
             "teamId": "11",
-            "manager": "Toughness"
+            "manager": "Oumar"
           }
         },
         {
@@ -35,7 +35,7 @@
             "result": "win",
             "team": "Fun Guy Team",
             "teamId": "2",
-            "manager": "babttz"
+            "manager": "Babacar"
           },
           "loser": {
             "points": 141.26,
@@ -53,7 +53,7 @@
             "result": "win",
             "team": "Fun Guy Team",
             "teamId": "2",
-            "manager": "babttz"
+            "manager": "Babacar"
           },
           "loser": {
             "points": 120.66,
@@ -78,7 +78,7 @@
             "result": "loss",
             "team": "Toughness's Team",
             "teamId": "11",
-            "manager": "Toughness"
+            "manager": "Oumar"
           }
         }
       ]
@@ -114,7 +114,7 @@
             "result": "win",
             "team": "Saitaaaama 🤜🏾",
             "teamId": "11",
-            "manager": "Toughness"
+            "manager": "Oumar"
           },
           "loser": {
             "points": 107.2,
@@ -132,7 +132,7 @@
             "result": "win",
             "team": "Quack Attack",
             "teamId": "12",
-            "manager": "YeezyJr"
+            "manager": "Moussé"
           },
           "loser": {
             "points": 124.36,
@@ -186,14 +186,14 @@
             "result": "win",
             "team": "Saitaaaama 🤜🏾",
             "teamId": "11",
-            "manager": "Toughness"
+            "manager": "Oumar"
           },
           "loser": {
             "points": 143.76,
             "result": "loss",
             "team": "Quack Attack",
             "teamId": "12",
-            "manager": "YeezyJr"
+            "manager": "Moussé"
           }
         },
         {
@@ -211,7 +211,7 @@
             "result": "loss",
             "team": "Saitaaaama 🤜🏾",
             "teamId": "11",
-            "manager": "Toughness"
+            "manager": "Oumar"
           }
         },
         {
@@ -222,7 +222,7 @@
             "result": "win",
             "team": "Quack Attack",
             "teamId": "12",
-            "manager": "YeezyJr"
+            "manager": "Moussé"
           },
           "loser": {
             "points": 88.64,
@@ -265,7 +265,7 @@
             "result": "win",
             "team": "G.O.A.T.",
             "teamId": "2",
-            "manager": "babttz"
+            "manager": "Babacar"
           },
           "loser": {
             "points": 95.48,
@@ -301,7 +301,7 @@
             "result": "win",
             "team": "Sauvons le soldat Birama",
             "teamId": "9",
-            "manager": "YeezyJr"
+            "manager": "Moussé"
           },
           "loser": {
             "points": 100.34,
@@ -319,7 +319,7 @@
             "result": "win",
             "team": "G.O.A.T.",
             "teamId": "2",
-            "manager": "babttz"
+            "manager": "Babacar"
           },
           "loser": {
             "points": 71.88,
@@ -344,7 +344,7 @@
             "result": "loss",
             "team": "Sauvons le soldat Birama",
             "teamId": "9",
-            "manager": "YeezyJr"
+            "manager": "Moussé"
           }
         },
         {
@@ -355,7 +355,7 @@
             "result": "win",
             "team": "G.O.A.T.",
             "teamId": "2",
-            "manager": "babttz"
+            "manager": "Babacar"
           },
           "loser": {
             "points": 115.72,
@@ -373,7 +373,7 @@
             "result": "win",
             "team": "Sauvons le soldat Birama",
             "teamId": "9",
-            "manager": "YeezyJr"
+            "manager": "Moussé"
           },
           "loser": {
             "points": 97.76,
@@ -434,14 +434,14 @@
             "result": "win",
             "team": "Entaillade",
             "teamId": "4",
-            "manager": "YeezyJr"
+            "manager": "Moussé"
           },
           "loser": {
             "points": 90.82,
             "result": "loss",
             "team": "Saitandaré 😵‍💫",
             "teamId": "10",
-            "manager": "Toughness"
+            "manager": "Oumar"
           }
         },
         {
@@ -495,7 +495,7 @@
             "result": "loss",
             "team": "Entaillade",
             "teamId": "4",
-            "manager": "YeezyJr"
+            "manager": "Moussé"
           }
         },
         {
@@ -531,7 +531,7 @@
             "result": "loss",
             "team": "Entaillade",
             "teamId": "4",
-            "manager": "YeezyJr"
+            "manager": "Moussé"
           }
         }
       ]
@@ -556,7 +556,7 @@
             "result": "loss",
             "team": "Saitaamaaa",
             "teamId": "10",
-            "manager": "Toughness"
+            "manager": "Oumar"
           }
         },
         {
@@ -574,7 +574,7 @@
             "result": "loss",
             "team": "BaKeneBauer",
             "teamId": "6",
-            "manager": "babttz"
+            "manager": "Babacar"
           }
         },
         {
@@ -718,7 +718,7 @@
             "result": "win",
             "team": "FC Backup 🎃",
             "teamId": "6",
-            "manager": "babttz"
+            "manager": "Babacar"
           },
           "loser": {
             "points": 107.8,
@@ -736,7 +736,7 @@
             "result": "win",
             "team": "Saitaamaaa",
             "teamId": "10",
-            "manager": "Toughness"
+            "manager": "Oumar"
           },
           "loser": {
             "points": 114.54,
@@ -790,14 +790,14 @@
             "result": "win",
             "team": "Saitaamaaa",
             "teamId": "10",
-            "manager": "Toughness"
+            "manager": "Oumar"
           },
           "loser": {
             "points": 126.54,
             "result": "loss",
             "team": "FC Backup 🎃",
             "teamId": "6",
-            "manager": "babttz"
+            "manager": "Babacar"
           }
         },
         {
@@ -815,7 +815,7 @@
             "result": "loss",
             "team": "Saitaamaaa",
             "teamId": "10",
-            "manager": "Toughness"
+            "manager": "Oumar"
           }
         },
         {
@@ -833,7 +833,7 @@
             "result": "loss",
             "team": "FC Backup 🎃",
             "teamId": "6",
-            "manager": "babttz"
+            "manager": "Babacar"
           }
         }
       ]

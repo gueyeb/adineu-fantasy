@@ -54,7 +54,7 @@ test("the Yahoo trade archive is internally consistent with the manager history"
     }
   }
   const ranking = buildTradeRanking(archive.seasons);
-  assert.deepEqual(ranking.managers.slice(0, 3).map(row => [row.manager, row.trades]), [["Birama", 38], ["babttz", 36], ["Louis François", 22]]);
+  assert.deepEqual(ranking.managers.slice(0, 3).map(row => [row.manager, row.trades]), [["Birama", 38], ["Babacar", 36], ["Louis François", 22]]);
   assert.equal(ranking.managers.reduce((sum, row) => sum + row.trades, 0), 190);
 });
 

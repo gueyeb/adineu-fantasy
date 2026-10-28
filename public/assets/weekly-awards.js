@@ -1,5 +1,5 @@
 import { computeOptimalLineupPoints } from './weekly-recap.js?v=3a177dca14';
-import { sleeperManager } from './rivalry-week.js?v=d9f9220438';
+import { sleeperManager } from './rivalry-week.js?v=87e2fb1cd2';
 
 const cents = value => Math.round(value * 100);
 const points = value => value / 100;

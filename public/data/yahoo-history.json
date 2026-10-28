@@ -94,7 +94,7 @@
       "year": 2021,
       "leagueId": "75892",
       "teamCount": 14,
-      "champion": { "team": "G.O.A.T.", "manager": "babttz" },
+      "champion": { "team": "G.O.A.T.", "manager": "Babacar" },
       "runnerUp": "Estocade ⚔️",
       "thirdPlace": "Sauvons le soldat Birama",
       "teams": [
@@ -142,7 +142,7 @@
       "year": 2019,
       "leagueId": "103079",
       "teamCount": 12,
-      "champion": { "team": "Fun Guy Team", "manager": "babttz" },
+      "champion": { "team": "Fun Guy Team", "manager": "Babacar" },
       "runnerUp": "Elephant de Gbamph",
       "thirdPlace": "Binaries",
       "teams": [
@@ -164,7 +164,7 @@
   "managerHistory": [
     { "manager": "Abdoulaye", "seasons": { "2025": "Binaries", "2024": "Binaries", "2023": "Binaries", "2022": "Binaries", "2021": "Binaries", "2020": "Binaries", "2019": "Binaries" } },
     { "manager": "Ado", "seasons": { "2025": "Estocade ⚔️😤💪🏾", "2024": "Estocade ⚔️😤💪🏾", "2023": "Estocade ⚔️😤", "2022": "Out Estocade ⚔️", "2021": "Estocade ⚔️", "2020": "Estocade" } },
-    { "manager": "babttz", "seasons": { "2025": "Boukki 🦅", "2024": "FC Backup 🎃", "2023": "BaKeneBauer", "2022": "See you Again 🎶", "2021": "G.O.A.T.", "2020": ".", "2019": "Fun Guy Team" } },
+    { "manager": "Babacar", "seasons": { "2025": "Boukki 🦅", "2024": "FC Backup 🎃", "2023": "BaKeneBauer", "2022": "See you Again 🎶", "2021": "G.O.A.T.", "2020": ".", "2019": "Fun Guy Team" } },
     { "manager": "Birama", "seasons": { "2025": "The Bad Man", "2024": "The Bad Man", "2023": "The Bad Man", "2022": "Yallah mooy méyé 💀⭐️", "2021": "The Bad Man", "2020": "Ethan Hunt", "2019": "El Fenomeno" } },
     { "manager": "Erwan", "seasons": { "2021": "ERWAN", "2020": "ERWAN" } },
     { "manager": "Jonnel", "seasons": { "2020": "Power Bearers", "2019": "Power Bearers" } },
@@ -175,8 +175,8 @@
     { "manager": "Mountaga", "seasons": { "2021": "Banana Kings", "2020": "Banana Kings", "2019": "Banana Kings" } },
     { "manager": "Olivier", "seasons": { "2025": "The energy's team", "2024": "The energy's team", "2023": "The energy's team", "2022": "The energy's team", "2021": "The energy's team", "2020": "The energy's team", "2019": "The energy's team" } },
     { "manager": "Tamsir", "seasons": { "2025": "Flemme", "2024": "Flemme", "2023": "Flemme", "2022": "Flemme", "2021": "Flemme" } },
-    { "manager": "Toughness", "seasons": { "2025": "Saitaamaaa", "2024": "Saitaamaaa", "2023": "Saitaamaaa", "2022": "Saitandaré 😵‍💫", "2021": "Saitaaaama 🤜🏾", "2020": "Saitaaaama 🤜🏾", "2019": "Toughness's Team" } },
-    { "manager": "YeezyJr", "seasons": { "2025": "Charger Charger", "2024": "No matter what", "2023": "No matter what", "2022": "Entaillade", "2021": "Sauvons le soldat Birama", "2020": "Quack Attack", "2019": "YeezyJr's Team" } }
+    { "manager": "Oumar", "seasons": { "2025": "Saitaamaaa", "2024": "Saitaamaaa", "2023": "Saitaamaaa", "2022": "Saitandaré 😵‍💫", "2021": "Saitaaaama 🤜🏾", "2020": "Saitaaaama 🤜🏾", "2019": "Toughness's Team" } },
+    { "manager": "Moussé", "seasons": { "2025": "Charger Charger", "2024": "No matter what", "2023": "No matter what", "2022": "Entaillade", "2021": "Sauvons le soldat Birama", "2020": "Quack Attack", "2019": "YeezyJr's Team" } }
   ],
   "identityCoverage": { "confirmedParticipations": 88, "totalParticipations": 88 },
   "weeklyHighs2025": [

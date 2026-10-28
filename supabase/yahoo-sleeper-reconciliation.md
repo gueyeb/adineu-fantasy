@@ -66,3 +66,7 @@ Applied:
 Nice detail: YeezyJr's 2021 team was literally named "Sauvons le soldat Birama" — the group already knew him well enough to make it a running joke.
 
 The archive is now fully identity-complete across 15 people. Backfilling true Yahoo GUIDs for the other 14 owners remains optional; nothing depends on it today.
+
+## First-name rename (28/10/2026)
+
+Approved by Babacar: canonical names `babttz` → **Babacar**, `YeezyJr` → **Moussé**, `Toughness` → **Oumar**. Applied to Supabase `owners.display_name` through `rename_owner_display_name` (audit rows in `owner_display_name_changes`), to the manager fields only of the Yahoo archive JSON (391 fields; Yahoo team names such as "Toughness's Team" unchanged), and to `SLEEPER_MANAGER_ALIASES` (old names kept as aliases). The tables above keep the names as recorded at reconciliation time.

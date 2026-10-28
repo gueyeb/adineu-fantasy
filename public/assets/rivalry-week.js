@@ -1,4 +1,4 @@
-import { SLEEPER_MANAGER_ALIASES } from "./manager-identity.js?v=c19ae0165d";
+import { SLEEPER_MANAGER_ALIASES } from "./manager-identity.js?v=b55ba3110a";
 export const RIVALRY_WEEK = 8;
 
 export const RIVALRY_CRITERIA = Object.freeze([
@@ -11,10 +11,10 @@ export const RIVALRY_CRITERIA = Object.freeze([
 export const RIVALRY_PAIRS = Object.freeze([
   { managerA: "Abdoulaye", managerB: "Louis François", title: "Au point près", note: "Dix matchs, seulement quelques points d’écart cumulé." },
   { managerA: "Ado", managerB: "Olivier", title: "Égalité parfaite", note: "Un bilan historique qui refuse de choisir un camp." },
-  { managerA: "babttz", managerB: "Tamsir", title: "La revanche", note: "Une série serrée et un bilan de playoffs partagé." },
+  { managerA: "Babacar", managerB: "Tamsir", title: "La revanche", note: "Une série serrée et un bilan de playoffs partagé." },
   { managerA: "Birama", managerB: "Magatte", title: "Le classique", note: "Dix duels et trois rendez-vous à élimination directe." },
-  { managerA: "Marius", managerB: "YeezyJr", title: "Cinquante-cinquante", note: "La rivalité la plus indécise de la sélection." },
-  { managerA: "Mat", managerB: "Toughness", title: "Le bras de fer", note: "Une affiche fréquente qui reste à portée de bascule." }
+  { managerA: "Marius", managerB: "Moussé", title: "Cinquante-cinquante", note: "La rivalité la plus indécise de la sélection." },
+  { managerA: "Mat", managerB: "Oumar", title: "Le bras de fer", note: "Une affiche fréquente qui reste à portée de bascule." }
 ]);
 
 export const ACTIVE_MANAGERS_2026 = Object.freeze(

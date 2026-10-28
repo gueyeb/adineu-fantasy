@@ -58,17 +58,17 @@ test("preserves the verified Yahoo regular-season records", () => {
   assert.deepEqual(summaries, {
     "Abdoulaye::Louis François": [10, 6, 4, 0],
     "Ado::Olivier": [8, 4, 4, 0],
-    "babttz::Tamsir": [7, 4, 3, 0],
+    "Babacar::Tamsir": [7, 4, 3, 0],
     "Birama::Magatte": [10, 6, 4, 0],
-    "Marius::YeezyJr": [10, 5, 5, 0],
-    "Mat::Toughness": [10, 4, 6, 0]
+    "Marius::Moussé": [10, 5, 5, 0],
+    "Mat::Oumar": [10, 4, 6, 0]
   });
 });
 
 test("keeps playoffs separate and exposes recent form", () => {
   const records = buildRivalryRecords(matchupArchive, playoffGames());
   const biramaMagatte = records.find(record => record.managerA === "Birama");
-  const babttzTamsir = records.find(record => record.managerA === "babttz");
+  const babttzTamsir = records.find(record => record.managerA === "Babacar");
 
   assert.deepEqual(biramaMagatte.playoffs, { games: 3, winsA: 3, winsB: 0 });
   assert.deepEqual(babttzTamsir.playoffs, { games: 2, winsA: 1, winsB: 1 });
@@ -97,7 +97,7 @@ test("ignores a live meeting between managers who are not the tracked pair", () 
   const matToughness = records.find(record => record.managerA === "Mat");
 
   assert.equal(biramaMagatte.games, 10); // inchangé : Mat n'est pas Magatte
-  assert.equal(matToughness.games, 10); // inchangé : Birama n'est pas Toughness
+  assert.equal(matToughness.games, 10); // inchangé : Birama n'est pas Oumar
 });
 
 test("buildSleeperSeasonMeetings tags each meeting with its week and skips unplayed weeks", () => {

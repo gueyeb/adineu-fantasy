@@ -79,7 +79,7 @@ test("owner rows expose platform names and confirmed aliases, never platform use
 
 test("the settings panel escapes names, flags a vanished roster and validates the form", () => {
   const html = renderCoachSettings({ source: "SAVED", settings: { teamRosterId: 9, deltaByDefault: true, nearKickoffHours: 3 }, resolvedTeam: { team: "9", source: "SETTINGS" },
-    teams: [{ rosterId: 1, label: "Boukki · babttz (@t0z)" }], owners: [{ id: OWNER_A, displayName: "<b>x</b>", accounts: [], confirmedAliases: [] }] });
+    teams: [{ rosterId: 1, label: "Boukki · Babacar (@t0z)" }], owners: [{ id: OWNER_A, displayName: "<b>x</b>", accounts: [], confirmedAliases: [] }] });
   assert.match(html, /roster enregistré #9 n’existe plus/);
   assert.match(html, /&lt;b&gt;x&lt;\/b&gt;/);
   assert.match(html, /name="deltaByDefault" checked/);
@@ -107,7 +107,7 @@ function coachServer(t, overrides = {}) {
     analyze: async () => ({ results: [{ proposals: [] }] }),
     decisionLogStore: { coachState: async () => null, saveCoachState: async () => {} },
     runPrelockJob: async ({ team }) => { prelockTeams.push(team); return { ok: true }; },
-    listCoachTeams: async () => [{ rosterId: 1, label: "Boukki · babttz (@t0z)" }, { rosterId: 7, label: "Kuro · Mat (@Shiro00)" }],
+    listCoachTeams: async () => [{ rosterId: 1, label: "Boukki · Babacar (@t0z)" }, { rosterId: 7, label: "Kuro · Mat (@Shiro00)" }],
     ...overrides
   });
   server.listen(0, "127.0.0.1");

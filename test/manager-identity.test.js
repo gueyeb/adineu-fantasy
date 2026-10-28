@@ -38,7 +38,7 @@ test("a team name equal to the account is a sync fallback, not a team chosen by 
 test("roster pickers name team, confirmed manager and current account", () => {
   assert.equal(rosterOptionLabel({ account: "flemme", teamName: null }), "Team flemme · Tamsir (@flemme)");
   assert.equal(rosterOptionLabel({ account: "flemme", teamName: "flemme" }), "Team flemme · Tamsir (@flemme)");
-  assert.equal(rosterOptionLabel({ account: "t0z", teamName: "Boukki" }), "Boukki · babttz (@t0z)");
+  assert.equal(rosterOptionLabel({ account: "t0z", teamName: "Boukki" }), "Boukki · Babacar (@t0z)");
   assert.equal(rosterOptionLabel({ account: "NouveauCompte", teamName: "X" }), "X · @NouveauCompte");
 });
 
@@ -65,4 +65,14 @@ test("a stored canonical owner still recognizes its own account used as team nam
   // Another manager's account is a real team name, never a fallback for this one.
   assert.equal(teamLabel(describeIdentity({ account: "Mat", teamName: "flemme" })), "flemme");
   assert.equal(accountNote(describeIdentity({ account: "Tamsir", teamName: "flemme" })), null);
+});
+
+test("former archive names still resolve after the first-name rename", () => {
+  assert.equal(canonicalManagerName("t0z"), "Babacar");
+  assert.equal(canonicalManagerName("babttz"), "Babacar");
+  assert.equal(canonicalManagerName("mouzay"), "Moussé");
+  assert.equal(canonicalManagerName("YeezyJr"), "Moussé");
+  assert.equal(canonicalManagerName("Saitaamaa22"), "Oumar");
+  assert.equal(canonicalManagerName("Toughness"), "Oumar");
+  assert.equal(canonicalManagerName("moussé"), "Moussé");
 });
