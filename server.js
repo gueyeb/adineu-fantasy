@@ -51,6 +51,7 @@ import { readFile } from "node:fs/promises";
 
 import { buildCoachSos, formatCoachSos, formatCoachSosBrief } from "./scripts/sos-coach.js";
 import { fitTelegramMessage } from "./scripts/telegram-message.js";
+import { coachDecisionState, diffCoachStates, formatCoachDelta, kickoffLookup } from "./scripts/coach-delta.js";
 
 import { sosService } from "./scripts/sos-service.js";
 import { sosStore, historicalSos } from "./scripts/sos-store.js";
@@ -271,8 +272,15 @@ export function createAppServer({
         let payload;
         try { payload = JSON.parse(body); } catch { return sendJson(response, 400, { error: "Invalid request" }); }
         if (!validRoster(payload?.rosterId) || typeof payload.id !== "string") return sendJson(response, 400, { error: "Requête invalide" });
-        try { return sendJson(response, 200, await decisionLogStore.setReason(payload.rosterId, payload.id, payload.reason)); }
-        catch (error) { if (/inconnue|invalide/i.test(error.message)) return sendJson(response, 400, { error: error.message }); throw error; }
+        try {
+          // A choice answers one Tuesday recommendation (plan id + player); otherwise only the reason of a move.
+          if (Object.hasOwn(payload, "choice")) {
+            if (typeof payload.playerId !== "string" || !/^[A-Za-z0-9]{1,12}$/.test(payload.playerId)) return sendJson(response, 400, { error: "Requête invalide" });
+            return sendJson(response, 200, await decisionLogStore.setChoice(payload.rosterId, payload.id, payload.playerId, { choice: payload.choice, reason: payload.reason ?? null }));
+          }
+          return sendJson(response, 200, await decisionLogStore.setReason(payload.rosterId, payload.id, payload.reason));
+        }
+        catch (error) { if (/inconnue?|invalide/i.test(error.message)) return sendJson(response, 400, { error: error.message }); throw error; }
       } catch {
         return sendJson(response, 503, { error: "JOURNAL_UNAVAILABLE" });
       }
@@ -693,7 +701,18 @@ export function createAppServer({
         const detailMessage = formatCoachPlan(plan) + formatCoachSos(plan.sos);
         // Bearer = n8n → Telegram (4096 max): readable bulletin, full text kept in detailMessage.
         if (apiAuthorized) {
-          const chat = fitTelegramMessage(formatCoachPlan(plan, { compact: true }) + formatCoachSosBrief(plan.sos), { moreAt: COACH_PAGE_URL });
+          const fullBulletin = formatCoachPlan(plan, { compact: true }) + formatCoachSosBrief(plan.sos);
+          // Opt-in ?delta=1: only what changed since the last bulletin; `notify` false = nothing to send.
+          if (url.searchParams.get("delta") === "1") {
+            const state = coachDecisionState(plan);
+            const previous = await decisionLogStore.coachState(plan.rosterId).then(value => ({ value }), () => null);
+            const delta = previous ? diffCoachStates(previous.value, state, { kickoffOf: kickoffLookup(playerValues.timingContext, plan.week) })
+              : { reset: "STATE_UNAVAILABLE", events: [], notify: true, since: null };
+            const stored = await decisionLogStore.saveCoachState(plan.rosterId, state).then(() => true, () => false);
+            const chat = fitTelegramMessage(formatCoachDelta(delta, { team: plan.team, week: plan.week, fullBulletin, pageUrl: COACH_PAGE_URL }), { moreAt: COACH_PAGE_URL });
+            return sendJson(response, 200, { ...plan, notify: delta.notify, delta: { ...delta, stateStored: stored }, message: chat.message, messageTruncated: chat.truncated, detailMessage });
+          }
+          const chat = fitTelegramMessage(fullBulletin, { moreAt: COACH_PAGE_URL });
           return sendJson(response, 200, { ...plan, message: chat.message, messageTruncated: chat.truncated, detailMessage });
         }
         sendJson(response, 200, { ...plan, message: detailMessage });

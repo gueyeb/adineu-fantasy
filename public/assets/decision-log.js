@@ -9,7 +9,10 @@
  */
 
 export const OUTCOME_WINDOW_WEEKS = 4;
+export const REVIEW_WINDOWS = [2, 4];
 export const REASON_MAX = 500;
+/** Operator's answer to one Tuesday recommendation. A choice is not a move: only Sleeper says what was executed. */
+export const PLAN_CHOICES = ["ACCEPTED", "REFUSED", "DEFERRED"];
 export const MOVE_KINDS = ["CLAIM_WON", "CLAIM_LOST", "FREE_ADD", "DROP", "TRADE"];
 const INVALID_BID_NOTE = /roster will have too many players|already started playing/i;
 
@@ -82,7 +85,27 @@ export function evaluateMove(entry, { pointsOf, startedOf = () => null, lastComp
     : round(entry.added.reduce((sum, row) => sum + weeks.reduce((acc, week) => acc + (startedOf(row.id, week) ?? 0), 0), 0));
   return { status: weeks.length >= window ? "COMPLETE" : "PARTIAL", fromWeek: entry.week, throughWeek: weeks.at(-1), weeks: weeks.length,
     addedPoints: added, droppedPoints: dropped, net: entry.kind === "CLAIM_LOST" ? null : round(added - dropped), startedPoints: started,
-    pointsPerFaab: entry.kind === "CLAIM_WON" && entry.bid > 0 ? round(added / entry.bid) : null };
+    pointsPerFaab: entry.kind === "CLAIM_WON" && entry.bid > 0 ? round(added / entry.bid) : null,
+    reviews: reviewWindows(entry, { pointsOf, lastCompletedWeek }) };
+}
+
+/**
+ * Fixed two- and four-week reviews from the decision week. A window is null until its last week
+ * is completed: a partial window is never shown as the review.
+ */
+export function reviewWindows(entry, { pointsOf, lastCompletedWeek, windows = REVIEW_WINDOWS }) {
+  return Object.fromEntries(windows.map(size => {
+    const throughWeek = entry.week + size - 1;
+    if (!Number.isInteger(entry.week) || throughWeek > lastCompletedWeek) return [`weeks${size}`, null];
+    const total = players => round(players.reduce((sum, row) => {
+      for (let week = entry.week; week <= throughWeek; week++) sum += pointsOf(row.id, week) ?? 0;
+      return sum;
+    }, 0));
+    const added = total(entry.added);
+    const dropped = total(entry.dropped);
+    return [`weeks${size}`, { fromWeek: entry.week, throughWeek, addedPoints: added, droppedPoints: dropped,
+      net: entry.kind === "CLAIM_LOST" ? null : round(added - dropped) }];
+  }));
 }
 
 /**
@@ -177,4 +200,47 @@ export function postWaiverReview({ entries = [], skipped = [], week, teamName, b
   lines.push(`FAAB dépensé : ${spent} $${Number.isFinite(budgetLeft) ? ` · reste ${budgetLeft} $` : ""}`);
   if (missed.length) lines.push(`Plan du modèle non placé : ${missed.map(row => `${row.name ?? `#${row.playerId}`} (${row.action}${Number.isFinite(row.suggestedBid) ? ` ${row.suggestedBid} $` : ""})`).join(", ")}`);
   return { week, claimsWon: won.length, claimsLost: lost.length, freeAdds: free.length, spent, budgetLeft, missedRecommendations: missed.length, message: lines.join("\n") };
+}
+
+/** A plan choice from the page: one of PLAN_CHOICES or null to clear it, with an optional reason. */
+export function normalizePlanChoice({ choice, reason } = {}) {
+  if (choice !== null && !PLAN_CHOICES.includes(choice)) throw new Error("Choix invalide");
+  return { choice, reason: choice === null ? null : normalizeReason(reason ?? null) };
+}
+
+/** Stores one choice inside a MODEL_PLAN row's details, only for a player that plan recommended. */
+export function applyPlanChoice(details = {}, playerId, { choice, reason }, at = new Date().toISOString()) {
+  const id = String(playerId);
+  if (!(details.recommendations || []).some(row => String(row.playerId) === id)) throw new Error("Recommandation inconnue");
+  const choices = { ...(details.choices || {}) };
+  if (choice === null) delete choices[id];
+  else choices[id] = { choice, reason, at };
+  return { ...details, choices };
+}
+
+/**
+ * One line per Tuesday recommendation (ADD_NOW / CLAIM_IF_CHEAP): the operator's choice next to
+ * what Sleeper shows was done that week. `move` is EXECUTED (completed add of that player that
+ * week), ATTEMPTED (claim lost) or NONE. An ACCEPTED choice without a move stays not executed.
+ */
+export function planChoiceRows(plans = [], entries = []) {
+  const moves = new Map();
+  for (const entry of entries) {
+    if (!["CLAIM_WON", "FREE_ADD", "CLAIM_LOST", "TRADE"].includes(entry.kind)) continue;
+    for (const player of entry.added || []) {
+      const key = `${entry.week}|${player.id}`;
+      if (entry.kind !== "CLAIM_LOST") moves.set(key, "EXECUTED");
+      else if (!moves.has(key)) moves.set(key, "ATTEMPTED");
+    }
+  }
+  return plans.flatMap(plan => (plan.recommendations || [])
+    .filter(row => ["ADD_NOW", "CLAIM_IF_CHEAP"].includes(row.action))
+    .map(row => {
+      const choice = plan.choices?.[String(row.playerId)] ?? null;
+      const move = moves.get(`${plan.week}|${row.playerId}`) ?? "NONE";
+      return { planId: plan.id, week: plan.week, playerId: String(row.playerId), name: row.name ?? null, action: row.action,
+        suggestedBid: row.suggestedBid ?? null, choice: choice?.choice ?? null, reason: choice?.reason ?? null, choiceAt: choice?.at ?? null,
+        move, executed: move === "EXECUTED" };
+    }))
+    .sort((a, b) => b.week - a.week || a.playerId.localeCompare(b.playerId));
 }

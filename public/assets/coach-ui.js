@@ -14,7 +14,7 @@ import { loadBidHistory, loadWatchlist, saveBidHistory, saveWatchlist, syncWarRo
 import { renderWeeklyRoster, renderWeeklyMoves } from "./coach-week-view.js?v=df0cc00998";
 import { LEAGUE_METADATA_2026 } from "./league-settings.js?v=886f353394";
 import { formatAuction } from "./faab-auction.js?v=1eea51c520";
-import { REASON_MAX as JOURNAL_REASON_MAX } from "./decision-log.js?v=a0e3f31155";
+import { REASON_MAX as JOURNAL_REASON_MAX } from "./decision-log.js?v=aee82836af";
 
 const login = document.getElementById("coach-login");
 const gate = document.getElementById("coach-gate");
@@ -176,7 +176,31 @@ function journalOutcome(entry) {
   if (entry.kind === "LINEUP") return `${outcome.actualPoints} pts sur ${outcome.optimalPoints} possibles · <b>${outcome.pointsLeft} laissés au banc</b>`;
   const window = `S${outcome.fromWeek}–S${outcome.throughWeek}${outcome.status === "PARTIAL" ? " (partiel)" : ""}`;
   if (entry.kind === "CLAIM_LOST") return `${window} : il a marqué ${outcome.addedPoints} pts${entry.lostTo ? ` · parti à ${entry.lostTo.bid} $` : ""}${entry.note === "INVALID_CLAIM" ? " · claim invalide (roster plein)" : ""}`;
-  return `${window} : ajouté ${outcome.addedPoints} pts (${outcome.startedPoints ?? 0} titularisés) contre coupé ${outcome.droppedPoints} pts · <b>net ${signed(outcome.net)}</b>`;
+  return `${window} : ajouté ${outcome.addedPoints} pts (${outcome.startedPoints ?? 0} titularisés) contre coupé ${outcome.droppedPoints} pts · <b>net ${signed(outcome.net)}</b>${journalReviews(entry)}`;
+}
+
+/** Fixed 2- and 4-week reviews; a window not yet finished says so instead of showing a partial number. */
+function journalReviews(entry) {
+  const reviews = entry.outcome?.reviews;
+  if (!reviews || entry.kind === "CLAIM_LOST") return "";
+  const part = (size, review) => review ? `${size} sem. ${signed(review.net)}` : `${size} sem. en attente`;
+  return ` · bilans : ${part(2, reviews.weeks2)} · ${part(4, reviews.weeks4)}`;
+}
+
+const PLAN_CHOICE_LABEL = { ACCEPTED: "Accepté", REFUSED: "Refusé", DEFERRED: "Reporté" };
+const PLAN_MOVE_LABEL = { EXECUTED: "exécuté dans Sleeper", ATTEMPTED: "claim tenté, perdu", NONE: "aucun mouvement dans Sleeper" };
+
+function renderPlanChoices(rows = []) {
+  if (!rows.length) return "";
+  return `<h4>Recommandations du mardi — ton choix</h4>
+    <p class="war-note">Un choix n’est pas un mouvement : l’état « exécuté » vient uniquement des transactions Sleeper.</p>
+    <ol class="journal-list">${rows.map(row => `<li class="journal-entry">
+      <div><b>S${row.week} · ${escapeHtml(row.name || `#${row.playerId}`)}</b> · ${row.action === "ADD_NOW" ? "ajout libre" : "claim"}${Number.isFinite(row.suggestedBid) ? ` ${row.suggestedBid} $` : ""}</div>
+      <small>${PLAN_MOVE_LABEL[row.move] || escapeHtml(row.move)}${row.choice === "ACCEPTED" && !row.executed ? " · accepté mais non exécuté" : ""}</small>
+      <form class="journal-reason" data-plan-id="${escapeHtml(row.planId)}" data-player-id="${escapeHtml(row.playerId)}">
+        <select aria-label="Choix"><option value="">— choix —</option>${Object.entries(PLAN_CHOICE_LABEL).map(([value, label]) => `<option value="${value}"${row.choice === value ? " selected" : ""}>${label}</option>`).join("")}</select>
+        <input type="text" maxlength="${JOURNAL_REASON_MAX}" value="${escapeHtml(row.reason || "")}" placeholder="Motif (optionnel)" aria-label="Motif du choix"><button class="coach-secondary" type="submit">Enregistrer</button></form>
+    </li>`).join("")}</ol>`;
 }
 
 function renderJournal(data) {
@@ -187,7 +211,8 @@ function renderJournal(data) {
     <form class="journal-reason" data-journal-id="${escapeHtml(entry.id)}"><input type="text" maxlength="${JOURNAL_REASON_MAX}" value="${escapeHtml(entry.reason || "")}" placeholder="Pourquoi ? (motif libre)" aria-label="Motif"><button class="coach-secondary" type="submit">Enregistrer</button></form>
   </li>`).join("");
   return `<p>${summary.moves ?? 0} mouvements · ${summary.claimsWon ?? 0} claims gagnés / ${summary.claimsLost ?? 0} perdus · ${summary.faabSpent ?? 0} $ dépensés · net des mouvements évalués ${signed(summary.netPointsFromMoves ?? 0)} pts (${summary.evaluatedMoves ?? 0}) · ${summary.lineupPointsLeft ?? "—"} pts laissés au banc sur ${summary.lineupWeeks ?? 0} semaines.</p>
-    <p class="war-note">Net = points des joueurs ajoutés moins ceux des joueurs coupés, au barème de la ligue, sur 4 semaines à partir de la semaine du mouvement. Mis à jour chaque mardi.</p>
+    <p class="war-note">Net = points des joueurs ajoutés moins ceux des joueurs coupés, au barème de la ligue, sur 4 semaines à partir de la semaine du mouvement. Bilans à 2 et 4 semaines affichés seulement une fois la fenêtre terminée. Mis à jour chaque mardi.</p>
+    ${renderPlanChoices(data.planChoices)}
     <ol class="journal-list">${rows || `<p class="coach-empty">Journal vide : la synchronisation du mardi le remplit.</p>`}</ol>`;
 }
 
@@ -310,14 +335,17 @@ document.getElementById("coach-logout").addEventListener("click", async () => {
 });
 document.getElementById("coach-journal-details")?.addEventListener("toggle", event => { if (event.currentTarget.open) loadJournal(); });
 document.getElementById("coach-journal")?.addEventListener("submit", async event => {
-  const form = event.target.closest("form[data-journal-id]");
+  const form = event.target.closest("form[data-journal-id], form[data-plan-id]");
   if (!form || !currentPlan) return;
   event.preventDefault();
   const button = form.querySelector("button");
   button.disabled = true;
+  const body = form.dataset.planId
+    ? { rosterId: currentPlan.rosterId, id: form.dataset.planId, playerId: form.dataset.playerId, choice: form.querySelector("select").value || null, reason: form.querySelector("input").value }
+    : { rosterId: currentPlan.rosterId, id: form.dataset.journalId, reason: form.querySelector("input").value };
   try {
     const response = await fetch("/api/coach/decisions", { method: "PUT", credentials: "same-origin", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rosterId: currentPlan.rosterId, id: form.dataset.journalId, reason: form.querySelector("input").value }) });
+      body: JSON.stringify(body) });
     button.textContent = response.ok ? "Enregistré" : "Échec";
   } catch { button.textContent = "Échec"; }
   setTimeout(() => { button.textContent = "Enregistrer"; button.disabled = false; }, 1500);

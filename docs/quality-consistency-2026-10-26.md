@@ -727,3 +727,50 @@ retenue (`dropCandidate`) reste. Les appels internes (Coach, IA, Start/Sit) gard
 rapport complet. Start/Sit, contexte IA et conseiller de lineup partagent le même rapport
 d’équipe pendant 60 s (copie par appelant) au lieu de le recalculer. Gain mesuré après
 déploiement à consigner.
+
+105 Ko, `message` 75 Ko. Aucune réduction faite : décision à prendre (omettre
+`dropCandidates` hors `?detail=1`, en gardant n8n/IA qui lisent le JSON complet).
+
+## QC-03 — Cinquième incrément : notifications utiles, choix et bilans
+
+28/10/2026. **Bulletin par différence** (`scripts/coach-delta.js`, pur). Sur appel bearer
+`/api/coach?delta=1` uniquement, le Coach compare l’état réduit du plan au dernier
+bulletin envoyé : action ou état de présentation d’une décision (maintenant / préparer /
+surveiller, via le classificateur commun), enchère proposée, blocage levé, signal de rôle
+ou classe, recommandation nouvelle ou retirée, nouveau mouvement ou alerte de lineup,
+état de publication, trade à explorer, et mouvement de lineup dont le coup d’envoi est
+à moins de trois heures (calendrier nflverse du contexte de timing ; kickoff inconnu non
+deviné). Les gains qui bougent de quelques dixièmes ne sont pas un changement. Sans état
+précédent, nouvelle semaine ou lecture impossible : bulletin complet, `notify=true`.
+Rien de changé : une ligne « aucun changement utile », `notify=false`. Texte borné à
+4 096 caractères. Sans `delta=1`, la réponse et le workflow actuel sont inchangés.
+L’état est stocké dans `decision_log` (ligne `COACH_STATE` par roster, écrasée), exclue
+des entrées du journal : aucune nouvelle table ni migration. Écriture sur un GET bearer,
+assumée et limitée à cet état ; aucune notification envoyée par ce lot.
+
+**Choix réels.** Chaque recommandation ADD_NOW / CLAIM_IF_CHEAP du plan du mardi
+(`MODEL_PLAN`) reçoit un choix ACCEPTED / REFUSED / DEFERRED avec motif optionnel,
+stocké dans `details.choices` de la ligne de plan ; la liste des recommandations n’est
+jamais réécrite. `PUT /api/coach/decisions` avec `choice` + `playerId` (sinon motif
+d’un mouvement, comme avant). La section Journal du Coach affiche le choix à côté de
+l’état Sleeper de la même semaine : exécuté, claim tenté perdu, ou aucun mouvement.
+Un « accepté » sans transaction reste « non exécuté » ; un choix n’est jamais un mouvement.
+
+**Bilans à deux et quatre semaines.** `evaluateMove` ajoute `reviews.weeks2/weeks4`
+(points ajoutés − coupés au barème de la ligue depuis la semaine de décision), `null`
+tant que la fenêtre n’est pas terminée : une fenêtre partielle n’est pas présentée comme
+bilan. Claim perdu : pas de net. Les lignes existantes recevront ces bilans à la prochaine
+synchronisation du journal (mardi/jeudi) ; rien n’est recalculé dans le navigateur.
+
+Evals : premier bulletin, nouvelle semaine, plan inchangé et gains au dixième près,
+enchère modifiée, blocage levé, rôle, retrait, nouvelle recommandation, publication,
+préparation → maintenant (disponibilité déduite → preuve opérateur), kickoff proche ou
+inconnu, route `delta=1` (stockage, aucun changement, lecture en panne) ; choix invalide,
+plan d’un autre roster, joueur non recommandé, effacement, WATCH exclu, accepté mais
+claim perdu, mouvement d’une autre semaine ; fenêtres 2/4 incomplètes ou terminées.
+667 tests réussis, contrôles statiques et versions d’assets valides.
+
+Limites : pour utiliser le delta, n8n doit appeler `/api/coach?team=t0z&delta=1` et
+n’envoyer Telegram que si `notify` est vrai (nœud IF) — workflow non modifié ici.
+Le premier appel après déploiement renvoie le bulletin complet. Pas de bilan contrefactuel
+des recommandations refusées ; Coach authentifié et mobile non vérifiés au navigateur.

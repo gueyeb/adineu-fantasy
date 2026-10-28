@@ -18,7 +18,7 @@ import { findRosterByTeam } from "../public/assets/roster-view.js";
 import { resolveLastCompletedWeek, resolveOperationalWeek } from "../public/assets/nfl-week.js";
 import { leaguePoints } from "../public/assets/weekly-leaders.js";
 import { computeOptimalLineupPoints } from "../public/assets/weekly-recap.js";
-import { attachModelView, buildLineupEntries, buildMoveEntries, decisionWeekOf, evaluateMove, lastKickoffByWeek, normalizeReason, postWaiverReview, skippedRecommendations, summarizeDecisionLog, winningClaims } from "../public/assets/decision-log.js";
+import { applyPlanChoice, attachModelView, buildLineupEntries, buildMoveEntries, decisionWeekOf, evaluateMove, lastKickoffByWeek, normalizePlanChoice, normalizeReason, planChoiceRows, postWaiverReview, skippedRecommendations, summarizeDecisionLog, winningClaims } from "../public/assets/decision-log.js";
 import { createSupabaseFromEnv } from "./model-tracking.js";
 import { getPlayersIndex, getSchedule } from "./league-context.js";
 
@@ -92,7 +92,9 @@ const toRow = entry => ({ id: entry.id, season: Number(entry.season), roster_id:
   outcome: entry.outcome ?? null, model: entry.model ?? null, source: "SLEEPER_SYNC", updated_at: new Date().toISOString() });
 const fromRow = row => ({ id: row.id, season: row.season, rosterId: row.roster_id, week: row.week, kind: row.kind, occurredAt: row.occurred_at,
   added: row.details?.added ?? [], dropped: row.details?.dropped ?? [], bid: row.details?.bid ?? null, note: row.details?.note ?? null, lostTo: row.details?.lostTo ?? null,
-  recommendations: row.details?.recommendations ?? null, outcome: row.outcome, model: row.model, reason: row.reason ?? null, reasonAt: row.reason_at ?? null });
+  recommendations: row.details?.recommendations ?? null, choices: row.details?.choices ?? null, outcome: row.outcome, model: row.model, reason: row.reason ?? null, reasonAt: row.reason_at ?? null });
+/** Not journal entries: the Tuesday plan and the last Coach state used for change-only bulletins. */
+const NON_ENTRY_KINDS = ["MODEL_PLAN", "COACH_STATE"];
 
 export function createDecisionLogStore({ getSupabase = createSupabaseFromEnv, season = LEAGUE_METADATA_2026.season } = {}) {
   let client = null;
@@ -102,8 +104,34 @@ export function createDecisionLogStore({ getSupabase = createSupabaseFromEnv, se
       const { data, error } = await (await supabase()).from(TABLE).select("*").eq("season", Number(season)).eq("roster_id", rosterId).order("week", { ascending: false }).order("occurred_at", { ascending: false });
       if (error) throw new Error(error.message);
       const rows = (data || []).map(fromRow);
-      const entries = rows.filter(row => row.kind !== "MODEL_PLAN");
-      return { entries, plans: rows.filter(row => row.kind === "MODEL_PLAN"), summary: summarizeDecisionLog(entries) };
+      const entries = rows.filter(row => !NON_ENTRY_KINDS.includes(row.kind));
+      const plans = rows.filter(row => row.kind === "MODEL_PLAN");
+      return { entries, plans, planChoices: planChoiceRows(plans, entries), summary: summarizeDecisionLog(entries) };
+    },
+    /** Choice on one recommendation of a stored Tuesday plan; the plan itself is never rewritten. */
+    async setChoice(rosterId, planId, playerId, input) {
+      const { choice, reason } = normalizePlanChoice(input);
+      if (typeof planId !== "string" || !planId.startsWith(`${season}:${rosterId}:plan:`)) throw new Error("Plan inconnu");
+      const client = await supabase();
+      const { data: row, error: readError } = await client.from(TABLE).select("id, details").eq("id", planId).eq("roster_id", rosterId).eq("kind", "MODEL_PLAN").maybeSingle();
+      if (readError) throw new Error(readError.message);
+      if (!row) throw new Error("Plan inconnu");
+      const details = applyPlanChoice(row.details ?? {}, playerId, { choice, reason });
+      const { error } = await client.from(TABLE).update({ details, updated_at: new Date().toISOString() }).eq("id", planId).eq("roster_id", rosterId);
+      if (error) throw new Error(error.message);
+      return { planId, playerId: String(playerId), ...(details.choices[String(playerId)] ?? { choice: null, reason: null, at: null }) };
+    },
+    /** Last Coach state sent by the change-only bulletin (one row per roster, overwritten). */
+    async coachState(rosterId) {
+      const { data, error } = await (await supabase()).from(TABLE).select("details, updated_at").eq("id", `${season}:${rosterId}:coach-state`).maybeSingle();
+      if (error) throw new Error(error.message);
+      return data?.details?.state ?? null;
+    },
+    async saveCoachState(rosterId, state) {
+      const { error } = await (await supabase()).from(TABLE).upsert({ id: `${season}:${rosterId}:coach-state`, season: Number(season), roster_id: rosterId, week: state.week ?? null,
+        kind: "COACH_STATE", occurred_at: state.capturedAt ?? new Date().toISOString(), details: { state }, source: "COACH_BULLETIN", updated_at: new Date().toISOString() }, { onConflict: "id" });
+      if (error) throw new Error(error.message);
+      return true;
     },
     /** Only the reason is writable from the page, and only on an existing row of that roster. */
     async setReason(rosterId, id, reason) {

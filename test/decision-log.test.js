@@ -42,7 +42,9 @@ test("a move is evaluated over its window, added against dropped, started weeks 
   const entry = { kind: "CLAIM_WON", week: 2, added: [{ id: "a" }], dropped: [{ id: "b" }], bid: 40 };
   const points = { "a|2": 10, "a|3": 20, "b|2": 4, "b|3": null };
   const outcome = evaluateMove(entry, { pointsOf: (id, week) => points[`${id}|${week}`] ?? null, startedOf: (id, week) => week === 3 ? 20 : 0, lastCompletedWeek: 3, window: 4 });
-  assert.deepEqual(outcome, { status: "PARTIAL", fromWeek: 2, throughWeek: 3, weeks: 2, addedPoints: 30, droppedPoints: 4, net: 26, startedPoints: 20, pointsPerFaab: 0.75 });
+  const { reviews, ...window } = outcome;
+  assert.deepEqual(window, { status: "PARTIAL", fromWeek: 2, throughWeek: 3, weeks: 2, addedPoints: 30, droppedPoints: 4, net: 26, startedPoints: 20, pointsPerFaab: 0.75 });
+  assert.deepEqual(reviews, { weeks2: { fromWeek: 2, throughWeek: 3, addedPoints: 30, droppedPoints: 4, net: 26 }, weeks4: null });
   assert.equal(evaluateMove(entry, { pointsOf: () => 1, lastCompletedWeek: 3, window: 2 }).status, "COMPLETE");
   assert.deepEqual(evaluateMove(entry, { pointsOf: () => 1, lastCompletedWeek: 1 }), { status: "PENDING" });
   const lost = evaluateMove({ ...entry, kind: "CLAIM_LOST", dropped: [] }, { pointsOf: () => 5, lastCompletedWeek: 2 });
