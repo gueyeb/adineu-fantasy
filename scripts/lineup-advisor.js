@@ -266,7 +266,7 @@ export const MAX_COMPARE = 8;
  * le roster de l'équipe), projection Sleeper de la semaine, valeur reste de saison, usage, statut
  * blessure et difficulté du matchup (DvP : points concédés par l'adversaire à ce poste).
  */
-export async function getStartSit({ team = null, ids = [], fetchImpl = fetch } = {}) {
+export async function getStartSit({ team = null, ids = [], fetchImpl = fetch, getWaivers = getFreeAgents } = {}) {
   const context = team ? await getLeagueContext({ team, fetchImpl }) : null;
   const week = context?.week ?? null;
   const index = await getPlayersIndex({ fetchImpl });
@@ -344,7 +344,7 @@ export async function getStartSit({ team = null, ids = [], fetchImpl = fetch } =
       }
     } catch { /* no matchup published yet: recommendation simply absent */ }
   }
-  const waivers = context ? await getFreeAgents({ team, fetchImpl, limitPerPosition: 5 }).catch(() => null) : null;
+  const waivers = context ? await getWaivers({ team, fetchImpl, limitPerPosition: 5 }).catch(() => null) : null;
   const diagnosis = context ? diagnoseLineup({ myTeam: context.myTeam, playerStatuses: new Map(players.map(p => [p.sleeperId, p.injuryStatus])), freeAgentsByPosition: waivers?.byPosition, acquisitionPlan: waivers?.acquisitionPlan, availabilityAsOf: waivers?.availabilityAsOf, dataThroughWeek: waivers?.lastCompletedWeek, publishable: waivers?.coherence?.publishable, currentWeek, byeWeeks: BYE_WEEKS_2026, timingContext: values.timingContext }) : null;
   return { diagnosis, availabilityAsOf: waivers?.availabilityAsOf ?? null, dataThroughWeek: waivers?.lastCompletedWeek ?? null, effectiveWeek: currentWeek, week: currentWeek, team, wrDvpSnapshotId: wrBundle?.snapshotId ?? null, completedWeeks: statsByWeek.map(entry => entry.week), players, lineups };
 }

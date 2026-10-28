@@ -62,6 +62,14 @@ import { SOS_HORIZONS, sosMethodology } from "./public/assets/wr-ros-sos.js";
 
 const COACH_PAGE_URL = "https://adineu-fantasy.bakene.tech/coach/";
 
+/** The chosen cut (`fit.dropCandidate`) stays; only the full comparison list is replaced by its size. */
+export function omitCutComparisons(report) {
+  const trim = row => row?.waiver?.fit?.dropCandidates
+    ? { ...row, waiver: { ...row.waiver, fit: { ...row.waiver.fit, dropCandidates: undefined, dropCandidatesOmitted: row.waiver.fit.dropCandidates.length } } }
+    : row;
+  return { ...report, byPosition: Object.fromEntries(Object.entries(report.byPosition ?? {}).map(([position, rows]) => [position, rows.map(trim)])) };
+}
+
 const DEFAULT_PUBLIC_ROOT = fileURLToPath(new URL("./public", import.meta.url));
 const MIME_TYPES = {
   ".css": "text/css; charset=utf-8",
@@ -145,9 +153,25 @@ export function createAppServer({
   coachPassword = process.env.COACH_WEB_PASSWORD || "",
   secureCookies = process.env.NODE_ENV !== "development",
   // The decision context takes seconds (every add × cut × week): reused briefly, production wiring only.
-  contextCacheMs = getContext === getLeagueContext ? 3 * 60_000 : 0
+  contextCacheMs = getContext === getLeagueContext ? 3 * 60_000 : 0,
+  // Start/Sit, the AI context and the lineup advisor ask for the same team report within seconds.
+  freeAgentsCacheMs = getFreeAgents === getFreeAgentsDefault ? 60_000 : 0
 } = {}) {
   const contextCache = new Map();
+  const freeAgentsCache = new Map();
+  const sharedFreeAgents = ({ fetchImpl, ...options } = {}) => {
+    const keys = Object.keys(options);
+    if (!freeAgentsCacheMs || keys.some(key => !["team", "limitPerPosition"].includes(key))) return getFreeAgents(options);
+    const key = JSON.stringify([options.team ?? null, options.limitPerPosition ?? null]);
+    const hit = freeAgentsCache.get(key);
+    if (!hit || Date.now() - hit.at > freeAgentsCacheMs) {
+      const entry = { at: Date.now(), promise: getFreeAgents(options) };
+      entry.promise.catch(() => freeAgentsCache.delete(key));
+      freeAgentsCache.set(key, entry);
+    }
+    // Callers enrich the report: each gets its own copy.
+    return freeAgentsCache.get(key).promise.then(report => structuredClone(report));
+  };
   const loadSos = getSosBundle || (getContext === getLeagueContext ? position => sosService.getBundle(position) : async () => null);
   const coachAuth = createCoachAuth({ password: coachPassword, secure: secureCookies });
   return createServer(async (request, response) => {
@@ -356,7 +380,7 @@ export function createAppServer({
             const [valuesResult, statusesResult, waiversResult, matchupResult, playoffResult] = await Promise.allSettled([
               getPlayerValues({ week: compactContext.week, playerIds }),
               getInjuryStatuses(),
-              getFreeAgents({ team, limitPerPosition: 5 }),
+              sharedFreeAgents({ team, limitPerPosition: 5 }),
               getMatchupContext({ team, week: compactContext.week }),
               getPlayoffContext({ week: compactContext.week, rosterId: compactContext.myTeam.rosterId, leagueId: compactContext.league.id })
             ]);
@@ -431,7 +455,8 @@ export function createAppServer({
           response.end(message);
           return;
         }
-        sendJson(response, 200, { ...report, message });
+        // Per-candidate cut comparisons are 28 % of the payload and unused by the page; ?detail=1 keeps them.
+        sendJson(response, 200, { ...(url.searchParams.get("detail") === "1" ? report : omitCutComparisons(report)), message });
       } catch (error) {
         sendJson(response, 502, { error: error.message });
       }
@@ -456,7 +481,7 @@ export function createAppServer({
     if (url.pathname === "/api/start-sit") {
       try {
         const ids = (url.searchParams.get("ids") || "").split(",").map(id => id.trim()).filter(Boolean);
-        sendJson(response, 200, await getStartSit({ team: url.searchParams.get("team") || null, ids }));
+        sendJson(response, 200, await getStartSit({ team: url.searchParams.get("team") || null, ids, getWaivers: sharedFreeAgents }));
       } catch (error) {
         const isUnknownTeam = error.message.startsWith("Équipe Sleeper inconnue");
         sendJson(response, isUnknownTeam ? 404 : 502, { error: error.message });
@@ -591,7 +616,7 @@ export function createAppServer({
         const [context, playerStatuses, freeAgents] = await Promise.all([
           getContext({ team }),
           getInjuryStatuses(),
-          getFreeAgents({ team, limitPerPosition: 5 })
+          sharedFreeAgents({ team, limitPerPosition: 5 })
         ]);
         const diagnosis = diagnoseLineup({
           myTeam: context.myTeam,

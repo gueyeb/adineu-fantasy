@@ -125,3 +125,47 @@ test("usage API returns the report and 404s an unknown team", async t => {
   assert.equal((await ok.json()).players[0].signal, "BUY_LOW");
   assert.equal((await fetch(`http://127.0.0.1:${port}/api/usage?team=personne`)).status, 404);
 });
+
+test("/api/free-agents omits per-candidate cut comparisons unless ?detail=1", async t => {
+  const fit = { dropCandidate: { name: "Bench" }, dropCandidates: [{ name: "Bench" }, { name: "Other" }] };
+  const report = { week: 8, byPosition: { WR: [{ name: "Receiver", waiver: { fit } }, { name: "No fit" }] } };
+  const server = createAppServer({ getFreeAgents: async () => report });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(() => server.close());
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const light = await (await fetch(`${base}/api/free-agents?team=t0z`)).json();
+  const [row, plain] = light.byPosition.WR;
+  assert.equal(row.waiver.fit.dropCandidates, undefined);
+  assert.equal(row.waiver.fit.dropCandidatesOmitted, 2);
+  assert.deepEqual(row.waiver.fit.dropCandidate, { name: "Bench" });
+  assert.deepEqual(plain, { name: "No fit" });
+  assert.equal(report.byPosition.WR[0].waiver.fit.dropCandidates.length, 2, "the source report is not mutated");
+  const full = await (await fetch(`${base}/api/free-agents?team=t0z&detail=1`)).json();
+  assert.equal(full.byPosition.WR[0].waiver.fit.dropCandidates.length, 2);
+});
+
+test("Start/Sit reuses a recent identical team report, each caller getting its own copy", async t => {
+  let calls = 0;
+  const server = createAppServer({
+    freeAgentsCacheMs: 60_000,
+    getFreeAgents: async options => ({ call: ++calls, options, byPosition: { WR: [{ name: "A" }] } }),
+    getStartSit: async ({ team, getWaivers }) => {
+      const report = await getWaivers({ team, limitPerPosition: 5 });
+      report.byPosition.WR.push({ name: "mutated by caller" });
+      const watched = await getWaivers({ team, limitPerPosition: 5, watchIds: ["1"] });
+      return { call: report.call, watchedCall: watched.call, rows: report.byPosition.WR.length };
+    }
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(() => server.close());
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const first = await (await fetch(`${base}/api/start-sit?team=t0z`)).json();
+  const second = await (await fetch(`${base}/api/start-sit?team=t0z`)).json();
+  assert.equal(first.call, 1);
+  assert.equal(second.call, 1, "same team and limit: one computation");
+  assert.equal(second.rows, 2, "a caller's mutation never leaks into the shared report");
+  assert.notEqual(second.watchedCall, 1, "any other option bypasses the shared report");
+  assert.equal(calls, 3);
+});

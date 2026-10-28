@@ -721,5 +721,9 @@ Aucun workflow modifié. Preuve attendue : exécution du mardi 03/11 après dép
 **`/api/free-agents?team=t0z`** (production, 3 lectures) : 1,88 Mo brut, 113 Ko gzip,
 TTFB 3,0–3,9 s à chaud, 8 s à froid, `no-store`. `byPosition` = 1,62 Mo pour 64 lignes ;
 `waiver.fit.dropCandidates` = 534 Ko (28 %), jamais lu par le navigateur ; `trending`
-105 Ko, `message` 75 Ko. Aucune réduction faite : décision à prendre (omettre
-`dropCandidates` hors `?detail=1`, en gardant n8n/IA qui lisent le JSON complet).
+105 Ko, `message` 75 Ko. Décision prise le 28/10 : la réponse HTTP remplace
+`dropCandidates` par son nombre (`dropCandidatesOmitted`) hors `?detail=1` ; la coupe
+retenue (`dropCandidate`) reste. Les appels internes (Coach, IA, Start/Sit) gardent le
+rapport complet. Start/Sit, contexte IA et conseiller de lineup partagent le même rapport
+d’équipe pendant 60 s (copie par appelant) au lieu de le recalculer. Gain mesuré après
+déploiement à consigner.

@@ -66,6 +66,8 @@ test("start-sit API forwards ids and team, and 404s an unknown team", async t =>
   const { port } = server.address();
   const ok = await fetch(`http://127.0.0.1:${port}/api/start-sit?team=t0z&ids=1,2`);
   assert.equal(ok.status, 200);
-  assert.deepEqual(calls[0], { team: "t0z", ids: ["1", "2"] });
+  const { getWaivers, ...forwarded } = calls[0];
+  assert.deepEqual(forwarded, { team: "t0z", ids: ["1", "2"] });
+  assert.equal(typeof getWaivers, "function", "the server's shared report is injected");
   assert.equal((await fetch(`http://127.0.0.1:${port}/api/start-sit?team=personne`)).status, 404);
 });
