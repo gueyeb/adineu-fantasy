@@ -1,4 +1,4 @@
-import { describeIdentity, rosterOptionLabel, teamLabel } from "./manager-identity.js?v=cf74623f30";
+import { describeIdentity, rosterOptionLabel, teamLabel } from "./manager-identity.js?v=890d8bebe7";
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./public-data-source.js?v=05dafa2db3";
 import { buildTeamSeasonContext, teamSeasonKey, allPlayUnavailableMessage, canonicalManagerForRoster } from "./team-season-context.js?v=d7ee4f31f4";
 /**

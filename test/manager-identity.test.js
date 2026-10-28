@@ -20,7 +20,8 @@ test("stored 2026 names resolve to confirmed managers only; unknown accounts sta
 test("a team name equal to the account is a sync fallback, not a team chosen by the manager", () => {
   const sneaky = describeIdentity({ account: "SneakySlayerMG", teamName: "SneakySlayerMG" });
   assert.deepEqual(sneaky, { manager: "Magatte", account: "SneakySlayerMG", accountIsCurrent: false, teamName: null });
-  assert.equal(teamLabel(sneaky), "Équipe sans nom public");
+  assert.equal(teamLabel(sneaky), "Team SneakySlayerMG");
+  assert.equal(teamLabel({ account: null, teamName: null }), "Équipe sans nom public");
   assert.equal(managerLabel(sneaky), "Magatte");
   assert.equal(accountNote(sneaky), "Compte enregistré · @SneakySlayerMG");
   const kuro = describeIdentity({ account: "MouhammadAT", teamName: "Kuro" });
@@ -35,22 +36,23 @@ test("a team name equal to the account is a sync fallback, not a team chosen by 
 });
 
 test("roster pickers name team, confirmed manager and current account", () => {
-  assert.equal(rosterOptionLabel({ account: "flemme", teamName: null }), "Équipe sans nom public · Tamsir (@flemme)");
-  assert.equal(rosterOptionLabel({ account: "flemme", teamName: "flemme" }), "Équipe sans nom public · Tamsir (@flemme)");
+  assert.equal(rosterOptionLabel({ account: "flemme", teamName: null }), "Team flemme · Tamsir (@flemme)");
+  assert.equal(rosterOptionLabel({ account: "flemme", teamName: "flemme" }), "Team flemme · Tamsir (@flemme)");
   assert.equal(rosterOptionLabel({ account: "t0z", teamName: "Boukki" }), "Boukki · babttz (@t0z)");
   assert.equal(rosterOptionLabel({ account: "NouveauCompte", teamName: "X" }), "X · @NouveauCompte");
 });
 
 test("weekly awards mark an unnamed team instead of passing the manager off as its name", () => {
   const users = [{ user_id: "a", display_name: "flemme", metadata: {} }, { user_id: "b", display_name: "Inconnu", metadata: {} }];
-  assert.deepEqual(publicTeamIdentity({ owner_id: "a" }, users), { teamName: "Tamsir (équipe sans nom public)", manager: "Tamsir" });
-  assert.equal(publicTeamIdentity({ owner_id: "b" }, users).teamName, "Équipe sans nom public");
+  assert.deepEqual(publicTeamIdentity({ owner_id: "a" }, users), { teamName: "Team flemme (Tamsir)", manager: "Tamsir" });
+  assert.equal(publicTeamIdentity({ owner_id: "b" }, users).teamName, "Team Inconnu");
+  assert.equal(publicTeamIdentity({ owner_id: "z" }, users).teamName, "Équipe sans nom public");
 });
 
 test("Live cards separate team, confirmed manager and current Sleeper account", () => {
   const side = (account, publicTeamName) => ({ teamName: publicTeamName || account, manager: account, account, publicTeamName, points: 0, estimate: null, starters: [], bench: [], started: true, finished: false, projectionGaps: [] });
   const html = renderLiveTrackerCards({ matchups: [{ teams: [side("SneakySlayerMG", null), side("Shiro00", "Kuro")] }] });
-  assert.match(html, /Magatte · Compte Sleeper · @SneakySlayerMG<\/span><strong>Équipe sans nom public<\/strong>/);
+  assert.match(html, /Magatte · Compte Sleeper · @SneakySlayerMG<\/span><strong>Team SneakySlayerMG<\/strong>/);
   assert.match(html, /Mat · Compte Sleeper · @Shiro00<\/span><strong>Kuro<\/strong>/);
   const legacy = renderLiveTrackerCards({ matchups: [{ teams: [{ ...side("x", "T"), account: undefined, manager: "Owner", teamName: "Team" }, side("y", "U")] }] });
   assert.match(legacy, /Owner<\/span><strong>Team<\/strong>/, "rows without identity fields render as before");

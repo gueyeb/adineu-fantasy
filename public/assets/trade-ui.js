@@ -1,4 +1,4 @@
-import { rosterOptionLabel } from "./manager-identity.js?v=cf74623f30";
+import { rosterOptionLabel } from "./manager-identity.js?v=890d8bebe7";
 import { renderRecentTransactions } from "./transaction-view.js?v=76b996b5b8";
 import { renderWaiverDecisionBoard, waiverAvailabilityLabel } from "./waiver-decision-view.js?v=d71dc49b36";
 import { formatTradeTiming } from "./trade-timing.js?v=cdcd6605a3";

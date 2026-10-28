@@ -1,5 +1,5 @@
 import { computeOptimalLineupPoints } from './weekly-recap.js?v=3a177dca14';
-import { sleeperManager } from './rivalry-week.js?v=259261ffdf';
+import { sleeperManager } from './rivalry-week.js?v=e3cae76c3a';
 
 const cents = value => Math.round(value * 100);
 const points = value => value / 100;
@@ -15,8 +15,8 @@ export function resolveCompletedAwardsWeek({ league, state }) {
 export function publicTeamIdentity(roster, users) {
   const user = users.find(entry => entry.user_id === roster?.owner_id);
   const manager = sleeperManager(user);
-  // Only one label slot in the recap: an unnamed team is identified by its manager, explicitly marked.
-  const fallback = manager ? `${manager} (équipe sans nom public)` : 'Équipe sans nom public';
+  // No public team name: Sleeper's default "Team <account>", with the confirmed manager when known.
+  const fallback = user?.display_name ? `Team ${user.display_name}${manager ? ` (${manager})` : ''}` : 'Équipe sans nom public';
   return { teamName: user?.metadata?.team_name || fallback, manager };
 }
 

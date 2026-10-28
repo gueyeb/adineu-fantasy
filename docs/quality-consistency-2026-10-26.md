@@ -815,3 +815,7 @@ probabilités playoffs toujours rattachées pour les 12), Power/Course, Calendri
 avec estimation figée datée. Limites : `MouhammadAT` reste le compte enregistré de Mat
 (actuel `Shiro00`) tant que la source n’est pas renommée ; aucun contrôle mobile ;
 le passage avant/pendant match n’a été observé que sur fixtures, la S8 n’ayant pas commencé.
+
+**Ajustement du 28/10.** Sans nom d’équipe public, le libellé reprend le défaut de Sleeper,
+« Team <compte> » (ex. « Team flemme », « Team SneakySlayerMG ») au lieu de « Équipe sans
+nom public », réservé au cas sans compte connu. Récap hebdo : « Team flemme (Tamsir) ».

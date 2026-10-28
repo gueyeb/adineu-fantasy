@@ -50,8 +50,9 @@ export function managerLabel(identity) {
   return identity.manager ?? (identity.account ? `@${identity.account}` : "Manager inconnu");
 }
 
+/** No public team name: Sleeper's own default, "Team <account>", so the label matches the app. */
 export function teamLabel(identity) {
-  return identity.teamName ?? "Équipe sans nom public";
+  return identity.teamName ?? (identity.account ? `Team ${identity.account}` : "Équipe sans nom public");
 }
 
 /** Secondary line: the account behind a canonical manager, labeled current or as recorded. */

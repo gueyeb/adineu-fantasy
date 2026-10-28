@@ -1,5 +1,5 @@
 import { renderSosExplorer } from "./sos-explorer.js?v=a82891ac6f";
-import { renderPublicWeek } from "./public-week.js?v=6a68cc6992";
+import { renderPublicWeek } from "./public-week.js?v=a8bb8fe901";
 import { buildSharedPlayoffContext } from "./playoff-context.js?v=007f82bf8d";
 import { calculatePowerRankings, MINIMUM_COMPLETED_WEEKS, POWER_WEIGHTS } from "./power-rankings.js?v=b3edd84ff5";
 import {
@@ -10,14 +10,14 @@ import {
   buildSleeperWeek,
   buildSleeperSeasonMeetings,
   sleeperManager
-} from "./rivalry-week.js?v=259261ffdf";
-import { accountNote, describeIdentity, managerLabel, teamLabel } from "./manager-identity.js?v=cf74623f30";
-import { renderTradesPage } from "./trade-ui.js?v=55a00aaf89";
-import { renderMatchupsHub } from "./matchups-live.js?v=bff7f1347a";
+} from "./rivalry-week.js?v=e3cae76c3a";
+import { accountNote, describeIdentity, managerLabel, teamLabel } from "./manager-identity.js?v=890d8bebe7";
+import { renderTradesPage } from "./trade-ui.js?v=1963c8e3c0";
+import { renderMatchupsHub } from "./matchups-live.js?v=a5b373110d";
 import { calculatePlayoffRace } from "./playoff-race.js?v=4133a5df17";
 import { calculateLuck, calculateRankHistory } from "./standings-luck.js?v=0664490db9";
 import { resolveOperationalWeek } from "./nfl-week.js?v=8f9fa3f5b2";
-import { renderTeamsHub } from "./teams.js?v=4b28097611";
+import { renderTeamsHub } from "./teams.js?v=418a65f860";
 import { buildYahooRecordBook } from "./record-book.js?v=0ebb2a4e56";
 import { listRosterIdentities } from "./roster-view.js?v=120de9d74d";
 import { GENERAL_SETTINGS_2026 } from "./league-settings.js?v=886f353394";
