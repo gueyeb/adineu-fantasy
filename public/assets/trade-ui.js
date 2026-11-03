@@ -432,7 +432,7 @@ export async function renderTradesPage(container) {
         <datalist id="calc-players-datalist">
           ${allPlayers.map(p => {
             const prof = calculatePlayerTradeProfile(p);
-            return `<option value="${escapeHtml(p.name)}">${escapeHtml(p.name)} (${escapeHtml(p.position)} - ${escapeHtml(p.nflTeam || "NFL")}) · Val ~${prof.tradeValue} · Proj: ${prof.projectedPpg} pts/m</option>`;
+            return `<option value="${escapeHtml(p.name)}">${escapeHtml(p.name)} (${escapeHtml(p.position)} - ${escapeHtml(p.nflTeam || "NFL")}) · Indice ${prof.tradeValue}/100 · Proj: ${prof.projectedPpg} pts/m</option>`;
           }).join("")}
         </datalist>
 
@@ -478,32 +478,34 @@ export async function renderTradesPage(container) {
 
       updateLineupImpact();
       const evalTrade = evaluateTrade({ sideA, sideB });
-      const verdictColor = evalTrade.verdict === "FAIR" ? "var(--grass)" : evalTrade.verdict.startsWith("SLIGHT") ? "var(--gold)" : "var(--red)";
+      const floorOnly = sideA.length > 0 && sideB.length > 0 && [...sideA, ...sideB].every(p => calculatePlayerTradeValue(p) === 1);
+      const verdictColor = floorOnly ? "var(--muted)" : evalTrade.verdict === "FAIR" ? "var(--grass)" : evalTrade.verdict.startsWith("SLIGHT") ? "var(--gold)" : "var(--red)";
 
       resultBox.innerHTML = `
         <div style="display:flex; justify-content:center; align-items:center; gap:16px; margin-bottom:16px;">
           <span style="font-size:1.4rem; font-weight:800; color:${verdictColor}; font-family:var(--display); text-transform:uppercase;">
-            ${evalTrade.label}
+            ${floorOnly ? "Valeurs au plancher : équilibre indéterminé" : evalTrade.label}
           </span>
           <span style="font-size:0.85rem; color:var(--muted); font-weight:600; background:var(--panel); padding:4px 10px; border-radius:4px; border:1px solid var(--line);">
-            Écart : ${evalTrade.pctDiff}%
+            ${floorOnly ? "Écart non discriminant" : `Écart d’indice : ${evalTrade.pctDiff}%`}
           </span>
         </div>
 
+        <p style="color:var(--muted); font-size:0.8rem;">Indice d’échange de 1 à 100, distinct des points fantasy. En saison, il mesure le surplus projeté sur le reste de la saison au-dessus du seuil de remplacement au poste. À ce seuil ou en dessous, les joueurs valent tous 1 ; leur production et leur impact sur la lineup peuvent différer. Sans valeur live, repli sur le rang pré-draft.</p>
         <div style="display:grid; grid-template-columns:1fr auto 1fr; gap:24px; align-items:center; max-width:640px; margin:0 auto 16px;">
           <div>
-            <div style="font-size:0.75rem; color:var(--muted); text-transform:uppercase;">Valeur nette Équipe A</div>
+            <div style="font-size:0.75rem; color:var(--muted); text-transform:uppercase;">Indice net des joueurs cédés par A</div>
             <div style="font-size:2rem; font-weight:800; color:var(--red); font-family:var(--display);">${evalTrade.sideA.netTotal}</div>
-            <div style="font-size:0.75rem; color:var(--muted);">Brut : ${evalTrade.sideA.rawTotal} pts</div>
+            <div style="font-size:0.75rem; color:var(--muted);">Indice brut : ${evalTrade.sideA.rawTotal}</div>
             <div style="font-size:0.8rem; color:var(--ink); margin-top:4px;">
               <strong>${evalTrade.sideA.blendedPpgTotal} pts/sem</strong> <small style="color:var(--muted);">(Proj: ${evalTrade.sideA.projectedPpgTotal})</small>
             </div>
           </div>
           <div style="font-size:1.5rem; color:var(--muted); font-weight:700;">VS</div>
           <div>
-            <div style="font-size:0.75rem; color:var(--muted); text-transform:uppercase;">Valeur nette Équipe B</div>
+            <div style="font-size:0.75rem; color:var(--muted); text-transform:uppercase;">Indice net des joueurs cédés par B</div>
             <div style="font-size:2rem; font-weight:800; color:var(--grass); font-family:var(--display);">${evalTrade.sideB.netTotal}</div>
-            <div style="font-size:0.75rem; color:var(--muted);">Brut : ${evalTrade.sideB.rawTotal} pts</div>
+            <div style="font-size:0.75rem; color:var(--muted);">Indice brut : ${evalTrade.sideB.rawTotal}</div>
             <div style="font-size:0.8rem; color:var(--ink); margin-top:4px;">
               <strong>${evalTrade.sideB.blendedPpgTotal} pts/sem</strong> <small style="color:var(--muted);">(Proj: ${evalTrade.sideB.projectedPpgTotal})</small>
             </div>
@@ -517,9 +519,9 @@ export async function renderTradesPage(container) {
           <span style="color:var(--muted); display:block; font-size:0.75rem; margin-top:2px;">Somme pondérée des joueurs uniquement : ce n'est pas un gain de lineup. Consulte le Trade Finder pour l'impact des remplacements.</span>
         </div>
 
-        ${evalTrade.starPlayer ? `
+        ${!floorOnly && evalTrade.starPlayer ? `
           <div style="font-size:0.85rem; color:var(--ink); margin-top:12px;">
-            ⭐ <strong>Meilleur joueur du deal :</strong> ${escapeHtml(evalTrade.starPlayer.name)} (${evalTrade.starPlayer.value} pts)
+            ⭐ <strong>Meilleur joueur du deal :</strong> ${escapeHtml(evalTrade.starPlayer.name)} (indice ${evalTrade.starPlayer.value}/100)
           </div>
         ` : ""}
       `;
@@ -551,10 +553,10 @@ export async function renderTradesPage(container) {
       box.innerHTML = `
         <h3 style="margin:0 0 8px; font-size:1rem;">Simulation future de lineup (${offer.scenarios.weeks ? `S${offer.scenarios.weeks.from}–S${offer.scenarios.weeks.to}` : "aucune semaine affectable"})</h3>
         <p class="note" style="margin:0 0 8px;">${escapeHtml(formatTradeWeekFrame(offer.weekFrame ?? offer.scenarios.weekFrame))}</p>
-        <p style="margin:0 0 10px; font-size:0.85rem;">Moyenne reste de saison : <strong>${escapeHtml(offer.mine.team)} ${signed(offer.seasonAverage.myDeltaPerWeek)} pts/sem</strong> · ${escapeHtml(offer.theirs.team)} ${signed(offer.seasonAverage.theirDeltaPerWeek)} pts/sem</p>
+        <p style="margin:0 0 10px; font-size:0.85rem;">Impact de lineup moyen estimé (${offer.scenarios.weeks ? `S${offer.scenarios.weeks.from}–S${offer.scenarios.weeks.to}` : "horizon indisponible"}) : <strong>${escapeHtml(offer.mine.team)} ${signed(offer.seasonAverage.myDeltaPerWeek)} pts/sem</strong> · ${escapeHtml(offer.theirs.team)} ${signed(offer.seasonAverage.theirDeltaPerWeek)} pts/sem</p>
         ${ev.returnAssumptions?.length ? `<p class="note">${ev.returnAssumptions.map(row => `${escapeHtml(row.name)} (${escapeHtml(row.status)}) : hypothèse S${row.week}, ${row.basis === "FUTURE_PROJECTION_ASSUMPTION" ? "projection future publiée" : "durée forfaitaire du modèle"}, retour et activation non confirmés${row.traded ? "" : " (joueur conservé dans le roster)"}`).join(" · ")}</p>` : ""}
-        <table style="width:100%; font-size:0.85rem;"><thead><tr><th style="text-align:left;">Scénario</th><th>${escapeHtml(offer.mine.team)}</th><th>${escapeHtml(offer.theirs.team)}</th></tr></thead><tbody>
-          ${offer.scenarios.scenarios.map(row => `<tr><td>${escapeHtml(row.label)}${Object.keys(row.returnWeeks).length ? ` <small style="color:var(--muted);">(${Object.entries(row.returnWeeks).map(([name, week]) => `${escapeHtml(name)} S${week}`).join(", ")})</small>` : ""}</td><td style="text-align:center;">${signed(row.myTotal)} pts</td><td style="text-align:center;">${signed(row.theirTotal)} pts</td></tr>`).join("")}
+        <table style="width:100%; font-size:0.85rem;"><thead><tr><th style="text-align:left;">Scénario · impact cumulé ${offer.scenarios.weeks ? `S${offer.scenarios.weeks.from}–S${offer.scenarios.weeks.to}` : "(horizon indisponible)"}</th><th>${escapeHtml(offer.mine.team)}</th><th>${escapeHtml(offer.theirs.team)}</th></tr></thead><tbody>
+          ${offer.scenarios.scenarios.map(row => `<tr><td>${escapeHtml(row.label)}${Object.keys(row.returnWeeks).length ? ` <small style="color:var(--muted);">(${Object.entries(row.returnWeeks).map(([name, week]) => `${escapeHtml(name)} S${week}`).join(", ")})</small>` : ""}</td><td style="text-align:center;">${signed(row.myTotal)} pts au total</td><td style="text-align:center;">${signed(row.theirTotal)} pts au total</td></tr>`).join("")}
         </tbody></table>
         <p class="note" style="margin:10px 0 0;">Preuve ${escapeHtml(ev.quality)}${ev.projectionGaps.length ? ` · sans projection Sleeper : ${escapeHtml(ev.projectionGaps.join(", "))}` : ""}${ev.emptySlotWeeks.length ? ` · slot à 0 d'un seul côté (bye) : ${escapeHtml(ev.emptySlotWeeks.map(row => `${row.team === "mine" ? offer.mine.team : offer.theirs.team} S${row.week} ${row.slots.join("/")}`).join(", "))} — l'écart inclut un streamer` : ""} · ${escapeHtml(ev.notes.join(" "))}</p>`;
     }
@@ -570,7 +572,7 @@ export async function renderTradesPage(container) {
         <div style="display:flex; justify-content:space-between; align-items:center; background:var(--paper-soft); padding:8px 12px; border-radius:4px; border:1px solid var(--line);">
           <div>
             <strong>${escapeHtml(p.name)}</strong> <small style="color:var(--muted);">(${escapeHtml(p.position)} - ${escapeHtml(p.nflTeam || "NFL")})</small>
-            <div style="font-size:0.75rem; color:var(--gold);">Valeur : ~${calculatePlayerTradeValue(p)} pts</div>
+            <div style="font-size:0.75rem; color:var(--gold);">Indice d’échange : ${calculatePlayerTradeValue(p)}/100${calculatePlayerTradeValue(p) === 1 ? " · plancher du modèle" : ""}</div>
           </div>
           <button type="button" class="remove-p-btn" data-side="${containerId === 'side-a-list' ? 'A' : 'B'}" data-idx="${idx}" style="background:transparent; border:none; color:var(--muted); cursor:pointer; font-size:1.1rem;">×</button>
         </div>
