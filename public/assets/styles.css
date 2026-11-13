@@ -1178,6 +1178,13 @@ span.war-followed { cursor: default; }
 .live-lineup-grid > section { min-width: 0; }
 .live-matchup-card:has(.live-lineup-detail[open]) { grid-column: 1 / -1; }
 @media (max-width: 760px) { .live-lineup-grid { grid-template-columns: 1fr; } }
+/* 390 px: wrap team/manager text so record and current score stay on screen without sideways scroll. */
+@media (max-width: 600px) {
+  .live-standing-table td, .live-standing-table th { padding: 6px 6px; }
+  .live-standing-table th { white-space: normal; }
+  .live-standing-table td:first-child small, .live-standing-table td:nth-child(2), .live-standing-table td:nth-child(2) small { white-space: normal; overflow-wrap: anywhere; }
+  .live-standing-table td:nth-child(2) { min-width: 112px; }
+}
 .coach-settings h3 { margin: 18px 0 8px; color: var(--ink); font-size: .9rem; letter-spacing: .06em; text-transform: uppercase; }
 .coach-settings-form { display: grid; gap: 10px; max-width: 640px; }
 .coach-settings-form label { display: grid; gap: 4px; color: var(--ink); }

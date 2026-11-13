@@ -1,4 +1,8 @@
-/** Timing is a lower bound conditional on acceptance now, never a processing promise. */
+/**
+ * Timing is a prudent window conditional on acceptance now, never a processing promise.
+ * The full `trade_review_days` is a margin, not a floor: the 4 trades of 2026 (legs 1, 6, 7, 9)
+ * completed 0–9.5 h after creation with review_days = 1. Kept prudent: too few cases to promise faster.
+ */
 export function assessTradeTiming({ players = [], targetWeek, currentWeek, context = null, now = Date.now() }) {
   const unknown = reasons => ({ status: "UNVERIFIED", reasons, earliestPossibleWeek: null, players: [], earliestReviewEndAt: null });
   if (!context || !Number.isFinite(now) || !Number.isInteger(targetWeek)) return unknown(["TIMING_EVIDENCE_MISSING"]);
@@ -24,7 +28,7 @@ export function assessTradeTiming({ players = [], targetWeek, currentWeek, conte
   const missing = !rows.length || rows.some(row => row.status === "UNVERIFIED");
   return { status: blocked ? "BLOCKED" : missing ? "UNVERIFIED" : "CONDITIONAL", reasons: blocked ? ["TARGET_KICKOFF_BEFORE_REVIEW_END"] : missing ? ["TARGET_SCHEDULE_INCOMPLETE"] : [],
     earliestReviewEndAt: new Date(earliest).toISOString(), earliestPossibleWeek: rows.length && rows.every(row => row.earliestPossibleWeek !== null) ? Math.max(...rows.map(row => row.earliestPossibleWeek)) : null,
-    players: rows, asOf: context.asOf, ruleSource: context.ruleSource, note: "Sous hypothèse d’accord maintenant, sans veto ni intervention du commissaire. Durée de revue modélisée en tranches de 24 h, sans horaire de traitement garanti ; traitement exact, santé et activation IR non confirmés." };
+    players: rows, asOf: context.asOf, ruleSource: context.ruleSource, note: "Sous hypothèse d’accord maintenant, sans veto ni intervention du commissaire. Durée de revue modélisée en tranches de 24 h (marge prudente : traitements 2026 observés en 0–9,5 h), sans horaire de traitement garanti ; traitement exact, santé et activation IR non confirmés." };
 }
 
 export function formatTradeTiming(timing) {
@@ -33,7 +37,7 @@ export function formatTradeTiming(timing) {
   const blocked = timing.players.filter(row => row.status === "TARGET_WINDOW_PASSED");
   const candidates = blocked.slice(0, 3).map(row => `${row.name} : fenêtre cible dépassée${row.earliestPossibleWeek ? `, première candidate S${row.earliestPossibleWeek}` : ""}`).join(" · ");
   const date = new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Paris", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(timing.earliestReviewEndAt));
-  return `${candidates || "Fenêtre cible possible sous conditions"}${blocked.length > 3 ? ` · ${blocked.length - 3} autre(s) joueur(s) concerné(s)` : ""}. Accord supposé maintenant ; revue modélisée (24 h/jour) jusqu’au ${date} Paris au plus tôt. Traitement exact et disponibilité non confirmés.`;
+  return `${candidates || "Fenêtre cible possible sous conditions"}${blocked.length > 3 ? ` · ${blocked.length - 3} autre(s) joueur(s) concerné(s)` : ""}. Accord supposé maintenant ; revue modélisée (24 h/jour) jusqu’au ${date} Paris, marge prudente : les trades 2026 de la ligue ont été traités en moins de 10 h. Traitement exact et disponibilité non confirmés.`;
 }
 
 /** Explicit `nflTeam: null` = Sleeper lists no NFL team (unsigned). Undefined = unknown, never zeroed. */

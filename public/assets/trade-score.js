@@ -1,5 +1,5 @@
 import { assessTradeCut } from "./trade-cut-readiness.js?v=3a8f3ea6db";
-import { hasNoNflTeam, tradeWeekFrame } from "./trade-timing.js?v=43d83f975d";
+import { hasNoNflTeam, tradeWeekFrame } from "./trade-timing.js?v=78365de8af";
 import { calculatePlayerTradeProfile, evaluateTrade } from "./trade-value.js?v=2c9caa87cf";
 import { BYE_WEEKS_2026, GENERAL_SETTINGS_2026, ROSTER_SETTINGS_2026 } from "./league-settings.js?v=886f353394";
 import { paceWeekValue } from "./rest-of-season.js?v=9b85ae76ed";

@@ -1,10 +1,10 @@
 import { rosterOptionLabel } from "./manager-identity.js?v=7f451cdf4d";
 import { renderRecentTransactions } from "./transaction-view.js?v=76b996b5b8";
 import { renderWaiverDecisionBoard, waiverAvailabilityLabel } from "./waiver-decision-view.js?v=d71dc49b36";
-import { formatTradeTiming, formatTradeWeekFrame } from "./trade-timing.js?v=43d83f975d";
+import { formatTradeTiming, formatTradeWeekFrame } from "./trade-timing.js?v=78365de8af";
 import { formatWaiverSchedule } from "./waiver-schedule.js?v=967a249e30";
-import { normalizeTradeIntent, tradeIntentStorageKey, targetWeekTradeImpact, compareTargetWeekImpacts, LAST_TRADE_TARGET_WEEK } from "./trade-target.js?v=1f0606b5c5";
-import { buildLeagueRosterSnapshot, buildLeagueTradeIntelligence } from "./league-trade-intelligence.js?v=da7ee3b583";
+import { normalizeTradeIntent, tradeIntentStorageKey, targetWeekTradeImpact, compareTargetWeekImpacts, LAST_TRADE_TARGET_WEEK } from "./trade-target.js?v=77b2b382fe";
+import { buildLeagueRosterSnapshot, buildLeagueTradeIntelligence } from "./league-trade-intelligence.js?v=0944bca5b0";
 import { tierChip, tierSeparator } from "./tier-view.js?v=d3a45b4046";
 /**
  * Adineu Fantasy — Interface Utilisateur Trade Hub
@@ -16,7 +16,7 @@ import { buildTiers } from "./value-tiers.js?v=32f5359873";
 import { buildWaiverDisplayTiers } from "./waiver-board.js?v=8889a568a8";
 
 import { calculatePlayerTradeValue, calculatePlayerTradeProfile, evaluateTrade } from "./trade-value.js?v=2c9caa87cf";
-import { diagnoseRoster, findTradeProposals, findCounterOffers, MAX_PRIMARY_TRADE_OFFERS } from "./trade-recommender.js?v=7aaf9cf138";
+import { diagnoseRoster, findTradeProposals, findCounterOffers, MAX_PRIMARY_TRADE_OFFERS } from "./trade-recommender.js?v=67599d65f8";
 import { addToWatchlist, removeFromWatchlist, REASON_MAX } from "./war-room.js?v=e9eae48675";
 import { loadWatchlist, saveWatchlist } from "./war-room-store.js?v=679685c790";
 import { PLAYER_STATUSES, playerKey, playerStatus } from "./trade-preferences.js?v=c5fec5ce56";
@@ -29,7 +29,7 @@ import { resolveOperationalWeek } from "./nfl-week.js?v=8f9fa3f5b2";
 import { listRosterIdentities } from "./roster-view.js?v=120de9d74d";
 import { calculateFaabRemaining } from "./team-metrics.js?v=e47db97055";
 import { compactAuction, formatAuction } from "./faab-auction.js?v=1eea51c520";
-import { buildProjectedLineup, restOfSeasonEstimate } from "./trade-score.js?v=1fdfeb1538";
+import { buildProjectedLineup, restOfSeasonEstimate } from "./trade-score.js?v=4e96f4ae81";
 
 import { SLEEPER_API, SLEEPER_LEAGUE_ID, sleeperGet } from "./sleeper-client.js?v=3f75d48ec5";
 const SUPABASE_URL = "https://juosrzsffvjprqhdyado.supabase.co";
@@ -257,9 +257,9 @@ export async function renderTradesPage(container) {
     content.innerHTML = `
       <div class="shell">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; margin-bottom:28px;">
-          <div>
+          <div style="min-width:0; max-width:100%;">
             <label for="roster-select" style="font-size:0.78rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--muted); font-weight:700; display:block; margin-bottom:6px;">Équipe analysée :</label>
-            <select id="roster-select" style="padding:10px 14px; background:var(--panel); border:1px solid var(--line); color:var(--ink); font-weight:600; border-radius:4px;">
+            <select id="roster-select" style="max-width:100%; padding:10px 14px; background:var(--panel); border:1px solid var(--line); color:var(--ink); font-weight:600; border-radius:4px;">
               ${formattedRosters.map(r => `
                 <option value="${r.roster_id}" ${String(r.roster_id) === String(selectedRosterId) ? "selected" : ""}>
                   ${escapeHtml(r.label)}
@@ -287,7 +287,7 @@ export async function renderTradesPage(container) {
             <label for="trade-target-week">Semaine cible</label>
             <select id="trade-target-week" class="filter-btn" style="min-height:40px;max-width:100%;"><option value="">ROS seulement</option>${Array.from({ length: Math.max(0, LAST_TRADE_TARGET_WEEK - (currentWeek || 1) + 1) }, (_, i) => (currentWeek || 1) + i).map(week => `<option value="${week}" ${intent.targetWeek === week ? "selected" : ""}>S${week}</option>`).join("")}</select>
           </div>
-          <p class="note">Préférence enregistrée par équipe sur ce navigateur, sans synchronisation Coach/n8n. Une semaine passée expire. Le poste filtre les joueurs reçus ; un package peut inclure un autre poste. Les gains de la semaine cible exigent ses projections publiées. Le délai de validation du trade reste à vérifier.</p>
+          <p class="note">Préférence enregistrée par équipe sur ce navigateur, sans synchronisation Coach/n8n. Une semaine passée expire. Le poste filtre les joueurs reçus ; un package peut inclure un autre poste. Les gains de la semaine cible exigent ses projections publiées. Revue Sleeper de la ligue : 24 h modélisées par prudence (trades 2026 traités en moins de 10 h).</p>
           ${intent.expired ? '<p class="note">La priorité enregistrée a expiré ; choisis une nouvelle semaine.</p>' : ""}
           <p class="note" id="trade-intent-status" role="status"></p>
         </div>
@@ -690,10 +690,10 @@ export async function renderTradesPage(container) {
     content.innerHTML = `
       <div class="shell">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; margin-bottom:20px;">
-          <div>
+          <div style="min-width:0; max-width:100%;">
             <p class="note">${escapeHtml(formatWaiverSchedule(report.waiverSchedule))}</p>
             <label for="waiver-roster-select" style="font-size:0.78rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--muted); font-weight:700; display:block; margin-bottom:6px;">Équipe analysée :</label>
-            <select id="waiver-roster-select" style="padding:10px 14px; background:var(--panel); border:1px solid var(--line); color:var(--ink); font-weight:600; border-radius:4px;">
+            <select id="waiver-roster-select" style="max-width:100%; padding:10px 14px; background:var(--panel); border:1px solid var(--line); color:var(--ink); font-weight:600; border-radius:4px;">
               ${formattedRosters.map(r => `
                 <option value="${r.roster_id}" ${String(r.roster_id) === String(selectedRosterId) ? "selected" : ""}>
                   ${escapeHtml(r.label)}
@@ -887,9 +887,9 @@ export async function renderTradesPage(container) {
     content.innerHTML = `
       <div class="shell">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; margin-bottom:24px;">
-          <div>
+          <div style="min-width:0; max-width:100%;">
             <label for="advisor-roster-select" style="font-size:0.78rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--muted); font-weight:700; display:block; margin-bottom:6px;">Équipe analysée :</label>
-            <select id="advisor-roster-select" style="padding:10px 14px; background:var(--panel); border:1px solid var(--line); color:var(--ink); font-weight:600; border-radius:4px;">
+            <select id="advisor-roster-select" style="max-width:100%; padding:10px 14px; background:var(--panel); border:1px solid var(--line); color:var(--ink); font-weight:600; border-radius:4px;">
               ${formattedRosters.map(r => `<option value="${r.roster_id}" ${String(r.roster_id) === String(selectedRosterId) ? "selected" : ""}>${escapeHtml(r.label)}</option>`).join("")}
             </select>
           </div>
@@ -1110,9 +1110,9 @@ export async function renderTradesPage(container) {
     content.innerHTML = `
       <div class="shell">
         <div style="display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:16px; margin-bottom:16px;">
-          <div>
+          <div style="min-width:0; max-width:100%;">
             <label for="usage-roster-select" style="font-size:0.78rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--muted); font-weight:700; display:block; margin-bottom:6px;">Équipe analysée :</label>
-            <select id="usage-roster-select" style="padding:10px 14px; background:var(--panel); border:1px solid var(--line); color:var(--ink); font-weight:600; border-radius:4px;">
+            <select id="usage-roster-select" style="max-width:100%; padding:10px 14px; background:var(--panel); border:1px solid var(--line); color:var(--ink); font-weight:600; border-radius:4px;">
               ${formattedRosters.map(r => `<option value="${r.roster_id}" ${String(r.roster_id) === String(selectedRosterId) ? "selected" : ""}>${escapeHtml(r.label)}</option>`).join("")}
             </select>
           </div>
