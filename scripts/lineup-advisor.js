@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { qualifyDecision } from "../public/assets/waiver-decision-view.js";
+import { qualifyDecision, availabilityStateLabel, waiverBlockerLabel } from "../public/assets/waiver-decision-view.js";
 import { assessTradeCut } from "../public/assets/trade-cut-readiness.js";
 /**
  * Adineu Fantasy — Start/Sit Advisor
@@ -137,6 +137,11 @@ function findReplacement(slot, bench, playerStatuses, freeAgentsByPosition, acqu
   return null;
 }
 
+const readLabel = iso => {
+  const t = Date.parse(iso);
+  return Number.isFinite(t) ? `au ${new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Paris", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(t))} (Paris)` : "non datées";
+};
+
 /** One sentence for every output: what to do about an alert, and how sure the model is. */
 export function formatReplacement(alert) {
   const replacement = alert?.replacement;
@@ -148,9 +153,10 @@ export function formatReplacement(alert) {
       : `remplaçant du banc : ${name}`;
   }
   const a = replacement.acquisition || {};
-  const state = a.availabilitySource === "LEAGUE_RULES_INFERRED" ? `${a.availability} déduite — à confirmer dans Sleeper` : a.availability || "UNKNOWN";
+  const stateLabel = availabilityStateLabel(a.availability).toLowerCase();
+  const state = a.availabilitySource === "LEAGUE_RULES_INFERRED" ? `${stateLabel} (déduit, à confirmer dans Sleeper)` : stateLabel;
   const action = ({ ADD_NOW: "ajout libre", CLAIM_IF_CHEAP: `claim${Number.isFinite(a.suggestedBid) ? ` ${a.suggestedBid} $` : ""}${Number.isFinite(a.personalMaxBid) ? ` (plafond ${a.personalMaxBid} $)` : ""}` })[a.recommendedAction] || "aucune action exécutable";
-  return `cible à acquérir : ${name} — ${a.qualification?.label || "Surveiller ou compléter les données"} ; disponibilité ${state} ; ${action}${a.qualification ? ` ; lecture ${a.qualification.availabilityAsOf || "inconnue"}, S${a.qualification.effectiveWeek ?? "?"}, gain ${a.qualification.netGainTotal ?? "n/d"}, contrôles ${a.qualification.blockers.join(", ") || "aucun"}` : ""}${replacement.source === "acquisition_plan" ? " (étape du plan)" : ""}`;
+  return `cible à acquérir : ${name} — ${a.qualification?.label || "Surveiller ou compléter les données"} ; disponibilité ${state} ; ${action}${a.qualification ? ` ; données ${readLabel(a.qualification.availabilityAsOf)}, S${a.qualification.effectiveWeek ?? "?"}, gain ${Number.isFinite(a.qualification.netGainTotal) ? `${a.qualification.netGainTotal} pts` : "non chiffré"}, ${a.qualification.blockers.length ? `contrôles : ${[...new Set(a.qualification.blockers.map(waiverBlockerLabel))].join(" ; ")}` : "aucun contrôle en suspens"}` : ""}${replacement.source === "acquisition_plan" ? " (étape du plan)" : ""}`;
 }
 
 /**

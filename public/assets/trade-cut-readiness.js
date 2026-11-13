@@ -9,7 +9,9 @@ export function assessTradeCut(player, { week, context = null, now = Date.now() 
   const kickoff = games.length === 1 ? Date.parse(games[0].kickoffAt) : NaN;
   if (!Number.isFinite(kickoff)) return unknown("CUT_KICKOFF_UNVERIFIED");
   const started = kickoff <= now;
-  return { status: started ? "GAME_STARTED_REVIEW" : "PREGAME_REVIEW", reason: started ? "EXCLUDED_PENDING_PLATFORM_CHECK" : "PLATFORM_LOCKS_UNVERIFIED", excludedByPolicy: started, canDropNow: null,
+  // Sleeper `bench_lock = 1`: a player locks at his kickoff even on the bench, so a started game blocks the drop by league rule.
+  const leagueLock = started && context.benchLock === true;
+  return { status: started ? "GAME_STARTED_REVIEW" : "PREGAME_REVIEW", reason: leagueLock ? "LEAGUE_BENCH_LOCK" : started ? "EXCLUDED_PENDING_PLATFORM_CHECK" : "PLATFORM_LOCKS_UNVERIFIED", excludedByPolicy: started, canDropNow: null,
     kickoffAt: games[0].kickoffAt, asOf: context.asOf, source: games[0].source || null,
-    autoSubs: context.maxSubs > 0 ? "ASSIGNMENTS_UNVERIFIED" : "NOT_VERIFIED", note: "Filtre prudent, pas une règle de drop universelle. Vérifier Sleeper, AutoSubs et locks au moment de la coupe." };
+    autoSubs: context.maxSubs > 0 ? "ASSIGNMENTS_UNVERIFIED" : "NOT_VERIFIED", note: leagueLock ? "Match commencé : joueur verrouillé, banc compris (réglage bench lock de la ligue). Coupe impossible avant la fin de son match." : "Filtre prudent, pas une règle de drop universelle. Vérifier Sleeper, AutoSubs et locks au moment de la coupe." };
 }

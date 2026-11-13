@@ -62,8 +62,10 @@ export function renderWaiverDecisionBoard(report, { available = true, now = Date
   return `<section class="waiver-decision-board"><h3>Décider pour ton équipe · S${escape(report.week ?? "?")}</h3><p>Lecture des décisions existantes du moteur. Données au ${escape(dateLabel)}. Vérifier à nouveau les conditions dans Sleeper au moment d’agir ; les acquisitions restent des alternatives.</p>${sections.map(([key, title, empty]) => `<details data-waiver-section="${key}" ${key === "now" ? "open" : ""}><summary>${title} (${groups[key].length})</summary>${groups[key].length ? groups[key].slice(0, 5).map(card).join("") + (groups[key].length > 5 ? `<details><summary>Voir les ${groups[key].length - 5} autres candidats</summary>${groups[key].slice(5).map(card).join("")}</details>` : "") : `<p>${empty}</p>`}</details>`).join("")}</section>`;
 }
 
+const availabilityLabels = { FREE_AGENT: "Ajout libre", WAIVER_LOCKED: "En waivers", GAME_LOCKED: "Match commencé", ROSTERED: "Déjà dans un roster", UNKNOWN: "Disponibilité non confirmée" };
+export const availabilityStateLabel = code => availabilityLabels[code] || availabilityLabels.UNKNOWN;
 export function waiverAvailabilityLabel(player) {
-  const availability = { FREE_AGENT: "Ajout libre", WAIVER_LOCKED: "En waivers", GAME_LOCKED: "Match commencé", ROSTERED: "Déjà dans un roster", UNKNOWN: "Disponibilité non confirmée" }[player.availability?.availability] || "Disponibilité non confirmée";
+  const availability = availabilityStateLabel(player.availability?.availability);
   const action = { ADD_NOW: "ajout proposé", CLAIM_IF_CHEAP: "claim à préparer", WATCH: "à surveiller", IGNORE: "aucun mouvement conseillé", UNDETERMINED: "décision non déterminée" }[player.waiver?.decision?.recommendedAction] || "décision non déterminée";
   return `${availability}${player.availability?.availabilitySource === "LEAGUE_RULES_INFERRED" ? " (déduit, à confirmer dans Sleeper)" : ""} · ${action}`;
 }

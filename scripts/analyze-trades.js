@@ -71,6 +71,7 @@ export async function loadPlayerValues({ leagueId = DEFAULT_SLEEPER_LEAGUE_ID, f
     dataThroughWeek: nflState && Number(nflState.week) === week ? resolveLastCompletedWeek(nflState) : null, dataThroughWeekSource: nflState ? "SLEEPER_NFL_STATE" : null,
     reviewDays: league.settings?.trade_review_days, deadlineWeek: league.settings?.trade_deadline,
     movesDisabled: [0, 1].includes(league.settings?.disable_adds) ? league.settings.disable_adds === 1 : null, maxSubs: league.settings?.max_subs ?? null,
+    benchLock: [0, 1].includes(league.settings?.bench_lock) ? league.settings.bench_lock === 1 : null,
     disabled: [0, 1].includes(league.settings?.disable_trades) ? league.settings.disable_trades === 1 : null, ruleSource: `https://api.sleeper.app/v1/league/${leagueId}`,
     games: games.map(({ season, week, home_team, away_team, kickoffAt, source, sourceFetchedAt }) => ({ season, week, home_team, away_team, kickoffAt, source, sourceFetchedAt }))
   }; }).catch(() => null);

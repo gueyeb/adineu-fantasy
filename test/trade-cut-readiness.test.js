@@ -19,6 +19,14 @@ test("kickoff boundary excludes by cautious policy without inventing a universal
   assert.equal(result.excludedByPolicy, true);
   assert.equal(result.canDropNow, null);
 });
+test("league bench lock turns a started game into a rule-based exclusion", () => {
+  const started = { ...context, benchLock: true, games: context.games.map(game => ({ ...game, kickoffAt: context.asOf })) };
+  const result = check({ context: started });
+  assert.equal(result.reason, "LEAGUE_BENCH_LOCK");
+  assert.equal(result.excludedByPolicy, true);
+  assert.equal(result.canDropNow, null);
+  assert.equal(check({ context: { ...context, benchLock: true } }).reason, "PLATFORM_LOCKS_UNVERIFIED");
+});
 test("stale/ambiguous evidence stays unknown and disabled moves exclude", () => {
   assert.equal(check({ now: now + 300001 }).status, "UNVERIFIED");
   assert.equal(check({ context: { ...context, games: [...context.games, ...context.games] } }).status, "UNVERIFIED");
