@@ -1,8 +1,8 @@
-import { normalizeTradeIntent, targetWeekTradeImpact, compareTargetWeekImpacts } from "./trade-target.js?v=955c50d8b2";
+import { normalizeTradeIntent, targetWeekTradeImpact, compareTargetWeekImpacts } from "./trade-target.js?v=8b3a185bbb";
 import { listRosterIdentities, buildStarterSlotOrder } from "./roster-view.js?v=120de9d74d";
 import { BYE_WEEKS_2026, ROSTER_SETTINGS_2026 } from "./league-settings.js?v=886f353394";
-import { restOfSeasonEstimate, restOfSeasonLineup } from "./trade-score.js?v=7c41755e10";
-import { diagnoseRoster, findTradeProposals } from "./trade-recommender.js?v=b19e83b915";
+import { restOfSeasonEstimate, restOfSeasonLineup } from "./trade-score.js?v=890c092820";
+import { diagnoseRoster, findTradeProposals } from "./trade-recommender.js?v=4b114cb1e6";
 import { playerKey } from "./trade-preferences.js?v=c5fec5ce56";
 import { partnerLabel } from "./manager-identity.js?v=7f451cdf4d";
 

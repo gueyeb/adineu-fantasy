@@ -114,6 +114,10 @@ test("an already over-capacity partner receives two cut candidates, excluding in
   assert.equal(theirs.length, 16);
   const score = scoreTradeRecommendation({ myPlayers: mine, theirPlayers: theirs, give, receive });
   assert.equal(score.rosterConsequences.theirs.cutsNeeded, 2);
+  assert.ok(score.rosterConsequences.theirs.cutCost > 0);
+  assert.equal(score.rosterConsequences.theirs.cutCostUnit, "TRADE_VALUE");
+  const cutPenalty = score.rosterConsequences.mine.cutCost + score.rosterConsequences.theirs.cutCost;
+  assert.ok(cutPenalty > 0, "lost bench assets penalize recommendation ranking");
   assert.deepEqual(score.rosterConsequences.theirs.cutCandidates.map(player => player.name), ["Bench0", "Bench1"]);
   assert.equal(score.rosterConsequences.theirs.cutCandidates[0].name, "Bench0");
   assert.ok(!score.warnings.some(w => /coupe/.test(w)));

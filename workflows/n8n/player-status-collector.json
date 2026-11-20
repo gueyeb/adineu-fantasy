@@ -1,0 +1,201 @@
+{
+  "name": "ADINEU — Daily player status collector",
+  "active": false,
+  "nodes": [
+    {
+      "id": "manual",
+      "name": "Test collection",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -100
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "schedule",
+      "name": "Hourly check, daily source cap",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        100
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "collect",
+      "name": "Collect daily Sleeper snapshot",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        260,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://adineu-fantasy.bakene.tech/api/player-intelligence/collect?team=t0z",
+        "authentication": "none",
+        "options": {
+          "timeout": 120000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"watchIds\": []}"
+      },
+      "disabled": true
+    },
+    {
+      "id": "changed",
+      "name": "Confirmed change?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        780,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "recompute",
+              "leftValue": "={{ $json.shouldRecompute }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "recompute",
+      "name": "Recompute private Coach delta",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1040,
+        -100
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://adineu-fantasy.bakene.tech/api/coach?team=t0z&delta=1",
+        "authentication": "none",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "disabled": true
+    },
+    {
+      "id": "output",
+      "name": "Review delta, no automatic send",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1300,
+        -100
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "instructions",
+      "name": "Pilot setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        250,
+        260
+      ],
+      "parameters": {
+        "content": "## ADINEU private pilot\nDeploy the API and persistent PLAYER_INTELLIGENCE_DIR first. Select Header Auth credentials: Authorization: Bearer <token>. Use a distinct PLAYER_INTELLIGENCE_TOKEN. Coach credential uses COACH_API_TOKEN.\n\nThis workflow sends no notifications. Only a confirmed change requests a fresh Coach delta. The backend enforces one Sleeper catalog collection per 24 hours. Source publication dates are mandatory on incoming observations.\n\nIMPORT SAFETY: HTTP and webhook nodes are disabled and have no credential selected. Configure the proper Header Auth credential, then enable each node. Never accept an unrelated credential chosen automatically by n8n.",
+        "height": 260,
+        "width": 660
+      }
+    }
+  ],
+  "connections": {
+    "Test collection": {
+      "main": [
+        [
+          {
+            "node": "Collect daily Sleeper snapshot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hourly check, daily source cap": {
+      "main": [
+        [
+          {
+            "node": "Collect daily Sleeper snapshot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect daily Sleeper snapshot": {
+      "main": [
+        [
+          {
+            "node": "Confirmed change?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confirmed change?": {
+      "main": [
+        [
+          {
+            "node": "Recompute private Coach delta",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Recompute private Coach delta": {
+      "main": [
+        [
+          {
+            "node": "Review delta, no automatic send",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Paris"
+  },
+  "pinData": {}
+}

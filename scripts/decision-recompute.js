@@ -1,3 +1,5 @@
+import { decisionWeeklyProjection } from "../public/assets/decision-horizons.js";
+import { buildObjectiveFits } from "./decision-objectives.js";
 import { selectWaiverBoard } from "../public/assets/waiver-board.js";
 import { buildProjectionComparison } from './projection-comparison.js';
 import { extractDecisionFeatures } from './decision-features.js';
@@ -44,7 +46,7 @@ export function recomputeDecisionInputs(inputs) {
       const fallback = restOfSeasonEstimate(inputs.week);
       const players = [...marketRows,...myPlayers];
       const paceById = Object.fromEntries(players.map(player=>[player.sleeperId,player.effectivePpg ?? sourceFeatures.rosFor(player.sleeperId,player) ?? fallback(player)]));
-      const weeklyPaceById = Object.fromEntries(players.map(player=>[player.sleeperId,Object.fromEntries(Object.keys(inputs.raw.projectionsByWeek).map(w=>[w,BYE_WEEKS_2026[player.nflTeam] === Number(w) || ['Out','Doubtful','IR','PUP','Sus','NA'].includes(player.injuryStatus) && Number(w) === inputs.week ? 0 : inputs.raw.projectionsByWeek[w]?.[player.sleeperId]?.pts_ppr ?? null]))]));
+      const weeklyPaceById = Object.fromEntries(players.map(player=>[player.sleeperId,Object.fromEntries(Object.keys(inputs.raw.projectionsByWeek).map(w=>[w,decisionWeeklyProjection(player, Number(w), { ...inputs, ...inputs.raw })]))]));
       const protectedIds = (roster.reserve || []).filter(id=>id && id !== '0').map(String);
       const lockedIds = myPlayers.filter(player=>{
         if (BYE_WEEKS_2026[player.nflTeam] === inputs.week) return false;
@@ -97,6 +99,7 @@ export function recomputeDecisionInputs(inputs) {
     (byPosition[row.position] ??= []).push(row);
     shown.add(id);
   }
+  for (const row of Object.values(byPosition).flat()) row.objectiveFits = buildObjectiveFits(row, fitContext, inputs.week);
   const coherence = buildCoherenceWarnings({ boardRows:Object.values(byPosition).flat(), marketRows:market, myPlayers:fitContext?.myPlayers ?? [], modelDegraded:Boolean(inputs.degraded),
     rosterState:{ emptyStarterSlotCount:countEmptyStarterSlots(fitContext, buildStarterSlotOrder(ROSTER_SETTINGS_2026).length), planStepCount:acquisitionPlan?.steps.length ?? null } });
   const projectionComparison = Object.hasOwn(inputs.raw ?? {}, 'projectionCapture') ? buildProjectionComparison({

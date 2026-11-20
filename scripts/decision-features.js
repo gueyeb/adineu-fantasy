@@ -1,3 +1,4 @@
+import { projectionHorizons } from '../public/assets/decision-horizons.js';
 import { buildPlayerWeeks, calculateUsageScores, expectedPoints } from '../public/assets/usage-score.js';
 import { buildEmergingRole, classifyRoleProfile } from '../public/assets/role-profile.js';
 import { usageAdjustedRosPpg, projectedRosOnly } from '../public/assets/rest-of-season.js';
@@ -152,10 +153,16 @@ export function extractDecisionFeatures({ index, catalog, rosters, nflState, pro
       position: player.position,
       nflTeam: player.nflTeam,
       injuryStatus: player.injuryStatus,
+      intelligence: player.intelligence ?? null,
+      practiceParticipation: player.practiceParticipation ?? null,
+      rosterStatus: player.rosterStatus ?? null,
+      projectionHorizons: projectionHorizons({ player: { ...player, sleeperId: id }, week, projectionsByWeek, evidence: eventsById[id], asOf, season, leagueId }),
       rosPpg,
       rosSource: projectedRos !== null ? (rosDetail?.source || "SLEEPER_PROJECTIONS") : rankFallback !== null ? "RANK_ESTIMATE" : "NONE",
       usageScore: usageById.get(id)?.usageScore ?? null,
       usageSignal: usageById.get(id)?.signal ?? null,
+      passingParticipation: usageById.get(id)?.passingParticipation ?? null,
+      signalEvidence: usageById.get(id)?.signalEvidence ?? null,
       xfp: usageById.get(id)?.xfp ?? null,
       weekProjection: Number.isFinite(weekProjection) ? Number(weekProjection.toFixed(1)) : null,
       effectivePpg: valuationCovered ? pace.effective : null,
@@ -182,6 +189,7 @@ export function extractDecisionFeatures({ index, catalog, rosters, nflState, pro
       rosPpg: rosFor(id, player),
       signals,
       emergingRole: buildEmergingRole({ series: signals.series, xfpByWeek: xfpByWeekById.get(id), absenceTriggers: absencesAhead(id, playerRipple) }),
+      handcuff: player.position === "RB" ? { status: (byTeamPosition.get(`${player.nflTeam}:RB`) || []).some(mate => String(mate.id) !== String(id) && Number.isFinite(mate.searchRank) && Number.isFinite(player.searchRank) && mate.searchRank < player.searchRank) ? "POSSIBLE" : "UNVERIFIED", value: null, calibrated: false } : null,
       usageScore: usage?.usageScore ?? null,
       usageSignal: usage?.signal ?? null,
       usageTrend: usage?.trend ?? null,

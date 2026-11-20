@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { createPlayerIntelligenceService } from "./scripts/player-intelligence-service.js";
 import { getLiveStandings as getLiveStandingsDefault } from "./scripts/live-standings.js";
 import { TRADE_TARGET_POSITIONS, LAST_TRADE_TARGET_WEEK } from "./public/assets/trade-target.js";
 import { createReadStream } from "node:fs";
@@ -144,6 +145,8 @@ export function createAppServer({
   evaluateOffer = evaluateTradeOffer,
   getStartSit = getStartSitDefault,
   getMatchupContext = getMatchupContextDefault,
+  playerIntelligenceService = createPlayerIntelligenceService({ getIndex: getPlayersIndex }),
+  playerIntelligenceToken = process.env.PLAYER_INTELLIGENCE_TOKEN || "",
   modelJobToken = process.env.MODEL_JOB_TOKEN || "",
   runModelJob = async ({ team } = {}) => runWeeklyJob({ supabase: await createSupabaseFromEnv(), team }),
   runPrelockJob = getPrelockCheck,
@@ -209,10 +212,31 @@ export function createAppServer({
         return sendJson(response, 400, { error: "Invalid request" });
       }
     }
+    const followedTeam = async () => resolveCoachTeam({ param: url.searchParams.get("team"), settings: (await coachSettingsStore.load()).settings }).team;
+    if (url.pathname.startsWith('/api/player-intelligence')) {
+      if (!playerIntelligenceToken) return sendJson(response, 503, { error: 'PLAYER_INTELLIGENCE_TOKEN not configured' });
+      const expected = Buffer.from(`Bearer ${playerIntelligenceToken}`), received = Buffer.from(request.headers.authorization || '');
+      if (received.length !== expected.length || !timingSafeEqual(received, expected)) return sendJson(response, 401, { error: 'Unauthorized' });
+      try {
+        if (url.pathname === '/api/player-intelligence' && request.method === 'GET') return sendJson(response, 200, await playerIntelligenceService.status());
+        if (!['/api/player-intelligence/ingest', '/api/player-intelligence/collect'].includes(url.pathname)) return sendJson(response, 404, { error: 'Not found' });
+        if (request.method !== 'POST') return sendJson(response, 405, { error: 'Method not allowed' });
+        let body = '';
+        for await (const chunk of request) {
+          body += chunk;
+          if (Buffer.byteLength(body) > 128 * 1024) return sendJson(response, 413, { error: 'Payload too large' });
+        }
+        let input;
+        try { input = JSON.parse(body || '{}'); } catch { return sendJson(response, 400, { error: 'Invalid JSON' }); }
+        const result = url.pathname.endsWith('/ingest') ? await playerIntelligenceService.ingest(input)
+          : await playerIntelligenceService.collect({ team: await followedTeam(), watchIds: input.watchIds ?? [] });
+        if (result.changed) { contextCache.clear(); freeAgentsCache.clear(); }
+        return sendJson(response, 200, result);
+      } catch (error) { return sendJson(response, error.status || 503, { error: error.status ? error.message : 'PLAYER_INTELLIGENCE_SOURCE_UNAVAILABLE' }); }
+    }
     // Weekly model tracking job (n8n, Tuesday): feedback on the completed week + snapshot.
     // Journal refresh (n8n, Thursday): re-sync after Wednesday's waivers + post-waiver review.
     // Followed team: explicit ?team= > Coach settings > COACH_TEAM > t0z (docs/prd-coach-settings.md).
-    const followedTeam = async () => resolveCoachTeam({ param: url.searchParams.get("team"), settings: (await coachSettingsStore.load()).settings }).team;
     const jobRoutes = { "/api/model/experts/capture": () => runExpertsJob(), "/api/coach/prelock": async () => runPrelockJob({ team: await followedTeam() }), "/api/model/weekly": async () => runModelJob({ team: await followedTeam() }), "/api/coach/decisions/sync": async () => runJournalJob({ team: await followedTeam() }) };
     if (jobRoutes[url.pathname] && request.method === "POST") {
       if (!modelJobToken) return sendJson(response, 503, { error: "MODEL_JOB_TOKEN non configuré." });

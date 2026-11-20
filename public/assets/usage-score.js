@@ -111,6 +111,8 @@ export function buildPlayerWeeks(statsByWeek, { teamOf, positionOf }) {
         carries: row.rush_att || 0,
         airYards: Math.max(0, row.rec_air_yd || 0),
         redZone,
+        routes: Number.isFinite(row.rec_routes) && row.rec_routes >= 0 ? row.rec_routes : null,
+        teamDropbacks: total.dropbacks > 0 ? total.dropbacks : null,
         snapShare: share(row.off_snp, row.tm_off_snp || total.snaps),
         targetShare: share(row.rec_tgt || 0, total.targets),
         airShare: share(Math.max(0, row.rec_air_yd || 0), total.airYards),
@@ -211,7 +213,16 @@ export function calculateUsageScores(playerWeeks) {
     const trend = previous.length
       ? Object.entries(weights).reduce((sum, [key, w]) => sum + w * last[key], 0) - weightedMean(previous, row => Object.entries(weights).reduce((sum, [key, w]) => sum + w * row[key], 0))
       : null;
+    // Route counts are optional source data; snaps never substitute for routes.
+    const routeGames = games.filter(row => Number.isFinite(row.routes) && row.teamDropbacks > 0);
+    const passingParticipation = { targetShare: round(weightedMean(games, row => row.targetShare) * 100, 0),
+      airYardsShare: round(weightedMean(games, row => row.airShare) * 100, 0),
+      routes: routeGames.length === games.length ? round(weightedMean(games, row => row.routes)) : null,
+      routeParticipation: routeGames.length === games.length ? round(weightedMean(games, row => Math.min(1, row.routes / row.teamDropbacks)) * 100, 0) : null,
+      targetsPerRoute: routeGames.length === games.length && routeGames.every(row => row.routes > 0) ? round(weightedMean(games, row => row.targets / row.routes), 3) : null,
+      routeCoverage: `${routeGames.length}/${games.length}`, routeSource: routeGames.length ? 'SLEEPER_REC_ROUTES' : null };
     return {
+      passingParticipation,
       playerId, position, team: last.team, games: games.length, composite,
       snapShare: round(weightedMean(games, row => row.snapShare) * 100, 0),
       targetShare: round(weightedMean(games, row => row.targetShare) * 100, 0),
@@ -242,6 +253,8 @@ export function calculateUsageScores(playerWeeks) {
         // Elite usage (> 85) producing above volume is a star, not a fluke: never "sell high" on it.
         : player.gap >= (SIGNAL_GAPS[position]?.sell ?? SELL_HIGH_GAP) && player.usageScore <= 85 ? "SELL_HIGH"
         : null;
+      player.signalEvidence = player.signal === 'BUY_LOW' ? { basis: 'PRODUCTION_BELOW_VOLUME_XFP', passingParticipation: player.passingParticipation,
+        routesAvailable: player.passingParticipation.routeParticipation !== null, calibrated: false } : null;
       delete player.composite;
     });
   }

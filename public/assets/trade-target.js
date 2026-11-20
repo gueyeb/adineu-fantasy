@@ -1,6 +1,6 @@
 import { assessTradeTiming, hasNoNflTeam } from "./trade-timing.js?v=78365de8af";
 import { BYE_WEEKS_2026, GENERAL_SETTINGS_2026 } from "./league-settings.js?v=886f353394";
-import { buildProjectedLineup, GAMES_MISSED_BY_STATUS, injuryStatus, returnWeekAssumption } from "./trade-score.js?v=7c41755e10";
+import { buildProjectedLineup, GAMES_MISSED_BY_STATUS, injuryStatus, returnWeekAssumption } from "./trade-score.js?v=890c092820";
 import { paceWeekValue } from "./rest-of-season.js?v=9b85ae76ed";
 import { playerKey } from "./trade-preferences.js?v=c5fec5ce56";
 

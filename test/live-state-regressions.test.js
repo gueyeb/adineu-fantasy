@@ -136,7 +136,7 @@ test("Kamara: with coverage, the cut is ranked on net gain and every cost compon
   assert.equal(fit.horizonCovered, true);
   assert.deepEqual(fit.assumptions, ["RESERVE_PLAYERS_NOT_STARTABLE"]);
   assert.equal(fit.cutSelection, "RANKED_BY_NET_GAIN");
-  assert.equal(fit.dropCandidate.sleeperId, "9000");
+  assert.equal(fit.dropCandidate.sleeperId, "4035");
   assert.equal(fit.comparedCutCount, 3);
   assert.deepEqual(fit.cutExclusions, [{ playerId: "7000", name: "Reserve", reason: "RESERVE_SLOT" }]);
   const lowId = fit.dropCandidates.find(row => row.sleeperId === "4035").dropCostComponents;

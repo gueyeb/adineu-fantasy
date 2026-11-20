@@ -1,0 +1,206 @@
+{
+  "name": "ADINEU — Sourced player observations",
+  "active": false,
+  "nodes": [
+    {
+      "id": "receive",
+      "name": "Receive sourced observations",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "adineu-player-observations",
+        "authentication": "none",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "webhookId": "adineu-player-observations",
+      "disabled": true
+    },
+    {
+      "id": "ingest",
+      "name": "Validate and store observations",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        260,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://adineu-fantasy.bakene.tech/api/player-intelligence/ingest",
+        "authentication": "none",
+        "options": {
+          "timeout": 120000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}"
+      },
+      "disabled": true
+    },
+    {
+      "id": "respond",
+      "name": "Return ingestion result",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        520,
+        0
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    },
+    {
+      "id": "changed",
+      "name": "Confirmed change?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        780,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "recompute",
+              "leftValue": "={{ $json.shouldRecompute }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "recompute",
+      "name": "Recompute private Coach delta",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1040,
+        -100
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://adineu-fantasy.bakene.tech/api/coach?team=t0z&delta=1",
+        "authentication": "none",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "disabled": true
+    },
+    {
+      "id": "output",
+      "name": "Review delta, no automatic send",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1300,
+        -100
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "instructions",
+      "name": "Pilot setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        250,
+        260
+      ],
+      "parameters": {
+        "content": "## ADINEU private pilot\nDeploy the API and persistent PLAYER_INTELLIGENCE_DIR first. Select Header Auth credentials: Authorization: Bearer <token>. Use a distinct PLAYER_INTELLIGENCE_TOKEN. Coach credential uses COACH_API_TOKEN.\n\nThis workflow sends no notifications. Only a confirmed change requests a fresh Coach delta. The backend enforces one Sleeper catalog collection per 24 hours. Source publication dates are mandatory on incoming observations.\n\nIMPORT SAFETY: HTTP and webhook nodes are disabled and have no credential selected. Configure the proper Header Auth credential, then enable each node. Never accept an unrelated credential chosen automatically by n8n.",
+        "height": 260,
+        "width": 660
+      }
+    }
+  ],
+  "connections": {
+    "Receive sourced observations": {
+      "main": [
+        [
+          {
+            "node": "Validate and store observations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate and store observations": {
+      "main": [
+        [
+          {
+            "node": "Return ingestion result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Return ingestion result": {
+      "main": [
+        [
+          {
+            "node": "Confirmed change?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confirmed change?": {
+      "main": [
+        [
+          {
+            "node": "Recompute private Coach delta",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Recompute private Coach delta": {
+      "main": [
+        [
+          {
+            "node": "Review delta, no automatic send",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Paris"
+  },
+  "pinData": {}
+}

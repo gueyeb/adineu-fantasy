@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+import { createPlayerIntelligenceStore, applyPlayerIntelligence } from "./player-intelligence.js";
+import { buildObjectiveFits } from "./decision-objectives.js";
+import { LAST_FANTASY_WEEK, decisionWeeklyProjection } from "../public/assets/decision-horizons.js";
 import { buildWaiverSchedule, formatWaiverSchedule } from "../public/assets/waiver-schedule.js";
 import { buildLeagueRosterSnapshot } from "../public/assets/league-trade-intelligence.js";
 import { buildWeeklyRankings } from "../public/assets/weekly-rankings.js";
@@ -53,7 +56,7 @@ const SLEEPER_API = "https://api.sleeper.app/v1";
 const DEFAULT_CATALOG_URL = new URL("../public/data/players-catalog.json", import.meta.url);
 const POSITION_ORDER = ["QB", "RB", "WR", "TE", "K", "DEF"];
 const STARTER_SLOT_ORDER = buildStarterSlotOrder(ROSTER_SETTINGS_2026);
-const INJURY_STATUS_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // le dump Sleeper /players/nfl pèse ~15 Mo, on ne le refetch pas à chaque requête
+const INJURY_STATUS_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // le dump Sleeper /players/nfl pèse ~15 Mo, référentiel quotidien ; les observations urgentes sont appliquées séparément
 
 // Statuts Sleeper connus : Questionable, Doubtful, Out, IR, PUP, Sus, NA.
 export { SEVERITY_BY_STATUS };
@@ -62,7 +65,7 @@ export { SEVERITY_BY_STATUS };
 const playersIndexCaches = new WeakMap();
 
 /**
- * Index allégé (et mis en cache 6 h) du dump Sleeper /players/nfl (~15 Mo) : poste, équipe,
+ * Index allégé (et mis en cache 24 h) du dump Sleeper /players/nfl (~15 Mo) : poste, équipe,
  * statut et zone de blessure, depth chart. Partagé par le Start/Sit Advisor, le Trade Finder
  * (/api/player-status) et le Waiver Wire v2 (événements : promotion, blessure du titulaire).
  */
@@ -104,10 +107,16 @@ export async function loadAuctionCalibration() {
   return auctionCalibrationRemote?.value ?? auctionCalibrationFile;
 }
 
-export async function getPlayersIndex({ fetchImpl = fetch, forceRefresh = false } = {}) {
+async function withPlayerIntelligence(index, fetchImpl, enabled) {
+  if (!enabled || !process.env.PLAYER_INTELLIGENCE_DIR) return index;
+  const [state, captured] = await Promise.all([cachedWeekly('/state/nfl', fetchImpl, 60_000), createPlayerIntelligenceStore().load()]);
+  return applyPlayerIntelligence(index, captured.observations, { now: Date.now(), leagueId: DEFAULT_SLEEPER_LEAGUE_ID, season: Number(state.season), targetWeek: resolveOperationalWeek(state) });
+}
+
+export async function getPlayersIndex({ fetchImpl = fetch, forceRefresh = false, applyIntelligence = true } = {}) {
   const now = Date.now();
   const hit = playersIndexCaches.get(fetchImpl);
-  if (!forceRefresh && hit && (now - hit.at) < INJURY_STATUS_CACHE_TTL_MS) return hit.index;
+  if (!forceRefresh && hit && (now - hit.at) < INJURY_STATUS_CACHE_TTL_MS) return withPlayerIntelligence(hit.index, fetchImpl, applyIntelligence);
 
   const response = await fetchImpl(`${SLEEPER_API}/players/nfl`, { signal: AbortSignal.timeout(20_000) });
   if (!response.ok) throw new Error(`Sleeper API /players/nfl -> HTTP ${response.status}`);
@@ -125,6 +134,8 @@ export async function getPlayersIndex({ fetchImpl = fetch, forceRefresh = false 
       nflTeam: player.team || null,
       injuryStatus: player.injury_status || null,
       injuryBodyPart: player.injury_body_part || null,
+      rosterStatus: player.status ?? null,
+      practiceParticipation: player.practice_participation ?? null,
       depthOrder: Number.isFinite(player.depth_chart_order) ? player.depth_chart_order : null,
       depthPosition: player.depth_chart_position || null,
       teamChangedAt: Number.isFinite(player.team_changed_at) ? player.team_changed_at : null,
@@ -135,7 +146,7 @@ export async function getPlayersIndex({ fetchImpl = fetch, forceRefresh = false 
   }
 
   playersIndexCaches.set(fetchImpl, { at: now, index });
-  return index;
+  return withPlayerIntelligence(index, fetchImpl, applyIntelligence);
 }
 
 /** sleeperId -> injury_status, pour les joueurs qui en ont un. */
@@ -684,7 +695,7 @@ export async function getFreeAgents({
   const season = nflState?.season || "2026";
   const lastCompletedWeek = resolveLastCompletedWeek(nflState);
   const [storedEvidence, schedule] = await Promise.all([
-    loadDecisionEvidence({ path: evidencePath, leagueId, season, week }),
+    loadDecisionEvidence({ path: evidencePath, leagueId, season, week, asOf }),
     getSchedule({ season, fetchImpl }).catch(() => [])
   ]);
   availabilityEvidenceById ??= storedEvidence.availabilityById;
@@ -736,7 +747,7 @@ export async function getFreeAgents({
   } catch {}
 
   const projectionsByWeek = {};
-  await Promise.all(Array.from({ length: Math.max(0, LAST_REGULAR_WEEK - week + 1) }, (_, i) => week + i).map(async w => {
+  await Promise.all(Array.from({ length: Math.max(0, LAST_FANTASY_WEEK - week + 1) }, (_, i) => week + i).map(async w => {
     try { projectionsByWeek[w] = await cachedWeekly(`/projections/nfl/regular/${season}/${w}`, fetchImpl); } catch {}
   }));
   const statsByWeek = [];
@@ -746,11 +757,12 @@ export async function getFreeAgents({
 
   const expectedProjectionWeeks = Math.max(0, LAST_REGULAR_WEEK - week + 1);
   const coverage = {
-    projectionWeeks: `${Object.keys(projectionsByWeek).length}/${expectedProjectionWeeks}`,
+    projectionWeeks: `${Object.keys(projectionsByWeek).filter(w => Number(w) <= LAST_REGULAR_WEEK).length}/${expectedProjectionWeeks}`,
+    playoffProjectionWeeks: Object.fromEntries([15, 16, 17].map(w => [w, Boolean(projectionsByWeek[w] && Object.keys(projectionsByWeek[w]).length)])),
     statsWeeks: `${statsByWeek.length}/${lastCompletedWeek > 0 ? Math.min(3, lastCompletedWeek) : 0}`,
     playersIndex: index.size > 0
   };
-  const degraded = Object.keys(projectionsByWeek).length < expectedProjectionWeeks || !coverage.playersIndex ||
+  const degraded = Object.keys(projectionsByWeek).filter(w => Number(w) <= LAST_REGULAR_WEEK).length < expectedProjectionWeeks || !coverage.playersIndex ||
     statsByWeek.length < (lastCompletedWeek > 0 ? Math.min(3, lastCompletedWeek) : 0);
 
   const fetchedAtByPath = Object.fromEntries([...weeklyCaches.get(fetchImpl) || []].map(([path, entry]) => [path, new Date(entry.at).toISOString()]));
@@ -781,7 +793,7 @@ export async function getFreeAgents({
       const slot = ROSTER_SETTINGS_2026.starters[position] > 1 ? `${position}${occurrences[position]}` : position;
       return [slot, id];
     }).filter(([slot, id]) => slot && lockedIds.has(String(id))));
-    const weeklyPaceOf = (player, w) => BYE_WEEKS_2026[player.nflTeam] === w || SEVERITY_BY_STATUS[player.injuryStatus] === "ALERT" && w === week ? 0 : projectionsByWeek[w]?.[player.sleeperId]?.pts_ppr ?? null;
+    const weeklyPaceOf = (player, w) => decisionWeeklyProjection(player, w, { projectionsByWeek, week, eventsById, asOf, season, leagueId });
     const projectionCovered = (player, w) => Number.isFinite(weeklyPaceOf(player, w));
     const activeCount = myPlayers.filter(p => !protectedIds.has(String(p.sleeperId))).length;
     const hasOpenRosterSlot = activeCount < STARTER_SLOT_ORDER.length + ROSTER_SETTINGS_2026.benchSlots;
@@ -846,6 +858,7 @@ export async function getFreeAgents({
     board.push(row);
     boardIds.add(id);
   }
+  for (const row of [...board, ...watchRows]) row.objectiveFits = buildObjectiveFits(row, fitContext, week);
   boardCoverage.returned = board.length;
   // Sanity checks before publication: computed on what is actually returned.
   const coherence = buildCoherenceWarnings({ boardRows: board, marketRows: market, myPlayers: fitContext?.myPlayers ?? [], modelDegraded: degraded,
@@ -856,7 +869,7 @@ export async function getFreeAgents({
   if (onDecisionInputs) {
     const evaluatedPlayers = [...market, ...(fitContext?.myPlayers || [])];
     const paceById = Object.fromEntries(evaluatedPlayers.map(player => [player.sleeperId, fitContext?.paceOf(player) ?? null]));
-    const weeklyPaceById = Object.fromEntries(evaluatedPlayers.map(player => [player.sleeperId, Object.fromEntries(Array.from({ length: LAST_REGULAR_WEEK - week + 1 }, (_, i) => [week + i, fitContext?.weeklyPaceOf(player, week + i) ?? null]))]));
+    const weeklyPaceById = Object.fromEntries(evaluatedPlayers.map(player => [player.sleeperId, Object.fromEntries(Array.from({ length: Math.max(0, LAST_FANTASY_WEEK - week + 1) }, (_, i) => [week + i, fitContext?.weeklyPaceOf(player, week + i) ?? null]))]));
     const { paceOf, weeklyPaceOf, projectionCovered, ...serialFit } = fitContext || {};
     await onDecisionInputs(JSON.parse(JSON.stringify({ version: 2, featureExtractionVersion: 2, degraded, lastCompletedWeek, capturedAt: new Date().toISOString(), leagueId, season, week, asOf, team, position, limitPerPosition,
       ownershipRechecked, transactionsComplete: transactionsByWeek.length === week,

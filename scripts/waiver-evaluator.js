@@ -110,6 +110,8 @@ export function createWaiverEvaluator({ fitContext, week, availabilityFor, owner
       horizonCovered: fit?.horizonCovered ?? false,
       targetWeekDelta: fit?.targetWeekDelta ?? null,
       position: row.position,
+      injuryStatus: row.injuryStatus,
+      availabilityWindow: row.projectionHorizons?.QUALIFICATION?.availability ?? null,
       marketScore: row.marketScore,
       flags: row.events.flags,
       usageSignal: row.usageSignal,

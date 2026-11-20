@@ -12,7 +12,7 @@ players.q = { full_name: "Rental QB", position: "QB", team: "CHI", search_rank: 
 players.injured = { full_name: "Injured QB", position: "QB", team: "CHI", search_rank: 1, injury_status: "Out", active: true };
 const points = Object.fromEntries(rosterIds.map((id, i) => [id, { pts_ppr: i === 0 ? 17.1 : i === 9 ? 9 : 10 }]));
 points.q = { pts_ppr: 17.2 };
-function fixture({ reOwned = false, missing = false, conflictQB = false, wrAdds = false, recordedStats = false } = {}) {
+function fixture({ reOwned = false, missing = false, conflictQB = false, wrAdds = false, knownRosterUsage = false, recordedStats = false } = {}) {
   let rosterReads = 0;
   return async url => ({ ok: true, text: async () => "season,game_type,week,gameday,gametime,away_team,home_team,away_score,home_score\n2026,REG,4,2026-10-04,13:00,CHI,SEA,,",
     json: async () => {
@@ -26,6 +26,7 @@ function fixture({ reOwned = false, missing = false, conflictQB = false, wrAdds 
       if (url.endsWith("/players/nfl") && wrAdds) return { ...players, wrA: { full_name: "WR A", position: "WR", team: "CHI", active: true }, wrB: { full_name: "WR B", position: "WR", team: "CHI", active: true } };
       if (url.endsWith("/players/nfl")) return conflictQB ? { ...players, alternate: { full_name: "Alternate QB", position: "QB", team: "CHI", search_rank: 110, active: true } } : players;
       if (url.includes("/transactions/")) return [];
+      if (url.includes("/stats/") && (wrAdds || knownRosterUsage)) return Object.fromEntries(rosterIds.map(id => [id, { off_snp: 40, tm_off_snp: 60, rec_tgt: 3, rush_att: 3, pts_ppr: 10 }]));
       if (url.includes("/stats/") && recordedStats) return { q: {off_snp:60, tm_off_snp:65, pass_att:30, pass_sack:2, pass_air_yd:240, rush_att:4, rush_rz_att:1, pass_rz_att:5, pts_ppr:22} };
       if (url.includes("/projections/") && wrAdds) return { ...points, wrA: { pts_ppr: 16 }, wrB: { pts_ppr: 15 } };
       if (url.includes("/projections/")) return missing ? Object.fromEntries(Object.entries(points).filter(([id]) => id !== "r1")) : points;
@@ -80,11 +81,11 @@ test("two dated starter confirmations on one team cannot confirm either QB", asy
 
 test("snapshot applies a dated roster preference and removes it on expiry", async () => {
   const preference = { playerId: "r9", rosterId: 1, kind: "KEEP_UNTIL", createdAt: "2026-10-04T09:00:00Z", expiresAt: "2026-10-04T12:00:00Z", penaltyPoints: 5, reason: "Observe QB2" };
-  const report = await getFreeAgents({ ...options, fetchImpl: fixture(), rosterPreferences: [preference] });
+  const report = await getFreeAgents({ ...options, fetchImpl: fixture({ knownRosterUsage: true }), rosterPreferences: [preference] });
   const candidate = report.byPosition.QB.find(p => p.sleeperId === "q");
   assert.notEqual(candidate.waiver.fit.dropCandidate.sleeperId, "r9");
   assert.equal(report.rosterPreferences.length, 1);
-  const expired = await getFreeAgents({ ...options, fetchImpl: fixture(), rosterPreferences: [{ ...preference, expiresAt: asOf }] });
+  const expired = await getFreeAgents({ ...options, fetchImpl: fixture({ knownRosterUsage: true }), rosterPreferences: [{ ...preference, expiresAt: asOf }] });
   assert.equal(expired.rosterPreferences.length, 0);
   assert.equal(expired.byPosition.QB.find(p => p.sleeperId === "q").waiver.fit.dropCandidate.sleeperId, "r9");
 });

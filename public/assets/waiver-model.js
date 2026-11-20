@@ -7,7 +7,7 @@
  * Two separate answers, never merged: marketScore/faabMarket (what the player is worth to the
  * league) and fitScore/faabMaxForMe (what he is worth to one roster). Estimates, labeled as such.
  */
-import { buildProjectedLineup } from "./trade-score.js?v=7c41755e10";
+import { buildProjectedLineup } from "./trade-score.js?v=890c092820";
 import { BYE_WEEKS_2026, GENERAL_SETTINGS_2026 } from "./league-settings.js?v=886f353394";
 
 export const LAST_REGULAR_WEEK = GENERAL_SETTINGS_2026.playoffWeekStart - 1;
@@ -192,8 +192,8 @@ export function evaluateMarket({ rows, week, budget = GENERAL_SETTINGS_2026.waiv
 export function evaluateRosterFit({ marketRow, myPlayers, paceOf, week, faabRemaining,
   protectedIds = new Set(), lockedIds = new Set(), starterIds = new Set(), weeklyPaceOf = null,
   projectionCovered = null, replacementByPosition = {}, hasOpenRosterSlot = false, frozenSlots = {}, rosterPreferences = [],
-  reserveIds = new Set() }) {
-  const remaining = Math.max(1, LAST_REGULAR_WEEK - week + 1);
+  reserveIds = new Set(), endWeek = LAST_REGULAR_WEEK }) {
+  const remaining = Math.max(1, endWeek - week + 1);
   // A promoted player who already had a role keeps it when the starter returns: he is valued on
   // the season's weekly projections, not only on the weeks of the absence.
   const existingRole = marketRow.roleProfile?.profile === "INJURY_PROMOTION_WITH_EXISTING_ROLE";
@@ -291,7 +291,7 @@ export function evaluateRosterFit({ marketRow, myPlayers, paceOf, week, faabRema
     const postRoleCutDeltas = [];
     if (cut && horizonWeeks < remaining) {
       const retained = activePlayers.filter(p => String(p.sleeperId) !== String(cut.sleeperId));
-      for (let w = week + Math.ceil(horizonWeeks); w <= LAST_REGULAR_WEEK; w++) {
+      for (let w = week + Math.ceil(horizonWeeks); w <= endWeek; w++) {
         const estimate = p => weeklyPaceOf ? weeklyPaceOf(p, w) : paceOf(p);
         const blockers = projectionCovered ? blockersFor(activePlayers, w) : [];
         const projectionsCovered = !blockers.length;
@@ -321,7 +321,8 @@ export function evaluateRosterFit({ marketRow, myPlayers, paceOf, week, faabRema
     const progressionSacrificeTotal = !organicRiser ? 0 : Number.isFinite(emerging.optionValuePerWeek) ? round(emerging.optionValuePerWeek * remaining) : null;
     const progressionGuard = !organicRiser ? "NOT_APPLICABLE" : progressionSacrificeTotal === null ? "UNPRICED"
       : netGainTotal !== null && netGainTotal - progressionSacrificeTotal > 0 ? "JUSTIFIED" : netGainTotal === null ? "UNPRICED" : "NOT_JUSTIFIED";
-    const selectionScore = netGainTotal === null ? null : round(netGainTotal - preferencePenaltyTotal - (progressionSacrificeTotal ?? 0));
+    const optionUncertain = option.applicable && Boolean(cut) && (cut.usageScore === null || cut.handcuff?.status === "POSSIBLE");
+    const selectionScore = netGainTotal === null || optionUncertain ? null : round(netGainTotal - preferencePenaltyTotal - (progressionSacrificeTotal ?? 0));
     return { unpricedCutPotential, preference, preferencePenaltyTotal, selectionScore, progressionGuard, progressionSacrificeTotal, emergingRole: emerging, sleeperId: cut?.sleeperId ?? null, name: cut?.name ?? "Place libre", position: cut?.position ?? null,
       nflTeam: cut?.nflTeam || null, weeklyLineupDeltas, grossGainTotal, netGainTotal, dropCostTotal,
       postRoleCutCostTotal, postRoleCutDeltas,
@@ -337,17 +338,17 @@ export function evaluateRosterFit({ marketRow, myPlayers, paceOf, week, faabRema
       optionValuePerWeek, totalCostPerWeek: optionValuePerWeek,
       usageScore: cut?.usageScore ?? null, usageSignal: cut?.usageSignal || null,
       byeWeek: BYE_WEEKS_2026[cut?.nflTeam] ?? null,
-      regretRisk: unpricedCutPotential || option.coverage === "NONE" ? "UNKNOWN" : optionValuePerWeek >= 1.5 ? "HIGH" : optionValuePerWeek >= 0.7 ? "MEDIUM" : "LOW",
+      regretRisk: unpricedCutPotential || option.missingInputs.length > 0 || cut?.handcuff?.status === "POSSIBLE" ? "UNKNOWN" : optionValuePerWeek >= 1.5 ? "HIGH" : optionValuePerWeek >= 0.7 ? "MEDIUM" : "LOW",
       coverageIssues: [...coverageIssues], legalTransaction: !coverageIssues.has("ROSTER_COMPOSITION_VIOLATION") };
   };
   const scenarios = (hasOpenRosterSlot ? [null] : candidates).map(simulate).sort((a, b) =>
-    Number(b.legalTransaction && b.netGainTotal !== null) - Number(a.legalTransaction && a.netGainTotal !== null) ||
+    Number(b.legalTransaction && b.selectionScore !== null) - Number(a.legalTransaction && a.selectionScore !== null) ||
     Number(a.progressionGuard === "UNPRICED") - Number(b.progressionGuard === "UNPRICED") ||
     (b.selectionScore ?? -Infinity) - (a.selectionScore ?? -Infinity) ||
     Number(b.position === marketRow.position) - Number(a.position === marketRow.position) ||
     String(a.sleeperId).localeCompare(String(b.sleeperId)));
   const chosen = scenarios[0] || null;
-  const horizonCovered = Boolean(chosen && chosen.netGainTotal !== null);
+  const horizonCovered = Boolean(chosen && chosen.netGainTotal !== null && chosen.selectionScore !== null);
   // Without a covered comparison the order above is only the id tie-break: it designates nobody.
   const cutRanked = horizonCovered;
   const coveredCuts = scenarios.filter(row => row.sleeperId && row.netGainTotal !== null);
@@ -372,7 +373,7 @@ export function evaluateRosterFit({ marketRow, myPlayers, paceOf, week, faabRema
     postRoleCutCostTotal: chosen?.postRoleCutCostTotal ?? null,
     postRoleCutDeltas: chosen?.postRoleCutDeltas ?? [], targetWeekDelta: chosen?.weeklyLineupDeltas[0]?.delta ?? null,
     weeklyLineupDeltas: chosen?.weeklyLineupDeltas ?? [], slot: chosen?.weeklyLineupDeltas.find(row => row.slot)?.slot ?? null,
-    scenariosAreAlternatives: true, legalTransaction, horizonCovered, coverageIssues: chosen?.coverageIssues ?? ["NO_LEGAL_CUT"],
+    scenariosAreAlternatives: true, legalTransaction, horizonCovered, coverageIssues: chosen ? [...chosen.coverageIssues, ...(chosen.netGainTotal !== null && chosen.selectionScore === null ? ["CUT_OPTION_VALUE_UNKNOWN"] : [])] : ["NO_LEGAL_CUT"],
     coverageBlockers: [...new Map((chosen?.coverageBlockers ?? []).map(row => [`${row.week}:${row.playerId}`, row])).values()],
     assumptions: [...(reserveIds.size ? ["RESERVE_PLAYERS_NOT_STARTABLE"] : []), ...(absentAssumedOut.size ? ["ABSENT_UNPROJECTED_COUNTED_AS_ZERO"] : [])],
     absentAssumedOut: [...absentAssumedOut.values()],
@@ -381,23 +382,26 @@ export function evaluateRosterFit({ marketRow, myPlayers, paceOf, week, faabRema
     comparedCutCount: scenarios.filter(row => row.sleeperId).length, coveredCutCount: coveredCuts.length,
     fitScore, dropCandidate: chosen?.sleeperId && cutRanked ? { sleeperId: chosen.sleeperId, name: chosen.name, position: chosen.position } : null,
     dropCostComponents: cutRanked ? chosen?.dropCostComponents ?? null : null,
-    dropCandidates: scenarios.filter(row => row.sleeperId).slice(0, 3).map(row => ({ ...row, ranked: row.netGainTotal !== null })),
+    dropCandidates: scenarios.filter(row => row.sleeperId).slice(0, 3).map(row => ({ ...row, ranked: row.netGainTotal !== null && row.selectionScore !== null })),
     dropCostPerWeek: cutRanked ? chosen?.totalCostPerWeek ?? 0 : null, dropOptionValuePerWeek: cutRanked ? chosen?.optionValuePerWeek ?? 0 : null,
     faabMaxForMe: maxForMe, rosLineupBaseline: beforeRos.total, contingencyValue: null
   };
 }
 
 /** Turns market upside and roster-specific net gain into an explicit action, not one mixed rank. */
-export function classifyWaiverDecision({ position, marketScore = 0, flags = [], usageSignal = null, netGain = 0, availability = null, roleConfirmation = "NOT_APPLICABLE", legalTransaction = true, horizonCovered = true, targetWeekDelta = null }) {
+export function classifyWaiverDecision({ position, marketScore = 0, flags = [], usageSignal = null, netGain = 0, availability = null, roleConfirmation = "NOT_APPLICABLE", legalTransaction = true, horizonCovered = true, targetWeekDelta = null, injuryStatus = null, availabilityWindow = null }) {
   const skillPosition = ["RB", "WR", "TE"].includes(position);
   const incompleteStreamingOpportunity = ["QB", "K", "DEF"].includes(position) && !horizonCovered && Number.isFinite(targetWeekDelta) && targetWeekDelta > 0;
-  const immediateValue = Math.round(Math.max(0, Math.min(100, (targetWeekDelta ?? netGain) * 25)));
+  const unavailable = ABSENT.has(injuryStatus) || availabilityWindow?.seasonEndingConfirmed === true ||
+    Number.isInteger(availabilityWindow?.outThroughWeek) && availabilityWindow.outThroughWeek >= availabilityWindow.from;
+  const availabilityFactor = availabilityWindow?.fraction ?? (unavailable ? null : 1);
+  const immediateValue = unavailable ? 0 : Math.round(Math.max(0, Math.min(100, (targetWeekDelta ?? netGain) * 25)));
   const eventBonus = flags.includes("PROMOTION") ? 20
     : flags.some(flag => ["SNAP_SURGE", "USAGE_SURGE"].includes(flag)) ? 15 : 0;
-  const strategicUpside = Math.round(Math.max(0, Math.min(100,
-    marketScore * (skillPosition ? 1 : 0.55) + eventBonus + (usageSignal === "BUY_LOW" ? 10 : 0)
+  const strategicUpside = availabilityFactor === null ? null : Math.round(Math.max(0, Math.min(100,
+    (marketScore * (skillPosition ? 1 : 0.55) + eventBonus + (usageSignal === "BUY_LOW" ? 10 : 0)) * availabilityFactor
   )));
-  const decisionClass = flags.includes("PROMOTION") ? "INJURY_PROMOTION"
+  const decisionClass = unavailable ? (availabilityFactor === 0 ? "UNAVAILABLE_HORIZON" : "INJURED_STASH") : flags.includes("PROMOTION") ? "INJURY_PROMOTION"
     : ["QB", "K", "DEF"].includes(position) && (netGain > 0 || incompleteStreamingOpportunity) ? "STREAMER"
     : flags.some(flag => ["SNAP_SURGE", "USAGE_SURGE"].includes(flag)) ? "BREAKOUT"
     : netGain >= 1.5 ? "STARTER_UPGRADE"
@@ -419,6 +423,7 @@ export function classifyWaiverDecision({ position, marketScore = 0, flags = [], 
     else if (!availability.canAddNow) recommendedAction = availability.availability === "WAIVER_LOCKED" ? "CLAIM_IF_CHEAP" : "WATCH";
     else if (recommendedAction === "CLAIM_IF_CHEAP") { recommendedAction = "WATCH"; optionalFreeAdd = true; }
   }
+  if (unavailable) { recommendedAction = "WATCH"; optionalFreeAdd = false; }
   const interpretation = optionalFreeAdd ? "Free agent: a modest gain at no FAAB cost — an optional free add, not a priority."
     : streamerWithoutTargetGain ? "Rest-of-season edge only: no lineup gain this week, so no claim now."
     : recommendedAction === "WATCH" && netGain <= 0
@@ -429,13 +434,14 @@ export function classifyWaiverDecision({ position, marketScore = 0, flags = [], 
         ? "Meaningful net lineup upgrade after accounting for the likely cut."
         : "No actionable edge for this roster today.";
   const actionBlockers = [
+    ...(unavailable ? [availabilityFactor === null ? "RETURN_DATE_UNCONFIRMED" : "PLAYER_UNAVAILABLE_TARGET_WEEK"] : []),
     ...(!legalTransaction ? ["NO_LEGAL_TRANSACTION"] : []),
     ...(!horizonCovered ? ["INCOMPLETE_HORIZON"] : []),
     ...(!availability || availability.canStartTargetWeek !== true ? ["TARGET_WEEK_ELIGIBILITY_UNVERIFIED"] : []),
     ...(flags.includes("PROMOTION") && roleConfirmation !== "CONFIRMED" ? ["ROLE_UNCONFIRMED"] : []),
     ...(streamerWithoutTargetGain ? ["NO_TARGET_WEEK_GAIN"] : [])
   ];
-  return { optionalFreeAdd, immediateValue, strategicUpside, decisionClass, recommendedAction,
+  return { availabilityWindow, optionalFreeAdd, immediateValue, strategicUpside, decisionClass, recommendedAction,
     interpretation: recommendedAction === "UNDETERMINED" ? `No verdict: the comparison with the cuts is incomplete (${actionBlockers.join(", ")}). Not a negative decision.`
       : actionBlockers.length ? `Conditional scenario: ${actionBlockers.join(", ")}.` : interpretation, actionBlockers };
 }

@@ -478,7 +478,9 @@ export function scoreTradeRecommendation({ myPlayers = [], theirPlayers = [], gi
     const candidates = assessed.filter(row => !row.readiness.excludedByPolicy).slice(0, cutsNeeded);
     const beforeStarterIds = new Set(before.slots.map(slot => slot.sleeperId));
     const brief = player => ({ sleeperId: identity(player), name: player.name, position: player.position });
-    rosterConsequences[side] = { cutsNeeded, cutCandidates: candidates.map(row => ({ ...brief(row.player), readiness: row.readiness })),
+    const cutCost = candidates.length === cutsNeeded ? round(candidates.reduce((sum, row) => sum + calculatePlayerTradeProfile(row.player).tradeValue, 0)) : null;
+    if (cutCost === null) warnings.push(`${who} : coût de coupe supplémentaire non déterminé`);
+    rosterConsequences[side] = { cutCost, cutCostUnit: 'TRADE_VALUE', cutCostBasis: 'LOST_BENCH_ASSET_NOT_EXTRA_LINEUP_LOSS', cutsNeeded, cutCandidates: candidates.map(row => ({ ...brief(row.player), readiness: row.readiness })),
       excludedCutCandidates: cutsNeeded ? assessed.filter(row => row.readiness.excludedByPolicy).map(row => ({ ...brief(row.player), readiness: row.readiness })) : [],
       capacityEffect: cutsNeeded ? "REDUCE_BEFORE_LINEUP_EDITS" : "NO_REDUCTION_DEMONSTRATED", tradeBlockedByCapacity: false,
       outgoingBench: outgoing.filter(player => !beforeStarterIds.has(identity(player))).map(brief),
@@ -501,6 +503,7 @@ export function scoreTradeRecommendation({ myPlayers = [], theirPlayers = [], gi
     notes.push(`Moyenne mesurée S${averageWindow.from}–S${averageWindow.to}, à partir de la première semaine affectable${averageWindow.segments.length > 1 ? ` ; chaque joueur compté à sa propre semaine (${averageWindow.segments.map(row => `S${row.from}${row.to > row.from ? `–S${row.to}` : ""} ${row.myDelta > 0 ? "+" : ""}${row.myDelta}`).join(", ")})` : ""} (accord supposé maintenant, revue modélisée).`);
   }
   const market = evaluateTrade({ sideA: give, sideB: receive });
+  const cutCostPenalty = (rosterConsequences.mine.cutCost ?? 0) + (rosterConsequences.theirs.cutCost ?? 0);
   const bilateral = warnings.length === 0 && myDelta > 0 && theirDelta > 0;
   const structureId = warnings.length ? "DATA_GAPS" : bilateral && market.pctDiff <= 8 ? "BILATERAL_MARKET_CLOSE" : myDelta < 0 || theirDelta < 0 ? "LINEUP_LOSS" : "REVIEW_STRUCTURE";
   const tradeability = { DATA_GAPS: "Données à vérifier", BILATERAL_MARKET_CLOSE: "Gains bilatéraux, marché proche", LINEUP_LOSS: "Perte de lineup estimée", REVIEW_STRUCTURE: "Structure à examiner" }[structureId];
@@ -521,6 +524,6 @@ export function scoreTradeRecommendation({ myPlayers = [], theirPlayers = [], gi
     winWin: bilateral, warnings, notes,
     lineupAvailability: "UNVERIFIED", transactionTiming: "UNVERIFIED",
     lineups: { mine: { before: myBefore, after: myAfter }, theirs: { before: theirBefore, after: theirAfter } },
-    rankScore: round(Math.min(myDelta, theirDelta) * 10 + myDelta + theirDelta - market.pctDiff - warnings.length * 10 - injured.length * 3)
+    rankScore: round(Math.min(myDelta, theirDelta) * 10 + myDelta + theirDelta - market.pctDiff - warnings.length * 10 - injured.length * 3 - cutCostPenalty)
   };
 }
