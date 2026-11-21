@@ -900,7 +900,9 @@ export async function renderTradesPage(container) {
           <button type="button" id="copy-advisor-btn" class="filter-btn" style="padding:8px 14px; font-size:0.75rem;">📋 Copier le rapport</button>
         </div>
         ${advisory.optimal ? `<div class="card" style="padding:16px 18px; margin-bottom:16px; border-left:4px solid ${advisory.optimal.gain > 0 ? "var(--grass)" : "var(--line)"};">
-          <strong>Lineup optimisée${advisory.week ? ` · semaine ${advisory.week}` : ""} :</strong> ${advisory.optimal.gain > 0
+          <strong>Lineup optimisée${advisory.week ? ` · semaine ${advisory.week}` : ""} :</strong> ${advisory.optimal.covered === false
+            ? "Projections hebdomadaires incomplètes : gain et lineup optimale non déterminés."
+            : advisory.optimal.gain > 0
             ? `+${advisory.optimal.gain} pts projetés (${advisory.optimal.currentTotal} → ${advisory.optimal.optimalTotal}). Titulariser ${advisory.optimal.promote.map(p => escapeHtml(p.name)).join(", ")} · Asseoir ${advisory.optimal.bench.map(p => escapeHtml(p.name)).join(", ")}.`
             : `ta lineup actuelle est déjà la meilleure selon les projections Sleeper (${advisory.optimal.currentTotal} pts).`}
           <br><small style="color:var(--muted);">Même moteur que le Trade Finder : projection Sleeper de la semaine, 0 pt pour un joueur Out/IR, IR exclu.</small>

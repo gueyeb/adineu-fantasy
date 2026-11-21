@@ -404,7 +404,7 @@ export function createAppServer({
     }
 
     if (url.pathname === "/api/version") {
-      const paths = ["scripts/sos-sources.js", "scripts/sos-service.js", "scripts/sos-store.js", "public/assets/wr-ros-sos.js", "public/assets/sos-explorer.js", "server.js", "scripts/league-context.js", "scripts/waiver-evaluator.js", "public/assets/waiver-model.js", "public/assets/waiver-board.js", "public/assets/waiver-plan.js", "scripts/coach-assistant.js", "public/assets/coach-ui.js", "public/assets/coach-week-view.js"];
+      const paths = ["scripts/sos-sources.js", "scripts/sos-service.js", "scripts/sos-store.js", "public/assets/wr-ros-sos.js", "public/assets/sos-explorer.js", "server.js", "scripts/league-context.js", "scripts/waiver-evaluator.js", "public/assets/waiver-model.js", "public/assets/waiver-board.js", "public/assets/waiver-plan.js", "scripts/coach-assistant.js", "scripts/lineup-advisor.js", "public/assets/coach-ui.js", "public/assets/coach-week-view.js"];
       const files = Object.fromEntries(await Promise.all(paths.map(async path => {
         try { return [path, createHash("sha256").update(await readFile(new URL(path, import.meta.url))).digest("hex")]; }
         catch { return [path, null]; }
@@ -477,7 +477,8 @@ export function createAppServer({
               lineup.optimal = compareWithOptimalLineup({
                 myTeam: compactContext.myTeam,
                 projections: playerValues.weeklyProjections || {},
-                playerStatuses: statuses
+                playerStatuses: statuses,
+                week: compactContext.week
               });
             } catch { lineup.optimal = null; }
             context = buildDecisionContext({ context: compactContext, playerValues, statuses, waivers, lineup, matchup, tradeIntent, playoffContext: playoffResult.status === "fulfilled" ? playoffResult.value : { ready: false, reason: "SOURCE_UNAVAILABLE" } });
@@ -705,7 +706,7 @@ export function createAppServer({
         let optimal = null;
         try {
           const projections = await getProjections({ week: context.week });
-          optimal = compareWithOptimalLineup({ myTeam: context.myTeam, projections, playerStatuses });
+          optimal = compareWithOptimalLineup({ myTeam: context.myTeam, projections, playerStatuses, week: context.week });
         } catch {}
         diagnosis.optimal = optimal;
         const message = formatLineupAdvisory(diagnosis);
@@ -759,7 +760,8 @@ export function createAppServer({
           lineup.optimal = compareWithOptimalLineup({
             myTeam: context.myTeam,
             projections: playerValues.weeklyProjections || {},
-            playerStatuses
+            playerStatuses,
+            week: context.week
           });
         } catch { lineup.optimal = null; }
         const decisionContext = buildDecisionContext({ context, playerValues, statuses: playerStatuses, waivers: freeAgents, lineup, matchup, playoffContext });

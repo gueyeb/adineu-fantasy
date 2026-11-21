@@ -51,6 +51,27 @@ test("lineup-advisor API rejects an unknown team instead of guessing a roster", 
   assert.equal(response.status, 404);
 });
 
+test("lineup-advisor API passes the forecast week to the optimizer (Boukki S10)", async t => {
+  const server = createAppServer({
+    getContext: async () => ({ week: 10, myTeam: {
+      starters: [{ slot: "FLEX", player: { sleeperId: "rodriguez", name: "Chris Rodriguez Jr.", position: "RB", nflTeam: "WAS" } }],
+      bench: [{ sleeperId: "burden", name: "Luther Burden III", position: "WR", nflTeam: "CHI" }], ir: []
+    } }),
+    getInjuryStatuses: async () => new Map(), getFreeAgents: async () => ({ byPosition: {} }),
+    getPlayerValues: async () => ({}),
+    getProjections: async () => ({ rodriguez: { pts_ppr: 8 }, burden: { pts_ppr: 30 } })
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(() => server.close());
+  const response = await fetch(`http://127.0.0.1:${server.address().port}/api/lineup-advisor?team=t0z`);
+  assert.equal(response.status, 200);
+  const { optimal } = await response.json();
+  assert.equal(optimal.effectiveWeek, 10);
+  assert.equal(optimal.gain, 0);
+  assert.ok(optimal.slots.every(slot => slot.sleeperId !== "burden"));
+});
+
 test("start-sit API forwards ids and team, and 404s an unknown team", async t => {
   const calls = [];
   const server = createAppServer({

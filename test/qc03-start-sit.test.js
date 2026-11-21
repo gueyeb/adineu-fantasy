@@ -13,6 +13,12 @@ test('identical optimal Boom and Safe have one explicit explanation', () => {
   assert.equal(result.safeDiffers, false);
   assert.match(result.identicalReason, /mêmes joueurs/);
 });
+
+test('optimal Boom and Safe exclude a bye player even with a stale high projection', () => {
+  const burden = { ...player, sleeperId: 'burden', name: 'Luther Burden III', position: 'WR', nflTeam: 'CHI', projection: 30, floor: 25, ceiling: 50 };
+  const result = buildBoomSafeLineups([player, burden], new Set(), { week: 10 });
+  for (const mode of ['optimal', 'boom', 'safe']) assert.ok(result[mode].slots.every(slot => slot.sleeperId !== 'burden'));
+});
 test('playable excludes kicked-off players at exact boundary and keeps permission null', () => {
   const result = buildPlayableLineups([player], new Set(), { week: 8, timingContext, now: now + 10000 });
   assert.equal(result.excluded[0].reason, 'GAME_LOCKED');

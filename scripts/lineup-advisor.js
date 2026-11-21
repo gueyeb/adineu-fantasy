@@ -35,8 +35,14 @@ async function loadBoomBustCalibration() {
 }
 
 /** Current, optimal (projection), Boom (ceilings) and Safe (floors) lineups for one roster. */
-export function buildBoomSafeLineups(players, starterIds) {
-  const pool = players.filter(player => Number.isFinite(player.projection));
+function weeklyExclusion(player, { week, byeWeeks = BYE_WEEKS_2026 } = {}) {
+  if (Number.isInteger(week) && byeWeeks[player.nflTeam] === week) return "BYE";
+  if (["Out", "IR", "PUP", "NFI", "Sus", "NA", "Doubtful"].includes(player.injuryStatus ?? player.injury_status)) return "ABSENT";
+  return null;
+}
+
+export function buildBoomSafeLineups(players, starterIds, options = {}) {
+  const pool = players.filter(player => !weeklyExclusion(player, options) && Number.isFinite(player.projection));
   const lineup = key => buildProjectedLineup(pool, { estimate: player => player[key] ?? 0 });
   const totals = slots => {
     const ids = new Set(slots.map(slot => slot.sleeperId).filter(Boolean));
@@ -61,11 +67,10 @@ export function buildPlayableLineups(players, starterIds, { week, timingContext 
   const excluded = [];
   const pool = players.filter(player => {
     const timing = assessTradeCut(player, { week, context: timingContext, now });
-    const reason = ["Out", "IR", "PUP", "Sus", "NA", "Doubtful"].includes(player.injuryStatus) ? "ABSENT"
-      : byeWeeks[player.nflTeam] === week ? "BYE"
-      : timing.status === "GAME_STARTED_REVIEW" ? "GAME_LOCKED"
+    const reason = weeklyExclusion(player, { week, byeWeeks })
+      || (timing.status === "GAME_STARTED_REVIEW" ? "GAME_LOCKED"
       : timing.status !== "PREGAME_REVIEW" ? "LOCK_CONTEXT_UNKNOWN"
-      : !Number.isFinite(player.projection) ? "NO_PROJECTION" : null;
+      : !Number.isFinite(player.projection) ? "NO_PROJECTION" : null);
     if (reason) excluded.push({ sleeperId: player.sleeperId, reason });
     return !reason;
   });
@@ -74,7 +79,7 @@ export function buildPlayableLineups(players, starterIds, { week, timingContext 
     note: "Pool encore sélectionnable avant kickoff ; slots vides exclus des joueurs. Titulaires verrouillés conservés dans Sleeper, édition et AutoSubs à vérifier." };
 }
 import { calculatePlayerTradeProfile } from "../public/assets/trade-value.js";
-import { buildProjectedLineup, weeklyEstimate } from "../public/assets/trade-score.js";
+import { buildProjectedLineup } from "../public/assets/trade-score.js";
 import { BYE_WEEKS_2026 } from "../public/assets/league-settings.js";
 
 const FLEX_ELIGIBLE = ["RB", "WR", "TE"];
@@ -224,23 +229,32 @@ export function diagnoseLineup({
 
 /**
  * Lineup optimisée vs lineup actuelle (benchmark Fantasy Life, lot 1) : même moteur que le Trade
- * Finder (buildProjectedLineup + weeklyEstimate : projection Sleeper de la semaine, 0 si Out/IR).
- * IR exclu du pool. Retourne le gain en points projetés et les changements à faire.
+ * Finder (buildProjectedLineup), mais sans son repli rang/ADP : projection hebdomadaire seulement.
+ * Bye et absents exclus ; couverture manquante = aucun gain ni mouvement chiffré.
  */
-export function compareWithOptimalLineup({ myTeam, projections = {}, playerStatuses = new Map(), fixedSlots = {} }) {
+export function compareWithOptimalLineup({ myTeam, projections = {}, playerStatuses = new Map(), fixedSlots = {}, week, byeWeeks = BYE_WEEKS_2026 }) {
   const enrich = player => player && {
     ...player,
-    projectedPpg: Number.isFinite(projections[player.sleeperId]?.pts_ppr) ? projections[player.sleeperId].pts_ppr : undefined,
-    injuryStatus: playerStatuses.get(player.sleeperId) || null
+    projectedPpg: Number.isFinite(projections[player.sleeperId]?.pts_ppr) ? projections[player.sleeperId].pts_ppr : null,
+    injuryStatus: playerStatuses.get(player.sleeperId) ?? player.injuryStatus ?? player.injury_status ?? null
   };
+  const exclusion = player => weeklyExclusion(player, { week, byeWeeks });
+  const estimate = player => exclusion(player) ? 0 : player.projectedPpg ?? 0;
   const current = myTeam.starters.map(starter => ({ slot: starter.slot, player: enrich(starter.player) }));
-  const currentTotal = current.reduce((sum, starter) => sum + (starter.player ? weeklyEstimate(starter.player) : 0), 0);
-  const pool = [...current.map(starter => starter.player).filter(Boolean), ...(myTeam.bench || []).map(enrich)];
-  const optimal = buildProjectedLineup(pool, { estimate: weeklyEstimate, fixedSlots });
+  const roster = [...current.map(starter => starter.player).filter(Boolean), ...(myTeam.bench || []).map(enrich)];
+  const missingProjections = roster.filter(player => !exclusion(player) && !Number.isFinite(player.projectedPpg)).map(player => player.sleeperId);
+  const covered = missingProjections.length === 0;
+  const currentCovered = current.every(row => !row.player || exclusion(row.player) || Number.isFinite(row.player.projectedPpg));
+  const currentTotal = current.reduce((sum, starter) => sum + (starter.player ? estimate(starter.player) : 0), 0);
+  // Preserve existing locked absent starters, but never select them as new recommendations.
+  const fixedIds = new Set(Object.values(fixedSlots).map(String));
+  const pool = roster.filter(player => (!exclusion(player) || (exclusion(player) === "ABSENT" && fixedIds.has(String(player.sleeperId)))) &&
+    (exclusion(player) || Number.isFinite(player.projectedPpg)));
+  const optimal = buildProjectedLineup(pool, { estimate, fixedSlots });
   const currentIds = new Set(current.map(starter => starter.player?.sleeperId).filter(Boolean));
   const optimalIds = new Set(optimal.slots.map(slot => slot.sleeperId).filter(Boolean));
-  const byId = new Map(pool.map(player => [String(player.sleeperId), player]));
-  const gain = Number((optimal.total - currentTotal).toFixed(1));
+  const byId = new Map(roster.map(player => [String(player.sleeperId), player]));
+  const gain = covered ? Number((optimal.total - currentTotal).toFixed(1)) : null;
   const changes = gain > 0 ? optimal.slots.map((slot, index) => {
     const currentPlayer = current[index]?.player || null;
     const incoming = slot.sleeperId ? byId.get(String(slot.sleeperId)) : null;
@@ -249,15 +263,16 @@ export function compareWithOptimalLineup({ myTeam, projections = {}, playerStatu
       slot: slot.slot,
       in: incoming,
       out: currentPlayer,
-      gain: Number(((incoming ? weeklyEstimate(incoming) : 0) - (currentPlayer ? weeklyEstimate(currentPlayer) : 0)).toFixed(1))
+      gain: Number(((incoming ? estimate(incoming) : 0) - (currentPlayer ? estimate(currentPlayer) : 0)).toFixed(1))
     };
   }).filter(Boolean) : [];
   return {
-    currentTotal: Number(currentTotal.toFixed(1)),
-    optimalTotal: optimal.total,
-    gain: gain > 0 ? gain : 0,
+    covered, missingProjections, effectiveWeek: week ?? null,
+    currentTotal: currentCovered ? Number(currentTotal.toFixed(1)) : null,
+    optimalTotal: covered ? optimal.total : null,
+    gain: gain === null ? null : Math.max(0, gain),
     // Changes only when they actually gain points, and never "start" a player projected at 0 (Out/IR).
-    promote: gain > 0 ? [...optimalIds].filter(id => !currentIds.has(id)).map(id => byId.get(id)).filter(player => weeklyEstimate(player) > 0) : [],
+    promote: gain > 0 ? [...optimalIds].filter(id => !currentIds.has(id)).map(id => byId.get(id)).filter(player => !exclusion(player) && estimate(player) > 0) : [],
     bench: gain > 0 ? [...currentIds].filter(id => !optimalIds.has(id)).map(id => byId.get(String(id))) : [],
     changes,
     movementGroups: groupLineupMovements(changes),
@@ -318,7 +333,7 @@ export async function getStartSit({ team = null, ids = [], fetchImpl = fetch, ge
       nflTeam: meta.nflTeam || null,
       injuryStatus: meta.injuryStatus || null,
       starter: starterIds.has(id),
-      projection: Number.isFinite(projection) && !["Out", "IR", "PUP", "Sus", "NA", "Doubtful"].includes(meta.injuryStatus) ? Number(projection.toFixed(1)) : (["Out", "IR", "PUP", "Sus", "NA"].includes(meta.injuryStatus) ? 0 : null),
+      projection: weeklyExclusion(meta, { week: currentWeek }) ? 0 : Number.isFinite(projection) ? Number(projection.toFixed(1)) : null,
       rosPpg: value.rosPpg ?? null,
       usageScore: value.usageScore ?? null,
       signal: value.signal ?? null,
@@ -329,7 +344,7 @@ export async function getStartSit({ team = null, ids = [], fetchImpl = fetch, ge
   // Boom / Safe lineups and the recommendation for this week's matchup (team mode only).
   let lineups = null;
   if (context && calibration) {
-    lineups = buildBoomSafeLineups(players, starterIds);
+    lineups = buildBoomSafeLineups(players, starterIds, { week: currentWeek });
     lineups.playable = buildPlayableLineups(players, starterIds, { week: currentWeek, timingContext: values.timingContext });
     try {
       const response = await fetchImpl(`https://api.sleeper.app/v1/league/${process.env.SLEEPER_LEAGUE_ID || "1392715510830878721"}/matchups/${currentWeek}`, { signal: AbortSignal.timeout(10_000) });

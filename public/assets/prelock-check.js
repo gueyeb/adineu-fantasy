@@ -45,7 +45,7 @@ export function buildPrelockCheck({ week, myTeam, playerStatuses = new Map(), pr
   for (const row of myTeam.starters) if (row.player && byeWeeks[row.player.nflTeam] === week) effectiveProjections[row.player.sleeperId] = { pts_ppr: 0 };
   const covered = [...myTeam.starters.map(row => row.player), ...bench].filter(Boolean)
     .every(player => Number.isFinite(effectiveProjections[player.sleeperId]?.pts_ppr));
-  const optimal = compareWithOptimalLineup({ myTeam: { ...myTeam, bench }, projections: effectiveProjections, playerStatuses, fixedSlots });
+  const optimal = compareWithOptimalLineup({ myTeam: { ...myTeam, bench }, projections: effectiveProjections, playerStatuses, fixedSlots, week, byeWeeks });
   const swaps = alerts.filter(alert => alert.replacement && alert.replacementRole === "REPLACE").map(alert => ({ slot: alert.slot, out: alert.player, in: alert.replacement.player, source: alert.replacement.source, delta: alert.delta }));
   const lines = [`Contrôle avant verrouillage — S${week}${myTeam.teamName ? ` — ${teamOwnerLabel(myTeam.teamName, myTeam.owner)}` : ""}`];
   if (!alerts.length) lines.push("✅ Lineup OK");

@@ -370,7 +370,7 @@ export function formatDecisionContext(context) {
     const optimal = context.lineup.optimal;
     lines.push(`Current projected total: ${metric(optimal.currentTotal)} [Sleeper]`);
     lines.push(`Optimal projected total: ${metric(optimal.optimalTotal)} [Sleeper]`);
-    lines.push(`Potential gain: +${metric(optimal.gain, " pts")}`);
+    lines.push(`Potential gain: ${Number.isFinite(optimal.gain) ? `+${metric(optimal.gain, " pts")}` : "unavailable (weekly projection coverage incomplete)"}`);
     const movementLines = formatLineupMovements(optimal);
     lines.push(`Optimization opportunities: ${movementLines.length}`);
     lines.push(...movementLines);

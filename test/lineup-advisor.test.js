@@ -125,6 +125,33 @@ test("compareWithOptimalLineup never promotes an Out player even if Sleeper stil
   assert.equal(result.promote.length, 0);
 });
 
+test("Boukki S10: Burden on bye cannot replace Rodriguez, with missing or stale projection", () => {
+  const myTeam = {
+    starters: [{ slot: "FLEX", player: { sleeperId: "rodriguez", name: "Chris Rodriguez Jr.", position: "RB", nflTeam: "WAS" } }],
+    bench: [{ sleeperId: "burden", name: "Luther Burden III", position: "WR", nflTeam: "CHI", quality: { expertRank: 1 } }]
+  };
+  for (const burden of [undefined, { pts_ppr: 30 }]) {
+    const result = compareWithOptimalLineup({ myTeam, week: 10,
+      projections: { rodriguez: { pts_ppr: 8 }, ...(burden ? { burden } : {}) } });
+    assert.equal(result.gain, 0);
+    assert.equal(result.promote.length, 0);
+    assert.ok(result.slots.every(slot => slot.sleeperId !== "burden"));
+  }
+});
+
+test("optimal lineup never substitutes a rank/ROS estimate for a missing weekly projection", () => {
+  const starter = { sleeperId: "starter", name: "Starter", position: "QB", nflTeam: "KC" };
+  const unknown = { sleeperId: "unknown", name: "Unknown", position: "QB", nflTeam: "BUF", projectedPpg: 30, rosPpg: 30, quality: { expertRank: 1 } };
+  const result = compareWithOptimalLineup({ week: 10, myTeam: { starters: [{ slot: "QB", player: starter }], bench: [unknown] },
+    projections: { starter: { pts_ppr: 10 } } });
+  assert.equal(result.gain, null);
+  assert.equal(result.covered, false);
+  assert.equal(result.optimalTotal, null);
+  assert.deepEqual(result.promote, []);
+  assert.deepEqual(result.changes, []);
+  assert.ok(result.slots.every(slot => slot.sleeperId !== "unknown"));
+});
+
 test("Start/Sit and the acquisition plan name the same target; a Questionable starter gets a fallback, not a swap", () => {
   const myTeam = { starters: [
     { slot: "RB", player: { sleeperId: "rb1", name: "Starter", position: "RB", nflTeam: "ARI" } },
