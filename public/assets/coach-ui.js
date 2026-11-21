@@ -16,6 +16,7 @@ import { LEAGUE_METADATA_2026 } from "./league-settings.js?v=886f353394";
 import { formatAuction } from "./faab-auction.js?v=1eea51c520";
 import { REASON_MAX as JOURNAL_REASON_MAX, counterfactualType, describeCounterfactual, pointsUnit } from "./decision-log.js?v=aaee31cbab";
 import { readSettingsForm, renderCoachSettings, renameMessage } from "./coach-settings-view.js?v=56e93f18f8";
+import { renderCoachIntelligence, readIntelligenceReview } from './coach-intelligence-view.js?v=9148a6f460';
 
 const login = document.getElementById("coach-login");
 const gate = document.getElementById("coach-gate");
@@ -280,7 +281,7 @@ async function loadCoach() {
     if (!plan) {
       gate.hidden = false; login.hidden = false; report.hidden = true; message.textContent = "";
       setStatus("Identifie-toi pour consulter ton coaching.");
-      return;
+      return false;
     }
     try { localStorage.setItem(ROSTER_HINT_KEY, String(plan.rosterId)); } catch {}
     // Signed in: bring this browser in line with the watchlist kept on the server (other devices).
@@ -289,7 +290,9 @@ async function loadCoach() {
     const watchIds = watchIdsHeader(loadWatchlist(plan.rosterId));
     if (JSON.stringify(preferences) !== JSON.stringify(sent.preferences) || watchIds !== sent.watchIds) plan = await fetchCoach(preferences, watchIds);
     renderPlan(plan);
-  } catch (error) { setStatus(error.message, "error"); }
+    if (location.hash === '#coach-intelligence-details') document.getElementById('coach-intelligence-details').open = true;
+    return true;
+  } catch (error) { setStatus(error.message, "error"); return false; }
 }
 
 login.addEventListener("submit", async event => {
@@ -416,6 +419,51 @@ document.getElementById("coach-settings")?.addEventListener("submit", async even
       await loadSettings();
     } catch { flash(button, "Échec", "Renommer"); }
   }
+});
+let intelligenceWeek = null;
+async function loadIntelligence() {
+  const target = document.getElementById('coach-intelligence');
+  target.innerHTML = '<p class="coach-empty">Chargement des sources…</p>';
+  try {
+    const response = await fetch('/api/coach/player-intelligence', { cache: 'no-store', credentials: 'same-origin' });
+    if (!response.ok) throw Error();
+    const data = await response.json();
+    intelligenceWeek = data.scope.targetWeek;
+    target.innerHTML = renderCoachIntelligence(data);
+  } catch { target.innerHTML = '<p class="coach-empty">Sources indisponibles. Réouvre le panneau après avoir vérifié ta connexion.</p>'; }
+}
+document.getElementById('coach-intelligence-details')?.addEventListener('toggle', event => { if (event.currentTarget.open) loadIntelligence(); });
+document.getElementById('coach-intelligence')?.addEventListener('change', event => {
+  if (event.target.name !== 'fact') return;
+  const form = event.target.form;
+  const windowField = form.querySelector('[data-review-window]');
+  windowField.hidden = event.target.value !== 'INJURY:WINDOW';
+  form.elements.outThroughWeek.required = !windowField.hidden;
+  form.elements.outThroughWeek.disabled = windowField.hidden;
+  form.querySelector('[data-review-role]').hidden = !event.target.value.startsWith('ROLE:');
+  form.elements.roleWeeks.disabled = !event.target.value.startsWith('ROLE:');
+});
+document.getElementById('coach-intelligence')?.addEventListener('submit', async event => {
+  event.preventDefault();
+  const form = event.target, button = form.querySelector('button[type=submit]');
+  const { payload, error } = readIntelligenceReview({ action: form.dataset.reviewAction, observationId: form.dataset.observationId,
+    expectedRevision: form.dataset.revision, kind: form.dataset.kind, week: intelligenceWeek,
+    fact: form.elements.fact?.value, outThroughWeek: form.elements.outThroughWeek?.value,
+    roleWeeks: form.elements.roleWeeks?.value, validForHours: form.elements.validForHours?.value, verified: form.elements.verified?.checked });
+  if (error) { setStatus(error, 'error'); return; }
+  button.disabled = true;
+  try {
+    const response = await fetch('/api/coach/player-intelligence', { method: 'PUT', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    if (!response.ok) {
+      setStatus(response.status === 409 ? 'La source, la semaine ou les faits ont changé. Recharge le panneau avant de valider.' : 'Validation impossible. Vérifie le fait et ta connexion.', 'error');
+      button.disabled = false;
+      return;
+    }
+    await loadIntelligence();
+    const updated = await loadCoach();
+    setStatus(updated ? payload.action === 'revoke' ? 'Confirmation retirée. Plan actualisé.' : 'Fait confirmé. Plan actualisé.'
+      : 'Fait enregistré. Le plan est indisponible pour le moment : actualise-le pour voir le résultat.', updated ? 'ok' : 'error');
+  } catch { button.disabled = false; setStatus('Connexion interrompue. Recharge le panneau avant de retenter.', 'error'); }
 });
 loadCoach();
 

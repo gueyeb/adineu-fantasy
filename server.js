@@ -282,6 +282,28 @@ export function createAppServer({
       }
     }
 
+    // Operator validation of sourced facts; same private session and origin checks as settings.
+    if (url.pathname === '/api/coach/player-intelligence') {
+      const apiAuthorized = coachToken && request.headers.authorization === `Bearer ${coachToken}`;
+      if (!apiAuthorized && !coachAuth.authenticated(request.headers.cookie)) return sendJson(response, 404, { error: 'Not found' });
+      try {
+        if (request.method === 'GET') return sendJson(response, 200, await playerIntelligenceService.reviewList({ team: await followedTeam() }));
+        if (request.method !== 'PUT') return sendJson(response, 405, { error: 'Method not allowed' });
+        const origin = request.headers.origin;
+        if (!apiAuthorized && (!origin || !URL.canParse(origin) || new URL(origin).host !== request.headers.host)) return sendJson(response, 403, { error: 'Forbidden' });
+        let body = '';
+        for await (const chunk of request) {
+          body += chunk;
+          if (Buffer.byteLength(body) > 4096) return sendJson(response, 413, { error: 'Payload too large' });
+        }
+        let input;
+        try { input = JSON.parse(body); } catch { return sendJson(response, 400, { error: 'Invalid JSON' }); }
+        const result = await playerIntelligenceService.reviewNews(input, { team: await followedTeam() });
+        if (result.changed) { contextCache.clear(); freeAgentsCache.clear(); }
+        return sendJson(response, 200, result);
+      } catch (error) { return sendJson(response, error.status || 503, { error: error.status ? error.message : 'PLAYER_REVIEW_UNAVAILABLE' }); }
+    }
+
     // Coach settings: followed team, bulletin mode, manager display names (docs/prd-coach-settings.md).
     if (url.pathname === "/api/coach/settings" || url.pathname.startsWith("/api/coach/settings/owners/")) {
       const apiAuthorized = coachToken && request.headers.authorization === `Bearer ${coachToken}`;

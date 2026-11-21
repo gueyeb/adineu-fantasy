@@ -2,6 +2,7 @@ import { createPlayerIntelligenceStore, normalizePlayerObservation, mergePlayerO
 import { resolveOperationalWeek } from '../public/assets/nfl-week.js';
 import { findRosterByTeam } from '../public/assets/roster-view.js';
 import { NFL_NEWS_URL, parseOfficialPlayerNews, matchPlayerNews, newsId, claimNewsDelivery } from './player-news.js';
+import { listReviewableNews, reviewPlayerNews } from './player-intelligence-review.js';
 
 /** No paid provider, credentials or automatic claims; sources enter through a validated contract. */
 export function createPlayerIntelligenceService({ store = createPlayerIntelligenceStore(), getIndex, fetchImpl = fetch,
@@ -18,7 +19,23 @@ export function createPlayerIntelligenceService({ store = createPlayerIntelligen
     if (!Number.isInteger(targetWeek) || targetWeek < 1 || targetWeek > 18 || !Number.isInteger(season) || season < 2026) throw Error('NFL scope unavailable');
     return { leagueId: String(leagueId), season, targetWeek };
   };
+  const reviewContext = async team => {
+    const current = await scope();
+    const [rosters, users, index] = await Promise.all([get(`/league/${leagueId}/rosters`), get(`/league/${leagueId}/users`), getIndex({ applyIntelligence: false })]);
+    const { roster } = findRosterByTeam(rosters, users, team);
+    const selected = new Set((roster.players || []).map(String));
+    const groups = new Set([...selected].map(id => index.get(id)).filter(Boolean).map(p => `${p.nflTeam}:${p.position}`));
+    for (const [id, player] of index) if (player.active !== false && groups.has(`${player.nflTeam}:${player.position}`)) selected.add(id);
+    return { scope: current, selected, index, now: now() };
+  };
   return {
+    async reviewList({ team = 't0z' } = {}) {
+      const context = await reviewContext(team);
+      return { scope: context.scope, observations: listReviewableNews(await store.load(), context) };
+    },
+    async reviewNews(input, { team = 't0z' } = {}) {
+      return store.update(async state => reviewPlayerNews(state, input, await reviewContext(team)));
+    },
     async collectNews({ team = 't0z' } = {}) {
       return store.update(async state => {
         const at = now(), current = await scope();

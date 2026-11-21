@@ -11,6 +11,31 @@ async function serve(options, run) {
   finally { await new Promise(resolve => server.close(resolve)); }
 }
 const headers = { authorization: 'Bearer intelligence-only', 'content-type': 'application/json' };
+test('operator reviews require the Coach session, enforce same-origin writes and keep ingestion credentials separate', async () => {
+  let writes = 0;
+  await serve({ coachToken: 'coach', coachPassword: 'test-only-password', secureCookies: false,
+    playerIntelligenceToken: 'intelligence-only',
+    playerIntelligenceService: {
+      reviewList: async ({ team }) => ({ scope: { targetWeek: 11 }, team, observations: [] }),
+      reviewNews: async () => { writes++; return { changed: true, shouldRecompute: true }; }
+    }
+  }, async base => {
+    const path = `${base}/api/coach/player-intelligence`;
+    assert.equal((await fetch(path)).status, 404);
+    assert.equal((await fetch(path, { headers })).status, 404);
+    assert.equal((await fetch(path, { headers: { authorization: 'Bearer coach' } })).status, 200);
+    const login = await fetch(`${base}/api/coach-session`, { method: 'POST', headers: { origin: base, 'content-type': 'application/json' }, body: JSON.stringify({ password: 'test-only-password' }) });
+    const cookie = login.headers.get('set-cookie').split(';')[0];
+    assert.equal((await fetch(path, { headers: { cookie } })).status, 200);
+    assert.equal((await fetch(path, { method: 'PUT', headers: { cookie }, body: '{}' })).status, 403);
+    assert.equal((await fetch(path, { method: 'PUT', headers: { cookie, origin: 'https://foreign.example' }, body: '{}' })).status, 403);
+    assert.equal((await fetch(path, { method: 'PUT', headers: { cookie, origin: base }, body: '{bad' })).status, 400);
+    assert.equal((await fetch(path, { method: 'PUT', headers: { cookie, origin: base }, body: 'x'.repeat(5000) })).status, 413);
+    assert.equal(writes, 0);
+    assert.equal((await fetch(path, { method: 'PUT', headers: { cookie, origin: base }, body: '{}' })).status, 200);
+    assert.equal(writes, 1);
+  });
+});
 test('news collection and delivery acknowledgement use the dedicated private token', async () => {
   const calls = [];
   await serve({ playerIntelligenceToken: 'intelligence-only', playerIntelligenceService: {

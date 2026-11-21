@@ -57,6 +57,7 @@ export function claimNewsDelivery(state, { scopeKey, now }) {
   const deliveryId = newsId([scopeKey, rows.map(row => row.id)]);
   queue.delivery = { id: deliveryId, rowIds: rows.map(row => row.id), leaseUntil: new Date(now + 5 * 60000).toISOString() };
   const message = ['ADINEU — Actualités NFL officielles', 'Informations publiées : aucun changement automatique de statut ou de recommandation.',
-    ...rows.map(row => `${row.playerName} — ${row.headline}\nPublié : ${row.publishedAt}\n${row.source}`)].join('\n\n');
+    ...rows.map(row => `${row.playerName} — ${row.headline}\nPublié : ${row.publishedAt}\n${row.source}`),
+    'Examiner les faits dans le Coach : https://adineu-fantasy.bakene.tech/coach/#coach-intelligence-details'].join('\n\n');
   return { notifyNews: true, deliveryId, message };
 }

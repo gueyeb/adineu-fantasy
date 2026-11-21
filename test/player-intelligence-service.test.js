@@ -40,3 +40,20 @@ test('ingest is all-or-nothing, unchanged facts do not trigger recomputation, re
     assert.equal((await service.ingest({ observations: [{ ...row, kind: 'NEWS', certainty: 'REPORTED', value: { headline: 'Return is possible' } }] })).shouldRecompute, false);
   } finally { await rm(directory, { force: true, recursive: true }); }
 });
+
+test('private review service persists confirmed roles and withdrawal against the current followed roster', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'adineu-intelligence-review-'));
+  const store = createPlayerIntelligenceStore({ directory });
+  const service = createPlayerIntelligenceService({ store, getIndex: async () => index, fetchImpl: fakeFetch, now: () => now, leagueId: 'L' });
+  try {
+    await service.ingest({ observations: [{ leagueId: 'L', season: 2026, targetWeek: 11, playerId: 'p', source: 'https://www.nfl.com/news/report', kind: 'NEWS',
+      certainty: 'REPORTED', value: { headline: 'Official report' }, publishedAt: '2026-11-20T19:00:00Z', expiresAt: '2026-11-21T19:00:00Z' }] });
+    const source = (await service.reviewList()).observations[0];
+    assert.equal((await service.reviewNews({ action: 'confirm', observationId: source.id, expectedRevision: source.revision, kind: 'ROLE', value: { announcedRole: 'STARTER', roleWeeks: 1 }, verified: true, validForHours: 24 })).shouldRecompute, true);
+    const confirmed = (await service.reviewList()).observations[0];
+    assert.equal(confirmed.facts[0].active, true);
+    await service.reviewNews({ action: 'revoke', observationId: confirmed.id, expectedRevision: confirmed.revision, kind: 'ROLE' });
+    assert.equal((await service.reviewList()).observations[0].facts[0].active, false);
+    await assert.rejects(service.reviewList({ team: 'unknown' }));
+  } finally { await rm(directory, { force: true, recursive: true }); }
+});

@@ -124,3 +124,24 @@ Seuls les noms complets et uniques du catalogue sont rapprochés, pour les joueu
 Le premier relevé crée une référence sans alerte. Plafond de collecte : 30 minutes, persistant. Les nouvelles observations rejoignent une file privée persistante, avec lots de trois et un bail de cinq minutes pour éviter les envois simultanés. Le workflow doit appeler `POST /api/player-intelligence/news/ack` avec `{ "deliveryId": "…" }` seulement après le succès Telegram. Sans acquittement, le même lot est proposé après expiration du bail, même pendant le délai entre collectes. Une panne Telegram n'efface donc pas les articles à envoyer. Une panne après envoi mais avant acquittement peut produire un doublon : livraison au moins une fois, pas une garantie exactement une fois. La file est bornée à 100 entrées par portée et à 12 portées. Une bascule de semaine/roster crée une nouvelle référence.
 
 Tests : source officielle datée, doublons, dates absentes/futures/périmées, noms ambigus, premier relevé, changements, redémarrage, bail, reprise, acquittement, taille Telegram, échec source et contrats HTTP privés. Pas de build, typecheck ou lint configuré ; contrôles syntaxiques Node, suite de tests et vérification statique exécutés.
+
+## Mise en service des actualités NFL — 21 novembre 2026
+
+- Commit serveur `ff452d1` poussé et déployé automatiquement par Coolify ; état healthy, déploiement `yok0sk88gg4o4kc48kockgoc`.
+- Workflow `IQDUGDVldF2XPPhn` renommé « ADINEU — Statuts joueurs et actualités NFL ». Branche indépendante toutes les 30 minutes : collecte → notifyNews strict → Telegram privé existant → acquittement avec deliveryId. Les deux requêtes HTTP réutilisent `ADINEU player intelligence`. Aucun nouveau secret ni abonnement.
+- Premier relevé réel : NEWS_COLLECTED, baseline=true, 23 articles, 104 joueurs suivis, 2 observations REPORTED acceptées, shouldRecompute=false, notifyNews=false. Aucun envoi rétroactif.
+- Deuxième exécution complète : NEWS_SOURCE_COOLDOWN, changed=false, shouldRecompute=false, notifyNews=false. Aucun envoi.
+- Version publiée : « Veille NFL 30 min — schéma final — 21 novembre 2026 ». Les actualités sont maintenant actives, remplaçant l'état d'attente décrit dans les sections historiques. Le webhook externe reste en brouillon car ce collecteur appelle directement l'API serveur.
+- Vérification : 744 tests réussis et npm run check réussi ; tests ciblés relancés après l'ajustement de filtrage de la file selon le roster actuel. L'envoi réel de cette nouvelle branche attend un nouvel article correspondant : aucun message artificiel n'a été envoyé pour le tester.
+
+## Validation des faits dans le Coach privé
+
+Le panneau « Informations joueurs · sources et faits confirmés » affiche les actualités suivies avec leur source, date de publication, confirmations et expiration. Le lien des prochaines alertes d'actualités ouvre directement ce panneau après identification. Aucun secret d'ingestion n'est envoyé au navigateur.
+
+`GET /api/coach/player-intelligence` et `PUT` sur la même route réutilisent la session privée du Coach (ou le token Coach existant), avec contrôle d'origine pour les écritures navigateur. Le token d'ingestion ne donne pas accès à cette interface. L'opérateur choisit explicitement un statut, une absence jusqu'à une semaine incluse, une fin de saison, un retour autorisé cette semaine ou un rôle avec sa durée. Il doit attester avoir lu la source et fixer une durée de validité. Aucun titre n'est automatiquement transformé en fait.
+
+Le serveur rattache la confirmation au joueur, à la source et à la date originale déjà collectés ; ces champs ne sont pas modifiables par la requête. Il refuse une actualité expirée, hors effectif suivi ou hors semaine, ainsi qu'une révision concurrente. L'heure de validation est distincte de la publication et empêche une confirmation humaine d'apparaître dans un calcul antérieur à sa validation. Les corrections et retraits conservent l'ancienne version dans l'historique. Le rejeu d'une publication déjà retirée ne la réactive pas. Un retour exige une preuve RETURN explicite : un statut vide ne peut pas effacer une indisponibilité.
+
+Après validation ou retrait, les caches sont invalidés et le navigateur redemande le plan. Ce parcours ne déclenche pas de bulletin Telegram ; les observations confirmées alimentent les lecteurs et preuves décisionnelles existants. L'expiration et la portée de semaine restent celles du contrat d'ingestion. Une confirmation n'écrit aucune transaction ou lineup dans Sleeper.
+
+Vérification en navigateur local avec données fictives : source chargée, choix explicite d'une absence, confirmation enregistrée, plan rechargé, retrait enregistré et marqué « Retiré ». Aucun fait concernant un joueur réel n'a été validé pour effectuer ce test.

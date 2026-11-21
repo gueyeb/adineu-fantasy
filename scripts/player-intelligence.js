@@ -11,7 +11,8 @@ const identity = row => JSON.stringify([row.leagueId, row.season, row.targetWeek
 const fingerprint = row => hash([row.value, row.certainty]);
 const time = value => Date.parse(value);
 const matches = (row, scope) => row.leagueId === String(scope.leagueId) && row.season === Number(scope.season) && row.targetWeek === scope.targetWeek;
-const live = (row, scope) => matches(row, scope) && time(row.publishedAt) <= scope.now && time(row.expiresAt) > scope.now;
+const live = (row, scope) => matches(row, scope) && time(row.publishedAt) <= scope.now && time(row.expiresAt) > scope.now
+  && (!row.reviewedAt || time(row.reviewedAt) <= scope.now) && (!row.revokedAt || time(row.revokedAt) > scope.now);
 
 /** Only a trusted collector may assert CONFIRMED. A source URL alone is never verification. */
 export function normalizePlayerObservation(input, { index, leagueId, season, targetWeek, now = Date.now(), extraHosts = [], internalSleeper = false } = {}) {
@@ -151,12 +152,15 @@ export function mergePlayerObservations(state, rows, now = Date.now()) {
   for (const row of rows) {
     const i = state.observations.findIndex(old => identity(old) === identity(row));
     const old = state.observations[i];
+    // Replaying an already withdrawn publication must not silently restore it.
+    if (old?.revokedAt && time(row.publishedAt) <= time(old.publishedAt)) continue;
     if (old && time(old.publishedAt) > time(row.publishedAt)) continue;
     if (old && time(old.publishedAt) === time(row.publishedAt) && fingerprint(old) !== fingerprint(row)) throw Object.assign(Error('Conflicting observation at identical publication time'), { status: 409 });
     const changed = !old || fingerprint(old) !== fingerprint(row) || time(old.expiresAt) <= now;
     if (old && !changed && time(row.expiresAt) < time(old.expiresAt)) continue;
     if (changed && old) { (state.history ??= []).push(old); state.history = state.history.slice(-10000); }
-    if (i < 0) state.observations.push(row); else state.observations[i] = row;
+    if (i < 0) state.observations.push(row); else state.observations[i] = old.reviewedAt && time(old.publishedAt) === time(row.publishedAt)
+      ? { ...row, reviewedAt: old.reviewedAt, reviewedBy: old.reviewedBy, originNewsId: old.originNewsId } : row;
     if (changed) changes.push({ playerId: row.playerId, kind: row.kind, certainty: row.certainty, source: row.source });
   }
   state.observations = state.observations.filter(row => time(row.expiresAt) > now - 7 * 86400000).slice(-10000);
