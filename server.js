@@ -219,7 +219,7 @@ export function createAppServer({
       if (received.length !== expected.length || !timingSafeEqual(received, expected)) return sendJson(response, 401, { error: 'Unauthorized' });
       try {
         if (url.pathname === '/api/player-intelligence' && request.method === 'GET') return sendJson(response, 200, await playerIntelligenceService.status());
-        if (!['/api/player-intelligence/ingest', '/api/player-intelligence/collect'].includes(url.pathname)) return sendJson(response, 404, { error: 'Not found' });
+        if (!['/api/player-intelligence/ingest', '/api/player-intelligence/collect', '/api/player-intelligence/collect-news', '/api/player-intelligence/news/ack'].includes(url.pathname)) return sendJson(response, 404, { error: 'Not found' });
         if (request.method !== 'POST') return sendJson(response, 405, { error: 'Method not allowed' });
         let body = '';
         for await (const chunk of request) {
@@ -229,6 +229,8 @@ export function createAppServer({
         let input;
         try { input = JSON.parse(body || '{}'); } catch { return sendJson(response, 400, { error: 'Invalid JSON' }); }
         const result = url.pathname.endsWith('/ingest') ? await playerIntelligenceService.ingest(input)
+          : url.pathname.endsWith('/news/ack') ? await playerIntelligenceService.acknowledgeNews(input)
+          : url.pathname.endsWith('/collect-news') ? await playerIntelligenceService.collectNews({ team: await followedTeam() })
           : await playerIntelligenceService.collect({ team: await followedTeam(), watchIds: input.watchIds ?? [] });
         if (result.changed) { contextCache.clear(); freeAgentsCache.clear(); }
         return sendJson(response, 200, result);

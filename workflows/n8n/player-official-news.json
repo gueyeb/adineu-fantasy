@@ -1,0 +1,208 @@
+{
+  "name": "ADINEU — Official player news",
+  "active": false,
+  "nodes": [
+    {
+      "id": "news-manual",
+      "name": "Test official NFL news",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        1000
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "news-schedule",
+      "name": "Official news every 30 minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        1200
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 30
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "news-collect",
+      "name": "Collect official NFL news",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        280,
+        1000
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://adineu-fantasy.bakene.tech/api/player-intelligence/collect-news?team=t0z",
+        "authentication": "none",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "disabled": true
+    },
+    {
+      "id": "news-gate",
+      "name": "New sourced news to deliver?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        560,
+        1000
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "notify-news",
+              "leftValue": "={{ $json.notifyNews }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "news-send",
+      "name": "Private official news alert",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        840,
+        1000
+      ],
+      "parameters": {
+        "chatId": "CONFIGURE_PRIVATE_COACH_CHAT_ID",
+        "text": "={{ $json.message }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "disabled": true
+    },
+    {
+      "id": "news-ack",
+      "name": "Acknowledge delivered news",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        1000
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://adineu-fantasy.bakene.tech/api/player-intelligence/news/ack",
+        "authentication": "none",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { deliveryId: $(\"Collect official NFL news\").first().json.deliveryId } }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "disabled": true
+    },
+    {
+      "id": "news-note",
+      "name": "Official news setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        280,
+        1450
+      ],
+      "parameters": {
+        "content": "## Official NFL news — private pilot\nSelect ADINEU player intelligence on both HTTP nodes. Select the existing Telegram account and private Coach chat ID on the Telegram node. Then enable them.\n\nNEWS remains REPORTED; no automatic status or recommendation changes. First collection suppressed. Server cap 30 minutes. Telegram success must precede acknowledgement. Retry lease 5 minutes. An acknowledgement failure after successful Telegram can cause a duplicate.",
+        "width": 750,
+        "height": 260
+      }
+    }
+  ],
+  "connections": {
+    "Test official NFL news": {
+      "main": [
+        [
+          {
+            "node": "Collect official NFL news",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Official news every 30 minutes": {
+      "main": [
+        [
+          {
+            "node": "Collect official NFL news",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect official NFL news": {
+      "main": [
+        [
+          {
+            "node": "New sourced news to deliver?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "New sourced news to deliver?": {
+      "main": [
+        [
+          {
+            "node": "Private official news alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Private official news alert": {
+      "main": [
+        [
+          {
+            "node": "Acknowledge delivered news",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Paris"
+  },
+  "pinData": {}
+}

@@ -1,6 +1,7 @@
 import { createPlayerIntelligenceStore, normalizePlayerObservation, mergePlayerObservations } from './player-intelligence.js';
 import { resolveOperationalWeek } from '../public/assets/nfl-week.js';
 import { findRosterByTeam } from '../public/assets/roster-view.js';
+import { NFL_NEWS_URL, parseOfficialPlayerNews, matchPlayerNews, newsId, claimNewsDelivery } from './player-news.js';
 
 /** No paid provider, credentials or automatic claims; sources enter through a validated contract. */
 export function createPlayerIntelligenceService({ store = createPlayerIntelligenceStore(), getIndex, fetchImpl = fetch,
@@ -18,6 +19,59 @@ export function createPlayerIntelligenceService({ store = createPlayerIntelligen
     return { leagueId: String(leagueId), season, targetWeek };
   };
   return {
+    async collectNews({ team = 't0z' } = {}) {
+      return store.update(async state => {
+        const at = now(), current = await scope();
+        const [rosters, users, index] = await Promise.all([get(`/league/${leagueId}/rosters`), get(`/league/${leagueId}/users`), getIndex({ applyIntelligence: false })]);
+        const { roster } = findRosterByTeam(rosters, users, team);
+        const selected = new Set((roster.players || []).map(String));
+        const groups = new Set([...selected].map(id => index.get(id)).filter(Boolean).map(p => `${p.nflTeam}:${p.position}`));
+        for (const [id, player] of index) if (player.active !== false && groups.has(`${player.nflTeam}:${player.position}`)) selected.add(id);
+        const scopeKey = `${leagueId}:${current.season}:${current.targetWeek}:${roster.roster_id}`;
+        const queues = state.playerNewsQueues ??= {};
+        // Retain current scope and a bounded number of previous team/week queues.
+        for (const key of Object.keys(queues).filter(key => key !== scopeKey).slice(0, Math.max(0, Object.keys(queues).length - 11))) delete queues[key];
+        const queue = queues[scopeKey] ??= { pending: [], lastFetchAt: null };
+        queue.pending = queue.pending.filter(row => selected.has(row.playerId));
+        if (queue.lastFetchAt && at - Date.parse(queue.lastFetchAt) < 30 * 60000) return { status: 'NEWS_SOURCE_COOLDOWN', changed: false, shouldRecompute: false, ...claimNewsDelivery(state, { scopeKey, now: at }) };
+        const response = await fetchImpl(NFL_NEWS_URL, { signal: AbortSignal.timeout(20000), redirect: 'error' });
+        if (!response.ok) throw Error(`NFL news unavailable (${response.status})`);
+        // Bounded stream: do not buffer an unexpectedly large upstream response.
+        let html = '';
+        const decoder = new TextDecoder();
+        for await (const chunk of response.body) {
+          html += decoder.decode(chunk, { stream: true });
+          if (Buffer.byteLength(html) > 4 * 1024 * 1024) throw Error('NFL news response too large');
+        }
+        html += decoder.decode();
+        const articles = parseOfficialPlayerNews(html, { now: at });
+        const rows = matchPlayerNews(articles, index, selected).map(article => normalizePlayerObservation({ ...current,
+          playerId: article.playerId, kind: 'NEWS', certainty: 'REPORTED', source: article.source, publishedAt: article.publishedAt,
+          expiresAt: new Date(Date.parse(article.publishedAt) + 72 * 3600000).toISOString(), value: { headline: article.headline }
+        }, { ...current, index, now: at }));
+        const baseline = !queue.lastFetchAt, result = mergePlayerObservations(state, rows, at);
+        if (!baseline) for (const row of rows) {
+          if (!result.changes.some(change => change.playerId === row.playerId && change.source === row.source)) continue;
+          const id = newsId([scopeKey, row.playerId, row.source, row.value.headline]);
+          if (!queue.pending.some(item => item.id === id)) queue.pending.push({ id, playerId: row.playerId, playerName: row.playerName, headline: row.value.headline, source: row.source, publishedAt: row.publishedAt, expiresAt: row.expiresAt });
+        }
+        queue.pending = queue.pending.slice(-100);
+        queue.lastFetchAt = new Date(at).toISOString();
+        return { ...result, scope: current, baseline, status: 'NEWS_COLLECTED', shouldRecompute: false,
+          articlesRead: articles.length, monitoredPlayers: selected.size, ...claimNewsDelivery(state, { scopeKey, now: at }) };
+      });
+    },
+    async acknowledgeNews({ deliveryId } = {}) {
+      if (typeof deliveryId !== 'string' || !/^[a-f0-9]{64}$/.test(deliveryId)) throw Object.assign(Error('Invalid deliveryId'), { status: 400 });
+      return store.update(async state => {
+        const queue = Object.values(state.playerNewsQueues || {}).find(item => item.delivery?.id === deliveryId);
+        if (!queue) throw Object.assign(Error('Unknown news delivery'), { status: 409 });
+        const delivered = new Set(queue.delivery.rowIds);
+        queue.pending = queue.pending.filter(row => !delivered.has(row.id));
+        queue.delivery = null;
+        return { acknowledged: true, shouldRecompute: false };
+      });
+    },
     async ingest(input) {
       if (!Array.isArray(input?.observations) || !input.observations.length || input.observations.length > 100) throw Object.assign(Error('Expected 1–100 observations'), { status: 400 });
       const current = await scope();

@@ -41,6 +41,7 @@
     "audit:sleeper-sync": "node scripts/audit-sleeper-sync.js"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.112.0"
+    "@supabase/supabase-js": "^2.112.0",
+    "parse5": "^8.0.0"
   }
 }
