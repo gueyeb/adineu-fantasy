@@ -1,6 +1,51 @@
 # Agent session handover
 
-Updated: 2026-11-08. Read `AGENTS.md` before continuing.
+Updated: 2026-11-21. Read `AGENTS.md` before continuing.
+
+## Current state — 21 November
+
+- ADIN-17 fixed and deployed in `88be7c1`: weekly optimizer gets the target week,
+  excludes byes/absent players and never falls back to rank/ADP when a weekly
+  projection is missing. Incomplete eligible coverage yields null gain/optimum,
+  no proposed swaps and a visible warning. Optimal/Boom/Safe share exclusions.
+- Coolify deployment `js08o40o8wwc8880g88w4wsk` Running on `88be7c1`;
+  production `/api/version` matches 15/15 local hashes including lineup-advisor.
+- 738 tests passed, static checks passed; four subsequent targeted version/Coach
+  HTTP tests passed after extending the source fingerprint manifest. No build,
+  type checker or linter configured. Initial sandbox HTTP failures were EPERM;
+  the complete rerun outside the sandbox passed.
+- Plane now has **15 completed / 2 open** tickets. ADIN-15/16 reviews completed,
+  then ADIN-1/3/5/8/11/12/13/17 completed with dated evidence.
+- See [full review](docs/plane-status-review-2026-11-21.md) and the structured
+  [fixed-snapshot trade comparison](docs/trade-snapshot-review-2026-11-21.json).
+  Current roadmap reconciled; older dated entries are historical.
+- Production Coach/journal verified with the user's authenticated session at
+  390×844, no overflow or console errors. Sessions live in server memory:
+  deployment logs out the user; a second login was needed during this audit.
+- n8n reviewed read-only: Tuesday sync Europe/Paris at 10:00; Thursday review
+  inherits Europe/Berlin at 09:00 (same Paris offset/DST on checked dates).
+  Successful executions on 10/17 and 12/19 November. Coach notify gate published
+  (`notify !== false`), successful 10/17 November runs. No manual notification
+  sent, workflow/credential changed, or Sleeper transaction performed.
+- Supabase/Sleeper public score audit S1–S10 MATCH; RB/WR S7 snapshots from
+  20 October directly verified. Model coefficients unchanged after S9–S10 and
+  four-week expert benchmark review; no robust universal winner.
+
+### Remaining work
+
+1. **ADIN-10** (renamed to journal adoption): real operator choices/reasons still
+   absent; UI and reviews are functional. Do not invent choices or infer refusals.
+2. **ADIN-14** (renamed to in-game observation): deploy/mobile/scenario/details
+   checks passed, but actual progression during an NFL game remains unobserved.
+
+Role-profile evaluation (20 windows) and SOS QB/TE decision remain open on the
+roadmap; QC completion does not declare them shipped. This session's changes
+exclude pre-existing `CLAUDE.md`, `docs/player-intelligence-n8n.md`,
+`scripts/audit-nfl-injuries.js` and `test/audit-nfl-injuries.test.js` edits.
+The roadmap's pre-existing Plane migration metadata was preserved while updating
+its current status. Temporary preview server stopped after verification.
+
+## Archived handover — 8 November (superseded by the current state above)
 
 ## Completed this session
 

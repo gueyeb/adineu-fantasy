@@ -1,31 +1,34 @@
 # Approved in-season roadmap
 
-## Priorité actuelle — ADINEU Quality & Consistency (26/10/2026)
+## Priorité actuelle — ADINEU Quality & Consistency (actualisée le 21/11/2026)
 
-Suivi Linear : [ADINEU — Quality & Consistency · P-DAK-18](https://linear.app/dakhine/project/adineu-quality-and-consistency-f2cd499a6e00), équipe Dakhine, en cours, jalons QC-01 / QC-02 / QC-03. Les correctifs locaux et les déploiements y restent distingués.
+Suivi Plane : projet `ADIN` (plane.bakene.tech, workspace Dakhine HQ ; ex Linear P-DAK-18, migré le 04/11/2026), un module par jalon QC-01 / QC-02 / QC-03. Les correctifs locaux et les déploiements y restent distingués.
 
 **Consolider l'existant avant de construire davantage.** Cette phase remplace
 l'ordre des travaux annoncé précédemment : les correctifs de cohérence et de
 temps effectif passent avant le scanner post-match et les nouvelles fonctionnalités.
 [Audit intégré, preuves, lots et critères de réussite](quality-consistency-2026-10-26.md).
 
-- [ ] **P0 QC-01 — Cohérence et exactitude opérationnelle** : premier incrément local
-  vérifié (all-play lié aux rosters de saison, noms canoniques/comptes dans les dossiers,
-  horaire de waivers partagé et daté, DST testé). Restent déploiement, cohérence des
-  autres pages/métriques, semaines affectables/IR/locks, horaires n8n et probabilités
-  pré-match près des scores live. [Preuves et limites](quality-consistency-2026-10-26.md#qc-01--premier-incrément-local--all-play-et-horaires).
-- [ ] **P1 QC-02 — Qualité des recommandations de trade** : équité marché, gains et
+- [x] **P0 QC-01 — Cohérence et exactitude opérationnelle** : périmètre ADIN-1 à 5
+  livré et vérifié. All-play Boukki disponible sur 10 semaines ; noms canoniques,
+  métriques et probabilités pré-match/live contrôlés ; audit Sleeper/Supabase S1–S10
+  sans écart ; horaires et exécutions n8n relus. Les fenêtres de trade restent des
+  hypothèses explicites, pas une permission de plateforme. [Preuves datées](plane-status-review-2026-11-21.md).
+- [x] **P1 QC-02 — Qualité des recommandations de trade** : équité marché, gains et
   crédibilité séparés ; « fiabilité du calcul » explicite ; trois à cinq meilleures
   offres au maximum, motifs adverses, coupes et scénarios. Comparaison avant/après
-  sur Boukki et plusieurs rosters, sans changer arbitrairement les valeurs.
+  sur Boukki et plusieurs rosters effectuée à inputs constants (ADIN-8).
+  Les pistes négociables restent conditionnelles ; aucune acceptation prédite.
 - [ ] **P1/P2 QC-03 — Décisions et feedback** : exécuter maintenant / préparer / surveiller,
   contrat de présentation commun Coach/Start-Sit/Waiver/IA, transactions nominatives,
   notifications utiles, journal à 2/4 semaines, mobile authentifié et exploitation.
 
-Les observations publiques de l'audit sont datées et doivent être reproduites ;
-les commits locaux `16732b6`, `2abe8d0`, `7fe3ff6` ne sont pas des preuves de correction
-en production. Réconcilier les cases historiques et les preuves de livraison,
-notamment le snapshot RB du 20/10 et les fuseaux n8n, avant de cocher.
+Revue du 21/11 : correctif ADIN-17 livré (`88be7c1`, empreintes production 15/15) ;
+Coach authentifié et journal contrôlés à 390 px ; revues modèle et experts terminées
+(ADIN-15/16), sans modification des poids. Restent l'adoption des choix explicites
+du journal (ADIN-10) et l'observation du StatTracker pendant un match NFL (ADIN-14).
+Les entrées datées plus bas sont l'historique de livraison, pas l'état courant.
+Les anciens commits locaux seuls ne prouvent pas un déploiement.
 
 Différés : SOS QB/TE, nouveau moteur de projection, nouveaux indicateurs de trade,
 refonte frontend et multi-ligues. Préserver les calculs partagés, la War Room et
@@ -50,9 +53,10 @@ les poids du score proposés sont à tester, pas des paramètres déjà adoptés
 La préférence Boukki RB S8 est datée ; les exemples NFL joints restent à vérifier.
 Conserver l'interdiction des probabilités synthétiques d'acceptation et des usages inventés.
 
-## Triage du 18/10/2026 (semaine 6)
+## Historique — Triage du 18/10/2026 (semaine 6)
 
-Source de vérité courte ; le détail historique suit plus bas. Un élément « livré » est en production sur `main`.
+État historique au 18/10 ; la revue du 21/11 ci-dessus prime pour l'état actuel.
+Un élément « livré » est en production sur `main`.
 
 ### Livré
 
@@ -76,9 +80,9 @@ Suivi daté (à cocher ici) :
 - [x] 20/10 — awards S6 : 12 équipes couvertes, efficacité 84–100 %, 390 px sans débordement.
 - [x] Utilisateur — fuseau Europe/Paris : mardi confirmé (exécution 08:00 UTC). Jeudi à confirmer le 22/10 (attendu 07:00 UTC).
 - [ ] Après S8 (~03/11) — scorecard Adineu vs Sleeper, probabilité FAAB vs taux constant, verdicts du journal, échantillons des profils de rôle (20 fenêtres requises).
-- [ ] Benchmark privé vs experts (option a, 20/10, [PRD](prd-expert-benchmark.md)) : livré (`6ad0ace`, n8n `pUUl9Ftq3OU4at8o`) ; FantasyPros seul (Draft Sharks/CBS si `FIRECRAWL_API_KEY`) ; première capture dimanche 25/10, premier score mardi 27/10, décision après 4 semaines.
+- [x] Benchmark privé vs experts : première revue sur quatre semaines S7–S10 effectuée le 21/11 (ADIN-16). FantasyPros seul ; aucun vainqueur global cohérent entre métriques, modèle conservé. [Résultats et limites](plane-status-review-2026-11-21.md).
 - [ ] S8–S10 — décision SOS QB sur le feedback WR/RB.
-- [ ] Utilisateur connecté — contrôle visuel Coach mobile/production.
+- [x] Utilisateur connecté — contrôle visuel Coach et journal en production à 390 px, 21/11 (ADIN-12).
 - [ ] Après S17 — bilan de draft ; kit draft 2027.
 
 1. **Ops — fuseau n8n.** L’instance est en UTC. Dimanche réglé (workflow en `America/New_York`, 18/10). Reste : mardi/jeudi tournent 2 h plus tard que prévu (1 h après le 25/10) — régler leur fuseau sur Europe/Paris dans l’UI n8n (Settings du workflow).
@@ -223,7 +227,7 @@ PR #1 fusionnée ; les neuf empreintes de production correspondent au commit fus
 
 Livré localement : classement provisoire selon les scores actuels, scénario distinct d’estimation de fin de semaine, détail titulaires/banc et scores NFL. Rafraîchissement toutes les 30 secondes. Estimation Adineu déterministe, non calibrée ; données insuffisantes signalées sans remplacement silencieux. [Contrat et vérifications](prd-live-standings.md). Vérification mobile 390 px et observation pendant un match NFL encore ouvertes. Aucun déploiement.
 
-Le projet Linear Quality & Consistency existe ; la création du ticket de ce lot est bloquée par la limite gratuite d’issues du workspace. Le suivi reste conservé ici.
+Suivi Plane : ADIN-14 (créé le 04/11/2026 ; le ticket Linear était bloqué par la limite gratuite).
 
 
 ### 26/10 — QC-01 : simulations de trades et hypothèses IR

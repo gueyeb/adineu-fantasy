@@ -1,0 +1,225 @@
+{
+  "inputUnchanged": true,
+  "report": [
+    {
+      "team": "Boukki",
+      "before": {
+        "all": 169,
+        "groups": {
+          "RECOMMENDED": 1,
+          "EXPLORATION": 167,
+          "NEGOTIATE": 1
+        },
+        "main": [
+          {
+            "give": [
+              "Puka Nacua"
+            ],
+            "receive": [
+              "Bhayshul Tuten",
+              "Tetairoa McMillan"
+            ],
+            "group": "RECOMMENDED",
+            "my": 2,
+            "theirs": 1.8
+          },
+          {
+            "give": [
+              "Puka Nacua"
+            ],
+            "receive": [
+              "Jalen Coker",
+              "Bhayshul Tuten"
+            ],
+            "group": "NEGOTIATE",
+            "my": 3,
+            "theirs": 0.8
+          }
+        ]
+      },
+      "after": {
+        "all": 134,
+        "groups": {
+          "NEGOTIATE": 2,
+          "EXPLORATION": 132
+        },
+        "main": [
+          {
+            "give": [
+              "Luther Burden III"
+            ],
+            "receive": [
+              "Kyle Pitts Sr.",
+              "Rhamondre Stevenson"
+            ],
+            "group": "NEGOTIATE",
+            "my": 1.8,
+            "theirs": 1.8
+          },
+          {
+            "give": [
+              "Jaylen Warren"
+            ],
+            "receive": [
+              "Bhayshul Tuten",
+              "Rico Dowdle"
+            ],
+            "group": "NEGOTIATE",
+            "my": 1.6,
+            "theirs": 0.6
+          }
+        ]
+      }
+    },
+    {
+      "team": "Super Sayan warriors",
+      "before": {
+        "all": 6,
+        "groups": {
+          "RECOMMENDED": 1,
+          "EXPLORATION": 4,
+          "NEGOTIATE": 1
+        },
+        "main": [
+          {
+            "give": [
+              "Bhayshul Tuten",
+              "Tetairoa McMillan"
+            ],
+            "receive": [
+              "Puka Nacua"
+            ],
+            "group": "RECOMMENDED",
+            "my": 1.8,
+            "theirs": 2
+          },
+          {
+            "give": [
+              "Saquon Barkley",
+              "Tee Higgins"
+            ],
+            "receive": [
+              "Puka Nacua"
+            ],
+            "group": "NEGOTIATE",
+            "my": 2.6,
+            "theirs": 1.2
+          }
+        ]
+      },
+      "after": {
+        "all": 14,
+        "groups": {
+          "EXPLORATION": 14
+        },
+        "main": []
+      }
+    },
+    {
+      "team": "Estocade ⚔️😤💪🏾",
+      "before": {
+        "all": 20,
+        "groups": {
+          "RECOMMENDED": 2,
+          "EXPLORATION": 15,
+          "NEGOTIATE": 3
+        },
+        "main": [
+          {
+            "give": [
+              "Kyle Pitts Sr.",
+              "Rhamondre Stevenson"
+            ],
+            "receive": [
+              "Luther Burden III"
+            ],
+            "group": "RECOMMENDED",
+            "my": 1.8,
+            "theirs": 0.9
+          },
+          {
+            "give": [
+              "Rhamondre Stevenson",
+              "Aaron Rodgers"
+            ],
+            "receive": [
+              "Luther Burden III"
+            ],
+            "group": "RECOMMENDED",
+            "my": 1.8,
+            "theirs": 0.9
+          },
+          {
+            "give": [
+              "Ladd McConkey",
+              "Rhamondre Stevenson"
+            ],
+            "receive": [
+              "Luther Burden III"
+            ],
+            "group": "NEGOTIATE",
+            "my": 1.8,
+            "theirs": 0.9
+          },
+          {
+            "give": [
+              "Jordyn Tyson",
+              "Rhamondre Stevenson"
+            ],
+            "receive": [
+              "Luther Burden III"
+            ],
+            "group": "NEGOTIATE",
+            "my": 1.8,
+            "theirs": 0.9
+          },
+          {
+            "give": [
+              "Rhamondre Stevenson",
+              "Alec Pierce"
+            ],
+            "receive": [
+              "Luther Burden III"
+            ],
+            "group": "NEGOTIATE",
+            "my": 1.8,
+            "theirs": 0.9
+          }
+        ]
+      },
+      "after": {
+        "all": 14,
+        "groups": {
+          "NEGOTIATE": 2,
+          "EXPLORATION": 12
+        },
+        "main": [
+          {
+            "give": [
+              "Kyle Pitts Sr.",
+              "Rhamondre Stevenson"
+            ],
+            "receive": [
+              "Luther Burden III"
+            ],
+            "group": "NEGOTIATE",
+            "my": 1.8,
+            "theirs": 1.8
+          },
+          {
+            "give": [
+              "Ladd McConkey",
+              "Rhamondre Stevenson"
+            ],
+            "receive": [
+              "Luther Burden III"
+            ],
+            "group": "NEGOTIATE",
+            "my": 1.7,
+            "theirs": 0.6
+          }
+        ]
+      }
+    }
+  ]
+}
