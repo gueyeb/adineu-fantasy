@@ -1,3 +1,4 @@
+import { renderTeamScheduleView } from './team-schedule-view.js?v=1942740871';
 import { renderLiveStandings, renderLiveTrackerCards, renderNflLiveGames } from "./live-tracker-view.js?v=21eea25602";
 import { tierChip, tierSeparator } from "./tier-view.js?v=d3a45b4046";
 import { sleeperManager } from "./rivalry-week.js?v=adb53f3728";
@@ -345,6 +346,7 @@ export async function renderMatchupsHub(container, {
   <div class="matchups-viewbar"><div class="shell" role="tablist" aria-label="Vues des matchups">
     <button type="button" class="matchups-view active" data-view="live" role="tab">Live</button>
     <button type="button" class="matchups-view" data-view="schedule" role="tab">Calendrier 2026</button>
+    <button type="button" class="matchups-view" data-view="teams" role="tab">Équipes & SOS</button>
     <button type="button" class="matchups-view" data-view="recap" role="tab">Récap Hebdo</button>
     <button type="button" class="matchups-view" data-view="leaders" role="tab">Leaders</button>
     <button type="button" class="matchups-view" data-view="rankings" role="tab">Classements</button>
@@ -370,6 +372,7 @@ export async function renderMatchupsHub(container, {
       <div class="live-matchup-grid" id="schedule-matchup-grid" aria-live="polite"></div>
     </div></section>
   </div>
+  <div id="matchups-panel-teams" class="matchups-panel" role="tabpanel" hidden><section class="section"><div class="shell" id="team-schedule-content"></div></section></div>
   <div id="matchups-panel-recap" class="matchups-panel" role="tabpanel" hidden>
     <section class="section"><div class="shell">
       <div class="section-head"><div><p class="eyebrow">Bilan hebdomadaire</p><h2>Ce qui s’est vraiment passé.</h2></div>
@@ -626,6 +629,7 @@ export async function renderMatchupsHub(container, {
     form.querySelector("input").focus();
   });
 
+  let teamsLoaded = false;
   let archiveLoaded = false;
   let scheduleLoaded = false;
   let recapLoaded = false;
@@ -642,6 +646,10 @@ export async function renderMatchupsHub(container, {
     });
     if (updateUrl) {
       window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#${view}`);
+    }
+    if (view === "teams" && !teamsLoaded) {
+      teamsLoaded = true;
+      await renderTeamScheduleView(document.getElementById("team-schedule-content"), { leagueId, rosters, users, regularWeekCount, completedThroughWeek, sleeperGet });
     }
     if (view === "schedule" && !scheduleLoaded) {
       scheduleLoaded = true;
@@ -682,6 +690,7 @@ export async function renderMatchupsHub(container, {
   });
   function viewFromHash() {
     const hash = window.location.hash;
+    if (hash === "#teams") return "teams";
     if (hash === "#schedule") return "schedule";
     if (hash === "#recap") return "recap";
     if (hash === "#rankings") return "rankings";

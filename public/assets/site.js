@@ -13,7 +13,7 @@ import {
 } from "./rivalry-week.js?v=adb53f3728";
 import { accountNote, describeIdentity, managerLabel, teamLabel } from "./manager-identity.js?v=7f451cdf4d";
 import { renderTradesPage } from "./trade-ui.js?v=87c0ab7e33";
-import { renderMatchupsHub } from "./matchups-live.js?v=42a312e16f";
+import { renderMatchupsHub } from "./matchups-live.js?v=fe47c4aa9e";
 import { calculatePlayoffRace } from "./playoff-race.js?v=4133a5df17";
 import { calculateLuck, calculateRankHistory } from "./standings-luck.js?v=0664490db9";
 import { resolveOperationalWeek } from "./nfl-week.js?v=8f9fa3f5b2";

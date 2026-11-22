@@ -35,6 +35,14 @@ refonte frontend et multi-ligues. Préserver les calculs partagés, la War Room 
 les snapshots existants. Pas de probabilité synthétique d'acceptation ; pas de
 modification de coefficients motivée par une seule semaine décevante.
 
+## Suivi ajouté le 22/11/2026 — lisibilité visuelle du site
+
+- [ ] **[ADIN-19 — Lisibilité du site : graphiques et synthèses visuelles](https://plane.bakene.tech/dakhine-hq/projects/867cd2b5-546a-40d9-a47a-9734ce265358/issues/f2a96e3f-23f4-43d9-973d-4dedd867080a)** : auditer les blocs de texte denses des pages publiques et du Coach, proposer puis livrer des graphiques, diagrammes, illustrations et tableaux adaptés. Mettre le constat principal et les actions en premier ; conserver une synthèse courte et les méthodes en second niveau. Vérifier mobile 390 px, unités/périodes/sources, légendes et alternatives accessibles. Préserver les calculs et les distinctions réel/estimation/hypothèse. Chantier à planifier, sans refonte générale imposée.
+
+Le Game Center dispose d’une première application de cette approche : parcours
+par équipe, tableau hebdomadaire côte à côte, SOS/ROS ajustés hors soi, duel virtuel
+avec camembert et export WhatsApp. [Contrat et vérification](team-schedule-2026-11-22.md).
+
 ## Nouveau chantier — 26/10/2026 : pertinence des trades et décisions S8
 
 Ordre d'exécution désormais subordonné à la phase Quality & Consistency ci-dessus.
